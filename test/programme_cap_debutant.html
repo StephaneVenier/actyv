@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Programme CAP débutant – Test V0</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #111827;
+      --panel-2: #1f2937;
+      --text: #e5e7eb;
+      --muted: #94a3b8;
+      --accent: #22c55e;
+      --accent-2: #38bdf8;
+      --warning: #f59e0b;
+      --off: #475569;
+      --danger: #ef4444;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 10px 30px rgba(0,0,0,0.28);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background: linear-gradient(180deg, #0b1220, #111827 30%, #0f172a 100%);
+      color: var(--text);
+    }
+    .container {
+      width: min(1180px, calc(100% - 32px));
+      margin: 24px auto 40px;
+    }
+    .hero {
+      background: linear-gradient(135deg, rgba(34,197,94,0.18), rgba(56,189,248,0.15));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+      margin-bottom: 18px;
+    }
+    .hero h1 { margin: 0 0 8px; font-size: 1.9rem; }
+    .hero p { margin: 0; color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+    }
+    .card {
+      background: rgba(17,24,39,0.92);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+    .card h2, .card h3 { margin-top: 0; }
+    .row {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+    }
+    .pill.on { background: rgba(34,197,94,0.16); color: #bbf7d0; }
+    .pill.off { background: rgba(100,116,139,0.18); color: #cbd5e1; }
+    .pill.optional { background: rgba(245,158,11,0.16); color: #fde68a; }
+    .muted { color: var(--muted); }
+    .exercise-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .exercise-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: 14px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .exercise-item strong { display: block; }
+    .buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform .08s ease, opacity .2s ease;
+    }
+    button:hover { transform: translateY(-1px); }
+    .btn-primary { background: var(--accent); color: #06240f; }
+    .btn-secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+    .btn-danger { background: rgba(239,68,68,0.18); color: #fecaca; border: 1px solid rgba(239,68,68,0.25); }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .field {
+      display: grid;
+      gap: 6px;
+    }
+    .field label { font-size: 0.92rem; color: var(--muted); }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      padding: 11px 12px;
+      background: #0b1220;
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      outline: none;
+    }
+    .field textarea { min-height: 84px; resize: vertical; }
+    .full { grid-column: 1 / -1; }
+
+    .calendar {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .day-name, .day-cell {
+      text-align: center;
+      padding: 10px 6px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+    }
+    .day-name { color: var(--muted); }
+    .day-cell {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      min-height: 72px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .day-cell.empty { background: transparent; border-color: transparent; }
+    .day-cell.today { outline: 2px solid rgba(56,189,248,0.7); }
+    .day-cell.on { background: rgba(34,197,94,0.10); }
+    .day-cell.off { background: rgba(100,116,139,0.14); }
+    .day-cell.optional { background: rgba(245,158,11,0.12); }
+    .day-cell.done { background: rgba(56,189,248,0.15); }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .stat {
+      padding: 14px;
+      background: rgba(255,255,255,0.03);
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .stat .value { font-size: 1.6rem; font-weight: 800; margin-top: 4px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 0.95rem;
+    }
+    th, td {
+      padding: 10px 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; }
+
+    .history-item {
+      padding: 12px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.07);
+    }
+    .history-item:last-child { border-bottom: 0; }
+
+    .mini-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      margin-top: 14px;
+    }
+    .mini-nav button {
+      padding: 9px 12px;
+      border-radius: 10px;
+    }
+    .calendar-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .calendar-head .title {
+      font-weight: 700;
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+      .form-grid, .stats-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <section class="hero">
+      <h1>Programme CAP débutant – Test V0</h1>
+      <p>Prototype 100% local dans le même style que la routine précédente. Programme sur 8 semaines, avec séances les lundis, jeudis, et une séance optionnelle le week-end. Validation, calendrier, prochaines séances et stats inclus.</p>
+    </section>
+
+    <div class="grid">
+      <div>
+        <section class="card" id="todayCard"></section>
+        <section class="card" id="logCard" style="margin-top: 18px;"></section>
+        <section class="card" id="nextCard" style="margin-top: 18px;"></section>
+        <section class="card" id="historyCard" style="margin-top: 18px;"></section>
+      </div>
+
+      <div>
+        <section class="card" id="calendarCard"></section>
+        <section class="card" id="statsCard" style="margin-top: 18px;"></section>
+        <section class="card" style="margin-top: 18px;">
+          <h3>Actions rapides</h3>
+          <div class="buttons">
+            <button class="btn-secondary" id="resetMonthBtn">Réinitialiser les validations</button>
+            <button class="btn-danger" id="resetAllBtn">Tout effacer</button>
+          </div>
+          <p class="muted" style="margin-top:12px;">Les données sont enregistrées dans le navigateur via localStorage.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'programme-cap-debutant-v0';
+
+    const programWeeks = [
+      { week: 1, run: 1, walk: 2, reps: 10, total: 30 },
+      { week: 2, run: 2, walk: 2, reps: 8, total: 32 },
+      { week: 3, run: 3, walk: 2, reps: 7, total: 35 },
+      { week: 4, run: 5, walk: 2, reps: 6, total: 42 },
+      { week: 5, run: 7, walk: 2, reps: 5, total: 45 },
+      { week: 6, run: 10, walk: 1, reps: 4, total: 44 },
+      { week: 7, run: 15, walk: 1, reps: 3, total: 48 },
+      { week: 8, run: 30, walk: 0, reps: 1, total: 30 }
+    ];
+
+    const dayNames = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'];
+    const sessionMap = {
+      0: { code: 'S1', label: 'Séance 1', type: 'on' },
+      3: { code: 'S2', label: 'Séance 2', type: 'on' },
+      5: { code: 'S3', label: 'Séance 3 optionnelle', type: 'optional' },
+      6: { code: 'S3', label: 'Séance 3 optionnelle', type: 'optional' }
+    };
+
+    function todayStr() {
+      const d = new Date();
+      return formatDateKey(d);
+    }
+
+    function formatDateKey(date) {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function formatDateFR(dateOrKey) {
+      const d = typeof dateOrKey === 'string' ? new Date(dateOrKey + 'T12:00:00') : dateOrKey;
+      return new Intl.DateTimeFormat('fr-FR', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+      }).format(d);
+    }
+
+    function getMonday(date) {
+      const d = new Date(date);
+      const day = (d.getDay() + 6) % 7;
+      d.setDate(d.getDate() - day);
+      d.setHours(12,0,0,0);
+      return d;
+    }
+
+    function addDays(date, days) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + days);
+      return d;
+    }
+
+    function monthLabel(monthKey) {
+      const [year, month] = monthKey.split('-').map(Number);
+      return new Intl.DateTimeFormat('fr-FR', { month: 'long', year: 'numeric' }).format(new Date(year, month - 1, 1, 12));
+    }
+
+    function shiftMonth(monthKey, delta) {
+      const [year, month] = monthKey.split('-').map(Number);
+      const d = new Date(year, month - 1 + delta, 1, 12);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function initialState() {
+      return {
+        startDate: formatDateKey(getMonday(new Date())),
+        viewDate: todayStr(),
+        calendarMonth: todayStr().slice(0, 7),
+        logs: {}
+      };
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : initialState();
+        return {
+          ...initialState(),
+          ...parsed,
+          logs: parsed.logs || {}
+        };
+      } catch {
+        return initialState();
+      }
+    }
+
+    function saveState() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function getProgramForDate(dateKey) {
+      const start = new Date(state.startDate + 'T12:00:00');
+      const current = new Date(dateKey + 'T12:00:00');
+      const diffDays = Math.floor((current - start) / 86400000);
+      const weekIndex = Math.max(0, Math.floor(diffDays / 7));
+      const weekData = programWeeks[Math.min(weekIndex, programWeeks.length - 1)];
+      const jsDay = current.getDay();
+      const dayIndex = jsDay === 0 ? 6 : jsDay - 1;
+      const session = sessionMap[dayIndex] || null;
+      const isOff = !session;
+      const optional = session?.type === 'optional';
+      return {
+        weekIndex,
+        weekData,
+        isOff,
+        optional,
+        sessionCode: session?.code || '-',
+        sessionLabel: session?.label || 'Repos',
+        title: `Semaine ${weekData.week} – ${session?.label || 'Jour OFF'}`,
+        exercises: isOff ? [] : [
+          { name: 'Temps de course', target: weekData.run, unit: 'min' },
+          { name: 'Temps de marche', target: weekData.walk, unit: 'min' },
+          { name: 'Répétitions', target: weekData.reps, unit: 'x' },
+          { name: 'Durée totale estimée', target: weekData.total, unit: 'min' }
+        ],
+        estCalories: Math.round(weekData.total * 8.5),
+      };
+    }
+
+    function getLog(dateKey) {
+      return state.logs[dateKey] || null;
+    }
+
+    function setLog(dateKey, payload) {
+      state.logs[dateKey] = payload;
+      saveState();
+      render();
+    }
+
+    function deleteAll() {
+      localStorage.removeItem(STORAGE_KEY);
+      state = initialState();
+      saveState();
+      render();
+    }
+
+    function resetLogs() {
+      state.logs = {};
+      saveState();
+      render();
+    }
+
+    function renderToday() {
+      const key = state.viewDate || todayStr();
+      const program = getProgramForDate(key);
+      const log = getLog(key);
+      const card = document.getElementById('todayCard');
+      const isToday = key === todayStr();
+      const pillClass = program.isOff ? 'off' : program.optional ? 'optional' : 'on';
+      const pillLabel = program.isOff ? 'Jour OFF' : program.optional ? 'Séance optionnelle' : 'Séance prévue';
+
+      card.innerHTML = `
+        <div class="row" style="justify-content:space-between; align-items:flex-start;">
+          <div>
+            <h2 style="margin-bottom:6px;">${isToday ? 'Séance du jour' : 'Séance consultée'}</h2>
+            <div class="muted">${formatDateFR(key)}</div>
+          </div>
+          <span class="pill ${pillClass}">${pillLabel}</span>
+        </div>
+        <div class="mini-nav">
+          <button class="btn-secondary" id="prevDayBtn">← Jour précédent</button>
+          <button class="btn-secondary" id="nextDayBtn">Jour suivant →</button>
+          ${isToday ? '' : '<button class="btn-primary" id="backTodayBtn">Revenir à aujourd\'hui</button>'}
+        </div>
+        <div style="margin-top:12px;" class="pill">${program.title}</div>
+        ${program.isOff ? `
+          <p style="margin-top:16px;">Aujourd'hui : repos ou simple marche active. Prochaine séance visible plus bas.</p>
+        ` : `
+          <div class="exercise-list">
+            ${program.exercises.map(ex => `
+              <div class="exercise-item">
+                <div>
+                  <strong>${ex.name}</strong>
+                  <span class="muted">Objectif du jour</span>
+                </div>
+                <div><strong>${ex.target} ${ex.unit}</strong></div>
+              </div>`).join('')}
+          </div>
+          <div style="margin-top:14px;" class="muted">Échauffement conseillé : 5 à 10 min de marche active avant de démarrer.</div>
+          <div style="margin-top:8px;" class="muted">Calories estimées de base : ~${program.estCalories} kcal</div>
+        `}
+        <div class="buttons">
+          <button class="btn-primary" ${program.isOff || log ? 'disabled style="opacity:.5;cursor:not-allowed;"' : ''} id="fillTargetsBtn">Préremplir</button>
+          <button class="btn-secondary" id="toggleFormBtn">${log ? 'Voir la séance validée' : (program.isOff ? 'Jour OFF' : 'Valider la séance')}</button>
+        </div>
+        ${log ? `<p style="margin-top:14px;color:#93c5fd;">Séance déjà enregistrée pour cette date.</p>` : ''}
+      `;
+
+      document.getElementById('toggleFormBtn').onclick = () => {
+        document.getElementById('logCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      const fillBtn = document.getElementById('fillTargetsBtn');
+      if (fillBtn) fillBtn.onclick = () => fillTargets(program);
+
+      document.getElementById('prevDayBtn').onclick = () => {
+        state.viewDate = formatDateKey(addDays(new Date(key + 'T12:00:00'), -1));
+        state.calendarMonth = state.viewDate.slice(0, 7);
+        saveState();
+        render();
+      };
+      document.getElementById('nextDayBtn').onclick = () => {
+        state.viewDate = formatDateKey(addDays(new Date(key + 'T12:00:00'), 1));
+        state.calendarMonth = state.viewDate.slice(0, 7);
+        saveState();
+        render();
+      };
+      const backBtn = document.getElementById('backTodayBtn');
+      if (backBtn) backBtn.onclick = () => {
+        state.viewDate = todayStr();
+        state.calendarMonth = todayStr().slice(0, 7);
+        saveState();
+        render();
+      };
+    }
+
+    function fillTargets(program) {
+      if (program.isOff) return;
+      document.getElementById('runMinutes').value = program.weekData.run;
+      document.getElementById('walkMinutes').value = program.weekData.walk;
+      document.getElementById('repetitionsDone').value = program.weekData.reps;
+      document.getElementById('totalDuration').value = program.weekData.total;
+      document.getElementById('caloriesBurned').value = program.estCalories;
+    }
+
+    function renderLogForm() {
+      const key = state.viewDate || todayStr();
+      const program = getProgramForDate(key);
+      const log = getLog(key);
+      const card = document.getElementById('logCard');
+
+      if (program.isOff) {
+        card.innerHTML = `
+          <h3>Validation</h3>
+          <p class="muted">Aucune séance prévue pour cette date. Utilise la navigation ou le calendrier pour consulter une autre séance.</p>
+        `;
+        return;
+      }
+
+      if (log) {
+        card.innerHTML = `
+          <h3>Séance enregistrée</h3>
+          <table>
+            <tr><th>Séance</th><td>${log.sessionCode}</td></tr>
+            <tr><th>Temps de course</th><td>${log.runMinutes} min</td></tr>
+            <tr><th>Temps de marche</th><td>${log.walkMinutes} min</td></tr>
+            <tr><th>Répétitions</th><td>${log.repetitionsDone}</td></tr>
+            <tr><th>Durée totale</th><td>${log.totalDuration} min</td></tr>
+            <tr><th>Calories</th><td>${log.caloriesBurned} kcal</td></tr>
+            <tr><th>Ressenti</th><td>${log.feeling}</td></tr>
+            <tr><th>Note</th><td>${log.notes || '—'}</td></tr>
+          </table>
+          <div class="buttons">
+            <button class="btn-secondary" id="editLogBtn">Modifier</button>
+            <button class="btn-danger" id="deleteLogBtn">Supprimer</button>
+          </div>
+        `;
+        document.getElementById('editLogBtn').onclick = () => renderEditableLogForm(log);
+        document.getElementById('deleteLogBtn').onclick = () => {
+          delete state.logs[key];
+          saveState();
+          render();
+        };
+        return;
+      }
+
+      renderEditableLogForm();
+    }
+
+    function renderEditableLogForm(existing = null) {
+      const key = state.viewDate || todayStr();
+      const program = getProgramForDate(key);
+      const card = document.getElementById('logCard');
+      card.innerHTML = `
+        <h3>${existing ? 'Modifier la séance' : 'Valider la séance'}</h3>
+        <div class="form-grid">
+          <div class="field">
+            <label>Temps de course effectué (min)</label>
+            <input type="number" id="runMinutes" min="0" value="${existing?.runMinutes ?? ''}" />
+          </div>
+          <div class="field">
+            <label>Temps de marche effectué (min)</label>
+            <input type="number" id="walkMinutes" min="0" value="${existing?.walkMinutes ?? ''}" />
+          </div>
+          <div class="field">
+            <label>Répétitions effectuées</label>
+            <input type="number" id="repetitionsDone" min="0" value="${existing?.repetitionsDone ?? ''}" />
+          </div>
+          <div class="field">
+            <label>Durée totale réelle (min)</label>
+            <input type="number" id="totalDuration" min="0" value="${existing?.totalDuration ?? ''}" />
+          </div>
+          <div class="field">
+            <label>Calories estimées</label>
+            <input type="number" id="caloriesBurned" min="0" value="${existing?.caloriesBurned ?? program.estCalories}" />
+          </div>
+          <div class="field">
+            <label>Ressenti</label>
+            <select id="feeling">
+              <option value="facile" ${existing?.feeling === 'facile' ? 'selected' : ''}>Facile</option>
+              <option value="bien" ${existing?.feeling === 'bien' ? 'selected' : ''}>Bien</option>
+              <option value="dur" ${existing?.feeling === 'dur' ? 'selected' : ''}>Dur</option>
+            </select>
+          </div>
+          <div class="field full">
+            <label>Notes personnelles</label>
+            <textarea id="notes">${existing?.notes || ''}</textarea>
+          </div>
+        </div>
+        <div class="buttons">
+          <button class="btn-primary" id="saveLogBtn">Enregistrer</button>
+          <button class="btn-secondary" id="prefillBtn">Préremplir les objectifs</button>
+        </div>
+      `;
+
+      document.getElementById('prefillBtn').onclick = () => fillTargets(program);
+      document.getElementById('saveLogBtn').onclick = () => {
+        const payload = {
+          date: key,
+          sessionCode: program.sessionCode,
+          sessionLabel: program.sessionLabel,
+          optional: program.optional,
+          runMinutes: Number(document.getElementById('runMinutes').value || 0),
+          walkMinutes: Number(document.getElementById('walkMinutes').value || 0),
+          repetitionsDone: Number(document.getElementById('repetitionsDone').value || 0),
+          totalDuration: Number(document.getElementById('totalDuration').value || 0),
+          caloriesBurned: Number(document.getElementById('caloriesBurned').value || 0),
+          feeling: document.getElementById('feeling').value,
+          notes: document.getElementById('notes').value.trim(),
+          plannedWeek: program.weekData.week,
+          plannedRun: program.weekData.run,
+          plannedWalk: program.weekData.walk,
+          plannedReps: program.weekData.reps,
+          plannedTotal: program.weekData.total,
+        };
+        setLog(key, payload);
+      };
+    }
+
+    function renderNextSessions() {
+      const current = new Date((state.viewDate || todayStr()) + 'T12:00:00');
+      const items = [];
+      let cursor = new Date(current);
+      while (items.length < 8) {
+        const key = formatDateKey(cursor);
+        const program = getProgramForDate(key);
+        if (!program.isOff) {
+          items.push({ key, program, log: getLog(key) });
+        }
+        cursor = addDays(cursor, 1);
+      }
+      document.getElementById('nextCard').innerHTML = `
+        <h3>Séances suivantes</h3>
+        <div class="exercise-list">
+          ${items.map(item => `
+            <div class="exercise-item" style="cursor:pointer;" data-date="${item.key}">
+              <div>
+                <strong>${formatDateFR(item.key)}</strong>
+                <span class="muted">${item.program.sessionLabel} · Semaine ${item.program.weekData.week}</span>
+              </div>
+              <div style="text-align:right;">
+                <strong>${item.program.weekData.total} min</strong>
+                <span class="muted">${item.log ? 'Validée' : (item.program.optional ? 'Optionnelle' : 'À faire')}</span>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+      document.querySelectorAll('#nextCard [data-date]').forEach(el => {
+        el.onclick = () => {
+          state.viewDate = el.dataset.date;
+          state.calendarMonth = state.viewDate.slice(0, 7);
+          saveState();
+          render();
+        };
+      });
+    }
+
+    function renderCalendar() {
+      const monthKey = state.calendarMonth;
+      const [year, month] = monthKey.split('-').map(Number);
+      const first = new Date(year, month - 1, 1, 12);
+      const startOffset = (first.getDay() + 6) % 7;
+      const daysInMonth = new Date(year, month, 0).getDate();
+
+      let cells = '';
+      for (let i = 0; i < startOffset; i++) cells += `<div class="day-cell empty"></div>`;
+
+      for (let day = 1; day <= daysInMonth; day++) {
+        const d = new Date(year, month - 1, day, 12);
+        const key = formatDateKey(d);
+        const program = getProgramForDate(key);
+        const log = getLog(key);
+        const jsDay = d.getDay();
+        const dayIndex = jsDay === 0 ? 6 : jsDay - 1;
+        const session = sessionMap[dayIndex] || null;
+        const classes = ['day-cell'];
+        if (key === todayStr()) classes.push('today');
+        if (log) classes.push('done');
+        else if (program.isOff) classes.push('off');
+        else if (program.optional) classes.push('optional');
+        else classes.push('on');
+        cells += `
+          <div class="${classes.join(' ')}" data-date="${key}">
+            <strong>${day}</strong>
+            <span>${program.isOff ? 'OFF' : session.code}</span>
+          </div>
+        `;
+      }
+
+      document.getElementById('calendarCard').innerHTML = `
+        <div class="calendar-head">
+          <button class="btn-secondary" id="prevMonthBtn">←</button>
+          <div class="title">${monthLabel(monthKey)}</div>
+          <button class="btn-secondary" id="nextMonthBtn">→</button>
+        </div>
+        <div class="calendar">
+          ${dayNames.map(d => `<div class="day-name">${d}</div>`).join('')}
+          ${cells}
+        </div>
+        <div class="legend">
+          <span class="pill on">Séance prévue</span>
+          <span class="pill optional">Séance week-end optionnelle</span>
+          <span class="pill off">Repos</span>
+          <span class="pill" style="background: rgba(56,189,248,0.15); color:#bae6fd;">Validée</span>
+        </div>
+      `;
+
+      document.getElementById('prevMonthBtn').onclick = () => {
+        state.calendarMonth = shiftMonth(state.calendarMonth, -1);
+        saveState();
+        renderCalendar();
+      };
+      document.getElementById('nextMonthBtn').onclick = () => {
+        state.calendarMonth = shiftMonth(state.calendarMonth, 1);
+        saveState();
+        renderCalendar();
+      };
+      document.querySelectorAll('.day-cell[data-date]').forEach(cell => {
+        cell.onclick = () => {
+          state.viewDate = cell.dataset.date;
+          saveState();
+          render();
+        };
+      });
+    }
+
+    function renderStats() {
+      const logs = Object.values(state.logs).sort((a, b) => a.date.localeCompare(b.date));
+      const totalSessions = logs.length;
+      const optionalSessions = logs.filter(l => l.optional).length;
+      const totalCalories = logs.reduce((sum, l) => sum + (l.caloriesBurned || 0), 0);
+      const totalRun = logs.reduce((sum, l) => sum + (l.runMinutes || 0), 0);
+      const totalWalk = logs.reduce((sum, l) => sum + (l.walkMinutes || 0), 0);
+      const totalDuration = logs.reduce((sum, l) => sum + (l.totalDuration || 0), 0);
+      const totalReps = logs.reduce((sum, l) => sum + (l.repetitionsDone || 0), 0);
+      const avgCalories = totalSessions ? Math.round(totalCalories / totalSessions) : 0;
+      const avgDuration = totalSessions ? Math.round(totalDuration / totalSessions) : 0;
+
+      document.getElementById('statsCard').innerHTML = `
+        <h3>Statistiques</h3>
+        <div class="stats-grid">
+          <div class="stat"><div class="muted">Séances validées</div><div class="value">${totalSessions}</div></div>
+          <div class="stat"><div class="muted">Séances optionnelles faites</div><div class="value">${optionalSessions}</div></div>
+          <div class="stat"><div class="muted">Temps de course cumulé</div><div class="value">${totalRun} min</div></div>
+          <div class="stat"><div class="muted">Temps de marche cumulé</div><div class="value">${totalWalk} min</div></div>
+          <div class="stat"><div class="muted">Calories totales</div><div class="value">${totalCalories} kcal</div></div>
+          <div class="stat"><div class="muted">Calories moyennes / séance</div><div class="value">${avgCalories} kcal</div></div>
+          <div class="stat"><div class="muted">Durée totale cumulée</div><div class="value">${totalDuration} min</div></div>
+          <div class="stat"><div class="muted">Durée moyenne / séance</div><div class="value">${avgDuration} min</div></div>
+        </div>
+        <table>
+          <tr><th>Répétitions cumulées</th><td>${totalReps}</td></tr>
+          <tr><th>Programme</th><td>2 séances fixes par semaine + 1 séance week-end optionnelle</td></tr>
+          <tr><th>Progression</th><td>Logique du tableau conservée sur 8 semaines</td></tr>
+        </table>
+      `;
+    }
+
+    function renderHistory() {
+      const logs = Object.values(state.logs).sort((a, b) => b.date.localeCompare(a.date));
+      const card = document.getElementById('historyCard');
+      card.innerHTML = `
+        <h3>Historique des séances</h3>
+        ${logs.length === 0 ? '<p class="muted">Aucune séance validée pour le moment.</p>' : logs.map(log => `
+          <div class="history-item">
+            <div class="row" style="justify-content:space-between; align-items:flex-start;">
+              <div>
+                <strong>${formatDateFR(log.date)}</strong>
+                <div class="muted">${log.sessionCode} · ${log.sessionLabel}</div>
+              </div>
+              <span class="pill ${log.optional ? 'optional' : 'on'}">${log.optional ? 'Optionnelle' : 'Validée'}</span>
+            </div>
+            <div style="margin-top:10px;" class="muted">
+              Course : ${log.runMinutes} min · Marche : ${log.walkMinutes} min · Répétitions : ${log.repetitionsDone} · Durée : ${log.totalDuration} min · ${log.caloriesBurned} kcal
+            </div>
+            ${log.notes ? `<div style="margin-top:8px;">${log.notes}</div>` : ''}
+          </div>
+        `).join('')}
+      `;
+    }
+
+    function render() {
+      renderToday();
+      renderLogForm();
+      renderNextSessions();
+      renderCalendar();
+      renderStats();
+      renderHistory();
+    }
+
+    let state = loadState();
+    render();
+
+    document.getElementById('resetAllBtn').onclick = deleteAll;
+    document.getElementById('resetMonthBtn').onclick = resetLogs;
+  </script>
+</body>
+</html>
