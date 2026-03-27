@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Programme Renforcement CAP Débutante – 12 semaines</title>
+<style>
+  :root{
+    --bg:#08131f;
+    --bg2:#0d1b2a;
+    --card:#12263a;
+    --card2:#16324a;
+    --text:#eaf4ff;
+    --muted:#9db1c7;
+    --line:rgba(255,255,255,.08);
+    --green:#22c55e;
+    --green2:#16a34a;
+    --blue:#38bdf8;
+    --orange:#f59e0b;
+    --red:#ef4444;
+    --shadow:0 12px 40px rgba(0,0,0,.28);
+    --radius:20px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:linear-gradient(180deg,var(--bg),#07111b 60%, #061019);color:var(--text);font-family:Inter,Arial,Helvetica,sans-serif}
+  body{padding:24px}
+  .wrap{max-width:1200px;margin:0 auto}
+  .topbar{
+    display:flex;align-items:center;gap:14px;margin-bottom:18px;
+  }
+  .logo{
+    width:52px;height:52px;border-radius:16px;
+    background:linear-gradient(135deg,#1dd1a1,#22c55e 60%, #38bdf8);
+    display:grid;place-items:center;color:#062312;font-weight:900;font-size:22px;
+    box-shadow:var(--shadow)
+  }
+  .titlebox h1{margin:0;font-size:clamp(1.5rem,2vw,2.3rem);line-height:1.1}
+  .titlebox p{margin:4px 0 0;color:var(--muted)}
+  .hero{
+    display:grid;grid-template-columns:1.3fr .9fr;gap:18px;margin-bottom:18px;
+  }
+  .card{
+    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.015));
+    border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);
+    overflow:hidden;
+  }
+  .hero-main{
+    padding:22px;
+    background:
+      radial-gradient(circle at top right, rgba(56,189,248,.16), transparent 30%),
+      radial-gradient(circle at bottom left, rgba(34,197,94,.16), transparent 30%);
+  }
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;
+    background:rgba(34,197,94,.12);color:#baf7d0;border:1px solid rgba(34,197,94,.25);font-size:.92rem
+  }
+  .hero-main h2{margin:14px 0 10px;font-size:1.55rem}
+  .hero-main p{color:var(--muted);line-height:1.55}
+  .mini-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:16px}
+  .mini{
+    background:rgba(255,255,255,.03);padding:12px;border-radius:16px;border:1px solid var(--line)
+  }
+  .mini strong{display:block;font-size:1.1rem}
+  .panel{padding:18px}
+  .section-title{margin:0 0 12px;font-size:1.05rem}
+  .controls{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  label.small{display:block;margin-bottom:6px;color:var(--muted);font-size:.92rem}
+  input[type="date"], .fake-input{
+    width:100%;padding:12px 14px;border-radius:14px;border:1px solid var(--line);
+    background:#091521;color:var(--text);outline:none
+  }
+  .days{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+  .day{
+    padding:11px 12px;border:1px solid var(--line);border-radius:14px;background:#0a1725;
+    color:var(--text);cursor:pointer;user-select:none;text-align:center;font-size:.95rem
+  }
+  .day.active{background:rgba(34,197,94,.14);border-color:rgba(34,197,94,.35);color:#c6f8d8}
+  .buttons{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+  button{
+    appearance:none;border:none;border-radius:14px;padding:12px 16px;font-weight:700;cursor:pointer
+  }
+  .btn-primary{background:linear-gradient(135deg,var(--green),var(--green2));color:#fff}
+  .btn-secondary{background:#0b1826;color:var(--text);border:1px solid var(--line)}
+  .btn-danger{background:rgba(239,68,68,.14);color:#fecaca;border:1px solid rgba(239,68,68,.24)}
+  .main-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+  .calendar-head{
+    display:flex;align-items:center;justify-content:space-between;padding:18px 18px 0
+  }
+  .month-nav{display:flex;align-items:center;gap:8px}
+  .icon-btn{
+    width:40px;height:40px;border-radius:12px;background:#0b1826;border:1px solid var(--line);color:var(--text)
+  }
+  .calendar{padding:18px}
+  .weekdays,.days-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:8px}
+  .weekdays div{color:var(--muted);font-size:.88rem;text-align:center;padding-bottom:4px}
+  .cell{
+    min-height:92px;border-radius:16px;border:1px solid var(--line);padding:10px;background:#0a1725;position:relative
+  }
+  .cell.muted{opacity:.34}
+  .cell.today{outline:2px solid rgba(56,189,248,.45)}
+  .cell .num{font-weight:700}
+  .cell .dot{
+    width:8px;height:8px;border-radius:999px;position:absolute;bottom:10px;left:10px;background:#334155
+  }
+  .cell.scheduled .dot{background:var(--orange)}
+  .cell.done .dot{background:var(--green)}
+  .cell .status{
+    margin-top:8px;font-size:.76rem;color:var(--muted);line-height:1.25
+  }
+  .progress-line{
+    height:10px;border-radius:999px;background:#0b1826;border:1px solid var(--line);overflow:hidden
+  }
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--green),#34d399);width:0%}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  .stat{
+    padding:14px;border-radius:16px;background:#0a1725;border:1px solid var(--line)
+  }
+  .stat .k{font-size:1.55rem;font-weight:800}
+  .muted{color:var(--muted)}
+  .week-card{padding:18px}
+  .week-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .phase-tag{
+    display:inline-flex;padding:8px 10px;border-radius:999px;background:rgba(56,189,248,.12);color:#bdeafe;border:1px solid rgba(56,189,248,.25);font-size:.9rem
+  }
+  .exos{display:grid;gap:8px;margin-top:12px}
+  .exo{
+    padding:12px 14px;border-radius:14px;background:#0a1725;border:1px solid var(--line)
+  }
+  .info-list{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+  .info{
+    padding:12px;border-radius:14px;background:#0a1725;border:1px solid var(--line)
+  }
+  .session-list{margin-top:12px;display:grid;gap:8px}
+  .session-item{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:12px 14px;border-radius:14px;background:#0a1725;border:1px solid var(--line)
+  }
+  .session-item.done{border-color:rgba(34,197,94,.28);background:rgba(34,197,94,.08)}
+  .session-item .left strong{display:block}
+  .session-item .left span{display:block;color:var(--muted);font-size:.9rem;margin-top:3px}
+  .footer-note{margin-top:14px;color:var(--muted);font-size:.92rem;line-height:1.5}
+  @media (max-width: 980px){
+    .hero,.main-grid{grid-template-columns:1fr}
+  }
+  @media (max-width: 680px){
+    body{padding:14px}
+    .controls,.stats,.info-list{grid-template-columns:1fr}
+    .days{grid-template-columns:repeat(2,1fr)}
+    .mini-grid{grid-template-columns:1fr}
+    .cell{min-height:78px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div class="logo">A</div>
+    <div class="titlebox">
+      <h1>Actyv — Programme Renforcement CAP Débutante</h1>
+      <p>12 semaines • complément 5 km • doux • progressif • 1 à 2 séances/semaine</p>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="card hero-main">
+      <span class="badge">Renforcement complémentaire course à pied</span>
+      <h2>Objectif : renforcer sans fatiguer</h2>
+      <p>
+        Ce programme accompagne une préparation 5 km pour une débutante. Il vise à renforcer les jambes,
+        le gainage et la stabilité, tout en restant compatible avec 2 à 3 sorties course par semaine.
+        La priorité reste la course : si la fatigue monte, on allège ou on saute une séance.
+      </p>
+      <div class="mini-grid">
+        <div class="mini"><strong>12 semaines</strong><span class="muted">progression douce</span></div>
+        <div class="mini"><strong>1 à 2 séances</strong><span class="muted">selon la forme</span></div>
+        <div class="mini"><strong>Débutante</strong><span class="muted">zéro matériel</span></div>
+      </div>
+    </div>
+
+    <div class="card panel">
+      <h3 class="section-title">Paramètres du programme</h3>
+
+      <div class="controls">
+        <div>
+          <label class="small" for="startDate">Date de départ</label>
+          <input type="date" id="startDate" />
+        </div>
+        <div>
+          <label class="small">Fréquence cible</label>
+          <div class="fake-input">Semaines 1–4 : 1 séance • Semaines 5–12 : 1 à 2 séances</div>
+        </div>
+      </div>
+
+      <div style="margin-top:14px">
+        <label class="small">Choisir les jours d’entraînement</label>
+        <div class="days" id="daysSelector"></div>
+      </div>
+
+      <div class="buttons">
+        <button class="btn-primary" id="applyBtn">Démarrer / mettre à jour</button>
+        <button class="btn-secondary" id="todayBtn">Aller à aujourd’hui</button>
+        <button class="btn-danger" id="resetBtn">Réinitialiser le suivi</button>
+      </div>
+
+      <div class="footer-note">
+        Conseil : placer le renforcement un jour sans course, ou après un footing facile. Éviter la veille
+        d’une séance course importante si les jambes sont lourdes.
+      </div>
+    </div>
+  </div>
+
+  <div class="main-grid">
+    <div class="card">
+      <div class="calendar-head">
+        <div>
+          <h3 style="margin:0">Calendrier du programme</h3>
+          <div class="muted" id="calendarSubtitle">Choisis la date de départ et les jours pour générer le planning.</div>
+        </div>
+        <div class="month-nav">
+          <button class="icon-btn" id="prevMonth">←</button>
+          <button class="icon-btn" id="nextMonth">→</button>
+        </div>
+      </div>
+      <div class="calendar">
+        <div class="weekdays">
+          <div>Lun</div><div>Mar</div><div>Mer</div><div>Jeu</div><div>Ven</div><div>Sam</div><div>Dim</div>
+        </div>
+        <div class="days-grid" id="calendarGrid"></div>
+      </div>
+    </div>
+
+    <div style="display:grid;gap:18px">
+      <div class="card panel">
+        <h3 class="section-title">Progression</h3>
+        <div class="progress-line"><div class="progress-fill" id="progressFill"></div></div>
+        <div style="margin-top:8px" class="muted" id="progressText">0 / 0 séance validée</div>
+
+        <div class="stats" style="margin-top:14px">
+          <div class="stat"><div class="muted">Séances prévues</div><div class="k" id="statPlanned">0</div></div>
+          <div class="stat"><div class="muted">Séances validées</div><div class="k" id="statDone">0</div></div>
+          <div class="stat"><div class="muted">Taux de validation</div><div class="k" id="statRate">0%</div></div>
+          <div class="stat"><div class="muted">Semaine actuelle</div><div class="k" id="statWeek">—</div></div>
+        </div>
+      </div>
+
+      <div class="card week-card">
+        <div class="week-top">
+          <div>
+            <h3 style="margin:0 0 8px" id="weekTitle">Semaine du programme</h3>
+            <span class="phase-tag" id="phaseTag">Phase à venir</span>
+          </div>
+          <div class="muted" id="weekDateRange"></div>
+        </div>
+
+        <div class="info-list">
+          <div class="info"><div class="muted">Rotations</div><strong id="infoRounds">—</strong></div>
+          <div class="info"><div class="muted">Format</div><strong id="infoFormat">—</strong></div>
+          <div class="info"><div class="muted">Repos entre rotations</div><strong id="infoRoundRest">—</strong></div>
+          <div class="info"><div class="muted">Objectif</div><strong id="infoGoal">—</strong></div>
+        </div>
+
+        <div class="exos" id="exerciseList"></div>
+
+        <div class="session-list" id="sessionList"></div>
+
+        <div class="footer-note">
+          Règle simple : mouvements propres, sans douleur, respiration calme. Arrêter si gêne articulaire.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const STORAGE_KEY = 'actyv_programme_renfo_5k_12_semaines_v1';
+
+  const DAYS = [
+    { key: 1, label: 'Lundi' },
+    { key: 2, label: 'Mardi' },
+    { key: 3, label: 'Mercredi' },
+    { key: 4, label: 'Jeudi' },
+    { key: 5, label: 'Vendredi' },
+    { key: 6, label: 'Samedi' },
+    { key: 0, label: 'Dimanche' }
+  ];
+
+  const phases = [
+    {
+      startWeek: 1,
+      endWeek: 4,
+      label: 'Phase 1 • Adaptation douce',
+      goal: 'Apprendre les mouvements, réveiller les muscles, rester facile.',
+      rounds: '2 rotations',
+      format: '30 sec effort / 30 sec repos',
+      roundRest: '1 min',
+      exercises: [
+        'Squat poids du corps',
+        'Gainage planche',
+        'Fentes alternées',
+        'Pont fessier',
+        'Superman',
+        'Marche sur place dynamique'
+      ]
+    },
+    {
+      startWeek: 5,
+      endWeek: 8,
+      label: 'Phase 2 • Renforcement global',
+      goal: 'Renforcer jambes, gainage et stabilité sans surcharge.',
+      rounds: '3 rotations',
+      format: '30 sec effort / 20 sec repos',
+      roundRest: '1 min',
+      exercises: [
+        'Squat contrôlé',
+        'Gainage planche',
+        'Fentes arrière',
+        'Pont fessier 1 jambe alterné',
+        'Mountain climber lent',
+        'Gainage latéral alterné'
+      ]
+    },
+    {
+      startWeek: 9,
+      endWeek: 12,
+      label: 'Phase 3 • Spécifique course',
+      goal: 'Mieux tenir la fatigue, améliorer l’efficacité et le gainage.',
+      rounds: '3 à 4 rotations',
+      format: '35 sec effort / 20 sec repos',
+      roundRest: '1 min',
+      exercises: [
+        'Squat + montée sur pointes',
+        'Fentes marchées',
+        'Gainage dynamique avec tap épaule',
+        'Pont fessier 1 jambe',
+        'Montées de genoux lentes',
+        'Gainage latéral'
+      ]
+    }
+  ];
+
+  const els = {
+    startDate: document.getElementById('startDate'),
+    daysSelector: document.getElementById('daysSelector'),
+    applyBtn: document.getElementById('applyBtn'),
+    todayBtn: document.getElementById('todayBtn'),
+    resetBtn: document.getElementById('resetBtn'),
+    calendarGrid: document.getElementById('calendarGrid'),
+    calendarSubtitle: document.getElementById('calendarSubtitle'),
+    prevMonth: document.getElementById('prevMonth'),
+    nextMonth: document.getElementById('nextMonth'),
+    progressFill: document.getElementById('progressFill'),
+    progressText: document.getElementById('progressText'),
+    statPlanned: document.getElementById('statPlanned'),
+    statDone: document.getElementById('statDone'),
+    statRate: document.getElementById('statRate'),
+    statWeek: document.getElementById('statWeek'),
+    weekTitle: document.getElementById('weekTitle'),
+    phaseTag: document.getElementById('phaseTag'),
+    weekDateRange: document.getElementById('weekDateRange'),
+    infoRounds: document.getElementById('infoRounds'),
+    infoFormat: document.getElementById('infoFormat'),
+    infoRoundRest: document.getElementById('infoRoundRest'),
+    infoGoal: document.getElementById('infoGoal'),
+    exerciseList: document.getElementById('exerciseList'),
+    sessionList: document.getElementById('sessionList')
+  };
+
+  let state = loadState();
+  let visibleMonth = new Date();
+
+  init();
+
+  function init() {
+    renderDaySelector();
+    if (state.startDate) els.startDate.value = state.startDate;
+    if (!state.selectedDays || !state.selectedDays.length) {
+      state.selectedDays = [2, 5];
+    }
+    if (!state.doneDates) state.doneDates = {};
+    markSelectedDays();
+    if (state.startDate) {
+      visibleMonth = new Date(state.startDate + 'T12:00:00');
+    } else {
+      els.startDate.value = formatInputDate(new Date());
+    }
+    bindEvents();
+    refreshAll();
+  }
+
+  function bindEvents() {
+    els.applyBtn.addEventListener('click', () => {
+      state.startDate = els.startDate.value || formatInputDate(new Date());
+      saveState();
+      visibleMonth = new Date(state.startDate + 'T12:00:00');
+      refreshAll();
+    });
+
+    els.todayBtn.addEventListener('click', () => {
+      visibleMonth = new Date();
+      renderCalendar();
+      renderWeekDetails();
+    });
+
+    els.resetBtn.addEventListener('click', () => {
+      if (!confirm('Réinitialiser le suivi des séances validées ?')) return;
+      state.doneDates = {};
+      saveState();
+      refreshAll();
+    });
+
+    els.prevMonth.addEventListener('click', () => {
+      visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() - 1, 1);
+      renderCalendar();
+    });
+
+    els.nextMonth.addEventListener('click', () => {
+      visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + 1, 1);
+      renderCalendar();
+    });
+
+    els.startDate.addEventListener('change', () => {
+      state.startDate = els.startDate.value;
+      saveState();
+      refreshAll();
+    });
+  }
+
+  function renderDaySelector() {
+    els.daysSelector.innerHTML = '';
+    DAYS.forEach(day => {
+      const btn = document.createElement('button');
+      btn.className = 'day';
+      btn.type = 'button';
+      btn.textContent = day.label;
+      btn.dataset.day = String(day.key);
+      btn.addEventListener('click', () => {
+        const d = Number(day.key);
+        const has = state.selectedDays.includes(d);
+        if (has) {
+          state.selectedDays = state.selectedDays.filter(x => x !== d);
+        } else {
+          state.selectedDays.push(d);
+          state.selectedDays.sort((a,b) => orderDay(a) - orderDay(b));
+        }
+        if (!state.selectedDays.length) state.selectedDays = [2];
+        saveState();
+        markSelectedDays();
+        refreshAll();
+      });
+      els.daysSelector.appendChild(btn);
+    });
+  }
+
+  function markSelectedDays() {
+    [...els.daysSelector.children].forEach(btn => {
+      const d = Number(btn.dataset.day);
+      btn.classList.toggle('active', state.selectedDays.includes(d));
+    });
+  }
+
+  function refreshAll() {
+    renderCalendar();
+    renderStats();
+    renderWeekDetails();
+  }
+
+  function renderCalendar() {
+    els.calendarGrid.innerHTML = '';
+    const allSessions = buildSessions();
+    const currentMonth = visibleMonth.getMonth();
+    const currentYear = visibleMonth.getFullYear();
+
+    const firstOfMonth = new Date(currentYear, currentMonth, 1);
+    const startOffset = (firstOfMonth.getDay() + 6) % 7;
+    const gridStart = new Date(currentYear, currentMonth, 1 - startOffset);
+
+    const titleMonth = firstOfMonth.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' });
+    const planned = allSessions.length;
+    els.calendarSubtitle.textContent = state.startDate
+      ? `${capitalize(titleMonth)} • ${planned} séance${planned > 1 ? 's' : ''} planifiée${planned > 1 ? 's' : ''} sur 12 semaines`
+      : `Choisis la date de départ et les jours pour générer le planning.`;
+
+    for (let i = 0; i < 42; i++) {
+      const date = addDays(gridStart, i);
+      const iso = formatISO(date);
+      const isCurrentMonth = date.getMonth() === currentMonth;
+      const isToday = sameDay(date, new Date());
+      const session = allSessions.find(s => s.iso === iso);
+
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      if (!isCurrentMonth) cell.classList.add('muted');
+      if (isToday) cell.classList.add('today');
+      if (session) cell.classList.add('scheduled');
+      if (state.doneDates[iso]) cell.classList.add('done');
+
+      const num = document.createElement('div');
+      num.className = 'num';
+      num.textContent = String(date.getDate());
+
+      const status = document.createElement('div');
+      status.className = 'status';
+
+      if (session) {
+        status.innerHTML = `${session.label}<br>${state.doneDates[iso] ? '✅ Validée' : '🟠 À faire'}`;
+        cell.style.cursor = 'pointer';
+        cell.title = 'Cliquer pour valider / retirer la validation';
+        cell.addEventListener('click', () => toggleSession(iso));
+      } else {
+        const inProgram = isInProgram(date);
+        status.textContent = inProgram ? 'Repos / course' : '';
+      }
+
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+
+      cell.appendChild(num);
+      cell.appendChild(status);
+      cell.appendChild(dot);
+      els.calendarGrid.appendChild(cell);
+    }
+  }
+
+  function renderStats() {
+    const sessions = buildSessions();
+    const planned = sessions.length;
+    const done = sessions.filter(s => state.doneDates[s.iso]).length;
+    const rate = planned ? Math.round((done / planned) * 100) : 0;
+    const weekNum = getCurrentProgramWeek();
+
+    els.statPlanned.textContent = planned;
+    els.statDone.textContent = done;
+    els.statRate.textContent = rate + '%';
+    els.statWeek.textContent = weekNum ? `S${weekNum}` : '—';
+    els.progressFill.style.width = rate + '%';
+    els.progressText.textContent = `${done} / ${planned} séance${planned > 1 ? 's' : ''} validée${done > 1 ? 's' : ''}`;
+  }
+
+  function renderWeekDetails() {
+    const info = getDisplayedWeekInfo();
+    if (!info) {
+      els.weekTitle.textContent = 'Semaine du programme';
+      els.phaseTag.textContent = 'Programme non démarré';
+      els.weekDateRange.textContent = '';
+      els.infoRounds.textContent = '—';
+      els.infoFormat.textContent = '—';
+      els.infoRoundRest.textContent = '—';
+      els.infoGoal.textContent = 'Choisir une date de départ';
+      els.exerciseList.innerHTML = '';
+      els.sessionList.innerHTML = '';
+      return;
+    }
+
+    const phase = getPhaseForWeek(info.weekNumber);
+    els.weekTitle.textContent = `Semaine ${info.weekNumber}`;
+    els.phaseTag.textContent = phase.label;
+    els.weekDateRange.textContent = `${formatFr(info.weekStart)} → ${formatFr(info.weekEnd)}`;
+    els.infoRounds.textContent = phase.rounds;
+    els.infoFormat.textContent = phase.format;
+    els.infoRoundRest.textContent = phase.roundRest;
+    els.infoGoal.textContent = phase.goal;
+
+    els.exerciseList.innerHTML = '';
+    phase.exercises.forEach((exercise, idx) => {
+      const div = document.createElement('div');
+      div.className = 'exo';
+      div.innerHTML = `<strong>${idx + 1}. ${exercise}</strong>`;
+      els.exerciseList.appendChild(div);
+    });
+
+    els.sessionList.innerHTML = '';
+    const weekSessions = buildSessions().filter(s => s.weekNumber === info.weekNumber);
+    if (!weekSessions.length) {
+      const div = document.createElement('div');
+      div.className = 'session-item';
+      div.innerHTML = `<div class="left"><strong>Aucune séance prévue</strong><span>Modifier les jours d’entraînement.</span></div>`;
+      els.sessionList.appendChild(div);
+      return;
+    }
+
+    weekSessions.forEach(session => {
+      const item = document.createElement('div');
+      item.className = 'session-item' + (state.doneDates[session.iso] ? ' done' : '');
+      item.innerHTML = `
+        <div class="left">
+          <strong>${session.label}</strong>
+          <span>${formatFr(new Date(session.iso + 'T12:00:00'))}</span>
+        </div>
+        <button class="${state.doneDates[session.iso] ? 'btn-secondary' : 'btn-primary'}" data-iso="${session.iso}">
+          ${state.doneDates[session.iso] ? 'Retirer la validation' : 'Valider'}
+        </button>
+      `;
+      item.querySelector('button').addEventListener('click', () => toggleSession(session.iso));
+      els.sessionList.appendChild(item);
+    });
+  }
+
+  function toggleSession(iso) {
+    if (state.doneDates[iso]) {
+      delete state.doneDates[iso];
+    } else {
+      state.doneDates[iso] = true;
+    }
+    saveState();
+    refreshAll();
+  }
+
+  function buildSessions() {
+    if (!state.startDate || !state.selectedDays?.length) return [];
+    const start = new Date(state.startDate + 'T12:00:00');
+    const sessions = [];
+    for (let week = 1; week <= 12; week++) {
+      const weekStart = addDays(start, (week - 1) * 7);
+      state.selectedDays.forEach(day => {
+        const sessionDate = getDateOfWeekdayInProgramWeek(weekStart, day);
+        sessions.push({
+          iso: formatISO(sessionDate),
+          weekNumber: week,
+          label: `Séance renfo ${getOrdinalInWeek(day)}`,
+          day
+        });
+      });
+    }
+    sessions.sort((a,b) => a.iso.localeCompare(b.iso));
+
+    let grouped = {};
+    sessions.forEach(s => {
+      grouped[s.weekNumber] = grouped[s.weekNumber] || [];
+      grouped[s.weekNumber].push(s);
+    });
+    Object.values(grouped).forEach(arr => {
+      arr.forEach((s, idx) => {
+        if (s.weekNumber <= 4) {
+          s.label = idx === 0 ? 'Séance renfo principale' : 'Séance optionnelle';
+        } else {
+          s.label = idx === 0 ? 'Séance renfo 1' : 'Séance renfo 2';
+        }
+      });
+    });
+
+    return sessions;
+  }
+
+  function getDisplayedWeekInfo() {
+    if (!state.startDate) return null;
+    const currentWeek = getCurrentProgramWeek();
+    let weekNumber = currentWeek || 1;
+
+    const monthSessions = buildSessions().filter(s => {
+      const d = new Date(s.iso + 'T12:00:00');
+      return d.getMonth() === visibleMonth.getMonth() && d.getFullYear() === visibleMonth.getFullYear();
+    });
+
+    if (!currentWeek && monthSessions.length) {
+      weekNumber = monthSessions[0].weekNumber;
+    }
+
+    const start = new Date(state.startDate + 'T12:00:00');
+    const weekStart = addDays(start, (weekNumber - 1) * 7);
+    const weekEnd = addDays(weekStart, 6);
+
+    return { weekNumber, weekStart, weekEnd };
+  }
+
+  function getCurrentProgramWeek() {
+    if (!state.startDate) return null;
+    const start = new Date(state.startDate + 'T12:00:00');
+    const today = new Date();
+    const diff = daysBetween(stripTime(start), stripTime(today));
+    if (diff < 0) return 1;
+    const week = Math.floor(diff / 7) + 1;
+    if (week > 12) return 12;
+    return week;
+  }
+
+  function getPhaseForWeek(weekNumber) {
+    return phases.find(p => weekNumber >= p.startWeek && weekNumber <= p.endWeek) || phases[0];
+  }
+
+  function isInProgram(date) {
+    if (!state.startDate) return false;
+    const start = new Date(state.startDate + 'T12:00:00');
+    const end = addDays(start, 12 * 7 - 1);
+    return stripTime(date) >= stripTime(start) && stripTime(date) <= stripTime(end);
+  }
+
+  function getDateOfWeekdayInProgramWeek(weekStart, targetDay) {
+    for (let i = 0; i < 7; i++) {
+      const d = addDays(weekStart, i);
+      if (d.getDay() === targetDay) return d;
+    }
+    return weekStart;
+  }
+
+  function getOrdinalInWeek(day) {
+    const sorted = [...state.selectedDays].sort((a,b) => orderDay(a) - orderDay(b));
+    return sorted.indexOf(day) + 1;
+  }
+
+  function orderDay(d) {
+    return d === 0 ? 7 : d;
+  }
+
+  function loadState() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {
+        startDate: '',
+        selectedDays: [2, 5],
+        doneDates: {}
+      };
+    } catch {
+      return { startDate: '', selectedDays: [2, 5], doneDates: {} };
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function addDays(date, n) {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+  }
+
+  function stripTime(date) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
+  function sameDay(a,b){
+    return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate();
+  }
+
+  function formatISO(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function formatInputDate(date){ return formatISO(date); }
+
+  function formatFr(date) {
+    return date.toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+  }
+
+  function daysBetween(a,b){
+    const ms = stripTime(b) - stripTime(a);
+    return Math.round(ms / 86400000);
+  }
+
+  function capitalize(str){ return str.charAt(0).toUpperCase() + str.slice(1); }
+})();
+</script>
+</body>
+</html>
