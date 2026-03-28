@@ -17,6 +17,7 @@ type Challenge = {
   goal_km?: number | null;
   created_by?: string | null;
   invite_code?: string | null;
+  visibility?: string | null;
 };
 
 type Activity = {
@@ -75,6 +76,7 @@ export default function ChallengeDetailPage() {
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [activitiesErrorMessage, setActivitiesErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState<string>('');
 
@@ -86,6 +88,7 @@ export default function ChallengeDetailPage() {
       setActivitiesLoading(true);
       setActivitiesErrorMessage(null);
       setNotFound(false);
+      setAccessDenied(false);
       setShareMessage('');
 
       const {
@@ -103,6 +106,33 @@ export default function ChallengeDetailPage() {
       if (challengeError || !challengeData) {
         console.error('Erreur chargement challenge :', challengeError);
         setNotFound(true);
+        setChallenge(null);
+        setActivities([]);
+        setLoading(false);
+        setActivitiesLoading(false);
+        return;
+      }
+
+      const isPublic = challengeData.visibility === 'public';
+      let hasAccess = isPublic;
+
+      if (!isPublic && user?.email) {
+        const { data: memberData, error: memberError } = await supabase
+          .from('challenge_members')
+          .select('challenge_id')
+          .eq('challenge_id', id)
+          .eq('user_email', user.email)
+          .maybeSingle();
+
+        if (memberError) {
+          console.error('Erreur vérification accès challenge :', memberError);
+        }
+
+        hasAccess = Boolean(memberData);
+      }
+
+      if (!hasAccess) {
+        setAccessDenied(true);
         setChallenge(null);
         setActivities([]);
         setLoading(false);
@@ -261,13 +291,36 @@ export default function ChallengeDetailPage() {
     );
   }
 
-  if (notFound || !challenge) {
+  if (notFound) {
     return (
       <AppShell>
         <section className="stack">
           <Link href="/" className="detail-back-link">← Retour à l’accueil</Link>
           <h1>Challenge introuvable</h1>
           <p>Ce challenge n’existe pas ou n’est plus disponible.</p>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <AppShell>
+        <section className="stack">
+          <Link href="/" className="detail-back-link">← Retour à l’accueil</Link>
+          <h1>Accès refusé</h1>
+          <p>Ce challenge est privé. Tu dois être invité pour y accéder.</p>
+        </section>
+      </AppShell>
+    );
+  }
+
+  if (!challenge) {
+    return (
+      <AppShell>
+        <section className="stack">
+          <Link href="/" className="detail-back-link">← Retour à l’accueil</Link>
+          <h1>Challenge introuvable</h1>
         </section>
       </AppShell>
     );

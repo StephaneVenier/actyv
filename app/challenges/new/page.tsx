@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
 import { sports } from '@/components/challenge-data';
@@ -17,6 +18,8 @@ function generateInviteCode(length = 10) {
 }
 
 export default function NewChallengePage() {
+  const router = useRouter();
+
   const [name, setName] = useState('');
   const [sport, setSport] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -99,14 +102,7 @@ export default function NewChallengePage() {
         return;
       }
 
-      setMessage('Challenge créé avec succès !');
-
-      setName('');
-      setSport('');
-      setStartDate('');
-      setEndDate('');
-      setGoalKm('');
-      setDescription('');
+      router.push(`/challenges/${challenge.id}`);
     } catch (err) {
       console.error('Erreur inattendue :', err);
       setMessage("Une erreur inattendue s'est produite.");

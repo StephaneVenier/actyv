@@ -14,6 +14,7 @@ type Challenge = {
   end_date: string | null;
   created_at?: string | null;
   goal_km?: number | null;
+  visibility?: string | null;
 };
 
 type Activity = {
@@ -30,6 +31,11 @@ type Activity = {
 type Profile = {
   email: string | null;
   username: string | null;
+};
+
+type ChallengeMember = {
+  challenge_id: string;
+  user_email: string | null;
 };
 
 function formatDate(dateString: string | null) {
@@ -71,10 +77,37 @@ export default function HomePage() {
 
       const userEmail = user?.email || null;
 
-      const { data: challengesData, error: challengesError } = await supabase
+      let visibleChallengeIds: string[] = [];
+
+      if (userEmail) {
+        const { data: memberRows, error: membersError } = await supabase
+          .from('challenge_members')
+          .select('challenge_id, user_email')
+          .eq('user_email', userEmail);
+
+        if (membersError) {
+          console.error('Erreur chargement challenge_members :', membersError);
+        } else {
+          visibleChallengeIds = (memberRows as ChallengeMember[] | null)?.map(
+            (row) => row.challenge_id
+          ) || [];
+        }
+      }
+
+      let challengesQuery = supabase
         .from('challenges')
-        .select('id, name, sport, description, start_date, end_date, created_at, goal_km')
+        .select('id, name, sport, description, start_date, end_date, created_at, goal_km, visibility')
         .order('created_at', { ascending: false });
+
+      if (userEmail && visibleChallengeIds.length > 0) {
+        challengesQuery = challengesQuery.or(
+          `visibility.eq.public,id.in.(${visibleChallengeIds.join(',')})`
+        );
+      } else {
+        challengesQuery = challengesQuery.eq('visibility', 'public');
+      }
+
+      const { data: challengesData, error: challengesError } = await challengesQuery;
 
       if (challengesError) {
         console.error('Erreur chargement challenges :', challengesError);
@@ -92,22 +125,7 @@ export default function HomePage() {
         return;
       }
 
-      const { data: userActivities, error: userActivitiesError } = await supabase
-        .from('activities')
-        .select('challenge_id')
-        .eq('user_email', userEmail);
-
-      if (userActivitiesError) {
-        console.error('Erreur chargement activités utilisateur :', userActivitiesError);
-        setActivities([]);
-        setProfilesMap({});
-        setLoadingFeed(false);
-        return;
-      }
-
-      const joinedChallengeIds = Array.from(
-        new Set((userActivities || []).map((activity) => activity.challenge_id).filter(Boolean))
-      );
+      const joinedChallengeIds = visibleChallengeIds;
 
       if (joinedChallengeIds.length === 0) {
         setActivities([]);
@@ -280,13 +298,13 @@ export default function HomePage() {
                   <article key={activity.id} className="feed-item">
                     <div className="feed-item__top">
                       <div className="feed-item__identity">
-  <strong>{getDisplayName(activity.user_email)}</strong>
-  <span className="feed-item__date">{formatDate(activity.created_at)}</span>
-</div>
+                        <strong>{getDisplayName(activity.user_email)}</strong>
+                        <span className="feed-item__date">{formatDate(activity.created_at)}</span>
+                      </div>
 
-<div className="feed-item__action">
-  a ajouté une activité
-</div>
+                      <div className="feed-item__action">
+                        a ajouté une activité
+                      </div>
 
                       {challenge && (
                         <Link

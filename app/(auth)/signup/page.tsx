@@ -13,6 +13,7 @@ export default function SignupPage() {
   const [username, setUsername] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -28,6 +29,9 @@ export default function SignupPage() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: 'https://actyv-iota.vercel.app/auth/callback',
+      },
     });
 
     if (error || !data.user) {
@@ -36,13 +40,20 @@ export default function SignupPage() {
       return;
     }
 
-    await supabase.from('profiles').insert({
+    const { error: profileError } = await supabase.from('profiles').insert({
       id: data.user.id,
-      email: email,
-      username: username,
+      email,
+      username,
     });
 
+    if (profileError) {
+      setMessage("Compte créé, mais erreur lors de l'enregistrement du profil.");
+      setLoading(false);
+      return;
+    }
+
     setMessage('Compte créé avec succès.');
+    setLoading(false);
 
     router.push('/login');
   };
@@ -68,16 +79,39 @@ export default function SignupPage() {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              placeholder="ton@email.com"
             />
           </div>
 
           <div className="field">
             <label>Mot de passe</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mot de passe"
+                style={{ paddingRight: '44px', width: '100%' }}
+              />
+
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                style={{
+                  position: 'absolute',
+                  right: '10px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  fontSize: '1rem',
+                }}
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
 
           {message && <p>{message}</p>}
