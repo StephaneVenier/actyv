@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
@@ -11,7 +11,7 @@ type Challenge = {
   name: string;
 };
 
-export default function NewActivityPage() {
+function NewActivityPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -24,6 +24,8 @@ export default function NewActivityPage() {
 
   useEffect(() => {
     const fetchChallenges = async () => {
+      setLoadingChallenges(true);
+
       const { data, error } = await supabase
         .from('challenges')
         .select('id, name')
@@ -50,7 +52,6 @@ export default function NewActivityPage() {
     event.preventDefault();
 
     const form = event.currentTarget;
-
     setSubmitting(true);
     setMessage(null);
 
@@ -73,8 +74,11 @@ export default function NewActivityPage() {
     const distanceValue = formData.get('distance');
     const comment = String(formData.get('comment') || '');
 
-    const duration_minutes = durationValue ? Number(durationValue) : null;
-    const distance_km = distanceValue ? Number(distanceValue) : null;
+    const duration_minutes =
+      durationValue && String(durationValue).trim() !== '' ? Number(durationValue) : null;
+
+    const distance_km =
+      distanceValue && String(distanceValue).trim() !== '' ? Number(distanceValue) : null;
 
     if (!challenge_id || !sport) {
       setMessage('Merci de sélectionner un challenge et un type d’activité.');
@@ -110,7 +114,8 @@ export default function NewActivityPage() {
               <span className="badge">Nouvelle activité</span>
               <h1 className="activity-page-title">Ajoute ton activité du jour 💪</h1>
               <p className="activity-page-subtitle">
-                Renseigne rapidement ta séance pour mettre à jour ton challenge et suivre ta progression.
+                Renseigne rapidement ta séance pour mettre à jour ton challenge et suivre ta
+                progression.
               </p>
             </div>
           </div>
@@ -202,13 +207,25 @@ export default function NewActivityPage() {
             )}
 
             <div className="field full">
-  <button type="submit" className="button primary activity-submit-btn" disabled={submitting}>
-    {submitting ? '⏳ Ajout en cours...' : 'Publier mon activité'}
-  </button>
-</div>
+              <button
+                type="submit"
+                className="button primary activity-submit-btn"
+                disabled={submitting}
+              >
+                {submitting ? '⏳ Ajout en cours...' : 'Publier mon activité'}
+              </button>
+            </div>
           </form>
         </article>
       </section>
     </AppShell>
+  );
+}
+
+export default function NewActivityPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '2rem' }}>Chargement...</div>}>
+      <NewActivityPageContent />
+    </Suspense>
   );
 }
