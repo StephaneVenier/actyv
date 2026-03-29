@@ -6,6 +6,8 @@ import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
 import { sports } from '@/components/challenge-data';
 
+type GoalType = 'distance' | 'duration' | 'reps';
+
 function generateInviteCode(length = 10) {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let result = '';
@@ -17,6 +19,36 @@ function generateInviteCode(length = 10) {
   return result;
 }
 
+function getGoalLabel(goalType: GoalType) {
+  switch (goalType) {
+    case 'distance':
+      return 'Objectif (km)';
+    case 'duration':
+      return 'Objectif (minutes)';
+    case 'reps':
+      return 'Objectif (répétitions)';
+    default:
+      return 'Objectif';
+  }
+}
+
+function getGoalPlaceholder(goalType: GoalType) {
+  switch (goalType) {
+    case 'distance':
+      return '100';
+    case 'duration':
+      return '600';
+    case 'reps':
+      return '1000';
+    default:
+      return '';
+  }
+}
+
+function getGoalStep(goalType: GoalType) {
+  return goalType === 'distance' ? '0.1' : '1';
+}
+
 export default function NewChallengePage() {
   const router = useRouter();
 
@@ -24,7 +56,8 @@ export default function NewChallengePage() {
   const [sport, setSport] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [goalKm, setGoalKm] = useState('');
+  const [goalType, setGoalType] = useState<GoalType>('distance');
+  const [goalValue, setGoalValue] = useState('');
   const [description, setDescription] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -33,8 +66,20 @@ export default function NewChallengePage() {
     e.preventDefault();
     setMessage('');
 
-    if (!name || !sport) {
+    if (!name.trim() || !sport) {
       setMessage('Le nom du challenge et le sport sont obligatoires.');
+      return;
+    }
+
+    if (startDate && endDate && endDate < startDate) {
+      setMessage("La date objectif ne peut pas être avant la date de début.");
+      return;
+    }
+
+    const parsedGoalValue = goalValue ? Number(goalValue) : null;
+
+    if (parsedGoalValue !== null && (Number.isNaN(parsedGoalValue) || parsedGoalValue < 0)) {
+      setMessage("L'objectif doit être un nombre positif.");
       return;
     }
 
@@ -51,24 +96,25 @@ export default function NewChallengePage() {
         return;
       }
 
-      const parsedGoalKm = goalKm ? Number(goalKm) : null;
       const inviteCode = generateInviteCode();
+
+      const payload = {
+        name: name.trim(),
+        sport,
+        start_date: startDate || null,
+        end_date: endDate || null,
+        goal_type: goalType,
+        goal_value: parsedGoalValue,
+        goal_km: goalType === 'distance' ? parsedGoalValue : null, // compatibilité ancienne logique
+        description: description.trim() || null,
+        created_by: user.id,
+        visibility: 'private',
+        invite_code: inviteCode,
+      };
 
       const { data: challenge, error: challengeError } = await supabase
         .from('challenges')
-        .insert([
-          {
-            name,
-            sport,
-            start_date: startDate || null,
-            end_date: endDate || null,
-            goal_km: parsedGoalKm,
-            description: description || null,
-            created_by: user.id,
-            visibility: 'private',
-            invite_code: inviteCode,
-          },
-        ])
+        .insert([payload])
         .select()
         .single();
 
@@ -117,7 +163,7 @@ export default function NewChallengePage() {
         <div>
           <h1>Créer un challenge</h1>
           <p className="muted">
-            Version simple de la V1 : nom, sport, dates, objectif et description.
+            Crée un défi collectif avec un objectif en distance, en durée ou en répétitions.
           </p>
         </div>
 
@@ -176,16 +222,30 @@ export default function NewChallengePage() {
           </div>
 
           <div className="field">
-            <label htmlFor="goalKm">Objectif (km)</label>
+            <label htmlFor="goalType">Type d’objectif</label>
+            <select
+              id="goalType"
+              name="goalType"
+              value={goalType}
+              onChange={(e) => setGoalType(e.target.value as GoalType)}
+            >
+              <option value="distance">Distance (km)</option>
+              <option value="duration">Durée (minutes)</option>
+              <option value="reps">Répétitions</option>
+            </select>
+          </div>
+
+          <div className="field">
+            <label htmlFor="goalValue">{getGoalLabel(goalType)}</label>
             <input
-              id="goalKm"
-              name="goalKm"
+              id="goalValue"
+              name="goalValue"
               type="number"
-              step="0.1"
+              step={getGoalStep(goalType)}
               min="0"
-              placeholder="100"
-              value={goalKm}
-              onChange={(e) => setGoalKm(e.target.value)}
+              placeholder={getGoalPlaceholder(goalType)}
+              value={goalValue}
+              onChange={(e) => setGoalValue(e.target.value)}
             />
           </div>
 

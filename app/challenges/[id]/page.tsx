@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 
+type GoalType = 'distance' | 'duration' | 'reps';
+
 type Challenge = {
   id: string;
   name: string;
@@ -14,7 +16,9 @@ type Challenge = {
   start_date: string | null;
   end_date: string | null;
   created_at?: string;
-  goal_km?: number | null;
+  goal_km?: number | null; // ancien champ
+  goal_type?: GoalType | null;
+  goal_value?: number | null;
   created_by?: string | null;
   invite_code?: string | null;
   visibility?: string | null;
@@ -25,8 +29,11 @@ type Activity = {
   challenge_id: string;
   user_email: string | null;
   sport: string | null;
-  distance_km: number | null;
-  duration_minutes: number | null;
+  distance_km: number | null; // ancien champ
+  duration_minutes: number | null; // ancien champ
+  unit_type?: GoalType | null;
+  unit_value?: number | null;
+  exercise_type?: string | null;
   comment: string | null;
   created_at: string | null;
 };
@@ -39,9 +46,11 @@ type Profile = {
 type LeaderboardRow = {
   user_email: string;
   displayName: string;
+  totalValue: number;
+  totalActivities: number;
   totalDistance: number;
   totalDuration: number;
-  totalActivities: number;
+  totalReps: number;
 };
 
 function formatDate(dateString: string | null) {
@@ -55,14 +64,77 @@ function formatDate(dateString: string | null) {
   }).format(date);
 }
 
-function formatDistance(distance: number | null) {
+function formatDistance(distance: number | null | undefined) {
   if (distance === null || distance === undefined) return '0 km';
   return `${distance.toFixed(1)} km`;
 }
 
-function formatDuration(duration: number | null) {
+function formatDuration(duration: number | null | undefined) {
   if (duration === null || duration === undefined) return '0 min';
   return `${duration} min`;
+}
+
+function formatReps(reps: number | null | undefined) {
+  if (reps === null || reps === undefined) return '0 répétition';
+  return `${reps} répétition${reps > 1 ? 's' : ''}`;
+}
+
+function getGoalTypeLabel(goalType: GoalType | null | undefined) {
+  switch (goalType) {
+    case 'distance':
+      return 'Distance';
+    case 'duration':
+      return 'Durée';
+    case 'reps':
+      return 'Répétitions';
+    default:
+      return 'Objectif';
+  }
+}
+
+function getUnitShortLabel(goalType: GoalType | null | undefined) {
+  switch (goalType) {
+    case 'distance':
+      return 'km';
+    case 'duration':
+      return 'min';
+    case 'reps':
+      return 'rép.';
+    default:
+      return '';
+  }
+}
+
+function formatGoalValue(value: number | null | undefined, goalType: GoalType | null | undefined) {
+  if (value === null || value === undefined) return 'Non défini';
+
+  switch (goalType) {
+    case 'distance':
+      return formatDistance(value);
+    case 'duration':
+      return formatDuration(value);
+    case 'reps':
+      return formatReps(value);
+    default:
+      return `${value}`;
+  }
+}
+
+function formatExerciseType(exerciseType: string | null | undefined) {
+  if (!exerciseType) return null;
+
+  const labels: Record<string, string> = {
+    squat: 'Squats',
+    pushup: 'Pompes',
+    burpee: 'Burpees',
+    situp: 'Abdos',
+    plank: 'Gainage',
+    lunges: 'Fentes',
+    'jumping-jack': 'Jumping Jacks',
+    other: 'Autre',
+  };
+
+  return labels[exerciseType] || exerciseType;
 }
 
 export default function ChallengeDetailPage() {
@@ -78,7 +150,7 @@ export default function ChallengeDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [shareMessage, setShareMessage] = useState<string>('');
+  const [shareMessage, setShareMessage] = useState('');
 
   useEffect(() => {
     const fetchChallengeAndActivities = async () => {
@@ -145,7 +217,9 @@ export default function ChallengeDetailPage() {
 
       const { data: activitiesData, error: activitiesError } = await supabase
         .from('activities')
-        .select('id, challenge_id, user_email, sport, distance_km, duration_minutes, comment, created_at')
+        .select(
+          'id, challenge_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at'
+        )
         .eq('challenge_id', id)
         .order('created_at', { ascending: false });
 
@@ -160,7 +234,7 @@ export default function ChallengeDetailPage() {
         return;
       }
 
-      const loadedActivities = activitiesData || [];
+      const loadedActivities = (activitiesData as Activity[]) || [];
       setActivities(loadedActivities);
 
       const emails = Array.from(
@@ -206,17 +280,76 @@ export default function ChallengeDetailPage() {
     return profilesMap[email] || email;
   };
 
+  const effectiveGoalType: GoalType | null =
+    challenge?.goal_type || (challenge?.goal_km ? 'distance' : null);
+
+  const effectiveGoalValue: number | null =
+    challenge?.goal_value ?? challenge?.goal_km ?? null;
+
+  const normalizedActivities = useMemo(() => {
+    return activities.map((activity) => {
+      const fallbackUnitType: GoalType | null =
+        activity.unit_type ||
+        (activity.distance_km !== null && activity.distance_km !== undefined
+          ? 'distance'
+          : activity.duration_minutes !== null && activity.duration_minutes !== undefined
+          ? 'duration'
+          : null);
+
+      const fallbackUnitValue =
+        activity.unit_value ??
+        (fallbackUnitType === 'distance'
+          ? activity.distance_km
+          : fallbackUnitType === 'duration'
+          ? activity.duration_minutes
+          : null);
+
+      return {
+        ...activity,
+        normalized_unit_type: fallbackUnitType,
+        normalized_unit_value: fallbackUnitValue,
+      };
+    });
+  }, [activities]);
+
+  const matchingActivities = useMemo(() => {
+    if (!effectiveGoalType) return normalizedActivities;
+    return normalizedActivities.filter(
+      (activity) => activity.normalized_unit_type === effectiveGoalType
+    );
+  }, [normalizedActivities, effectiveGoalType]);
+
   const totalActivities = activities.length;
-  const totalDistance = activities.reduce((sum, activity) => sum + (activity.distance_km || 0), 0);
-  const totalDuration = activities.reduce(
-    (sum, activity) => sum + (activity.duration_minutes || 0),
-    0
-  );
+
+  const totalDistance = normalizedActivities.reduce((sum, activity) => {
+    if (activity.normalized_unit_type === 'distance') {
+      return sum + (activity.normalized_unit_value || 0);
+    }
+    return sum;
+  }, 0);
+
+  const totalDuration = normalizedActivities.reduce((sum, activity) => {
+    if (activity.normalized_unit_type === 'duration') {
+      return sum + (activity.normalized_unit_value || 0);
+    }
+    return sum;
+  }, 0);
+
+  const totalReps = normalizedActivities.reduce((sum, activity) => {
+    if (activity.normalized_unit_type === 'reps') {
+      return sum + (activity.normalized_unit_value || 0);
+    }
+    return sum;
+  }, 0);
+
+  const totalChallengeProgress = matchingActivities.reduce((sum, activity) => {
+    return sum + (activity.normalized_unit_value || 0);
+  }, 0);
 
   const leaderboard = useMemo<LeaderboardRow[]>(() => {
     const grouped = new Map<string, LeaderboardRow>();
 
-    for (const activity of activities) {
+    for (const activity of normalizedActivities) {
       const email = activity.user_email || 'Utilisateur inconnu';
       const displayName = getDisplayName(activity.user_email);
 
@@ -224,29 +357,55 @@ export default function ChallengeDetailPage() {
         grouped.set(email, {
           user_email: email,
           displayName,
+          totalValue: 0,
+          totalActivities: 0,
           totalDistance: 0,
           totalDuration: 0,
-          totalActivities: 0,
+          totalReps: 0,
         });
       }
 
       const current = grouped.get(email)!;
-      current.totalDistance += activity.distance_km || 0;
-      current.totalDuration += activity.duration_minutes || 0;
+
+      if (activity.normalized_unit_type === 'distance') {
+        current.totalDistance += activity.normalized_unit_value || 0;
+      }
+
+      if (activity.normalized_unit_type === 'duration') {
+        current.totalDuration += activity.normalized_unit_value || 0;
+      }
+
+      if (activity.normalized_unit_type === 'reps') {
+        current.totalReps += activity.normalized_unit_value || 0;
+      }
+
+      if (
+        effectiveGoalType &&
+        activity.normalized_unit_type === effectiveGoalType
+      ) {
+        current.totalValue += activity.normalized_unit_value || 0;
+      }
+
       current.totalActivities += 1;
     }
 
     return Array.from(grouped.values()).sort((a, b) => {
-      if (b.totalDistance !== a.totalDistance) {
-        return b.totalDistance - a.totalDistance;
+      if (b.totalValue !== a.totalValue) {
+        return b.totalValue - a.totalValue;
       }
-      return b.totalDuration - a.totalDuration;
-    });
-  }, [activities, profilesMap]);
 
-  const goalKm = challenge?.goal_km || null;
+      if (b.totalActivities !== a.totalActivities) {
+        return b.totalActivities - a.totalActivities;
+      }
+
+      return a.displayName.localeCompare(b.displayName, 'fr');
+    });
+  }, [normalizedActivities, profilesMap, effectiveGoalType]);
+
   const progressPercent =
-    goalKm && goalKm > 0 ? Math.min((totalDistance / goalKm) * 100, 100) : null;
+    effectiveGoalValue && effectiveGoalValue > 0
+      ? Math.min((totalChallengeProgress / effectiveGoalValue) * 100, 100)
+      : null;
 
   const isOwner = currentUserId === challenge?.created_by;
 
@@ -279,6 +438,13 @@ export default function ChallengeDetailPage() {
       setShareMessage("Impossible de partager le lien pour le moment.");
     }
   };
+
+  function renderMainStatValue() {
+    if (effectiveGoalType === 'distance') return formatDistance(totalChallengeProgress);
+    if (effectiveGoalType === 'duration') return formatDuration(totalChallengeProgress);
+    if (effectiveGoalType === 'reps') return formatReps(totalChallengeProgress);
+    return 'Non défini';
+  }
 
   if (loading) {
     return (
@@ -352,7 +518,7 @@ export default function ChallengeDetailPage() {
                 </button>
               )}
 
-              <Link href="/activities/new" className="button ghost">
+              <Link href={`/activities/new?challenge=${challenge.id}`} className="button ghost">
                 + Ajouter une activité
               </Link>
             </div>
@@ -370,8 +536,8 @@ export default function ChallengeDetailPage() {
             </div>
 
             <div className="challenge-meta-item">
-              <span className="challenge-meta-label">Objectif</span>
-              <strong>{goalKm && goalKm > 0 ? formatDistance(goalKm) : 'Non défini'}</strong>
+              <span className="challenge-meta-label">{getGoalTypeLabel(effectiveGoalType)}</span>
+              <strong>{formatGoalValue(effectiveGoalValue, effectiveGoalType)}</strong>
             </div>
           </div>
 
@@ -387,28 +553,32 @@ export default function ChallengeDetailPage() {
           </article>
 
           <article className="card stat-card">
-            <span className="stat-card-label">Distance totale</span>
-            <strong className="stat-card-value">{formatDistance(totalDistance)}</strong>
-          </article>
-
-          <article className="card stat-card">
-            <span className="stat-card-label">Durée totale</span>
-            <strong className="stat-card-value">{formatDuration(totalDuration)}</strong>
+            <span className="stat-card-label">Progression challenge</span>
+            <strong className="stat-card-value">{renderMainStatValue()}</strong>
           </article>
 
           <article className="card stat-card">
             <span className="stat-card-label">Participants</span>
             <strong className="stat-card-value">{leaderboard.length}</strong>
           </article>
+
+          <article className="card stat-card">
+            <span className="stat-card-label">Type d’objectif</span>
+            <strong className="stat-card-value">
+              {getGoalTypeLabel(effectiveGoalType)}
+            </strong>
+          </article>
         </section>
 
         <section className="card progress-card">
           <h2>Progression</h2>
 
-          {goalKm && goalKm > 0 ? (
+          {effectiveGoalValue && effectiveGoalValue > 0 ? (
             <>
               <div className="progress-meta">
-                <span className="progress-target">Objectif : {formatDistance(goalKm)}</span>
+                <span className="progress-target">
+                  Objectif : {formatGoalValue(effectiveGoalValue, effectiveGoalType)}
+                </span>
                 <span className="progress-percent">
                   {(progressPercent || 0).toFixed(1)}%
                 </span>
@@ -422,12 +592,13 @@ export default function ChallengeDetailPage() {
               </div>
 
               <div className="progress-text">
-                <strong>{formatDistance(totalDistance)}</strong> / {formatDistance(goalKm)}
+                <strong>{formatGoalValue(totalChallengeProgress, effectiveGoalType)}</strong> /{' '}
+                {formatGoalValue(effectiveGoalValue, effectiveGoalType)}
               </div>
             </>
           ) : (
             <p style={{ marginTop: '1rem' }}>
-              Aucun objectif kilométrique défini pour ce challenge.
+              Aucun objectif défini pour ce challenge.
             </p>
           )}
         </section>
@@ -446,9 +617,27 @@ export default function ChallengeDetailPage() {
                   <div className="leaderboard-main">
                     <strong className="leaderboard-name">{row.displayName}</strong>
                     <div className="leaderboard-meta">
-                      <span>{formatDistance(row.totalDistance)}</span>
-                      <span>{formatDuration(row.totalDuration)}</span>
-                      <span>{row.totalActivities} activité{row.totalActivities > 1 ? 's' : ''}</span>
+                      <span>
+                        <strong>
+                          {row.totalValue} {getUnitShortLabel(effectiveGoalType)}
+                        </strong>
+                      </span>
+
+                      {row.totalDistance > 0 && (
+                        <span>{formatDistance(row.totalDistance)}</span>
+                      )}
+
+                      {row.totalDuration > 0 && (
+                        <span>{formatDuration(row.totalDuration)}</span>
+                      )}
+
+                      {row.totalReps > 0 && (
+                        <span>{formatReps(row.totalReps)}</span>
+                      )}
+
+                      <span>
+                        {row.totalActivities} activité{row.totalActivities > 1 ? 's' : ''}
+                      </span>
                     </div>
                   </div>
                 </article>
@@ -470,7 +659,7 @@ export default function ChallengeDetailPage() {
             <p style={{ marginTop: '1rem' }}>Aucune activité pour le moment.</p>
           ) : (
             <div className="activity-list">
-              {activities.map((activity) => (
+              {normalizedActivities.map((activity) => (
                 <article key={activity.id} className="activity-item">
                   <div className="activity-top">
                     <strong className="activity-user">{getDisplayName(activity.user_email)}</strong>
@@ -482,8 +671,29 @@ export default function ChallengeDetailPage() {
                   </div>
 
                   <div className="activity-stats">
-                    <span><strong>Distance :</strong> {formatDistance(activity.distance_km)}</span>
-                    <span><strong>Durée :</strong> {formatDuration(activity.duration_minutes)}</span>
+                    {activity.normalized_unit_type === 'distance' && (
+                      <span>
+                        <strong>Distance :</strong> {formatDistance(activity.normalized_unit_value)}
+                      </span>
+                    )}
+
+                    {activity.normalized_unit_type === 'duration' && (
+                      <span>
+                        <strong>Durée :</strong> {formatDuration(activity.normalized_unit_value)}
+                      </span>
+                    )}
+
+                    {activity.normalized_unit_type === 'reps' && (
+                      <span>
+                        <strong>Répétitions :</strong> {formatReps(activity.normalized_unit_value)}
+                      </span>
+                    )}
+
+                    {activity.exercise_type && (
+                      <span>
+                        <strong>Exercice :</strong> {formatExerciseType(activity.exercise_type)}
+                      </span>
+                    )}
                   </div>
 
                   {activity.comment && (
@@ -495,6 +705,23 @@ export default function ChallengeDetailPage() {
               ))}
             </div>
           )}
+        </section>
+
+        <section className="challenge-stats-grid">
+          <article className="card stat-card">
+            <span className="stat-card-label">Distance totale</span>
+            <strong className="stat-card-value">{formatDistance(totalDistance)}</strong>
+          </article>
+
+          <article className="card stat-card">
+            <span className="stat-card-label">Durée totale</span>
+            <strong className="stat-card-value">{formatDuration(totalDuration)}</strong>
+          </article>
+
+          <article className="card stat-card">
+            <span className="stat-card-label">Répétitions totales</span>
+            <strong className="stat-card-value">{formatReps(totalReps)}</strong>
+          </article>
         </section>
       </section>
     </AppShell>
