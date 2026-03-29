@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
@@ -16,12 +16,13 @@ type Challenge = {
   start_date: string | null;
   end_date: string | null;
   created_at?: string;
-  goal_km?: number | null; // ancien champ
+  goal_km?: number | null;
   goal_type?: GoalType | null;
   goal_value?: number | null;
   created_by?: string | null;
   invite_code?: string | null;
   visibility?: string | null;
+  is_deleted?: boolean | null;
 };
 
 type Activity = {
@@ -29,8 +30,8 @@ type Activity = {
   challenge_id: string;
   user_email: string | null;
   sport: string | null;
-  distance_km: number | null; // ancien champ
-  duration_minutes: number | null; // ancien champ
+  distance_km: number | null;
+  duration_minutes: number | null;
   unit_type?: GoalType | null;
   unit_value?: number | null;
   exercise_type?: string | null;
@@ -139,6 +140,7 @@ function formatExerciseType(exerciseType: string | null | undefined) {
 
 export default function ChallengeDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
@@ -173,6 +175,7 @@ export default function ChallengeDetailPage() {
         .from('challenges')
         .select('*')
         .eq('id', id)
+        .eq('is_deleted', false)
         .single();
 
       if (challengeError || !challengeData) {
@@ -274,6 +277,32 @@ export default function ChallengeDetailPage() {
 
     fetchChallengeAndActivities();
   }, [id]);
+
+  const handleDeleteChallenge = async () => {
+    const confirmed = window.confirm(
+      'Voulez-vous vraiment supprimer ce challenge ? Il ne sera plus visible, mais les données seront conservées.'
+    );
+
+    if (!confirmed || !challenge?.id) return;
+
+    try {
+      const { error } = await supabase
+        .from('challenges')
+        .update({ is_deleted: true })
+        .eq('id', challenge.id);
+
+      if (error) {
+        console.error('Erreur suppression challenge :', error);
+        alert('Erreur lors de la suppression.');
+        return;
+      }
+
+      router.push('/');
+    } catch (err) {
+      console.error('Erreur inattendue suppression challenge :', err);
+      alert('Erreur inattendue.');
+    }
+  };
 
   const getDisplayName = (email: string | null) => {
     if (!email) return 'Utilisateur inconnu';
@@ -379,10 +408,7 @@ export default function ChallengeDetailPage() {
         current.totalReps += activity.normalized_unit_value || 0;
       }
 
-      if (
-        effectiveGoalType &&
-        activity.normalized_unit_type === effectiveGoalType
-      ) {
+      if (effectiveGoalType && activity.normalized_unit_type === effectiveGoalType) {
         current.totalValue += activity.normalized_unit_value || 0;
       }
 
@@ -515,6 +541,16 @@ export default function ChallengeDetailPage() {
                   onClick={handleInvitePartner}
                 >
                   Inviter un partenaire
+                </button>
+              )}
+
+              {isOwner && (
+                <button
+                  type="button"
+                  className="button danger"
+                  onClick={handleDeleteChallenge}
+                >
+                  Supprimer le challenge
                 </button>
               )}
 

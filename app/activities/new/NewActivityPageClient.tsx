@@ -70,7 +70,8 @@ export default function NewActivityPageClient() {
       const { data, error } = await supabase
         .from('challenges')
         .select('id, name, goal_type')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .eq('is_deleted', false);
 
       if (error) {
         console.error('Erreur chargement challenges :', error);

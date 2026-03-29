@@ -97,6 +97,7 @@ export default function HomePage() {
       let challengesQuery = supabase
         .from('challenges')
         .select('id, name, sport, description, start_date, end_date, created_at, goal_km, visibility')
+        .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
       if (userEmail && visibleChallengeIds.length > 0) {
