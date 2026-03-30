@@ -112,8 +112,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav className="nav" style={{ flex: 1 }}>
           <Link href="/">Accueil</Link>
           <Link href="/challenges/new" className="button primary">
-  Créer un challenge
-</Link>
+            Créer un challenge
+          </Link>
           <Link href="/activities/new">Ajouter une activité</Link>
         </nav>
 
@@ -177,11 +177,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                     Mon profil
                   </Link>
 
-<button class="menu-center-btn">
-  <img src="/images/logo-actyv-A.png" alt="Actyv menu" />
-</button>
-
-
                   <button
                     type="button"
                     onClick={handleLogout}
@@ -207,6 +202,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       {children}
+
+      <button className="menu-center-btn" type="button">
+        <img src="/images/logo-actyv-A.png" alt="Actyv menu" />
+      </button>
     </div>
   );
 }
