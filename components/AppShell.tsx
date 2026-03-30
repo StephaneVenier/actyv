@@ -171,7 +171,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                       textDecoration: 'none',
                       color: 'inherit',
                       fontWeight: 600,
-                      transition: 'background 0.18s ease',
                     }}
                   >
                     Mon profil
@@ -201,11 +200,35 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {children}
+      <main className="page-content">{children}</main>
 
-      <button className="menu-center-btn" type="button">
-        <img src="/images/logo-actyv-A.png" alt="Actyv menu" />
-      </button>
+      <div className="bottom-bar">
+        <Link
+          href="/challenges/new"
+          className="bottom-btn"
+          aria-label="Créer un challenge"
+        >
+          <span className="bottom-btn-icon">🏆</span>
+          <span className="bottom-btn-label">Challenge</span>
+        </Link>
+
+        <div className="bottom-bar-center-space" />
+
+        <Link
+          href="/activities/new"
+          className="bottom-btn"
+          aria-label="Ajouter une activité"
+        >
+          <span className="bottom-btn-icon">🏃</span>
+          <span className="bottom-btn-label">Activité</span>
+        </Link>
+      </div>
+
+      <button
+        className="menu-center-btn"
+        type="button"
+        aria-label="Menu Actyv"
+      />
     </div>
   );
 }
