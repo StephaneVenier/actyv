@@ -1145,7 +1145,8 @@ img {
   bottom: 20px;
   left: 50%;
   transform: translateX(-50%);
-  
+  border: 2px solid rgba(255,255,255,0.2);
+
   width: 70px;
   height: 70px;
   border-radius: 50%;
@@ -1165,7 +1166,9 @@ img {
 }
 
 .menu-center-btn img {
-  width: 38px;
+  width: 42px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
 }
 
 .menu-center-btn:active {
