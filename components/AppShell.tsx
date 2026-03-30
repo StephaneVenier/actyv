@@ -177,6 +177,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                     Mon profil
                   </Link>
 
+<button class="menu-center-btn">
+  <img src="/images/logo-actyv-A.png" alt="Actyv menu" />
+</button>
+
+
                   <button
                     type="button"
                     onClick={handleLogout}
