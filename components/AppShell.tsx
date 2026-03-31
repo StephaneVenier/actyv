@@ -80,7 +80,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!menuRef.current) return;
-
       if (!menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
       }
@@ -102,6 +101,14 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-inner">
+          <div className="topbar-left desktop-nav">
+            <Link href="/">Accueil</Link>
+            <Link href="/challenges/new" className="button primary">
+              Créer un challenge
+            </Link>
+            <Link href="/activities/new">Ajouter une activité</Link>
+          </div>
+
           <Link href="/" className="brand" aria-label="Retour à l'accueil Actyv">
             <img
               src="/images/actyv-logo.png"
@@ -110,62 +117,33 @@ export function AppShell({ children }: { children: ReactNode }) {
             />
           </Link>
 
-          <nav className="nav">
-            <Link href="/">Accueil</Link>
-            <Link href="/challenges/new" className="button primary">
-              Créer un challenge
-            </Link>
-            <Link href="/activities/new">Ajouter une activité</Link>
-          </nav>
-
           <div className="topbar-right">
             {!userEmail ? (
               <div className="auth-actions">
                 <Link href="/login" className="button ghost">
                   Connexion
                 </Link>
-                <Link href="/signup" className="button primary">
+                <Link href="/signup" className="button primary desktop-only">
                   Créer un compte
                 </Link>
               </div>
             ) : (
-              <div ref={menuRef} style={{ position: 'relative' }}>
+              <div ref={menuRef} className="profile-menu-wrap">
                 <button
                   type="button"
                   onClick={() => setMenuOpen((prev) => !prev)}
                   className="profile-trigger"
                 >
-                  {profileLabel} <span style={{ fontSize: '0.85em' }}>▾</span>
+                  <span className="profile-trigger-text">{profileLabel}</span>
+                  <span className="profile-trigger-arrow">▾</span>
                 </button>
 
                 {menuOpen && (
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 0.6rem)',
-                      right: 0,
-                      minWidth: '230px',
-                      background: 'rgba(255, 255, 255, 0.98)',
-                      border: '1px solid rgba(11, 18, 32, 0.08)',
-                      borderRadius: '18px',
-                      boxShadow: '0 18px 40px rgba(2, 8, 23, 0.12)',
-                      padding: '0.55rem',
-                      zIndex: 30,
-                      display: 'grid',
-                      gap: '0.35rem',
-                      backdropFilter: 'blur(10px)',
-                    }}
-                  >
+                  <div className="profile-dropdown">
                     <Link
                       href="/profile"
                       onClick={() => setMenuOpen(false)}
-                      style={{
-                        padding: '0.9rem 1rem',
-                        borderRadius: '14px',
-                        textDecoration: 'none',
-                        color: 'inherit',
-                        fontWeight: 600,
-                      }}
+                      className="profile-dropdown-link"
                     >
                       Mon profil
                     </Link>
@@ -173,17 +151,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      style={{
-                        textAlign: 'left',
-                        padding: '0.9rem 1rem',
-                        borderRadius: '14px',
-                        border: 'none',
-                        background: 'transparent',
-                        cursor: 'pointer',
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        color: '#0f172a',
-                      }}
+                      className="profile-dropdown-button"
                     >
                       Déconnexion
                     </button>
