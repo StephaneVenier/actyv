@@ -99,104 +99,99 @@ export function AppShell({ children }: { children: ReactNode }) {
   const profileLabel = username || userEmail || 'Mon profil';
 
   return (
-    <div className="page-shell">
+    <div className="app-shell">
       <header className="topbar">
-        <Link href="/" className="brand" aria-label="Retour à l'accueil Actyv">
-          <img
-            src="/images/actyv-logo.png"
-            alt="Actyv"
-            className="brand-logo"
-          />
-        </Link>
-
-        <nav className="nav" style={{ flex: 1 }}>
-          <Link href="/">Accueil</Link>
-          <Link href="/challenges/new" className="button primary">
-            Créer un challenge
+        <div className="topbar-inner">
+          <Link href="/" className="brand" aria-label="Retour à l'accueil Actyv">
+            <img
+              src="/images/actyv-logo.png"
+              alt="Actyv"
+              className="brand-logo"
+            />
           </Link>
-          <Link href="/activities/new">Ajouter une activité</Link>
-        </nav>
 
-        <div style={{ marginLeft: 'auto' }}>
-          {!userEmail ? (
-            <div
-              style={{
-                display: 'flex',
-                gap: '0.75rem',
-                alignItems: 'center',
-                flexWrap: 'wrap',
-              }}
-            >
-              <Link href="/login" className="button ghost">
-                Connexion
-              </Link>
-              <Link href="/signup" className="button primary">
-                Créer un compte
-              </Link>
-            </div>
-          ) : (
-            <div ref={menuRef} style={{ position: 'relative' }}>
-              <button
-                type="button"
-                onClick={() => setMenuOpen((prev) => !prev)}
-                className="profile-trigger"
-              >
-                {profileLabel} <span style={{ fontSize: '0.85em' }}>▾</span>
-              </button>
+          <nav className="nav">
+            <Link href="/">Accueil</Link>
+            <Link href="/challenges/new" className="button primary">
+              Créer un challenge
+            </Link>
+            <Link href="/activities/new">Ajouter une activité</Link>
+          </nav>
 
-              {menuOpen && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 0.6rem)',
-                    right: 0,
-                    minWidth: '230px',
-                    background: 'rgba(255, 255, 255, 0.98)',
-                    border: '1px solid rgba(11, 18, 32, 0.08)',
-                    borderRadius: '18px',
-                    boxShadow: '0 18px 40px rgba(2, 8, 23, 0.12)',
-                    padding: '0.55rem',
-                    zIndex: 30,
-                    display: 'grid',
-                    gap: '0.35rem',
-                    backdropFilter: 'blur(10px)',
-                  }}
+          <div className="topbar-right">
+            {!userEmail ? (
+              <div className="auth-actions">
+                <Link href="/login" className="button ghost">
+                  Connexion
+                </Link>
+                <Link href="/signup" className="button primary">
+                  Créer un compte
+                </Link>
+              </div>
+            ) : (
+              <div ref={menuRef} style={{ position: 'relative' }}>
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="profile-trigger"
                 >
-                  <Link
-                    href="/profile"
-                    onClick={() => setMenuOpen(false)}
-                    style={{
-                      padding: '0.9rem 1rem',
-                      borderRadius: '14px',
-                      textDecoration: 'none',
-                      color: 'inherit',
-                      fontWeight: 600,
-                    }}
-                  >
-                    Mon profil
-                  </Link>
+                  {profileLabel} <span style={{ fontSize: '0.85em' }}>▾</span>
+                </button>
 
-                  <button
-                    type="button"
-                    onClick={handleLogout}
+                {menuOpen && (
+                  <div
                     style={{
-                      textAlign: 'left',
-                      padding: '0.9rem 1rem',
-                      borderRadius: '14px',
-                      border: 'none',
-                      background: 'transparent',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      fontWeight: 600,
-                      color: '#0f172a',
+                      position: 'absolute',
+                      top: 'calc(100% + 0.6rem)',
+                      right: 0,
+                      minWidth: '230px',
+                      background: 'rgba(255, 255, 255, 0.98)',
+                      border: '1px solid rgba(11, 18, 32, 0.08)',
+                      borderRadius: '18px',
+                      boxShadow: '0 18px 40px rgba(2, 8, 23, 0.12)',
+                      padding: '0.55rem',
+                      zIndex: 30,
+                      display: 'grid',
+                      gap: '0.35rem',
+                      backdropFilter: 'blur(10px)',
                     }}
                   >
-                    Déconnexion
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+                    <Link
+                      href="/profile"
+                      onClick={() => setMenuOpen(false)}
+                      style={{
+                        padding: '0.9rem 1rem',
+                        borderRadius: '14px',
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        fontWeight: 600,
+                      }}
+                    >
+                      Mon profil
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      style={{
+                        textAlign: 'left',
+                        padding: '0.9rem 1rem',
+                        borderRadius: '14px',
+                        border: 'none',
+                        background: 'transparent',
+                        cursor: 'pointer',
+                        fontSize: '1rem',
+                        fontWeight: 600,
+                        color: '#0f172a',
+                      }}
+                    >
+                      Déconnexion
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
