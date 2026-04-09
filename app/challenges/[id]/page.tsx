@@ -186,17 +186,20 @@ export default function ChallengeDetailPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState('');
 
-  const fetchChallengeAndActivities = async () => {
+  const fetchChallengeAndActivities = async (showPageLoader = true) => {
   if (!id) return;
 
+ if (showPageLoader) {
   setLoading(true);
   setActivitiesLoading(true);
   setParticipantsLoading(true);
-  setActivitiesErrorMessage(null);
-  setParticipantsErrorMessage(null);
-  setNotFound(false);
-  setAccessDenied(false);
-  setShareMessage('');
+}
+
+setActivitiesErrorMessage(null);
+setParticipantsErrorMessage(null);
+setNotFound(false);
+setAccessDenied(false);
+setShareMessage('');
 
   const {
     data: { user },
@@ -618,7 +621,7 @@ const handleLike = async (activityId: string) => {
     }
   }
 
-  await fetchChallengeAndActivities();
+  await fetchChallengeAndActivities(false);
 };
 
 
