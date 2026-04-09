@@ -1027,12 +1027,16 @@ const handleLike = async (activityId: string) => {
                   )}
                   <div className="activity-reactions">
   <button
-    type="button"
-    className={`reaction-button ${hasUserLiked(activity.id) ? 'active' : ''}`}
-    onClick={() => handleLike(activity.id)}
-  >
-    👍 {getLikesCount(activity.id)}
-  </button>
+  type="button"
+  className={`reaction-button ${hasUserLiked(activity.id) ? 'active' : ''}`}
+  onClick={(e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleLike(activity.id);
+  }}
+>
+  👍 {getLikesCount(activity.id)}
+</button>
 
   <span>⚡ {getBoostsCount(activity.id)}</span>
 </div>

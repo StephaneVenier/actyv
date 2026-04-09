@@ -1310,3 +1310,45 @@ img {
     display: none;
   }
 }
+
+.activity-reactions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
+  align-items: center;
+}
+
+.reaction-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  color: inherit;
+}
+
+.reaction-button.active {
+  font-weight: 700;
+}
+
+.reaction-button {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+  padding: 2px 6px;
+  border-radius: 6px;
+  outline: none;
+}
+
+.reaction-button:focus {
+  outline: none;
+}
+
+.reaction-button:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.reaction-button.active {
+  font-weight: 700;
+}
