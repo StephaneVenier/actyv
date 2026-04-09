@@ -38,6 +38,9 @@ type Activity = {
   created_at: string | null;
   likes_count?: number | null;
   boosts_count?: number | null;
+  unit_type?: GoalType | null;
+  unit_value?: number | null;
+  exercise_type?: string | null;
 };
 
 type Profile = {
@@ -183,203 +186,203 @@ export default function ChallengeDetailPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState('');
 
-  useEffect(() => {
-    const fetchChallengeAndActivities = async () => {
-      if (!id) return;
+  const fetchChallengeAndActivities = async () => {
+  if (!id) return;
 
-      setLoading(true);
-      setActivitiesLoading(true);
-      setParticipantsLoading(true);
-      setActivitiesErrorMessage(null);
-      setParticipantsErrorMessage(null);
-      setNotFound(false);
-      setAccessDenied(false);
-      setShareMessage('');
+  setLoading(true);
+  setActivitiesLoading(true);
+  setParticipantsLoading(true);
+  setActivitiesErrorMessage(null);
+  setParticipantsErrorMessage(null);
+  setNotFound(false);
+  setAccessDenied(false);
+  setShareMessage('');
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-      setCurrentUserId(user?.id || null);
+  setCurrentUserId(user?.id || null);
 
-      const { data: challengeData, error: challengeError } = await supabase
-        .from('challenges')
-        .select('*')
-        .eq('id', id)
-        .eq('is_deleted', false)
-        .single();
+  const { data: challengeData, error: challengeError } = await supabase
+    .from('challenges')
+    .select('*')
+    .eq('id', id)
+    .eq('is_deleted', false)
+    .single();
 
-      if (challengeError || !challengeData) {
-        console.error('Erreur chargement challenge :', challengeError);
-        setNotFound(true);
-        setChallenge(null);
-        setActivities([]);
-        setParticipants([]);
-        setInteractions([]);
-        setLoading(false);
-        setActivitiesLoading(false);
-        setParticipantsLoading(false);
-        return;
-      }
+  if (challengeError || !challengeData) {
+    console.error('Erreur chargement challenge :', challengeError);
+    setNotFound(true);
+    setChallenge(null);
+    setActivities([]);
+    setParticipants([]);
+    setInteractions([]);
+    setLoading(false);
+    setActivitiesLoading(false);
+    setParticipantsLoading(false);
+    return;
+  }
 
-      const isPublic = challengeData.visibility === 'public';
-      let hasAccess = isPublic;
+  const isPublic = challengeData.visibility === 'public';
+  let hasAccess = isPublic;
 
-      if (!isPublic && user?.id) {
-        const { data: memberData, error: memberError } = await supabase
-          .from('challenge_participants')
-          .select('id')
-          .eq('challenge_id', id)
-          .eq('user_id', user.id)
-          .maybeSingle();
+  if (!isPublic && user?.id) {
+    const { data: memberData, error: memberError } = await supabase
+      .from('challenge_participants')
+      .select('id')
+      .eq('challenge_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-        if (memberError) {
-          console.error('Erreur vérification accès challenge :', memberError);
-        }
+    if (memberError) {
+      console.error('Erreur vérification accès challenge :', memberError);
+    }
 
-        hasAccess = Boolean(memberData);
-      }
+    hasAccess = Boolean(memberData);
+  }
 
-      if (!hasAccess) {
-        setAccessDenied(true);
-        setChallenge(null);
-        setActivities([]);
-        setParticipants([]);
-        setInteractions([]);
-        setLoading(false);
-        setActivitiesLoading(false);
-        setParticipantsLoading(false);
-        return;
-      }
+  if (!hasAccess) {
+    setAccessDenied(true);
+    setChallenge(null);
+    setActivities([]);
+    setParticipants([]);
+    setInteractions([]);
+    setLoading(false);
+    setActivitiesLoading(false);
+    setParticipantsLoading(false);
+    return;
+  }
 
-      setChallenge(challengeData);
-      setLoading(false);
+  setChallenge(challengeData);
+  setLoading(false);
 
-      const [activitiesResponse, participantsResponse, interactionsResponse] =
-        await Promise.all([
-          supabase
-  .from('activities')
-  .select(
-    'id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at, likes_count, boosts_count'
-  )
-  .eq('challenge_id', id)
-  .order('created_at', { ascending: false }),
+  const [activitiesResponse, participantsResponse, interactionsResponse] =
+    await Promise.all([
+      supabase
+        .from('activities')
+        .select(
+          'id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at, likes_count, boosts_count'
+        )
+        .eq('challenge_id', id)
+        .order('created_at', { ascending: false }),
 
-          supabase
-            .from('challenge_participants')
-            .select('id, challenge_id, user_id, role, joined_at')
-            .eq('challenge_id', id)
-            .order('joined_at', { ascending: true }),
+      supabase
+        .from('challenge_participants')
+        .select('id, challenge_id, user_id, role, joined_at')
+        .eq('challenge_id', id)
+        .order('joined_at', { ascending: true }),
 
-          supabase
-            .from('activity_interactions')
-            .select('id, activity_id, user_id, type, created_at'),
-        ]);
+      supabase
+        .from('activity_interactions')
+        .select('id, activity_id, user_id, type, created_at'),
+    ]);
 
-      const { data: activitiesData, error: activitiesError } = activitiesResponse;
-      const { data: participantsData, error: participantsError } = participantsResponse;
-      const { data: interactionsData, error: interactionsError } = interactionsResponse;
+  const { data: activitiesData, error: activitiesError } = activitiesResponse;
+  const { data: participantsData, error: participantsError } = participantsResponse;
+  const { data: interactionsData, error: interactionsError } = interactionsResponse;
 
-      if (activitiesError) {
-        console.error('Erreur chargement activités :', activitiesError);
-        setActivities([]);
-        setActivitiesErrorMessage(
-          activitiesError.message || 'Impossible de charger les activités pour le moment.'
-        );
-      } else {
-        setActivities((activitiesData as Activity[]) || []);
-      }
+  if (activitiesError) {
+    console.error('Erreur chargement activités :', activitiesError);
+    setActivities([]);
+    setActivitiesErrorMessage(
+      activitiesError.message || 'Impossible de charger les activités pour le moment.'
+    );
+  } else {
+    setActivities((activitiesData as Activity[]) || []);
+  }
 
-      if (participantsError) {
-        console.error('Erreur chargement participants :', participantsError);
-        setParticipants([]);
-        setParticipantsErrorMessage(
-          participantsError.message || 'Impossible de charger les participants pour le moment.'
-        );
-      } else {
-        setParticipants((participantsData as ChallengeParticipant[]) || []);
-      }
+  if (participantsError) {
+    console.error('Erreur chargement participants :', participantsError);
+    setParticipants([]);
+    setParticipantsErrorMessage(
+      participantsError.message || 'Impossible de charger les participants pour le moment.'
+    );
+  } else {
+    setParticipants((participantsData as ChallengeParticipant[]) || []);
+  }
 
-      if (interactionsError) {
-        console.error('Erreur chargement interactions :', interactionsError);
-        setInteractions([]);
-      } else {
-        setInteractions((interactionsData as ActivityInteraction[]) || []);
-      }
+  if (interactionsError) {
+    console.error('Erreur chargement interactions :', interactionsError);
+    setInteractions([]);
+  } else {
+    setInteractions((interactionsData as ActivityInteraction[]) || []);
+  }
 
-      const loadedActivities = (activitiesData as Activity[]) || [];
-      const loadedParticipants = (participantsData as ChallengeParticipant[]) || [];
+  const loadedActivities = (activitiesData as Activity[]) || [];
+  const loadedParticipants = (participantsData as ChallengeParticipant[]) || [];
 
-      const userIdsFromParticipants = loadedParticipants.map((participant) => participant.user_id);
-      const userIdsFromActivities = loadedActivities
-        .map((activity) => activity.user_id)
-        .filter((value): value is string => Boolean(value));
+  const userIdsFromParticipants = loadedParticipants.map((participant) => participant.user_id);
+  const userIdsFromActivities = loadedActivities
+    .map((activity) => activity.user_id)
+    .filter((value): value is string => Boolean(value));
 
-      const emailsFromActivities = loadedActivities
-        .map((activity) => activity.user_email)
-        .filter((value): value is string => Boolean(value));
+  const emailsFromActivities = loadedActivities
+    .map((activity) => activity.user_email)
+    .filter((value): value is string => Boolean(value));
 
-      const uniqueUserIds = Array.from(
-        new Set([...userIdsFromParticipants, ...userIdsFromActivities])
-      );
-      const uniqueEmails = Array.from(new Set(emailsFromActivities));
+  const uniqueUserIds = Array.from(
+    new Set([...userIdsFromParticipants, ...userIdsFromActivities])
+  );
+  const uniqueEmails = Array.from(new Set(emailsFromActivities));
 
-      let profilesData: Profile[] = [];
+  let profilesData: Profile[] = [];
 
-      if (uniqueUserIds.length > 0) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, email, username')
-          .in('id', uniqueUserIds);
+  if (uniqueUserIds.length > 0) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, username')
+      .in('id', uniqueUserIds);
 
-        if (error) {
-          console.error('Erreur chargement profils par id :', error);
-        } else {
-          profilesData = [...profilesData, ...((data as Profile[]) || [])];
-        }
-      }
+    if (error) {
+      console.error('Erreur chargement profils par id :', error);
+    } else {
+      profilesData = [...profilesData, ...((data as Profile[]) || [])];
+    }
+  }
 
-      const missingEmails = uniqueEmails.filter((email) => {
-        return !profilesData.some(
-          (profile) => profile.email?.toLowerCase() === email.toLowerCase()
-        );
-      });
+  const missingEmails = uniqueEmails.filter((email) => {
+    return !profilesData.some(
+      (profile) => profile.email?.toLowerCase() === email.toLowerCase()
+    );
+  });
 
-      if (missingEmails.length > 0) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, email, username')
-          .in('email', missingEmails);
+  if (missingEmails.length > 0) {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, username')
+      .in('email', missingEmails);
 
-        if (error) {
-          console.error('Erreur chargement profils par email :', error);
-        } else {
-          profilesData = [...profilesData, ...((data as Profile[]) || [])];
-        }
-      }
+    if (error) {
+      console.error('Erreur chargement profils par email :', error);
+    } else {
+      profilesData = [...profilesData, ...((data as Profile[]) || [])];
+    }
+  }
 
-      const nextProfilesById: Record<string, string> = {};
-      const nextProfilesByEmail: Record<string, string> = {};
+  const nextProfilesById: Record<string, string> = {};
+  const nextProfilesByEmail: Record<string, string> = {};
 
-      profilesData.forEach((profile) => {
-        if (profile.id && profile.username) {
-          nextProfilesById[profile.id] = profile.username;
-        }
+  profilesData.forEach((profile) => {
+    if (profile.id && profile.username) {
+      nextProfilesById[profile.id] = profile.username;
+    }
 
-        if (profile.email && profile.username) {
-          nextProfilesByEmail[profile.email.toLowerCase()] = profile.username;
-        }
-      });
+    if (profile.email && profile.username) {
+      nextProfilesByEmail[profile.email.toLowerCase()] = profile.username;
+    }
+  });
 
-      setProfilesById(nextProfilesById);
-      setProfilesByEmail(nextProfilesByEmail);
+  setProfilesById(nextProfilesById);
+  setProfilesByEmail(nextProfilesByEmail);
 
-      setActivitiesLoading(false);
-      setParticipantsLoading(false);
-    };
+  setActivitiesLoading(false);
+  setParticipantsLoading(false);
+};
 
-    fetchChallengeAndActivities();
-  }, [id]);
+useEffect(() => {
+  fetchChallengeAndActivities();
+}, [id]);
 
   const handleDeleteChallenge = async () => {
     const confirmed = window.confirm(
@@ -549,6 +552,75 @@ export default function ChallengeDetailPage() {
   }, [participants, currentUserId]);
 
   const isPublic = challenge?.visibility === 'public';
+
+  const getLikesCount = (activityId: string) => {
+  return interactions.filter(
+    (interaction) =>
+      interaction.activity_id === activityId && interaction.type === 'like'
+  ).length;
+};
+
+const getBoostsCount = (activityId: string) => {
+  return interactions.filter(
+    (interaction) =>
+      interaction.activity_id === activityId && interaction.type === 'boost'
+  ).length;
+};
+
+const hasUserLiked = (activityId: string) => {
+  if (!currentUserId) return false;
+
+  return interactions.some(
+    (interaction) =>
+      interaction.activity_id === activityId &&
+      interaction.user_id === currentUserId &&
+      interaction.type === 'like'
+  );
+};
+
+const handleLike = async (activityId: string) => {
+  if (!currentUserId) {
+    alert('Tu dois être connecté pour liker une activité.');
+    return;
+  }
+
+  const existingLike = interactions.find(
+    (interaction) =>
+      interaction.activity_id === activityId &&
+      interaction.user_id === currentUserId &&
+      interaction.type === 'like'
+  );
+
+  if (existingLike) {
+    const { error } = await supabase
+      .from('activity_interactions')
+      .delete()
+      .eq('id', existingLike.id);
+
+    if (error) {
+      console.error('Erreur suppression like :', error);
+      alert("Impossible de retirer le like pour le moment.");
+      return;
+    }
+  } else {
+    const { error } = await supabase
+      .from('activity_interactions')
+      .insert({
+        activity_id: activityId,
+        user_id: currentUserId,
+        type: 'like',
+      });
+
+    if (error) {
+      console.error('Erreur ajout like :', error);
+      alert("Impossible d'ajouter le like pour le moment.");
+      return;
+    }
+  }
+
+  await fetchChallengeAndActivities();
+};
+
 
   const handleInvitePartner = async () => {
     if (!challenge?.invite_code) {
@@ -954,9 +1026,16 @@ export default function ChallengeDetailPage() {
                     </p>
                   )}
                   <div className="activity-reactions">
-    <span>👍 {activity.likes_count ?? 0}</span>
-    <span>⚡ {activity.boosts_count ?? 0}</span>
-  </div>
+  <button
+    type="button"
+    className={`reaction-button ${hasUserLiked(activity.id) ? 'active' : ''}`}
+    onClick={() => handleLike(activity.id)}
+  >
+    👍 {getLikesCount(activity.id)}
+  </button>
+
+  <span>⚡ {getBoostsCount(activity.id)}</span>
+</div>
                 </article>
               ))}
             </div>
