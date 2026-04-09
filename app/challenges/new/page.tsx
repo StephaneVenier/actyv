@@ -105,11 +105,12 @@ export default function NewChallengePage() {
         end_date: endDate || null,
         goal_type: goalType,
         goal_value: parsedGoalValue,
-        goal_km: goalType === 'distance' ? parsedGoalValue : null, // compatibilité ancienne logique
+        goal_km: goalType === 'distance' ? parsedGoalValue : null,
         description: description.trim() || null,
         created_by: user.id,
         visibility: 'private',
         invite_code: inviteCode,
+        is_deleted: false,
       };
 
       const { data: challenge, error: challengeError } = await supabase
@@ -123,26 +124,6 @@ export default function NewChallengePage() {
         setMessage(
           `Erreur création challenge : ${
             challengeError?.message || 'erreur inconnue'
-          }`
-        );
-        return;
-      }
-
-      const { error: memberError } = await supabase
-        .from('challenge_members')
-        .insert([
-          {
-            challenge_id: challenge.id,
-            user_email: user.email,
-            role: 'owner',
-          },
-        ]);
-
-      if (memberError) {
-        console.error('Erreur ajout owner dans challenge_members :', memberError);
-        setMessage(
-          `Challenge créé mais erreur membre : ${
-            memberError?.message || 'erreur inconnue'
           }`
         );
         return;
