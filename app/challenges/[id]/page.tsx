@@ -28,6 +28,7 @@ type Challenge = {
 type Activity = {
   id: string;
   challenge_id: string;
+  user_id: string | null;
   user_email: string | null;
   sport: string | null;
   distance_km: number | null;
@@ -40,12 +41,21 @@ type Activity = {
 };
 
 type Profile = {
+  id: string;
   email: string | null;
   username: string | null;
 };
 
+type ChallengeParticipant = {
+  id: string;
+  challenge_id: string;
+  user_id: string;
+  role: 'admin' | 'participant';
+  joined_at: string;
+};
+
 type LeaderboardRow = {
-  user_email: string;
+  user_key: string;
   displayName: string;
   totalValue: number;
   totalActivities: number;
@@ -145,10 +155,15 @@ export default function ChallengeDetailPage() {
 
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [participants, setParticipants] = useState<ChallengeParticipant[]>([]);
+  const [profilesById, setProfilesById] = useState<Record<string, string>>({});
+  const [profilesByEmail, setProfilesByEmail] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
+  const [participantsLoading, setParticipantsLoading] = useState(true);
+  const [joiningChallenge, setJoiningChallenge] = useState(false);
   const [activitiesErrorMessage, setActivitiesErrorMessage] = useState<string | null>(null);
+  const [participantsErrorMessage, setParticipantsErrorMessage] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -160,7 +175,9 @@ export default function ChallengeDetailPage() {
 
       setLoading(true);
       setActivitiesLoading(true);
+      setParticipantsLoading(true);
       setActivitiesErrorMessage(null);
+      setParticipantsErrorMessage(null);
       setNotFound(false);
       setAccessDenied(false);
       setShareMessage('');
@@ -183,20 +200,22 @@ export default function ChallengeDetailPage() {
         setNotFound(true);
         setChallenge(null);
         setActivities([]);
+        setParticipants([]);
         setLoading(false);
         setActivitiesLoading(false);
+        setParticipantsLoading(false);
         return;
       }
 
       const isPublic = challengeData.visibility === 'public';
       let hasAccess = isPublic;
 
-      if (!isPublic && user?.email) {
+      if (!isPublic && user?.id) {
         const { data: memberData, error: memberError } = await supabase
-          .from('challenge_members')
-          .select('challenge_id')
+          .from('challenge_participants')
+          .select('id')
           .eq('challenge_id', id)
-          .eq('user_email', user.email)
+          .eq('user_id', user.id)
           .maybeSingle();
 
         if (memberError) {
@@ -210,69 +229,120 @@ export default function ChallengeDetailPage() {
         setAccessDenied(true);
         setChallenge(null);
         setActivities([]);
+        setParticipants([]);
         setLoading(false);
         setActivitiesLoading(false);
+        setParticipantsLoading(false);
         return;
       }
 
       setChallenge(challengeData);
       setLoading(false);
 
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from('activities')
-        .select(
-          'id, challenge_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at'
-        )
-        .eq('challenge_id', id)
-        .order('created_at', { ascending: false });
+      const [activitiesResponse, participantsResponse] = await Promise.all([
+        supabase
+          .from('activities')
+          .select(
+            'id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at'
+          )
+          .eq('challenge_id', id)
+          .order('created_at', { ascending: false }),
+
+        supabase
+          .from('challenge_participants')
+          .select('id, challenge_id, user_id, role, joined_at')
+          .eq('challenge_id', id)
+          .order('joined_at', { ascending: true }),
+      ]);
+
+      const { data: activitiesData, error: activitiesError } = activitiesResponse;
+      const { data: participantsData, error: participantsError } = participantsResponse;
 
       if (activitiesError) {
         console.error('Erreur chargement activités :', activitiesError);
         setActivities([]);
-        setProfilesMap({});
         setActivitiesErrorMessage(
           activitiesError.message || 'Impossible de charger les activités pour le moment.'
         );
-        setActivitiesLoading(false);
-        return;
+      } else {
+        setActivities((activitiesData as Activity[]) || []);
+      }
+
+      if (participantsError) {
+        console.error('Erreur chargement participants :', participantsError);
+        setParticipants([]);
+        setParticipantsErrorMessage(
+          participantsError.message || 'Impossible de charger les participants pour le moment.'
+        );
+      } else {
+        setParticipants((participantsData as ChallengeParticipant[]) || []);
       }
 
       const loadedActivities = (activitiesData as Activity[]) || [];
-      setActivities(loadedActivities);
+      const loadedParticipants = (participantsData as ChallengeParticipant[]) || [];
 
-      const emails = Array.from(
-        new Set(
-          loadedActivities
-            .map((activity) => activity.user_email)
-            .filter((email): email is string => Boolean(email))
-        )
-      );
+      const userIdsFromParticipants = loadedParticipants.map((participant) => participant.user_id);
+      const userIdsFromActivities = loadedActivities
+        .map((activity) => activity.user_id)
+        .filter((value): value is string => Boolean(value));
 
-      if (emails.length > 0) {
-        const { data: profilesData, error: profilesError } = await supabase
+      const emailsFromActivities = loadedActivities
+        .map((activity) => activity.user_email)
+        .filter((value): value is string => Boolean(value));
+
+      const uniqueUserIds = Array.from(new Set([...userIdsFromParticipants, ...userIdsFromActivities]));
+      const uniqueEmails = Array.from(new Set(emailsFromActivities));
+
+      let profilesData: Profile[] = [];
+
+      if (uniqueUserIds.length > 0) {
+        const { data, error } = await supabase
           .from('profiles')
-          .select('email, username')
-          .in('email', emails);
+          .select('id, email, username')
+          .in('id', uniqueUserIds);
 
-        if (profilesError) {
-          console.error('Erreur chargement profils :', profilesError);
-          setProfilesMap({});
+        if (error) {
+          console.error('Erreur chargement profils par id :', error);
         } else {
-          const nextProfilesMap: Record<string, string> = {};
-
-          (profilesData as Profile[] | null)?.forEach((profile) => {
-            if (profile.email && profile.username) {
-              nextProfilesMap[profile.email] = profile.username;
-            }
-          });
-
-          setProfilesMap(nextProfilesMap);
+          profilesData = [...profilesData, ...((data as Profile[]) || [])];
         }
-      } else {
-        setProfilesMap({});
       }
 
+      const missingEmails = uniqueEmails.filter((email) => {
+        return !profilesData.some((profile) => profile.email?.toLowerCase() === email.toLowerCase());
+      });
+
+      if (missingEmails.length > 0) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, email, username')
+          .in('email', missingEmails);
+
+        if (error) {
+          console.error('Erreur chargement profils par email :', error);
+        } else {
+          profilesData = [...profilesData, ...((data as Profile[]) || [])];
+        }
+      }
+
+      const nextProfilesById: Record<string, string> = {};
+      const nextProfilesByEmail: Record<string, string> = {};
+
+      profilesData.forEach((profile) => {
+        if (profile.id && profile.username) {
+          nextProfilesById[profile.id] = profile.username;
+        }
+
+        if (profile.email && profile.username) {
+          nextProfilesByEmail[profile.email.toLowerCase()] = profile.username;
+        }
+      });
+
+      setProfilesById(nextProfilesById);
+      setProfilesByEmail(nextProfilesByEmail);
+
       setActivitiesLoading(false);
+      setParticipantsLoading(false);
     };
 
     fetchChallengeAndActivities();
@@ -304,9 +374,11 @@ export default function ChallengeDetailPage() {
     }
   };
 
-  const getDisplayName = (email: string | null) => {
-    if (!email) return 'Utilisateur inconnu';
-    return profilesMap[email] || email;
+  const getDisplayName = (userId: string | null | undefined, email: string | null | undefined) => {
+    if (userId && profilesById[userId]) return profilesById[userId];
+    if (email && profilesByEmail[email.toLowerCase()]) return profilesByEmail[email.toLowerCase()];
+    if (email) return email;
+    return 'Utilisateur inconnu';
   };
 
   const effectiveGoalType: GoalType | null =
@@ -379,12 +451,12 @@ export default function ChallengeDetailPage() {
     const grouped = new Map<string, LeaderboardRow>();
 
     for (const activity of normalizedActivities) {
-      const email = activity.user_email || 'Utilisateur inconnu';
-      const displayName = getDisplayName(activity.user_email);
+      const userKey = activity.user_id || activity.user_email || 'Utilisateur inconnu';
+      const displayName = getDisplayName(activity.user_id, activity.user_email);
 
-      if (!grouped.has(email)) {
-        grouped.set(email, {
-          user_email: email,
+      if (!grouped.has(userKey)) {
+        grouped.set(userKey, {
+          user_key: userKey,
           displayName,
           totalValue: 0,
           totalActivities: 0,
@@ -394,7 +466,7 @@ export default function ChallengeDetailPage() {
         });
       }
 
-      const current = grouped.get(email)!;
+      const current = grouped.get(userKey)!;
 
       if (activity.normalized_unit_type === 'distance') {
         current.totalDistance += activity.normalized_unit_value || 0;
@@ -426,7 +498,7 @@ export default function ChallengeDetailPage() {
 
       return a.displayName.localeCompare(b.displayName, 'fr');
     });
-  }, [normalizedActivities, profilesMap, effectiveGoalType]);
+  }, [normalizedActivities, profilesById, profilesByEmail, effectiveGoalType]);
 
   const progressPercent =
     effectiveGoalValue && effectiveGoalValue > 0
@@ -434,6 +506,13 @@ export default function ChallengeDetailPage() {
       : null;
 
   const isOwner = currentUserId === challenge?.created_by;
+
+  const isParticipant = useMemo(() => {
+    if (!currentUserId) return false;
+    return participants.some((participant) => participant.user_id === currentUserId);
+  }, [participants, currentUserId]);
+
+  const isPublic = challenge?.visibility === 'public';
 
   const handleInvitePartner = async () => {
     if (!challenge?.invite_code) {
@@ -462,6 +541,54 @@ export default function ChallengeDetailPage() {
     } catch (error) {
       console.error("Erreur lors du partage de l'invitation :", error);
       setShareMessage("Impossible de partager le lien pour le moment.");
+    }
+  };
+
+  const handleJoinChallenge = async () => {
+    if (!challenge?.id) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      alert('Vous devez être connecté pour rejoindre ce challenge.');
+      return;
+    }
+
+    setJoiningChallenge(true);
+
+    try {
+      const { error } = await supabase.from('challenge_participants').insert({
+        challenge_id: challenge.id,
+        user_id: user.id,
+        role: 'participant',
+      });
+
+      if (error) {
+        if (error.code === '23505') {
+          alert('Vous participez déjà à ce challenge.');
+        } else {
+          console.error('Erreur participation challenge :', error);
+          alert("Impossible de rejoindre le challenge pour le moment.");
+        }
+        return;
+      }
+
+      setParticipants((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          challenge_id: challenge.id,
+          user_id: user.id,
+          role: 'participant',
+          joined_at: new Date().toISOString(),
+        },
+      ]);
+
+      setCurrentUserId(user.id);
+    } finally {
+      setJoiningChallenge(false);
     }
   };
 
@@ -534,6 +661,17 @@ export default function ChallengeDetailPage() {
             </div>
 
             <div className="challenge-hero-actions">
+              {isPublic && !isParticipant && (
+                <button
+                  type="button"
+                  className="button primary"
+                  onClick={handleJoinChallenge}
+                  disabled={joiningChallenge}
+                >
+                  {joiningChallenge ? 'Participation...' : 'Rejoindre le challenge'}
+                </button>
+              )}
+
               {isOwner && (
                 <button
                   type="button"
@@ -595,7 +733,7 @@ export default function ChallengeDetailPage() {
 
           <article className="card stat-card">
             <span className="stat-card-label">Participants</span>
-            <strong className="stat-card-value">{leaderboard.length}</strong>
+            <strong className="stat-card-value">{participants.length}</strong>
           </article>
 
           <article className="card stat-card">
@@ -640,14 +778,50 @@ export default function ChallengeDetailPage() {
         </section>
 
         <section className="card">
-          <h2>Classement</h2>
+          <h2>Participants</h2>
 
-          {leaderboard.length === 0 ? (
+          {participantsLoading ? (
+            <p style={{ marginTop: '1rem' }}>Chargement des participants...</p>
+          ) : participantsErrorMessage ? (
+            <p style={{ marginTop: '1rem', color: 'crimson' }}>
+              {participantsErrorMessage}
+            </p>
+          ) : participants.length === 0 ? (
             <p style={{ marginTop: '1rem' }}>Aucun participant pour le moment.</p>
           ) : (
             <div className="leaderboard-list">
+              {participants.map((participant) => (
+                <article key={participant.id} className="leaderboard-item">
+                  <div className="leaderboard-rank">
+                    {participant.role === 'admin' ? '👑' : '👤'}
+                  </div>
+
+                  <div className="leaderboard-main">
+                    <strong className="leaderboard-name">
+                      {getDisplayName(participant.user_id, null)}
+                    </strong>
+                    <div className="leaderboard-meta">
+                      <span>
+                        {participant.role === 'admin' ? 'Administrateur' : 'Participant'}
+                      </span>
+                      <span>Rejoint le {formatDate(participant.joined_at)}</span>
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="card">
+          <h2>Classement</h2>
+
+          {leaderboard.length === 0 ? (
+            <p style={{ marginTop: '1rem' }}>Aucune activité pour le moment.</p>
+          ) : (
+            <div className="leaderboard-list">
               {leaderboard.map((row, index) => (
-                <article key={row.user_email} className="leaderboard-item">
+                <article key={row.user_key} className="leaderboard-item">
                   <div className="leaderboard-rank">#{index + 1}</div>
 
                   <div className="leaderboard-main">
@@ -698,7 +872,9 @@ export default function ChallengeDetailPage() {
               {normalizedActivities.map((activity) => (
                 <article key={activity.id} className="activity-item">
                   <div className="activity-top">
-                    <strong className="activity-user">{getDisplayName(activity.user_email)}</strong>
+                    <strong className="activity-user">
+                      {getDisplayName(activity.user_id, activity.user_email)}
+                    </strong>
                     <span className="activity-date">{formatDate(activity.created_at)}</span>
                   </div>
 
