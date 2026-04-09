@@ -33,11 +33,11 @@ type Activity = {
   sport: string | null;
   distance_km: number | null;
   duration_minutes: number | null;
-  unit_type?: GoalType | null;
-  unit_value?: number | null;
-  exercise_type?: string | null;
+  reps: number | null;
   comment: string | null;
   created_at: string | null;
+  likes_count?: number | null;
+  boosts_count?: number | null;
 };
 
 type Profile = {
@@ -52,6 +52,16 @@ type ChallengeParticipant = {
   user_id: string;
   role: 'admin' | 'participant';
   joined_at: string;
+};
+
+type ActivityInteractionType = 'like' | 'boost';
+
+type ActivityInteraction = {
+  id: string;
+  activity_id: string;
+  user_id: string;
+  type: ActivityInteractionType;
+  created_at?: string;
 };
 
 type LeaderboardRow = {
@@ -116,7 +126,10 @@ function getUnitShortLabel(goalType: GoalType | null | undefined) {
   }
 }
 
-function formatGoalValue(value: number | null | undefined, goalType: GoalType | null | undefined) {
+function formatGoalValue(
+  value: number | null | undefined,
+  goalType: GoalType | null | undefined
+) {
   if (value === null || value === undefined) return 'Non défini';
 
   switch (goalType) {
@@ -156,6 +169,7 @@ export default function ChallengeDetailPage() {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [participants, setParticipants] = useState<ChallengeParticipant[]>([]);
+  const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [profilesById, setProfilesById] = useState<Record<string, string>>({});
   const [profilesByEmail, setProfilesByEmail] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -201,6 +215,7 @@ export default function ChallengeDetailPage() {
         setChallenge(null);
         setActivities([]);
         setParticipants([]);
+        setInteractions([]);
         setLoading(false);
         setActivitiesLoading(false);
         setParticipantsLoading(false);
@@ -230,6 +245,7 @@ export default function ChallengeDetailPage() {
         setChallenge(null);
         setActivities([]);
         setParticipants([]);
+        setInteractions([]);
         setLoading(false);
         setActivitiesLoading(false);
         setParticipantsLoading(false);
@@ -239,24 +255,30 @@ export default function ChallengeDetailPage() {
       setChallenge(challengeData);
       setLoading(false);
 
-      const [activitiesResponse, participantsResponse] = await Promise.all([
-        supabase
-          .from('activities')
-          .select(
-            'id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at'
-          )
-          .eq('challenge_id', id)
-          .order('created_at', { ascending: false }),
+      const [activitiesResponse, participantsResponse, interactionsResponse] =
+        await Promise.all([
+          supabase
+  .from('activities')
+  .select(
+    'id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, exercise_type, comment, created_at, likes_count, boosts_count'
+  )
+  .eq('challenge_id', id)
+  .order('created_at', { ascending: false }),
 
-        supabase
-          .from('challenge_participants')
-          .select('id, challenge_id, user_id, role, joined_at')
-          .eq('challenge_id', id)
-          .order('joined_at', { ascending: true }),
-      ]);
+          supabase
+            .from('challenge_participants')
+            .select('id, challenge_id, user_id, role, joined_at')
+            .eq('challenge_id', id)
+            .order('joined_at', { ascending: true }),
+
+          supabase
+            .from('activity_interactions')
+            .select('id, activity_id, user_id, type, created_at'),
+        ]);
 
       const { data: activitiesData, error: activitiesError } = activitiesResponse;
       const { data: participantsData, error: participantsError } = participantsResponse;
+      const { data: interactionsData, error: interactionsError } = interactionsResponse;
 
       if (activitiesError) {
         console.error('Erreur chargement activités :', activitiesError);
@@ -278,6 +300,13 @@ export default function ChallengeDetailPage() {
         setParticipants((participantsData as ChallengeParticipant[]) || []);
       }
 
+      if (interactionsError) {
+        console.error('Erreur chargement interactions :', interactionsError);
+        setInteractions([]);
+      } else {
+        setInteractions((interactionsData as ActivityInteraction[]) || []);
+      }
+
       const loadedActivities = (activitiesData as Activity[]) || [];
       const loadedParticipants = (participantsData as ChallengeParticipant[]) || [];
 
@@ -290,7 +319,9 @@ export default function ChallengeDetailPage() {
         .map((activity) => activity.user_email)
         .filter((value): value is string => Boolean(value));
 
-      const uniqueUserIds = Array.from(new Set([...userIdsFromParticipants, ...userIdsFromActivities]));
+      const uniqueUserIds = Array.from(
+        new Set([...userIdsFromParticipants, ...userIdsFromActivities])
+      );
       const uniqueEmails = Array.from(new Set(emailsFromActivities));
 
       let profilesData: Profile[] = [];
@@ -309,7 +340,9 @@ export default function ChallengeDetailPage() {
       }
 
       const missingEmails = uniqueEmails.filter((email) => {
-        return !profilesData.some((profile) => profile.email?.toLowerCase() === email.toLowerCase());
+        return !profilesData.some(
+          (profile) => profile.email?.toLowerCase() === email.toLowerCase()
+        );
       });
 
       if (missingEmails.length > 0) {
@@ -374,7 +407,10 @@ export default function ChallengeDetailPage() {
     }
   };
 
-  const getDisplayName = (userId: string | null | undefined, email: string | null | undefined) => {
+  const getDisplayName = (
+    userId: string | null | undefined,
+    email: string | null | undefined
+  ) => {
     if (userId && profilesById[userId]) return profilesById[userId];
     if (email && profilesByEmail[email.toLowerCase()]) return profilesByEmail[email.toLowerCase()];
     if (email) return email;
@@ -394,16 +430,16 @@ export default function ChallengeDetailPage() {
         (activity.distance_km !== null && activity.distance_km !== undefined
           ? 'distance'
           : activity.duration_minutes !== null && activity.duration_minutes !== undefined
-          ? 'duration'
-          : null);
+            ? 'duration'
+            : null);
 
       const fallbackUnitValue =
         activity.unit_value ??
         (fallbackUnitType === 'distance'
           ? activity.distance_km
           : fallbackUnitType === 'duration'
-          ? activity.duration_minutes
-          : null);
+            ? activity.duration_minutes
+            : null);
 
       return {
         ...activity,
@@ -648,7 +684,9 @@ export default function ChallengeDetailPage() {
   return (
     <AppShell>
       <section className="challenge-detail-page">
-        <Link href="/" className="detail-back-link">← Retour à l’accueil</Link>
+        <Link href="/" className="detail-back-link">
+          ← Retour à l’accueil
+        </Link>
 
         <article className="card challenge-hero-card">
           <div className="challenge-hero-top">
@@ -710,7 +748,9 @@ export default function ChallengeDetailPage() {
             </div>
 
             <div className="challenge-meta-item">
-              <span className="challenge-meta-label">{getGoalTypeLabel(effectiveGoalType)}</span>
+              <span className="challenge-meta-label">
+                {getGoalTypeLabel(effectiveGoalType)}
+              </span>
               <strong>{formatGoalValue(effectiveGoalValue, effectiveGoalType)}</strong>
             </div>
           </div>
@@ -771,9 +811,7 @@ export default function ChallengeDetailPage() {
               </div>
             </>
           ) : (
-            <p style={{ marginTop: '1rem' }}>
-              Aucun objectif défini pour ce challenge.
-            </p>
+            <p style={{ marginTop: '1rem' }}>Aucun objectif défini pour ce challenge.</p>
           )}
         </section>
 
@@ -841,9 +879,7 @@ export default function ChallengeDetailPage() {
                         <span>{formatDuration(row.totalDuration)}</span>
                       )}
 
-                      {row.totalReps > 0 && (
-                        <span>{formatReps(row.totalReps)}</span>
-                      )}
+                      {row.totalReps > 0 && <span>{formatReps(row.totalReps)}</span>}
 
                       <span>
                         {row.totalActivities} activité{row.totalActivities > 1 ? 's' : ''}
@@ -885,25 +921,29 @@ export default function ChallengeDetailPage() {
                   <div className="activity-stats">
                     {activity.normalized_unit_type === 'distance' && (
                       <span>
-                        <strong>Distance :</strong> {formatDistance(activity.normalized_unit_value)}
+                        <strong>Distance :</strong>{' '}
+                        {formatDistance(activity.normalized_unit_value)}
                       </span>
                     )}
 
                     {activity.normalized_unit_type === 'duration' && (
                       <span>
-                        <strong>Durée :</strong> {formatDuration(activity.normalized_unit_value)}
+                        <strong>Durée :</strong>{' '}
+                        {formatDuration(activity.normalized_unit_value)}
                       </span>
                     )}
 
                     {activity.normalized_unit_type === 'reps' && (
                       <span>
-                        <strong>Répétitions :</strong> {formatReps(activity.normalized_unit_value)}
+                        <strong>Répétitions :</strong>{' '}
+                        {formatReps(activity.normalized_unit_value)}
                       </span>
                     )}
 
                     {activity.exercise_type && (
                       <span>
-                        <strong>Exercice :</strong> {formatExerciseType(activity.exercise_type)}
+                        <strong>Exercice :</strong>{' '}
+                        {formatExerciseType(activity.exercise_type)}
                       </span>
                     )}
                   </div>
@@ -913,6 +953,10 @@ export default function ChallengeDetailPage() {
                       <strong>Commentaire :</strong> {activity.comment}
                     </p>
                   )}
+                  <div className="activity-reactions">
+    <span>👍 {activity.likes_count ?? 0}</span>
+    <span>⚡ {activity.boosts_count ?? 0}</span>
+  </div>
                 </article>
               ))}
             </div>
