@@ -754,6 +754,72 @@ img {
   color: #16a34a;
 }
 
+.profile-page {
+  display: grid;
+  gap: 24px;
+}
+
+.profile-hero-card {
+  padding: 28px;
+}
+
+.profile-hero-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 420px);
+  gap: 24px;
+  align-items: start;
+}
+
+.profile-hero-card h1 {
+  margin: 0;
+  color: #071226;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  letter-spacing: -0.03em;
+}
+
+.profile-identity {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.profile-identity span {
+  display: block;
+  margin-bottom: 4px;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.profile-identity strong {
+  color: #0f172a;
+}
+
+.profile-identity input {
+  width: 100%;
+}
+
+.profile-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.profile-section {
+  width: 100%;
+}
+
 /* HOME FEED */
 
 .home-feed {
@@ -1301,6 +1367,14 @@ img {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .profile-hero-main {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .hero-content {
     padding-bottom: 110px;
   }
@@ -1349,6 +1423,10 @@ img {
   .completed-challenge-side {
     text-align: left;
     min-width: 0;
+  }
+
+  .profile-stats-grid {
+    grid-template-columns: 1fr;
   }
 
   .auth-actions {

@@ -1,8 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
+
+type GoalType = 'distance' | 'duration' | 'reps';
 
 type Profile = {
   id: string;
@@ -16,24 +19,38 @@ type Activity = {
   user_email: string | null;
   distance_km: number | null;
   duration_minutes: number | null;
+  unit_type: GoalType | null;
+  unit_value: number | null;
   created_at: string | null;
-  challenges: {
-    id: string;
-    name: string;
-    sport: string | null;
-    goal_km: number | null;
-    end_date: string | null;
-  } | null;
+};
+
+type Challenge = {
+  id: string;
+  name: string;
+  sport: string | null;
+  description: string | null;
+  goal_km: number | null;
+  goal_type: GoalType | null;
+  goal_value: number | null;
+  created_by: string | null;
+};
+
+type ChallengeMember = {
+  challenge_id: string;
+};
+
+type ActivityInteraction = {
+  activity_id: string;
+  type: 'like' | 'boost';
 };
 
 type UserChallengeSummary = {
-  challengeId: string;
-  challengeName: string;
-  sport: string | null;
-  goalKm: number | null;
-  challengeEndDate: string | null;
-  myDistance: number;
-  myDuration: number;
+  challenge: Challenge;
+  goalType: GoalType | null;
+  goalValue: number | null;
+  progress: number;
+  progressPercent: number;
+  completed: boolean;
   myActivities: number;
 };
 
@@ -45,29 +62,54 @@ function formatDuration(value: number) {
   return `${value} min`;
 }
 
-function formatDate(dateString: string | null) {
-  if (!dateString) return 'Non renseignée';
-
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat('fr-FR', {
-    day: '2-digit',
-    month: 'long',
-    year: 'numeric',
-  }).format(date);
+function formatReps(value: number) {
+  return `${value} répétition${value > 1 ? 's' : ''}`;
 }
 
-function isPast(dateString: string | null) {
-  if (!dateString) return false;
-  const date = new Date(dateString);
-  const today = new Date();
-  date.setHours(0, 0, 0, 0);
-  today.setHours(0, 0, 0, 0);
-  return date < today;
+function getGoalType(challenge: Challenge): GoalType | null {
+  return challenge.goal_type || (challenge.goal_km ? 'distance' : null);
+}
+
+function getGoalValue(challenge: Challenge) {
+  return challenge.goal_value ?? challenge.goal_km ?? null;
+}
+
+function formatGoal(value: number | null, goalType: GoalType | null) {
+  if (value === null || value === undefined) return 'Objectif non défini';
+  if (goalType === 'distance') return formatDistance(value);
+  if (goalType === 'duration') return formatDuration(value);
+  if (goalType === 'reps') return formatReps(value);
+  return `${value}`;
+}
+
+function getActivityValue(activity: Activity, goalType: GoalType | null) {
+  const activityGoalType =
+    activity.unit_type ||
+    (activity.distance_km !== null && activity.distance_km !== undefined
+      ? 'distance'
+      : activity.duration_minutes !== null && activity.duration_minutes !== undefined
+        ? 'duration'
+        : null);
+
+  if (!goalType || activityGoalType !== goalType) return 0;
+
+  return (
+    activity.unit_value ??
+    (activityGoalType === 'distance'
+      ? activity.distance_km
+      : activityGoalType === 'duration'
+        ? activity.duration_minutes
+        : null) ??
+    0
+  );
 }
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
+  const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
@@ -94,34 +136,103 @@ export default function ProfilePage() {
         .eq('id', user.id)
         .single();
 
-      setProfile(profileData || { id: user.id, email: user.email || null, username: null });
-      setUsernameInput(profileData?.username || '');
+      const nextProfile = profileData || {
+        id: user.id,
+        email: user.email || null,
+        username: null,
+      };
 
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from('activities')
-        .select(`
-          id,
-          challenge_id,
-          user_email,
-          distance_km,
-          duration_minutes,
-          created_at,
-          challenges (
-            id,
-            name,
-            sport,
-            goal_km,
-            end_date
-          )
-        `)
-        .eq('user_email', user.email)
-        .order('created_at', { ascending: false });
+      setProfile(nextProfile);
+      setUsernameInput(nextProfile.username || '');
 
-      if (activitiesError) {
-        console.error('Erreur chargement profil :', activitiesError);
+      const [
+        activitiesResponse,
+        membersResponse,
+        participantsResponse,
+      ] = await Promise.all([
+        supabase
+          .from('activities')
+          .select('id, challenge_id, user_email, distance_km, duration_minutes, unit_type, unit_value, created_at')
+          .eq('user_email', user.email)
+          .order('created_at', { ascending: false }),
+        user.email
+          ? supabase
+              .from('challenge_members')
+              .select('challenge_id')
+              .eq('user_email', user.email)
+          : Promise.resolve({ data: [], error: null }),
+        supabase
+          .from('challenge_participants')
+          .select('challenge_id')
+          .eq('user_id', user.id),
+      ]);
+
+      const loadedActivities = (activitiesResponse.data as Activity[] | null) || [];
+
+      if (activitiesResponse.error) {
+        console.error('Erreur chargement activités profil :', activitiesResponse.error);
         setActivities([]);
       } else {
-        setActivities((activitiesData as Activity[]) || []);
+        setActivities(loadedActivities);
+      }
+
+      if (membersResponse.error) {
+        console.error('Erreur chargement challenge_members profil :', membersResponse.error);
+      }
+
+      if (participantsResponse.error) {
+        console.error('Erreur chargement challenge_participants profil :', participantsResponse.error);
+      }
+
+      const memberIds = ((membersResponse.data as ChallengeMember[] | null) || []).map(
+        (row) => row.challenge_id
+      );
+      const participantIds = ((participantsResponse.data as ChallengeMember[] | null) || []).map(
+        (row) => row.challenge_id
+      );
+      const activityChallengeIds = loadedActivities.map((activity) => activity.challenge_id);
+      const allJoinedChallengeIds = Array.from(
+        new Set([...memberIds, ...participantIds, ...activityChallengeIds])
+      );
+
+      setJoinedChallengeIds(allJoinedChallengeIds);
+
+      const visibilityFilters = [`created_by.eq.${user.id}`];
+
+      if (allJoinedChallengeIds.length > 0) {
+        visibilityFilters.push(`id.in.(${allJoinedChallengeIds.join(',')})`);
+      }
+
+      const { data: challengesData, error: challengesError } = await supabase
+        .from('challenges')
+        .select('id, name, sport, description, goal_km, goal_type, goal_value, created_by')
+        .eq('is_deleted', false)
+        .or(visibilityFilters.join(','))
+        .order('created_at', { ascending: false });
+
+      if (challengesError) {
+        console.error('Erreur chargement challenges profil :', challengesError);
+        setChallenges([]);
+      } else {
+        setChallenges((challengesData as Challenge[]) || []);
+      }
+
+      const activityIds = loadedActivities.map((activity) => activity.id);
+
+      if (activityIds.length > 0) {
+        const { data: interactionsData, error: interactionsError } = await supabase
+          .from('activity_interactions')
+          .select('activity_id, type')
+          .in('activity_id', activityIds);
+
+        if (interactionsError) {
+          console.error('Erreur chargement interactions profil :', interactionsError);
+          setInteractions([]);
+        } else {
+          setInteractions((interactionsData as ActivityInteraction[]) || []);
+        }
+      } else {
+        setInteractions([]);
       }
 
       setLoading(false);
@@ -132,52 +243,68 @@ export default function ProfilePage() {
 
   const stats = useMemo(() => {
     const totalActivities = activities.length;
-    const totalDistance = activities.reduce((sum, item) => sum + (item.distance_km || 0), 0);
-    const totalDuration = activities.reduce((sum, item) => sum + (item.duration_minutes || 0), 0);
+    const totalDistance = activities.reduce((sum, item) => {
+      if (item.unit_type && item.unit_type !== 'distance') return sum;
+      return sum + (item.unit_value ?? item.distance_km ?? 0);
+    }, 0);
+    const totalDuration = activities.reduce((sum, item) => {
+      if (item.unit_type && item.unit_type !== 'duration') return sum;
+      return sum + (item.unit_value ?? item.duration_minutes ?? 0);
+    }, 0);
+    const totalReps = activities.reduce((sum, item) => {
+      if (item.unit_type !== 'reps') return sum;
+      return sum + (item.unit_value || 0);
+    }, 0);
+    const totalLikes = interactions.filter((interaction) => interaction.type === 'like').length;
+    const totalBoosts = interactions.filter((interaction) => interaction.type === 'boost').length;
+    const createdChallengeIds = challenges
+      .filter((challenge) => challenge.created_by === profile?.id)
+      .map((challenge) => challenge.id);
+    const joinedOnlyChallengeIds = joinedChallengeIds.filter(
+      (challengeId) => !createdChallengeIds.includes(challengeId)
+    );
 
     return {
+      createdChallenges: createdChallengeIds.length,
+      joinedChallenges: new Set(joinedOnlyChallengeIds).size,
       totalActivities,
       totalDistance,
       totalDuration,
+      totalReps,
+      totalLikes,
+      totalBoosts,
     };
-  }, [activities]);
+  }, [activities, challenges, interactions, joinedChallengeIds, profile?.id]);
 
   const groupedChallenges = useMemo<UserChallengeSummary[]>(() => {
-    const map = new Map<string, UserChallengeSummary>();
+    return challenges.map((challenge) => {
+      const goalType = getGoalType(challenge);
+      const goalValue = getGoalValue(challenge);
+      const challengeActivities = activities.filter(
+        (activity) => activity.challenge_id === challenge.id
+      );
+      const progress = challengeActivities.reduce(
+        (sum, activity) => sum + getActivityValue(activity, goalType),
+        0
+      );
+      const progressPercent =
+        goalValue && goalValue > 0 ? Math.min((progress / goalValue) * 100, 100) : 0;
+      const completed = Boolean(goalValue && goalValue > 0) && progress >= (goalValue || 0);
 
-    for (const activity of activities) {
-      const challenge = activity.challenges;
-      if (!challenge) continue;
+      return {
+        challenge,
+        goalType,
+        goalValue,
+        progress,
+        progressPercent,
+        completed,
+        myActivities: challengeActivities.length,
+      };
+    });
+  }, [activities, challenges]);
 
-      if (!map.has(challenge.id)) {
-        map.set(challenge.id, {
-          challengeId: challenge.id,
-          challengeName: challenge.name,
-          sport: challenge.sport,
-          goalKm: challenge.goal_km,
-          challengeEndDate: challenge.end_date,
-          myDistance: 0,
-          myDuration: 0,
-          myActivities: 0,
-        });
-      }
-
-      const current = map.get(challenge.id)!;
-      current.myDistance += activity.distance_km || 0;
-      current.myDuration += activity.duration_minutes || 0;
-      current.myActivities += 1;
-    }
-
-    return Array.from(map.values());
-  }, [activities]);
-
-  const activeChallenges = groupedChallenges.filter(
-    (challenge) => !challenge.challengeEndDate || !isPast(challenge.challengeEndDate)
-  );
-
-  const completedChallenges = groupedChallenges.filter(
-    (challenge) => challenge.challengeEndDate && isPast(challenge.challengeEndDate)
-  );
+  const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
+  const completedChallenges = groupedChallenges.filter((challenge) => challenge.completed);
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -236,45 +363,52 @@ export default function ProfilePage() {
 
   return (
     <AppShell>
-      <div className="stack">
-        <section className="card">
-          <div className="stack">
+      <div className="profile-page">
+        <section className="card profile-hero-card">
+          <div className="profile-hero-main">
             <div>
+              <span className="section-kicker">Profil Actyv</span>
               <h1>Mon profil</h1>
-              <p className="muted">Retrouve ici ton identité Actyv, tes stats et tes challenges.</p>
+              <p className="muted">Ton identité, tes challenges et tes contributions.</p>
             </div>
 
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
+            <div className="profile-identity">
               <div>
-                <strong>Pseudo :</strong>{' '}
+                <span>Pseudo</span>
                 {editMode ? (
                   <input
                     value={usernameInput}
-                    onChange={(e) => setUsernameInput(e.target.value)}
+                    onChange={(event) => setUsernameInput(event.target.value)}
                     placeholder="Choisir un pseudo"
-                    style={{ marginLeft: '0.5rem' }}
                   />
                 ) : (
-                  profile.username || 'Aucun pseudo défini'
+                  <strong>{profile.username || 'Aucun pseudo défini'}</strong>
                 )}
               </div>
 
               <div>
-                <strong>Email :</strong> {profile.email}
+                <span>Email</span>
+                <strong>{profile.email}</strong>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <div className="profile-actions">
                 {!editMode ? (
-                  <button type="button" onClick={() => setEditMode(true)}>
+                  <button type="button" className="button ghost" onClick={() => setEditMode(true)}>
                     Modifier mon pseudo
                   </button>
                 ) : (
                   <>
-                    <button type="button" onClick={handleSaveUsername} disabled={savingUsername}>
+                    <button
+                      type="button"
+                      className="button primary"
+                      onClick={handleSaveUsername}
+                      disabled={savingUsername}
+                    >
                       {savingUsername ? 'Enregistrement...' : 'Enregistrer'}
                     </button>
                     <button
                       type="button"
+                      className="button ghost"
                       onClick={() => {
                         setEditMode(false);
                         setUsernameInput(profile.username || '');
@@ -291,146 +425,126 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="card">
-          <h2>Mes statistiques</h2>
-
-          <div
-            style={{
-              marginTop: '1rem',
-              display: 'grid',
-              gap: '1rem',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-            }}
-          >
-            <div>
-              <strong>Activités</strong>
-              <div style={{ marginTop: '0.35rem', fontSize: '1.7rem', fontWeight: 700 }}>
-                {stats.totalActivities}
-              </div>
-            </div>
-
-            <div>
-              <strong>Distance totale</strong>
-              <div style={{ marginTop: '0.35rem', fontSize: '1.7rem', fontWeight: 700 }}>
-                {formatDistance(stats.totalDistance)}
-              </div>
-            </div>
-
-            <div>
-              <strong>Durée totale</strong>
-              <div style={{ marginTop: '0.35rem', fontSize: '1.7rem', fontWeight: 700 }}>
-                {formatDuration(stats.totalDuration)}
-              </div>
-            </div>
-          </div>
+        <section className="profile-stats-grid">
+          <article className="card stat-card">
+            <span className="stat-card-label">Challenges créés</span>
+            <strong className="stat-card-value">{stats.createdChallenges}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Challenges rejoints</span>
+            <strong className="stat-card-value">{stats.joinedChallenges}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Activités</span>
+            <strong className="stat-card-value">{stats.totalActivities}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Distance</span>
+            <strong className="stat-card-value">{formatDistance(stats.totalDistance)}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Durée</span>
+            <strong className="stat-card-value">{formatDuration(stats.totalDuration)}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Répétitions</span>
+            <strong className="stat-card-value">{stats.totalReps}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Likes reçus</span>
+            <strong className="stat-card-value">{stats.totalLikes}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Boosts reçus</span>
+            <strong className="stat-card-value">{stats.totalBoosts}</strong>
+          </article>
         </section>
 
-        <section className="card">
-          <h2>Challenges en cours</h2>
+        <section className="home-challenges profile-section">
+          <div className="home-challenges__header">
+            <div>
+              <span className="section-kicker">En cours</span>
+              <h2>Challenges en cours</h2>
+            </div>
+          </div>
 
           {activeChallenges.length === 0 ? (
-            <p style={{ marginTop: '1rem' }}>Aucun challenge en cours pour le moment.</p>
+            <div className="challenge-state">
+              <p>Aucun challenge en cours pour le moment.</p>
+            </div>
           ) : (
-            <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
-              {activeChallenges.map((challenge) => {
-                const progressPercent =
-                  challenge.goalKm && challenge.goalKm > 0
-                    ? Math.min((challenge.myDistance / challenge.goalKm) * 100, 100)
-                    : null;
+            <div className="challenges-grid">
+              {activeChallenges.map(({ challenge, goalType, goalValue, progress, progressPercent, myActivities }) => (
+                <article key={challenge.id} className="card challenge-overview-card">
+                  <div className="challenge-overview-top">
+                    <span className="badge">{challenge.sport || 'Sport'}</span>
+                  </div>
 
-                return (
-                  <article
-                    key={challenge.challengeId}
-                    style={{
-                      padding: '1rem',
-                      border: '1px solid rgba(0,0,0,0.08)',
-                      borderRadius: '1rem',
-                      display: 'grid',
-                      gap: '0.5rem',
-                    }}
-                  >
-                    <div>
-                      <strong>{challenge.challengeName}</strong>
-                    </div>
+                  <h3>{challenge.name}</h3>
+                  <p>
+                    {challenge.description?.trim()
+                      ? challenge.description
+                      : 'Continue à contribuer à ce challenge.'}
+                  </p>
 
-                    <div>{challenge.sport || 'Sport non renseigné'}</div>
+                  <div className="challenge-overview-meta">
+                    <span>Progression</span>
+                    <strong>
+                      {formatGoal(progress, goalType)} / {formatGoal(goalValue, goalType)}
+                    </strong>
+                  </div>
 
-                    <div>
-                      <strong>Ma contribution :</strong> {formatDistance(challenge.myDistance)}
-                    </div>
+                  <div className="progress-meta">
+                    <span className="progress-target">{myActivities} activité{myActivities > 1 ? 's' : ''}</span>
+                    <span className="progress-percent">{progressPercent.toFixed(1)}%</span>
+                  </div>
+                  <div className="progress-track">
+                    <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+                  </div>
 
-                    <div>
-                      <strong>Mes activités :</strong> {challenge.myActivities}
-                    </div>
-
-                    {challenge.goalKm && challenge.goalKm > 0 ? (
-                      <>
-                        <div
-                          style={{
-                            width: '100%',
-                            height: '14px',
-                            background: 'rgba(0,0,0,0.08)',
-                            borderRadius: '999px',
-                            overflow: 'hidden',
-                          }}
-                        >
-                          <div
-                            style={{
-                              width: `${progressPercent || 0}%`,
-                              height: '100%',
-                              background: 'linear-gradient(90deg, #22c55e 0%, #84cc16 100%)',
-                              borderRadius: '999px',
-                            }}
-                          />
-                        </div>
-
-                        <div>
-                          <strong>{formatDistance(challenge.myDistance)}</strong> /{' '}
-                          {formatDistance(challenge.goalKm)}
-                        </div>
-                      </>
-                    ) : (
-                      <div>Aucun objectif défini.</div>
-                    )}
-                  </article>
-                );
-              })}
+                  <Link href={`/challenges/${challenge.id}`} className="button ghost">
+                    Voir le détail
+                  </Link>
+                </article>
+              ))}
             </div>
           )}
         </section>
 
-        <section className="card">
-          <h2>Historique des challenges</h2>
+        <section className="home-challenges profile-section">
+          <div className="home-challenges__header">
+            <div>
+              <span className="section-kicker">Historique</span>
+              <h2>Challenges terminés</h2>
+            </div>
+          </div>
 
           {completedChallenges.length === 0 ? (
-            <p style={{ marginTop: '1rem' }}>Aucun challenge terminé pour le moment.</p>
+            <div className="challenge-state">
+              <p>Aucun challenge terminé pour le moment.</p>
+            </div>
           ) : (
-            <div style={{ marginTop: '1rem', display: 'grid', gap: '1rem' }}>
-              {completedChallenges.map((challenge) => (
-                <article
-                  key={challenge.challengeId}
-                  style={{
-                    padding: '1rem',
-                    border: '1px solid rgba(0,0,0,0.08)',
-                    borderRadius: '1rem',
-                    display: 'grid',
-                    gap: '0.4rem',
-                  }}
+            <div className="completed-challenge-list">
+              {completedChallenges.map(({ challenge, goalType, goalValue, progress }) => (
+                <Link
+                  key={challenge.id}
+                  href={`/challenges/${challenge.id}`}
+                  className="completed-challenge-item"
                 >
-                  <div>
-                    <strong>{challenge.challengeName}</strong>
+                  <div className="completed-challenge-main">
+                    <div className="completed-challenge-tags">
+                      <span className="badge badge-completed">Terminé</span>
+                      <span className="challenge-item__pill">{challenge.sport || 'Sport'}</span>
+                    </div>
+                    <strong>{challenge.name}</strong>
+                    <span>Objectif atteint : {formatGoal(goalValue, goalType)}</span>
                   </div>
-                  <div>{challenge.sport || 'Sport non renseigné'}</div>
-                  <div>
-                    <strong>Ma contribution :</strong> {formatDistance(challenge.myDistance)}
+
+                  <div className="completed-challenge-side">
+                    <span>{formatGoal(progress, goalType)}</span>
+                    <strong>Voir le détail</strong>
                   </div>
-                  <div>
-                    <strong>Durée totale :</strong> {formatDuration(challenge.myDuration)}
-                  </div>
-                  <div>
-                    <strong>Date de fin :</strong> {formatDate(challenge.challengeEndDate)}
-                  </div>
-                </article>
+                </Link>
               ))}
             </div>
           )}
