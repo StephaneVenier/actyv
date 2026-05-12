@@ -15,6 +15,7 @@ type Challenge = {
   created_at?: string | null;
   goal_km?: number | null;
   visibility?: string | null;
+  created_by?: string | null;
 };
 
 type Activity = {
@@ -76,6 +77,7 @@ export default function HomePage() {
       } = await supabase.auth.getUser();
 
       const userEmail = user?.email || null;
+      const userId = user?.id || null;
 
       let visibleChallengeIds: string[] = [];
 
@@ -96,14 +98,22 @@ export default function HomePage() {
 
       let challengesQuery = supabase
         .from('challenges')
-        .select('id, name, sport, description, start_date, end_date, created_at, goal_km, visibility')
+        .select('id, name, sport, description, start_date, end_date, created_at, goal_km, visibility, created_by')
         .eq('is_deleted', false)
         .order('created_at', { ascending: false });
 
-      if (userEmail && visibleChallengeIds.length > 0) {
-        challengesQuery = challengesQuery.or(
-          `visibility.eq.public,id.in.(${visibleChallengeIds.join(',')})`
-        );
+      if (userEmail) {
+        const visibilityFilters = ['visibility.eq.public'];
+
+        if (userId) {
+          visibilityFilters.push(`created_by.eq.${userId}`);
+        }
+
+        if (visibleChallengeIds.length > 0) {
+          visibilityFilters.push(`id.in.(${visibleChallengeIds.join(',')})`);
+        }
+
+        challengesQuery = challengesQuery.or(visibilityFilters.join(','));
       } else {
         challengesQuery = challengesQuery.eq('visibility', 'public');
       }

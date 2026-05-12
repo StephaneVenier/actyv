@@ -228,9 +228,9 @@ setShareMessage('');
   }
 
   const isPublic = challengeData.visibility === 'public';
-  let hasAccess = isPublic;
+  let hasAccess = isPublic || challengeData.created_by === user?.id;
 
-  if (!isPublic && user?.id) {
+  if (!hasAccess && user?.id) {
     const { data: memberData, error: memberError } = await supabase
       .from('challenge_participants')
       .select('id')
@@ -240,6 +240,21 @@ setShareMessage('');
 
     if (memberError) {
       console.error('Erreur vérification accès challenge :', memberError);
+    }
+
+    hasAccess = Boolean(memberData);
+  }
+
+  if (!hasAccess && user?.email) {
+    const { data: memberData, error: memberError } = await supabase
+      .from('challenge_members')
+      .select('id')
+      .eq('challenge_id', id)
+      .eq('user_email', user.email)
+      .maybeSingle();
+
+    if (memberError) {
+      console.error('Erreur verification acces challenge_members :', memberError);
     }
 
     hasAccess = Boolean(memberData);

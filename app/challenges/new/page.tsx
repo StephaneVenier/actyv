@@ -129,6 +129,20 @@ export default function NewChallengePage() {
         return;
       }
 
+      if (user.email) {
+        const { error: memberError } = await supabase
+          .from('challenge_members')
+          .insert({
+            challenge_id: challenge.id,
+            user_email: user.email,
+            role: 'admin',
+          });
+
+        if (memberError) {
+          console.error('Erreur ajout createur challenge_members :', memberError);
+        }
+      }
+
       router.push(`/challenges/${challenge.id}`);
     } catch (err) {
       console.error('Erreur inattendue :', err);
