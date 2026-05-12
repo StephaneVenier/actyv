@@ -596,6 +596,17 @@ const hasUserLiked = (activityId: string) => {
   );
 };
 
+const hasUserBoosted = (activityId: string) => {
+  if (!currentUserId) return false;
+
+  return interactions.some(
+    (interaction) =>
+      interaction.activity_id === activityId &&
+      interaction.user_id === currentUserId &&
+      interaction.type === 'boost'
+  );
+};
+
 const handleLike = async (activityId: string) => {
   if (!currentUserId) {
     alert('Tu dois être connecté pour liker une activité.');
@@ -632,6 +643,49 @@ const handleLike = async (activityId: string) => {
     if (error) {
       console.error('Erreur ajout like :', error);
       alert("Impossible d'ajouter le like pour le moment.");
+      return;
+    }
+  }
+
+  await fetchChallengeAndActivities(false);
+};
+
+const handleBoost = async (activityId: string) => {
+  if (!currentUserId) {
+    alert('Tu dois etre connecte pour booster une activite.');
+    return;
+  }
+
+  const existingBoost = interactions.find(
+    (interaction) =>
+      interaction.activity_id === activityId &&
+      interaction.user_id === currentUserId &&
+      interaction.type === 'boost'
+  );
+
+  if (existingBoost) {
+    const { error } = await supabase
+      .from('activity_interactions')
+      .delete()
+      .eq('id', existingBoost.id);
+
+    if (error) {
+      console.error('Erreur suppression boost :', error);
+      alert('Impossible de retirer le boost pour le moment.');
+      return;
+    }
+  } else {
+    const { error } = await supabase
+      .from('activity_interactions')
+      .insert({
+        activity_id: activityId,
+        user_id: currentUserId,
+        type: 'boost',
+      });
+
+    if (error) {
+      console.error('Erreur ajout boost :', error);
+      alert("Impossible d'ajouter le boost pour le moment.");
       return;
     }
   }
@@ -1056,7 +1110,17 @@ const handleLike = async (activityId: string) => {
   👍 {getLikesCount(activity.id)}
 </button>
 
-  <span>⚡ {getBoostsCount(activity.id)}</span>
+  <button
+    type="button"
+    className={`reaction-button ${hasUserBoosted(activity.id) ? 'active' : ''}`}
+    onClick={(e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleBoost(activity.id);
+    }}
+  >
+    ⚡ {getBoostsCount(activity.id)}
+  </button>
 </div>
                 </article>
               ))}
