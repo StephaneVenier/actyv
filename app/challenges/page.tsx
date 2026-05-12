@@ -30,10 +30,12 @@ type Activity = {
 
 type ChallengeMember = {
   challenge_id: string;
+  user_email?: string | null;
 };
 
 type ChallengeParticipant = {
   challenge_id: string;
+  user_id?: string | null;
 };
 
 function formatDistance(value: number) {
@@ -46,6 +48,12 @@ function formatDuration(value: number) {
 
 function formatReps(value: number) {
   return `${value} répétition${value > 1 ? 's' : ''}`;
+}
+
+function getGoalLabel(goalType: GoalType) {
+  if (goalType === 'distance') return 'Distance';
+  if (goalType === 'duration') return 'Durée';
+  return 'Répétitions';
 }
 
 function getGoalType(challenge: Challenge): GoalType | null {
@@ -89,6 +97,7 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
 export default function ChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -179,14 +188,28 @@ export default function ChallengesPage() {
 
       if (challengeIds.length === 0) {
         setActivities([]);
+        setParticipantsCountMap({});
         setLoading(false);
         return;
       }
 
-      const { data: activitiesData, error: activitiesError } = await supabase
-        .from('activities')
-        .select('challenge_id, distance_km, duration_minutes, unit_type, unit_value')
-        .in('challenge_id', challengeIds);
+      const [activitiesResponse, membersCountResponse, participantsCountResponse] =
+        await Promise.all([
+          supabase
+            .from('activities')
+            .select('challenge_id, distance_km, duration_minutes, unit_type, unit_value')
+            .in('challenge_id', challengeIds),
+          supabase
+            .from('challenge_members')
+            .select('challenge_id, user_email')
+            .in('challenge_id', challengeIds),
+          supabase
+            .from('challenge_participants')
+            .select('challenge_id, user_id')
+            .in('challenge_id', challengeIds),
+        ]);
+
+      const { data: activitiesData, error: activitiesError } = activitiesResponse;
 
       if (activitiesError) {
         console.error('Erreur chargement activites challenges :', activitiesError);
@@ -194,6 +217,42 @@ export default function ChallengesPage() {
       } else {
         setActivities((activitiesData as Activity[]) || []);
       }
+
+      if (membersCountResponse.error) {
+        console.error('Erreur compteur challenge_members :', membersCountResponse.error);
+      }
+
+      if (participantsCountResponse.error) {
+        console.error('Erreur compteur challenge_participants :', participantsCountResponse.error);
+      }
+
+      const nextParticipantsCountMap: Record<string, number> = {};
+
+      loadedChallenges.forEach((challenge) => {
+        const keys = new Set<string>();
+
+        if (challenge.created_by) {
+          keys.add(`user:${challenge.created_by}`);
+        }
+
+        ((membersCountResponse.data as ChallengeMember[] | null) || []).forEach((member) => {
+          if (member.challenge_id === challenge.id && member.user_email) {
+            keys.add(`email:${member.user_email.toLowerCase()}`);
+          }
+        });
+
+        ((participantsCountResponse.data as ChallengeParticipant[] | null) || []).forEach(
+          (participant) => {
+            if (participant.challenge_id === challenge.id && participant.user_id) {
+              keys.add(`user:${participant.user_id}`);
+            }
+          }
+        );
+
+        nextParticipantsCountMap[challenge.id] = Math.max(keys.size, 1);
+      });
+
+      setParticipantsCountMap(nextParticipantsCountMap);
 
       setLoading(false);
     };
@@ -223,9 +282,10 @@ export default function ChallengesPage() {
         progress,
         progressPercent,
         completed,
+        participantsCount: participantsCountMap[challenge.id] || 1,
       };
     });
-  }, [activities, challenges]);
+  }, [activities, challenges, participantsCountMap]);
 
   const activeChallenges = challengeSummaries.filter((summary) => !summary.completed);
   const completedChallenges = challengeSummaries.filter((summary) => summary.completed);
@@ -255,10 +315,15 @@ export default function ChallengesPage() {
             </div>
           ) : (
             <div className="challenges-grid">
-              {activeChallenges.map(({ challenge, goalType, goalValue, progress, progressPercent }) => (
+              {activeChallenges.map(({ challenge, goalType, goalValue, progress, progressPercent, participantsCount }) => (
                 <article key={challenge.id} className="card challenge-overview-card">
                   <div className="challenge-overview-top">
                     <span className="badge">{challenge.sport || 'Sport'}</span>
+                    <span className="badge">En cours</span>
+                    {goalType && <span className="badge">{getGoalLabel(goalType)}</span>}
+                    <span className="badge">
+                      {participantsCount} participant{participantsCount > 1 ? 's' : ''}
+                    </span>
                   </div>
 
                   <h3>{challenge.name}</h3>
@@ -310,7 +375,7 @@ export default function ChallengesPage() {
             </div>
           ) : (
             <div className="completed-challenge-list">
-              {completedChallenges.map(({ challenge, goalType, goalValue, progress }) => (
+              {completedChallenges.map(({ challenge, goalType, goalValue, progress, participantsCount }) => (
                 <Link
                   key={challenge.id}
                   href={`/challenges/${challenge.id}`}
@@ -320,6 +385,10 @@ export default function ChallengesPage() {
                     <div className="completed-challenge-tags">
                       <span className="badge badge-completed">Terminé</span>
                       <span className="challenge-item__pill">{challenge.sport || 'Sport'}</span>
+                      {goalType && <span className="challenge-item__pill">{getGoalLabel(goalType)}</span>}
+                      <span className="challenge-item__pill">
+                        {participantsCount} participant{participantsCount > 1 ? 's' : ''}
+                      </span>
                     </div>
                     <strong>{challenge.name}</strong>
                     <span>Objectif atteint : {formatGoal(goalValue, goalType)}</span>

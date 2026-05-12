@@ -39,6 +39,11 @@ type ChallengeMember = {
   user_email: string | null;
 };
 
+type ChallengeParticipant = {
+  challenge_id: string;
+  user_id: string | null;
+};
+
 function formatDate(dateString: string | null) {
   if (!dateString) return 'Date inconnue';
 
@@ -63,6 +68,7 @@ function formatDuration(duration: number | null) {
 export default function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
   const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
@@ -123,8 +129,63 @@ export default function HomePage() {
       if (challengesError) {
         console.error('Erreur chargement challenges :', challengesError);
         setChallenges([]);
+        setParticipantsCountMap({});
       } else {
-        setChallenges(challengesData || []);
+        const loadedChallenges = challengesData || [];
+        setChallenges(loadedChallenges);
+
+        const challengeIds = loadedChallenges.map((challenge) => challenge.id);
+
+        if (challengeIds.length > 0) {
+          const [membersResponse, participantsResponse] = await Promise.all([
+            supabase
+              .from('challenge_members')
+              .select('challenge_id, user_email')
+              .in('challenge_id', challengeIds),
+            supabase
+              .from('challenge_participants')
+              .select('challenge_id, user_id')
+              .in('challenge_id', challengeIds),
+          ]);
+
+          if (membersResponse.error) {
+            console.error('Erreur compteur challenge_members :', membersResponse.error);
+          }
+
+          if (participantsResponse.error) {
+            console.error('Erreur compteur challenge_participants :', participantsResponse.error);
+          }
+
+          const nextParticipantsCountMap: Record<string, number> = {};
+
+          loadedChallenges.forEach((challenge) => {
+            const keys = new Set<string>();
+
+            if (challenge.created_by) {
+              keys.add(`user:${challenge.created_by}`);
+            }
+
+            ((membersResponse.data as ChallengeMember[] | null) || []).forEach((member) => {
+              if (member.challenge_id === challenge.id && member.user_email) {
+                keys.add(`email:${member.user_email.toLowerCase()}`);
+              }
+            });
+
+            ((participantsResponse.data as ChallengeParticipant[] | null) || []).forEach(
+              (participant) => {
+                if (participant.challenge_id === challenge.id && participant.user_id) {
+                  keys.add(`user:${participant.user_id}`);
+                }
+              }
+            );
+
+            nextParticipantsCountMap[challenge.id] = Math.max(keys.size, 1);
+          });
+
+          setParticipantsCountMap(nextParticipantsCountMap);
+        } else {
+          setParticipantsCountMap({});
+        }
       }
 
       setLoadingChallenges(false);
@@ -262,6 +323,10 @@ export default function HomePage() {
                   <div className="challenge-item__top">
                     <span className="challenge-item__pill">
                       {challenge.sport || 'Sport'}
+                    </span>
+                    <span className="challenge-item__pill">
+                      {participantsCountMap[challenge.id] || 1} participant
+                      {(participantsCountMap[challenge.id] || 1) > 1 ? 's' : ''}
                     </span>
                   </div>
 

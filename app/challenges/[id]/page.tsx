@@ -57,6 +57,11 @@ type ChallengeParticipant = {
   joined_at: string;
 };
 
+type ChallengeMember = {
+  challenge_id: string;
+  user_email: string | null;
+};
+
 type ActivityInteractionType = 'like' | 'boost';
 
 type ActivityInteraction = {
@@ -116,6 +121,19 @@ function getGoalTypeLabel(goalType: GoalType | null | undefined) {
   }
 }
 
+function getGoalTypeBadgeLabel(goalType: GoalType | null | undefined) {
+  switch (goalType) {
+    case 'distance':
+      return 'Distance';
+    case 'duration':
+      return 'Durée';
+    case 'reps':
+      return 'Répétitions';
+    default:
+      return null;
+  }
+}
+
 function getUnitShortLabel(goalType: GoalType | null | undefined) {
   switch (goalType) {
     case 'distance':
@@ -172,6 +190,7 @@ export default function ChallengeDetailPage() {
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [participants, setParticipants] = useState<ChallengeParticipant[]>([]);
+  const [memberRows, setMemberRows] = useState<ChallengeMember[]>([]);
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [profilesById, setProfilesById] = useState<Record<string, string>>({});
   const [profilesByEmail, setProfilesByEmail] = useState<Record<string, string>>({});
@@ -220,6 +239,7 @@ setShareMessage('');
     setChallenge(null);
     setActivities([]);
     setParticipants([]);
+    setMemberRows([]);
     setInteractions([]);
     setLoading(false);
     setActivitiesLoading(false);
@@ -265,6 +285,7 @@ setShareMessage('');
     setChallenge(null);
     setActivities([]);
     setParticipants([]);
+    setMemberRows([]);
     setInteractions([]);
     setLoading(false);
     setActivitiesLoading(false);
@@ -275,7 +296,7 @@ setShareMessage('');
   setChallenge(challengeData);
   setLoading(false);
 
-  const [activitiesResponse, participantsResponse, interactionsResponse] =
+  const [activitiesResponse, participantsResponse, membersResponse, interactionsResponse] =
     await Promise.all([
       supabase
         .from('activities')
@@ -292,12 +313,18 @@ setShareMessage('');
         .order('joined_at', { ascending: true }),
 
       supabase
+        .from('challenge_members')
+        .select('challenge_id, user_email')
+        .eq('challenge_id', id),
+
+      supabase
         .from('activity_interactions')
         .select('id, activity_id, user_id, type, created_at'),
     ]);
 
   const { data: activitiesData, error: activitiesError } = activitiesResponse;
   const { data: participantsData, error: participantsError } = participantsResponse;
+  const { data: membersData, error: membersError } = membersResponse;
   const { data: interactionsData, error: interactionsError } = interactionsResponse;
 
   if (activitiesError) {
@@ -318,6 +345,13 @@ setShareMessage('');
     );
   } else {
     setParticipants((participantsData as ChallengeParticipant[]) || []);
+  }
+
+  if (membersError) {
+    console.error('Erreur chargement challenge_members :', membersError);
+    setMemberRows([]);
+  } else {
+    setMemberRows((membersData as ChallengeMember[]) || []);
   }
 
   if (interactionsError) {
@@ -564,6 +598,28 @@ useEffect(() => {
   const isChallengeCompleted =
     Boolean(effectiveGoalValue && effectiveGoalValue > 0) &&
     totalChallengeProgress >= (effectiveGoalValue || 0);
+  const participantCount = useMemo(() => {
+    const keys = new Set<string>();
+
+    if (challenge?.created_by) {
+      keys.add(`user:${challenge.created_by}`);
+    }
+
+    participants.forEach((participant) => {
+      if (participant.user_id) {
+        keys.add(`user:${participant.user_id}`);
+      }
+    });
+
+    memberRows.forEach((member) => {
+      if (member.user_email) {
+        keys.add(`email:${member.user_email.toLowerCase()}`);
+      }
+    });
+
+    return Math.max(keys.size, 1);
+  }, [challenge?.created_by, memberRows, participants]);
+  const goalTypeBadgeLabel = getGoalTypeBadgeLabel(effectiveGoalType);
 
   const isOwner = currentUserId === challenge?.created_by;
 
@@ -844,9 +900,15 @@ const handleBoost = async (activityId: string) => {
             <div className="stack" style={{ gap: '0.75rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <span className="badge">{challenge.sport || 'Sport non renseigné'}</span>
-                {isChallengeCompleted && (
+                {isChallengeCompleted ? (
                   <span className="badge badge-completed">Terminé</span>
+                ) : (
+                  <span className="badge">En cours</span>
                 )}
+                {goalTypeBadgeLabel && <span className="badge">{goalTypeBadgeLabel}</span>}
+                <span className="badge">
+                  {participantCount} participant{participantCount > 1 ? 's' : ''}
+                </span>
               </div>
               <h1 className="challenge-hero-title">{challenge.name}</h1>
               <p className="challenge-hero-description">
