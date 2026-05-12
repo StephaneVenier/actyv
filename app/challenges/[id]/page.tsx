@@ -561,6 +561,9 @@ useEffect(() => {
     effectiveGoalValue && effectiveGoalValue > 0
       ? Math.min((totalChallengeProgress / effectiveGoalValue) * 100, 100)
       : null;
+  const isChallengeCompleted =
+    Boolean(effectiveGoalValue && effectiveGoalValue > 0) &&
+    totalChallengeProgress >= (effectiveGoalValue || 0);
 
   const isOwner = currentUserId === challenge?.created_by;
 
@@ -832,10 +835,19 @@ const handleBoost = async (activityId: string) => {
           ← Retour à l’accueil
         </Link>
 
-        <article className="card challenge-hero-card">
+        <article
+          className={`card challenge-hero-card ${
+            isChallengeCompleted ? 'challenge-hero-card--completed' : ''
+          }`}
+        >
           <div className="challenge-hero-top">
             <div className="stack" style={{ gap: '0.75rem' }}>
-              <span className="badge">{challenge.sport || 'Sport non renseigné'}</span>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span className="badge">{challenge.sport || 'Sport non renseigné'}</span>
+                {isChallengeCompleted && (
+                  <span className="badge badge-completed">Terminé</span>
+                )}
+              </div>
               <h1 className="challenge-hero-title">{challenge.name}</h1>
               <p className="challenge-hero-description">
                 {challenge.description || 'Aucune description pour le moment.'}
@@ -874,9 +886,15 @@ const handleBoost = async (activityId: string) => {
                 </button>
               )}
 
-              <Link href={`/activities/new?challenge=${challenge.id}`} className="button ghost">
-                + Ajouter une activité
-              </Link>
+              {isChallengeCompleted ? (
+                <button type="button" className="button ghost" disabled>
+                  + Ajouter une activité
+                </button>
+              ) : (
+                <Link href={`/activities/new?challenge=${challenge.id}`} className="button ghost">
+                  + Ajouter une activité
+                </Link>
+              )}
             </div>
           </div>
 
@@ -901,6 +919,12 @@ const handleBoost = async (activityId: string) => {
 
           {isOwner && shareMessage && (
             <p className="challenge-share-message">{shareMessage}</p>
+          )}
+
+          {isChallengeCompleted && (
+            <p className="challenge-completed-message">
+              Ce challenge est terminé. Il n'est plus possible d'ajouter une activité.
+            </p>
           )}
         </article>
 

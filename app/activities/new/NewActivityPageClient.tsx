@@ -12,6 +12,15 @@ type Challenge = {
   id: string;
   name: string;
   goal_type: GoalType | null;
+  goal_value: number | null;
+  goal_km: number | null;
+};
+
+type Activity = {
+  distance_km: number | null;
+  duration_minutes: number | null;
+  unit_type: GoalType | null;
+  unit_value: number | null;
 };
 
 function getUnitLabel(goalType: GoalType | null | undefined) {
@@ -49,6 +58,7 @@ export default function NewActivityPageClient() {
   const searchParams = useSearchParams();
 
   const [challenges, setChallenges] = useState<Challenge[]>([]);
+  const [activities, setActivities] = useState<Activity[]>([]);
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -69,7 +79,7 @@ export default function NewActivityPageClient() {
 
       const { data, error } = await supabase
         .from('challenges')
-        .select('id, name, goal_type')
+        .select('id, name, goal_type, goal_value, goal_km')
         .order('created_at', { ascending: false })
         .eq('is_deleted', false);
 
@@ -92,11 +102,62 @@ export default function NewActivityPageClient() {
     }
   }, [preselectedChallengeId]);
 
+  useEffect(() => {
+    const fetchChallengeActivities = async () => {
+      if (!selectedChallengeId) {
+        setActivities([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('activities')
+        .select('distance_km, duration_minutes, unit_type, unit_value')
+        .eq('challenge_id', selectedChallengeId);
+
+      if (error) {
+        console.error('Erreur chargement progression challenge :', error);
+        setActivities([]);
+        return;
+      }
+
+      setActivities((data as Activity[]) || []);
+    };
+
+    fetchChallengeActivities();
+  }, [selectedChallengeId]);
+
   const selectedChallenge = useMemo(() => {
     return challenges.find((challenge) => challenge.id === selectedChallengeId) || null;
   }, [challenges, selectedChallengeId]);
 
-  const selectedGoalType: GoalType = selectedChallenge?.goal_type || 'distance';
+  const selectedGoalType: GoalType =
+    selectedChallenge?.goal_type || (selectedChallenge?.goal_km ? 'distance' : 'distance');
+  const selectedGoalValue =
+    selectedChallenge?.goal_value ?? selectedChallenge?.goal_km ?? null;
+  const selectedChallengeProgress = activities.reduce((sum, activity) => {
+    const activityGoalType =
+      activity.unit_type ||
+      (activity.distance_km !== null && activity.distance_km !== undefined
+        ? 'distance'
+        : activity.duration_minutes !== null && activity.duration_minutes !== undefined
+          ? 'duration'
+          : null);
+
+    if (activityGoalType !== selectedGoalType) return sum;
+
+    const activityValue =
+      activity.unit_value ??
+      (activityGoalType === 'distance'
+        ? activity.distance_km
+        : activityGoalType === 'duration'
+          ? activity.duration_minutes
+          : null);
+
+    return sum + (activityValue || 0);
+  }, 0);
+  const selectedChallengeCompleted =
+    Boolean(selectedGoalValue && selectedGoalValue > 0) &&
+    selectedChallengeProgress >= (selectedGoalValue || 0);
 
   const preselectedChallengeName = useMemo(() => {
     return selectedChallenge?.name || null;
@@ -128,6 +189,12 @@ export default function NewActivityPageClient() {
 
       if (!selectedChallengeId || !selectedSport) {
         setMessage('Merci de sélectionner un challenge et un type d’activité.');
+        setSubmitting(false);
+        return;
+      }
+
+      if (selectedChallengeCompleted) {
+        setMessage("Ce challenge est terminé. Il n'est plus possible d'ajouter une activité.");
         setSubmitting(false);
         return;
       }
@@ -198,6 +265,12 @@ export default function NewActivityPageClient() {
               <strong className="activity-context-value">{preselectedChallengeName}</strong>
             </div>
           )}
+
+          {selectedChallengeCompleted && (
+            <div className="activity-feedback-message" style={{ marginTop: '1rem' }}>
+              Ce challenge est terminé. Il n'est plus possible d'ajouter une activité.
+            </div>
+          )}
         </article>
 
         <article className="card activity-form-card">
@@ -229,6 +302,7 @@ export default function NewActivityPageClient() {
                 name="sport"
                 value={selectedSport}
                 onChange={(e) => setSelectedSport(e.target.value)}
+                disabled={selectedChallengeCompleted}
               >
                 <option value="" disabled>
                   Choisir une activité
@@ -252,6 +326,7 @@ export default function NewActivityPageClient() {
                 placeholder={getUnitPlaceholder(selectedGoalType)}
                 value={unitValue}
                 onChange={(e) => setUnitValue(e.target.value)}
+                disabled={selectedChallengeCompleted}
               />
             </div>
 
@@ -263,6 +338,7 @@ export default function NewActivityPageClient() {
                   name="exerciseType"
                   value={exerciseType}
                   onChange={(e) => setExerciseType(e.target.value)}
+                  disabled={selectedChallengeCompleted}
                 >
                   <option value="" disabled>
                     Choisir un exercice
@@ -292,6 +368,7 @@ export default function NewActivityPageClient() {
                 placeholder="Comment tu t’es senti aujourd’hui ? Bonnes sensations, séance difficile, super sortie..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
+                disabled={selectedChallengeCompleted}
               />
             </div>
 
@@ -305,7 +382,7 @@ export default function NewActivityPageClient() {
               <button
                 type="submit"
                 className="button primary activity-submit-btn"
-                disabled={submitting}
+                disabled={submitting || selectedChallengeCompleted}
               >
                 {submitting ? '⏳ Ajout en cours...' : 'Publier mon activité'}
               </button>
