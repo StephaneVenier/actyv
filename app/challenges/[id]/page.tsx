@@ -1138,9 +1138,12 @@ const handleBoost = async (activityId: string) => {
               {normalizedActivities.map((activity) => (
                 <article key={activity.id} className="activity-item">
                   <div className="activity-top">
-                    <strong className="activity-user">
-                      {getDisplayName(activity.user_id, activity.user_email)}
-                    </strong>
+                    <div>
+                      <span className="activity-action-label">Nouvelle activité</span>
+                      <strong className="activity-user">
+                        {getDisplayName(activity.user_id, activity.user_email)}
+                      </strong>
+                    </div>
                     <span className="activity-date">{formatDate(activity.created_at)}</span>
                   </div>
 

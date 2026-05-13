@@ -877,12 +877,12 @@ img {
 }
 
 .feed-item {
-  padding: 18px 20px;
+  padding: 20px;
   border-radius: 20px;
-  background: rgba(15, 23, 42, 0.03);
-  border: 1px solid rgba(15, 23, 42, 0.06);
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(15, 23, 42, 0.08);
   display: grid;
-  gap: 10px;
+  gap: 12px;
   transition: all 0.2s ease;
 }
 
@@ -906,12 +906,13 @@ img {
 
 .feed-item__identity strong {
   color: #071226;
-  font-size: 1rem;
+  font-size: 1.04rem;
+  line-height: 1.35;
 }
 
 .feed-item__date {
   color: #64748b;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 }
 
 .feed-item__challenge {
@@ -929,30 +930,31 @@ img {
 .feed-item__sport {
   display: inline-flex;
   align-items: center;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 999px;
   background: rgba(34, 197, 94, 0.12);
   color: #16a34a;
-  font-weight: 700;
+  font-weight: 800;
   font-size: 0.85rem;
   width: fit-content;
 }
 
 .feed-item__stats {
   display: flex;
-  gap: 10px;
+  gap: 12px;
   flex-wrap: wrap;
   color: #0f172a;
-  font-weight: 600;
+  font-weight: 800;
 }
 
 .feed-item__stats span {
   display: inline-flex;
   align-items: center;
-  min-height: 30px;
-  padding: 0 10px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.05);
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .feed-item__comment {
@@ -1174,10 +1176,12 @@ img {
 }
 
 .activity-item {
-  padding: 18px;
+  padding: 20px;
   border: 1px solid rgba(15, 23, 42, 0.08);
-  border-radius: 18px;
-  background: rgba(255, 255, 255, 0.78);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.88);
+  display: grid;
+  gap: 12px;
 }
 
 .activity-top {
@@ -1189,30 +1193,58 @@ img {
 }
 
 .activity-user {
+  display: block;
+  margin-top: 3px;
   color: #071226;
+  font-size: 1.04rem;
 }
 
 .activity-date {
   color: #64748b;
-  font-size: 0.92rem;
+  font-size: 0.82rem;
+}
+
+.activity-action-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: rgba(30, 107, 214, 0.08);
+  color: #1e6bd6;
+  font-size: 0.78rem;
+  font-weight: 800;
 }
 
 .activity-sport {
-  margin-top: 8px;
-  font-weight: 700;
+  width: fit-content;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  font-weight: 800;
   color: #16a34a;
 }
 
 .activity-stats {
-  margin-top: 12px;
   display: flex;
-  gap: 18px;
+  gap: 12px;
   flex-wrap: wrap;
   color: #0f172a;
+  font-weight: 800;
+}
+
+.activity-stats span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
 .activity-comment {
-  margin: 12px 0 0;
+  margin: 0;
   color: #475569;
   line-height: 1.55;
 }
@@ -1465,6 +1497,22 @@ img {
     display: none;
   }
 
+  .feed-item,
+  .activity-item {
+    padding: 16px;
+  }
+
+  .feed-item__top,
+  .activity-top {
+    align-items: flex-start;
+  }
+
+  .feed-item__stats span,
+  .activity-stats span {
+    flex: 1 1 130px;
+    justify-content: center;
+  }
+
   .auth-actions {
     gap: 8px;
   }
@@ -1576,8 +1624,8 @@ img {
 .activity-reactions {
   display: flex;
   gap: 12px;
-  margin-top: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .reaction-button {
@@ -1595,12 +1643,13 @@ img {
 
 .reaction-button {
   border: none;
-  background: transparent;
+  background: rgba(15, 23, 42, 0.05);
   cursor: pointer;
   font: inherit;
-  padding: 2px 6px;
-  border-radius: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
   outline: none;
+  font-weight: 800;
 }
 
 .reaction-button:focus {
@@ -1608,9 +1657,11 @@ img {
 }
 
 .reaction-button:hover {
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(15, 23, 42, 0.09);
 }
 
 .reaction-button.active {
   font-weight: 700;
+  background: rgba(22, 163, 74, 0.12);
+  color: #15803d;
 }

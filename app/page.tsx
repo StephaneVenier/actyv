@@ -374,12 +374,8 @@ export default function HomePage() {
                   <article key={activity.id} className="feed-item">
                     <div className="feed-item__top">
                       <div className="feed-item__identity">
-                        <strong>{getDisplayName(activity.user_email)}</strong>
+                        <strong>{getDisplayName(activity.user_email)} a ajouté une activité</strong>
                         <span className="feed-item__date">{formatDate(activity.created_at)}</span>
-                      </div>
-
-                      <div className="feed-item__action">
-                        a ajouté une activité
                       </div>
 
                       {challenge && (
