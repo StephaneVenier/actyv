@@ -53,6 +53,47 @@ function getUnitStep(goalType: GoalType | null | undefined) {
   return goalType === 'distance' ? '0.1' : '1';
 }
 
+function getActivityGoalType(activity: Activity): GoalType | null {
+  return (
+    activity.unit_type ||
+    (activity.distance_km !== null && activity.distance_km !== undefined
+      ? 'distance'
+      : activity.duration_minutes !== null && activity.duration_minutes !== undefined
+        ? 'duration'
+        : null)
+  );
+}
+
+function getActivityValue(activity: Activity, goalType: GoalType | null) {
+  const activityGoalType = getActivityGoalType(activity);
+
+  if (!goalType || activityGoalType !== goalType) return 0;
+
+  return (
+    activity.unit_value ??
+    (activityGoalType === 'distance'
+      ? activity.distance_km
+      : activityGoalType === 'duration'
+        ? activity.duration_minutes
+        : null) ??
+    0
+  );
+}
+
+function isChallengeCompleted(challenge: Challenge, challengeActivities: Activity[]) {
+  const goalType: GoalType = challenge.goal_type || (challenge.goal_km ? 'distance' : 'distance');
+  const goalValue = challenge.goal_value ?? challenge.goal_km ?? null;
+
+  if (!goalValue || goalValue <= 0) return false;
+
+  const progress = challengeActivities.reduce(
+    (sum, activity) => sum + getActivityValue(activity, goalType),
+    0
+  );
+
+  return progress >= goalValue;
+}
+
 export default function NewActivityPageClient() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -135,25 +176,7 @@ export default function NewActivityPageClient() {
   const selectedGoalValue =
     selectedChallenge?.goal_value ?? selectedChallenge?.goal_km ?? null;
   const selectedChallengeProgress = activities.reduce((sum, activity) => {
-    const activityGoalType =
-      activity.unit_type ||
-      (activity.distance_km !== null && activity.distance_km !== undefined
-        ? 'distance'
-        : activity.duration_minutes !== null && activity.duration_minutes !== undefined
-          ? 'duration'
-          : null);
-
-    if (activityGoalType !== selectedGoalType) return sum;
-
-    const activityValue =
-      activity.unit_value ??
-      (activityGoalType === 'distance'
-        ? activity.distance_km
-        : activityGoalType === 'duration'
-          ? activity.duration_minutes
-          : null);
-
-    return sum + (activityValue || 0);
+    return sum + getActivityValue(activity, selectedGoalType);
   }, 0);
   const selectedChallengeCompleted =
     Boolean(selectedGoalValue && selectedGoalValue > 0) &&
@@ -209,6 +232,45 @@ export default function NewActivityPageClient() {
 
       if (selectedGoalType === 'reps' && !exerciseType) {
         setMessage("Merci de sélectionner le type d'exercice.");
+        setSubmitting(false);
+        return;
+      }
+
+      const [challengeResponse, activitiesResponse] = await Promise.all([
+        supabase
+          .from('challenges')
+          .select('id, name, goal_type, goal_value, goal_km')
+          .eq('id', selectedChallengeId)
+          .eq('is_deleted', false)
+          .single(),
+        supabase
+          .from('activities')
+          .select('distance_km, duration_minutes, unit_type, unit_value')
+          .eq('challenge_id', selectedChallengeId),
+      ]);
+
+      if (challengeResponse.error || !challengeResponse.data) {
+        console.error('Erreur verification challenge termine :', challengeResponse.error);
+        setMessage("Impossible de vérifier l'état du challenge.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (activitiesResponse.error) {
+        console.error('Erreur verification activites challenge :', activitiesResponse.error);
+        setMessage("Impossible de vérifier l'état du challenge.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        isChallengeCompleted(
+          challengeResponse.data as Challenge,
+          (activitiesResponse.data as Activity[]) || []
+        )
+      ) {
+        setMessage("Ce challenge est terminé, vous ne pouvez plus ajouter d'activité.");
+        setActivities((activitiesResponse.data as Activity[]) || []);
         setSubmitting(false);
         return;
       }
