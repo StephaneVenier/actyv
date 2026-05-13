@@ -6,6 +6,7 @@ import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
+type StatusFilter = 'all' | 'active' | 'completed';
 
 type Challenge = {
   id: string;
@@ -98,6 +99,8 @@ export default function ChallengesPage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [sportFilter, setSportFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -287,12 +290,73 @@ export default function ChallengesPage() {
     });
   }, [activities, challenges, participantsCountMap]);
 
-  const activeChallenges = challengeSummaries.filter((summary) => !summary.completed);
-  const completedChallenges = challengeSummaries.filter((summary) => summary.completed);
+  const sportOptions = useMemo(() => {
+    return Array.from(
+      new Set(
+        challenges
+          .map((challenge) => challenge.sport)
+          .filter((sport): sport is string => Boolean(sport))
+      )
+    ).sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [challenges]);
+
+  const filteredChallengeSummaries = challengeSummaries.filter((summary) => {
+    if (statusFilter === 'active' && summary.completed) return false;
+    if (statusFilter === 'completed' && !summary.completed) return false;
+    if (sportFilter !== 'all' && summary.challenge.sport !== sportFilter) return false;
+    return true;
+  });
+
+  const activeChallenges = filteredChallengeSummaries.filter((summary) => !summary.completed);
+  const completedChallenges = filteredChallengeSummaries.filter((summary) => summary.completed);
 
   return (
     <AppShell>
       <div className="challenges-page">
+        <section className="home-challenges challenges-filter-panel">
+          <div className="challenge-filter-group">
+            {[
+              { value: 'all', label: 'Tous' },
+              { value: 'active', label: 'En cours' },
+              { value: 'completed', label: 'Terminés' },
+            ].map((filter) => (
+              <button
+                key={filter.value}
+                type="button"
+                className={`challenge-filter-button ${
+                  statusFilter === filter.value ? 'active' : ''
+                }`}
+                onClick={() => setStatusFilter(filter.value as StatusFilter)}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+
+          {sportOptions.length > 0 && (
+            <div className="challenge-filter-group">
+              <button
+                type="button"
+                className={`challenge-filter-button ${sportFilter === 'all' ? 'active' : ''}`}
+                onClick={() => setSportFilter('all')}
+              >
+                Tous les sports
+              </button>
+
+              {sportOptions.map((sport) => (
+                <button
+                  key={sport}
+                  type="button"
+                  className={`challenge-filter-button ${sportFilter === sport ? 'active' : ''}`}
+                  onClick={() => setSportFilter(sport)}
+                >
+                  {sport}
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
         <section className="home-challenges challenges-page-section">
           <div className="home-challenges__header">
             <div>
