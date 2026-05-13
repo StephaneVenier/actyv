@@ -100,70 +100,92 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="app-shell">
       <header className="topbar">
-  <div className="topbar-inner">
-    <div className="topbar-left">
-      <nav className="nav desktop-nav">
-        <Link href="/">Accueil</Link>
-        <Link href="/challenges/new" className="button primary">
-          Créer un challenge
-        </Link>
-        <Link href="/activities/new">Ajouter une activité</Link>
-      </nav>
-    </div>
-
-    <Link href="/" className="brand" aria-label="Retour à l'accueil Actyv">
-      <img
-        src="/images/actyv-logo.png"
-        alt="Actyv"
-        className="brand-logo"
-      />
-    </Link>
-
-    <div className="topbar-right">
-      {!userEmail ? (
-        <div className="auth-actions">
-          <Link href="/login" className="button ghost">
-            Connexion
-          </Link>
-          <Link href="/signup" className="button primary desktop-only">
-            Créer un compte
-          </Link>
-        </div>
-      ) : (
-        <div ref={menuRef} className="profile-menu-wrap">
-          <button
-            type="button"
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="profile-trigger"
-          >
-            <span className="profile-trigger-text">{profileLabel}</span>
-            <span className="profile-trigger-arrow">▾</span>
-          </button>
-
-          {menuOpen && (
-            <div className="profile-dropdown">
-              <Link
-                href="/profile"
-                onClick={() => setMenuOpen(false)}
-                className="profile-dropdown-link"
-              >
-                Mon profil
+        <div className="topbar-inner">
+          <div className="topbar-left">
+            <nav className="nav desktop-nav">
+              <Link href="/">Accueil</Link>
+              <Link href="/challenges/new" className="button primary">
+                Créer un challenge
               </Link>
+              <Link href="/activities/new">Ajouter une activité</Link>
+            </nav>
+          </div>
 
-              <button
-                type="button"
-                onClick={handleLogout}
-                className="profile-dropdown-button"
-              >
-                Déconnexion
-              </button>
-            </div>
-          )}
+          <Link href="/" className="brand" aria-label="Retour à l'accueil Actyv">
+            <img
+              src="/images/actyv-logo.png"
+              alt="Actyv"
+              className="brand-logo"
+            />
+          </Link>
+
+          <div className="topbar-right">
+            {!userEmail ? (
+              <div ref={menuRef} className="profile-menu-wrap">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="profile-trigger auth-trigger"
+                >
+                  <span className="profile-trigger-text">Connexion / inscription</span>
+                  <span className="profile-trigger-arrow">▾</span>
+                </button>
+
+                {menuOpen && (
+                  <div className="profile-dropdown">
+                    <Link
+                      href="/login"
+                      onClick={() => setMenuOpen(false)}
+                      className="profile-dropdown-link"
+                    >
+                      Se connecter
+                    </Link>
+
+                    <Link
+                      href="/signup"
+                      onClick={() => setMenuOpen(false)}
+                      className="profile-dropdown-link"
+                    >
+                      Créer un compte
+                    </Link>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div ref={menuRef} className="profile-menu-wrap">
+                <button
+                  type="button"
+                  onClick={() => setMenuOpen((prev) => !prev)}
+                  className="profile-trigger"
+                >
+                  <span className="profile-trigger-text">{profileLabel}</span>
+                  <span className="profile-trigger-arrow">▾</span>
+                </button>
+
+                {menuOpen && (
+                  <div className="profile-dropdown">
+                    <Link
+                      href="/profile"
+                      onClick={() => setMenuOpen(false)}
+                      className="profile-dropdown-link"
+                    >
+                      Mon profil
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="profile-dropdown-button"
+                    >
+                      Déconnexion
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </div>
-  </div>
-</header>
+      </header>
 
       <main className="page-content">{children}</main>
 
