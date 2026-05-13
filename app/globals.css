@@ -287,6 +287,19 @@ img {
   color: #15803d;
 }
 
+.sport-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(32, 183, 166, 0.18);
+  background: linear-gradient(135deg, rgba(76, 217, 100, 0.14), rgba(30, 107, 214, 0.12));
+  color: #0f766e;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
 /* BUTTONS */
 
 .button {
@@ -604,11 +617,14 @@ img {
 .challenge-item__top {
   display: flex;
   justify-content: flex-start;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .challenge-item__pill {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   min-height: 28px;
   padding: 0 11px;
   border-radius: 999px;
@@ -616,6 +632,18 @@ img {
   color: #93f5a6;
   font-size: 12px;
   font-weight: 800;
+}
+
+.challenge-item__pill.sport-badge {
+  border-color: rgba(32, 183, 166, 0.18);
+  background: rgba(32, 183, 166, 0.1);
+  color: #0f766e;
+}
+
+.challenge-item .challenge-item__pill.sport-badge {
+  border-color: rgba(147, 245, 166, 0.18);
+  background: rgba(76, 217, 100, 0.14);
+  color: #bbf7d0;
 }
 
 .challenge-item h3 {
@@ -1225,6 +1253,14 @@ img {
   color: #16a34a;
 }
 
+.feed-item__sport.sport-badge,
+.activity-sport.sport-badge {
+  gap: 7px;
+  border: 1px solid rgba(32, 183, 166, 0.18);
+  background: linear-gradient(135deg, rgba(76, 217, 100, 0.14), rgba(30, 107, 214, 0.12));
+  color: #0f766e;
+}
+
 .activity-stats {
   display: flex;
   gap: 12px;
@@ -1495,6 +1531,11 @@ img {
 
   .home-challenges .challenge-item__participants-pill {
     display: none;
+  }
+
+  .sport-badge {
+    min-height: 30px;
+    white-space: normal;
   }
 
   .feed-item,

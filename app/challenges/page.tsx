@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { formatSportLabel } from '@/components/challenge-data';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -350,7 +351,7 @@ export default function ChallengesPage() {
                   className={`challenge-filter-button ${sportFilter === sport ? 'active' : ''}`}
                   onClick={() => setSportFilter(sport)}
                 >
-                  {sport}
+                  {formatSportLabel(sport)}
                 </button>
               ))}
             </div>
@@ -382,7 +383,7 @@ export default function ChallengesPage() {
               {activeChallenges.map(({ challenge, goalType, goalValue, progress, progressPercent, participantsCount }) => (
                 <article key={challenge.id} className="card challenge-overview-card">
                   <div className="challenge-overview-top">
-                    <span className="badge">{challenge.sport || 'Sport'}</span>
+                    <span className="badge sport-badge">{formatSportLabel(challenge.sport)}</span>
                     <span className="badge">En cours</span>
                     {goalType && <span className="badge">{getGoalLabel(goalType)}</span>}
                     <span className="badge">
@@ -448,7 +449,7 @@ export default function ChallengesPage() {
                   <div className="completed-challenge-main">
                     <div className="completed-challenge-tags">
                       <span className="badge badge-completed">Terminé</span>
-                      <span className="challenge-item__pill">{challenge.sport || 'Sport'}</span>
+                      <span className="challenge-item__pill sport-badge">{formatSportLabel(challenge.sport)}</span>
                       {goalType && <span className="challenge-item__pill">{getGoalLabel(goalType)}</span>}
                       <span className="challenge-item__pill">
                         {participantsCount} participant{participantsCount > 1 ? 's' : ''}

@@ -54,3 +54,42 @@ export const sampleFeed = [
     reactions: '👍 1 · 💪 2'
   }
 ];
+
+const sportIcons: Array<[string, string]> = [
+  ['course', '🏃'],
+  ['running', '🏃'],
+  ['run', '🏃'],
+  ['marche', '🚶'],
+  ['walk', '🚶'],
+  ['velo', '🚴'],
+  ['vélo', '🚴'],
+  ['cycl', '🚴'],
+  ['bike', '🚴'],
+  ['fitness', '💪'],
+  ['muscu', '💪'],
+  ['force', '💪'],
+  ['yoga', '🧘'],
+  ['mobilite', '🧘'],
+  ['mobilité', '🧘'],
+  ['trail', '⛰️'],
+  ['randon', '⛰️'],
+  ['foot', '⚽'],
+  ['collectif', '⚽'],
+  ['natation', '🏊'],
+  ['swim', '🏊'],
+];
+
+function normalizeSportLabel(sport: string) {
+  return sport
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+export function formatSportLabel(sport: string | null | undefined, fallback = 'Sport') {
+  const label = sport?.trim() || fallback;
+  const normalized = normalizeSportLabel(label);
+  const icon = sportIcons.find(([keyword]) => normalized.includes(keyword))?.[1] || '🏅';
+
+  return `${icon} ${label}`;
+}

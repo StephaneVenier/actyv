@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { formatSportLabel } from '@/components/challenge-data';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -477,7 +478,7 @@ export default function ProfilePage() {
               {activeChallenges.map(({ challenge, goalType, goalValue, progress, progressPercent, myActivities }) => (
                 <article key={challenge.id} className="card challenge-overview-card">
                   <div className="challenge-overview-top">
-                    <span className="badge">{challenge.sport || 'Sport'}</span>
+                    <span className="badge sport-badge">{formatSportLabel(challenge.sport)}</span>
                   </div>
 
                   <h3>{challenge.name}</h3>
@@ -534,7 +535,7 @@ export default function ProfilePage() {
                   <div className="completed-challenge-main">
                     <div className="completed-challenge-tags">
                       <span className="badge badge-completed">Terminé</span>
-                      <span className="challenge-item__pill">{challenge.sport || 'Sport'}</span>
+                      <span className="challenge-item__pill sport-badge">{formatSportLabel(challenge.sport)}</span>
                     </div>
                     <strong>{challenge.name}</strong>
                     <span>Objectif atteint : {formatGoal(goalValue, goalType)}</span>

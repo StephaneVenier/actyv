@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { formatSportLabel } from '@/components/challenge-data';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -899,7 +900,9 @@ const handleBoost = async (activityId: string) => {
           <div className="challenge-hero-top">
             <div className="stack" style={{ gap: '0.75rem' }}>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <span className="badge">{challenge.sport || 'Sport non renseigné'}</span>
+                <span className="badge sport-badge">
+                  {formatSportLabel(challenge.sport, 'Sport non renseigné')}
+                </span>
                 {isChallengeCompleted ? (
                   <span className="badge badge-completed">Terminé</span>
                 ) : (
@@ -1147,8 +1150,8 @@ const handleBoost = async (activityId: string) => {
                     <span className="activity-date">{formatDate(activity.created_at)}</span>
                   </div>
 
-                  <div className="activity-sport">
-                    {activity.sport || challenge.sport || 'Sport non renseigné'}
+                  <div className="activity-sport sport-badge">
+                    {formatSportLabel(activity.sport || challenge.sport, 'Sport non renseigné')}
                   </div>
 
                   <div className="activity-stats">
