@@ -324,7 +324,7 @@ export default function HomePage() {
                     <span className="challenge-item__pill">
                       {challenge.sport || 'Sport'}
                     </span>
-                    <span className="challenge-item__pill">
+                    <span className="challenge-item__pill challenge-item__participants-pill">
                       {participantsCountMap[challenge.id] || 1} participant
                       {(participantsCountMap[challenge.id] || 1) > 1 ? 's' : ''}
                     </span>

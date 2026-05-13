@@ -1433,6 +1433,10 @@ img {
     grid-template-columns: 1fr;
   }
 
+  .home-challenges .challenge-item__participants-pill {
+    display: none;
+  }
+
   .auth-actions {
     gap: 8px;
   }
