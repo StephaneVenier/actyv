@@ -1039,6 +1039,12 @@ img {
   color: #b45309;
 }
 
+.achievement-badge--locked {
+  background: rgba(148, 163, 184, 0.12);
+  border-color: rgba(148, 163, 184, 0.22);
+  color: #64748b;
+}
+
 .badge-list-empty {
   background: rgba(15, 23, 42, 0.04);
   color: #64748b;

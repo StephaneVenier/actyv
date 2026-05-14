@@ -333,7 +333,10 @@ export default function ProfilePage() {
   const totalXp = profile?.total_xp || 0;
   const levelProgress = getLevelProgress(totalXp);
   const unlockedBadgeCodes = new Set(badges.map((badge) => badge.badge_code));
-  const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
+  const displayBadges = BADGES.map((badge) => ({
+    ...badge,
+    unlocked: unlockedBadgeCodes.has(badge.code),
+  }));
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -479,15 +482,15 @@ export default function ProfilePage() {
           </div>
 
           <div className="badge-list">
-            {unlockedBadges.length === 0 ? (
-              <span className="badge-list-empty">Aucun badge débloqué pour le moment.</span>
-            ) : (
-              unlockedBadges.map((badge) => (
-                <span key={badge.code} className="achievement-badge" title={badge.description}>
-                  {badge.label}
-                </span>
-              ))
-            )}
+            {displayBadges.map((badge) => (
+              <span
+                key={badge.code}
+                className={`achievement-badge${badge.unlocked ? '' : ' achievement-badge--locked'}`}
+                title={badge.description}
+              >
+                {badge.label}
+              </span>
+            ))}
           </div>
         </section>
 

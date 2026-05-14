@@ -35,14 +35,14 @@ export const XP_RULES: Record<XpSource, XpRule> = {
 };
 
 export const BADGES: BadgeRule[] = [
-  { code: 'first-step', label: 'Premier pas', description: 'Ajouter une première activité.' },
-  { code: 'creator', label: 'Créateur', description: 'Créer un premier challenge.' },
-  { code: 'collective', label: 'Collectif', description: 'Rejoindre un challenge.' },
-  { code: 'regular', label: 'Régulier', description: 'Cumuler 4 activités récompensées.' },
-  { code: 'serious', label: 'Sérieux', description: 'Atteindre le niveau 5.' },
-  { code: 'booster', label: 'Booster', description: 'Recevoir un boost.' },
-  { code: 'motivated', label: 'Motivé', description: 'Recevoir un like.' },
-  { code: 'finisher', label: 'Finisher', description: 'Terminer un challenge.' },
+  { code: 'first-step', label: 'Premier pas', description: 'Ajouter une premiere activite.' },
+  { code: 'creator', label: 'Createur', description: 'Creer un premier challenge.' },
+  { code: 'collective', label: 'Collectif', description: 'Rejoindre un premier challenge.' },
+  { code: 'regular', label: 'Regulier', description: 'Ajouter 5 activites.' },
+  { code: 'serious', label: 'Serieux', description: 'Ajouter 10 activites.' },
+  { code: 'booster', label: 'Booster', description: 'Donner 10 boosts.' },
+  { code: 'motivated', label: 'Motive', description: 'Recevoir 10 boosts.' },
+  { code: 'finisher', label: 'Finisher', description: 'Participer a un challenge termine.' },
 ];
 
 export function calculateLevel(totalXp: number) {
@@ -85,7 +85,7 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
     .maybeSingle();
 
   if (error) {
-    console.error('Erreur résolution profil gamification :', error);
+    console.error('Erreur resolution profil gamification :', error);
     return null;
   }
 
