@@ -150,6 +150,16 @@ export default function NewChallengePage() {
         metadata: { target_id: challenge.id },
       });
 
+      const { data: badgeResult, error: badgeError } = await supabase.rpc(
+        'refresh_user_badges',
+        {
+          p_user_id: user.id,
+        }
+      );
+
+      console.log('REFRESH BADGES AFTER CHALLENGE:', badgeResult);
+      console.error('REFRESH BADGES AFTER CHALLENGE ERROR:', badgeError);
+
       router.push(`/challenges/${challenge.id}`);
     } catch (err) {
       console.error('Erreur inattendue :', err);
