@@ -411,14 +411,20 @@ end;
 $$;
 
 create or replace function public.refresh_user_badges(p_user_id uuid)
-returns void
+returns jsonb
 language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  badge_count integer := 0;
+  badge_codes text[];
 begin
   if p_user_id is null then
-    return;
+    return jsonb_build_object(
+      'status', 'error',
+      'reason', 'missing_user_id'
+    );
   end if;
 
   if exists (
@@ -503,6 +509,18 @@ begin
   ) then
     perform public.grant_user_badge(p_user_id, 'boosteur');
   end if;
+
+  select count(*), coalesce(array_agg(badge_code order by badge_code), '{}')
+  into badge_count, badge_codes
+  from public.user_badges
+  where user_id = p_user_id;
+
+  return jsonb_build_object(
+    'status', 'ok',
+    'user_id', p_user_id,
+    'badge_count', badge_count,
+    'badges', badge_codes
+  );
 end;
 $$;
 

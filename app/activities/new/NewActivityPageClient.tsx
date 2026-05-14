@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 import { sports } from '@/components/challenge-data';
-import { awardXp, refreshUserBadges } from '@/lib/gamification';
+import { awardXp } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -318,15 +318,17 @@ export default function NewActivityPageClient() {
         });
       }
 
-      console.log('[activity-create] launching badge verification for user:', user.id);
-      console.log('CHECK BADGES START');
+      console.log('CALLING refresh_user_badges FOR:', user.id);
 
-      try {
-        const badgeResult = await refreshUserBadges(user.id);
-        console.log('BADGES RESULT:', badgeResult);
-      } catch (badgeError) {
-        console.error('BADGES ERROR:', badgeError);
-      }
+      const { data: refreshBadgeData, error: refreshBadgeError } = await supabase.rpc(
+        'refresh_user_badges',
+        {
+          p_user_id: user.id,
+        }
+      );
+
+      console.log('REFRESH RPC DATA:', refreshBadgeData);
+      console.error('REFRESH RPC ERROR:', refreshBadgeError);
 
       const nextProgress =
         selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);
