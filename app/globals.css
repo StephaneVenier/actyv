@@ -979,6 +979,61 @@ img {
   flex-wrap: wrap;
 }
 
+.gamification-card {
+  display: grid;
+  gap: 18px;
+}
+
+.gamification-main {
+  display: grid;
+  grid-template-columns: minmax(0, 260px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: end;
+}
+
+.gamification-main h2 {
+  margin: 0;
+  color: #071226;
+  font-size: 1.75rem;
+}
+
+.gamification-main p {
+  margin: 6px 0 0;
+}
+
+.gamification-progress {
+  display: grid;
+  gap: 8px;
+}
+
+.badge-list {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.achievement-badge,
+.badge-list-empty {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.achievement-badge {
+  background: rgba(245, 158, 11, 0.14);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  color: #b45309;
+}
+
+.badge-list-empty {
+  background: rgba(15, 23, 42, 0.04);
+  color: #64748b;
+}
+
 .profile-stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1737,6 +1792,11 @@ img {
 
   .profile-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .gamification-main {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .home-challenges .challenge-item__participants-pill {

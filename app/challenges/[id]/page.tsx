@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { supabase } from '@/lib/supabase';
+import { awardXp } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -204,6 +205,7 @@ export default function ChallengeDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState('');
 
   const fetchChallengeAndActivities = async (showPageLoader = true) => {
@@ -226,6 +228,7 @@ setShareMessage('');
   } = await supabase.auth.getUser();
 
   setCurrentUserId(user?.id || null);
+  setCurrentUserEmail(user?.email || null);
 
   const { data: challengeData, error: challengeError } = await supabase
     .from('challenges')
@@ -705,6 +708,21 @@ const handleLike = async (activityId: string) => {
       alert("Impossible d'ajouter le like pour le moment.");
       return;
     }
+
+    const activity = activities.find((item) => item.id === activityId);
+
+    if (
+      activity &&
+      activity.user_id !== currentUserId &&
+      activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
+    ) {
+      await awardXp({
+        userId: activity.user_id,
+        userEmail: activity.user_email,
+        source: 'like_received',
+        metadata: { target_id: activityId },
+      });
+    }
   }
 
   await fetchChallengeAndActivities(false);
@@ -747,6 +765,21 @@ const handleBoost = async (activityId: string) => {
       console.error('Erreur ajout boost :', error);
       alert("Impossible d'ajouter le boost pour le moment.");
       return;
+    }
+
+    const activity = activities.find((item) => item.id === activityId);
+
+    if (
+      activity &&
+      activity.user_id !== currentUserId &&
+      activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
+    ) {
+      await awardXp({
+        userId: activity.user_id,
+        userEmail: activity.user_email,
+        source: 'boost_received',
+        metadata: { target_id: activityId },
+      });
     }
   }
 
@@ -827,6 +860,11 @@ const handleBoost = async (activityId: string) => {
       ]);
 
       setCurrentUserId(user.id);
+      await awardXp({
+        userId: user.id,
+        source: 'challenge_joined',
+        metadata: { target_id: challenge.id },
+      });
     } finally {
       setJoiningChallenge(false);
     }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
 import { sports } from '@/components/challenge-data';
+import { awardXp } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -142,6 +143,12 @@ export default function NewChallengePage() {
           console.error('Erreur ajout createur challenge_members :', memberError);
         }
       }
+
+      await awardXp({
+        userId: user.id,
+        source: 'challenge_created',
+        metadata: { target_id: challenge.id },
+      });
 
       router.push(`/challenges/${challenge.id}`);
     } catch (err) {

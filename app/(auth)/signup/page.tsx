@@ -44,6 +44,8 @@ export default function SignupPage() {
       id: data.user.id,
       email,
       username,
+      total_xp: 0,
+      level: 1,
     });
 
     if (profileError) {

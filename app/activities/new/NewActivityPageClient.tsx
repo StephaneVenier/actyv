@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 import { sports } from '@/components/challenge-data';
+import { awardXp } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -277,6 +278,7 @@ export default function NewActivityPageClient() {
 
       const insertPayload = {
         challenge_id: selectedChallengeId,
+        user_id: user.id,
         user_email: user.email,
         sport: selectedSport,
         unit_type: selectedGoalType,
@@ -296,6 +298,27 @@ export default function NewActivityPageClient() {
         setMessage("Impossible d'enregistrer l’activité.");
         setSubmitting(false);
         return;
+      }
+
+      await awardXp({
+        userId: user.id,
+        source: 'activity_added',
+      });
+
+      const nextProgress =
+        selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);
+
+      if (
+        selectedGoalValue &&
+        selectedGoalValue > 0 &&
+        selectedChallengeProgress < selectedGoalValue &&
+        nextProgress >= selectedGoalValue
+      ) {
+        await awardXp({
+          userId: user.id,
+          source: 'challenge_completed',
+          metadata: { target_id: selectedChallengeId },
+        });
       }
 
       router.push(`/challenges/${selectedChallengeId}`);

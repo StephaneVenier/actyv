@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
+import { BADGES, getLevelProgress } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -12,6 +13,8 @@ type Profile = {
   id: string;
   email: string | null;
   username: string | null;
+  total_xp: number | null;
+  level: number | null;
 };
 
 type Activity = {
@@ -43,6 +46,11 @@ type ChallengeMember = {
 type ActivityInteraction = {
   activity_id: string;
   type: 'like' | 'boost';
+};
+
+type UserBadge = {
+  badge_code: string;
+  unlocked_at: string | null;
 };
 
 type UserChallengeSummary = {
@@ -111,6 +119,7 @@ export default function ProfilePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
+  const [badges, setBadges] = useState<UserBadge[]>([]);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
@@ -133,7 +142,7 @@ export default function ProfilePage() {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('id, email, username')
+        .select('id, email, username, total_xp, level')
         .eq('id', user.id)
         .single();
 
@@ -141,6 +150,8 @@ export default function ProfilePage() {
         id: user.id,
         email: user.email || null,
         username: null,
+        total_xp: 0,
+        level: 1,
       };
 
       setProfile(nextProfile);
@@ -150,6 +161,7 @@ export default function ProfilePage() {
         activitiesResponse,
         membersResponse,
         participantsResponse,
+        badgesResponse,
       ] = await Promise.all([
         supabase
           .from('activities')
@@ -166,6 +178,11 @@ export default function ProfilePage() {
           .from('challenge_participants')
           .select('challenge_id')
           .eq('user_id', user.id),
+        supabase
+          .from('user_badges')
+          .select('badge_code, unlocked_at')
+          .eq('user_id', user.id)
+          .order('unlocked_at', { ascending: false }),
       ]);
 
       const loadedActivities = (activitiesResponse.data as Activity[] | null) || [];
@@ -183,6 +200,13 @@ export default function ProfilePage() {
 
       if (participantsResponse.error) {
         console.error('Erreur chargement challenge_participants profil :', participantsResponse.error);
+      }
+
+      if (badgesResponse.error) {
+        console.error('Erreur chargement badges profil :', badgesResponse.error);
+        setBadges([]);
+      } else {
+        setBadges((badgesResponse.data as UserBadge[] | null) || []);
       }
 
       const memberIds = ((membersResponse.data as ChallengeMember[] | null) || []).map(
@@ -306,6 +330,10 @@ export default function ProfilePage() {
 
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
   const completedChallenges = groupedChallenges.filter((challenge) => challenge.completed);
+  const totalXp = profile?.total_xp || 0;
+  const levelProgress = getLevelProgress(totalXp);
+  const unlockedBadgeCodes = new Set(badges.map((badge) => badge.badge_code));
+  const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -325,6 +353,8 @@ export default function ProfilePage() {
       id: profile.id,
       email: profile.email,
       username: trimmed,
+      total_xp: profile.total_xp || 0,
+      level: profile.level || 1,
     });
 
     if (error) {
@@ -423,6 +453,41 @@ export default function ProfilePage() {
 
               {message && <p className="muted">{message}</p>}
             </div>
+          </div>
+        </section>
+
+        <section className="card gamification-card">
+          <div className="gamification-main">
+            <div>
+              <span className="section-kicker">Progression</span>
+              <h2>Niveau {levelProgress.level}</h2>
+              <p className="muted">{totalXp} XP au total</p>
+            </div>
+
+            <div className="gamification-progress">
+              <div className="progress-meta">
+                <span>{levelProgress.xpToNextLevel} XP avant le niveau suivant</span>
+                <span>{levelProgress.progressPercent.toFixed(0)}%</span>
+              </div>
+              <div className="progress-track">
+                <div
+                  className="progress-fill"
+                  style={{ width: `${levelProgress.progressPercent}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="badge-list">
+            {unlockedBadges.length === 0 ? (
+              <span className="badge-list-empty">Aucun badge débloqué pour le moment.</span>
+            ) : (
+              unlockedBadges.map((badge) => (
+                <span key={badge.code} className="achievement-badge" title={badge.description}>
+                  {badge.label}
+                </span>
+              ))
+            )}
           </div>
         </section>
 
