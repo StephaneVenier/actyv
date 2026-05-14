@@ -275,20 +275,25 @@ begin
   select p_user_id, badge_code
   from (
     values
-      ('first-step', p_source = 'activity_added'),
-      ('creator', p_source = 'challenge_created'),
-      ('collective', p_source = 'challenge_joined'),
-      ('motivated', p_source = 'like_received'),
-      ('booster', p_source = 'boost_received'),
-      ('finisher', p_source = 'challenge_completed'),
-      ('serious', next_level >= 5),
+      ('premier_pas', p_source = 'activity_added'),
+      ('challenger', p_source = 'challenge_created'),
+      ('collectif', p_source = 'challenge_joined'),
+      ('boosteur', p_source in ('like_received', 'boost_received')),
       (
-        'regular',
+        'actyv_motive',
         (
           select count(*)
-          from public.xp_events
-          where user_id = p_user_id and source = 'activity_added'
-        ) >= 4
+          from public.activities
+          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+        ) >= 10
+      ),
+      (
+        'actyv_regulier',
+        (
+          select count(*)
+          from public.activities
+          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+        ) >= 5
       )
   ) as badge_rules(badge_code, should_unlock)
   where should_unlock
@@ -385,6 +390,26 @@ begin
 end;
 $$;
 
+create or replace function public.grant_user_badge(
+  p_user_id uuid,
+  p_badge_code text
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_user_id is null or p_badge_code is null or length(trim(p_badge_code)) = 0 then
+    return;
+  end if;
+
+  insert into public.user_badges (user_id, badge_code)
+  values (p_user_id, p_badge_code)
+  on conflict (user_id, badge_code) do nothing;
+end;
+$$;
+
 create or replace function public.refresh_user_badges(p_user_id uuid)
 returns void
 language plpgsql
@@ -396,112 +421,93 @@ begin
     return;
   end if;
 
-  insert into public.user_badges (user_id, badge_code)
-  select p_user_id, badge_code
-  from (
-    values
-      (
-        'first-step',
-        exists (
-          select 1
-          from public.activities
-          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
-        )
-      ),
-      (
-        'creator',
-        exists (
-          select 1
-          from public.challenges
-          where created_by = p_user_id
-            and coalesce(is_deleted, false) = false
-        )
-      ),
-      (
-        'collective',
-        exists (
-          select 1
-          from public.challenge_participants
-          where user_id = p_user_id
-        )
-        or exists (
-          select 1
-          from public.challenge_members
-          where public.resolve_profile_id(user_email) = p_user_id
-            and coalesce(role, 'member') = 'member'
-        )
-      ),
-      (
-        'regular',
-        (
-          select count(*)
-          from public.activities
-          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
-        ) >= 5
-      ),
-      (
-        'serious',
-        (
-          select count(*)
-          from public.activities
-          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
-        ) >= 10
-      ),
-      (
-        'booster',
-        (
-          select count(*)
-          from public.activity_interactions
-          where user_id = p_user_id
-            and type = 'boost'
-        ) >= 10
-      ),
-      (
-        'motivated',
-        (
-          select count(*)
-          from public.activity_interactions interactions
-          join public.activities activities
-            on activities.id = interactions.activity_id
-          where interactions.type = 'boost'
-            and coalesce(activities.user_id, public.resolve_profile_id(activities.user_email)) = p_user_id
-            and interactions.user_id is distinct from p_user_id
-        ) >= 10
-      ),
-      (
-        'finisher',
-        exists (
-          select 1
-          from public.challenges challenges
-          where coalesce(challenges.is_deleted, false) = false
-            and coalesce(challenges.goal_value, challenges.goal_km, 0) > 0
-            and (
-              challenges.created_by = p_user_id
-              or exists (
-                select 1
-                from public.challenge_participants participants
-                where participants.challenge_id = challenges.id
-                  and participants.user_id = p_user_id
-              )
-              or exists (
-                select 1
-                from public.challenge_members members
-                where members.challenge_id = challenges.id
-                  and public.resolve_profile_id(members.user_email) = p_user_id
-                  and coalesce(members.role, 'member') = 'member'
-              )
-            )
-            and public.get_challenge_progress(
-              challenges.id,
-              coalesce(challenges.goal_type, case when challenges.goal_km is not null then 'distance' else null end)
-            ) >= coalesce(challenges.goal_value, challenges.goal_km, 0)
-        )
-      )
-  ) as badge_rules(badge_code, should_unlock)
-  where should_unlock
-  on conflict (user_id, badge_code) do nothing;
+  if exists (
+    select 1
+    from public.activities
+    where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+  ) then
+    perform public.grant_user_badge(p_user_id, 'premier_pas');
+  end if;
+
+  if (
+    select count(*)
+    from public.activities
+    where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+  ) >= 5 then
+    perform public.grant_user_badge(p_user_id, 'actyv_regulier');
+  end if;
+
+  if (
+    select count(*)
+    from public.activities
+    where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+  ) >= 10 then
+    perform public.grant_user_badge(p_user_id, 'actyv_motive');
+  end if;
+
+  if exists (
+    select 1
+    from public.challenges
+    where created_by = p_user_id
+      and coalesce(is_deleted, false) = false
+  ) then
+    perform public.grant_user_badge(p_user_id, 'challenger');
+  end if;
+
+  if exists (
+    select 1
+    from public.challenge_participants
+    where user_id = p_user_id
+  ) or exists (
+    select 1
+    from public.challenge_members
+    where public.resolve_profile_id(user_email) = p_user_id
+      and coalesce(role, 'member') = 'member'
+  ) then
+    perform public.grant_user_badge(p_user_id, 'collectif');
+  end if;
+
+  if (
+    select coalesce(sum(
+      case
+        when coalesce(unit_type, case when distance_km is not null then 'distance' else null end) = 'distance'
+          then coalesce(unit_value, distance_km, 0)
+        else 0
+      end
+    ), 0)
+    from public.activities
+    where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+  ) >= 10 then
+    perform public.grant_user_badge(p_user_id, 'distance_10_km');
+  end if;
+
+  if (
+    select coalesce(sum(
+      case
+        when coalesce(unit_type, case when distance_km is not null then 'distance' else null end) = 'distance'
+          then coalesce(unit_value, distance_km, 0)
+        else 0
+      end
+    ), 0)
+    from public.activities
+    where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+  ) >= 50 then
+    perform public.grant_user_badge(p_user_id, 'distance_50_km');
+  end if;
+
+  if exists (
+    select 1
+    from public.activity_interactions
+    where user_id = p_user_id
+      and type in ('like', 'boost')
+  ) then
+    perform public.grant_user_badge(p_user_id, 'boosteur');
+  end if;
 end;
 $$;
+
+grant execute on function public.grant_user_badge(uuid, text) to authenticated;
+grant execute on function public.refresh_user_badges(uuid) to authenticated;
 
 create or replace function public.add_user_xp(
   p_user_id uuid,
@@ -593,6 +599,7 @@ set search_path = public
 as $$
 begin
   perform public.award_xp_internal(NEW.created_by, 'challenge_created', NEW.id::text);
+  perform public.refresh_user_badges(NEW.created_by);
   return NEW;
 end;
 $$;
@@ -694,7 +701,7 @@ begin
   activity_owner_id := coalesce(activity_owner_id, public.resolve_profile_id(activity_owner_email));
 
   if activity_owner_id is null or activity_owner_id = NEW.user_id then
-    if NEW.type = 'boost' and NEW.user_id is not null then
+    if NEW.type in ('like', 'boost') and NEW.user_id is not null then
       perform public.refresh_user_badges(NEW.user_id);
     end if;
     return NEW;
@@ -702,6 +709,7 @@ begin
 
   if NEW.type = 'like' then
     perform public.award_xp_internal(activity_owner_id, 'like_received', NEW.id::text);
+    perform public.refresh_user_badges(NEW.user_id);
   elsif NEW.type = 'boost' then
     perform public.award_xp_internal(activity_owner_id, 'boost_received', NEW.id::text);
     perform public.refresh_user_badges(NEW.user_id);

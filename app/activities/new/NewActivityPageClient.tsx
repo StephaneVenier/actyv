@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
 import { sports } from '@/components/challenge-data';
-import { awardXp } from '@/lib/gamification';
+import { awardXp, refreshUserBadges } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -205,6 +205,9 @@ export default function NewActivityPageClient() {
         error: userError,
       } = await supabase.auth.getUser();
 
+      console.log('[activity-create] connected user id:', user?.id);
+      console.log('USER ID:', user?.id);
+
       if (userError || !user?.email) {
         setMessage('Vous devez être connecté pour ajouter une activité.');
         setSubmitting(false);
@@ -297,6 +300,9 @@ export default function NewActivityPageClient() {
         .select('id')
         .single();
 
+      console.log('[activity-create] created activity:', createdActivity);
+      console.log('ACTIVITY CREATED:', createdActivity);
+
       if (error) {
         console.error('Erreur création activité :', error);
         setMessage("Impossible d'enregistrer l’activité.");
@@ -310,6 +316,16 @@ export default function NewActivityPageClient() {
           source: 'activity_added',
           metadata: { target_id: createdActivity.id },
         });
+      }
+
+      console.log('[activity-create] launching badge verification for user:', user.id);
+      console.log('CHECK BADGES START');
+
+      try {
+        const badgeResult = await refreshUserBadges(user.id);
+        console.log('BADGES RESULT:', badgeResult);
+      } catch (badgeError) {
+        console.error('BADGES ERROR:', badgeError);
       }
 
       const nextProgress =

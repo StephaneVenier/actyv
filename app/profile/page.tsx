@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
-import { BADGES, getLevelProgress } from '@/lib/gamification';
+import { BADGES, getLevelProgress, normalizeBadgeCode } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -50,7 +50,9 @@ type ActivityInteraction = {
 
 type UserBadge = {
   badge_code: string;
-  unlocked_at: string | null;
+  unlocked_at?: string | null;
+  earned_at?: string | null;
+  created_at?: string | null;
 };
 
 type UserChallengeSummary = {
@@ -140,6 +142,8 @@ export default function ProfilePage() {
         return;
       }
 
+      console.log('PROFILE USER:', user.id);
+
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, email, username, total_xp, level')
@@ -180,9 +184,8 @@ export default function ProfilePage() {
           .eq('user_id', user.id),
         supabase
           .from('user_badges')
-          .select('badge_code, unlocked_at')
-          .eq('user_id', user.id)
-          .order('unlocked_at', { ascending: false }),
+          .select('badge_code')
+          .eq('user_id', user.id),
       ]);
 
       const loadedActivities = (activitiesResponse.data as Activity[] | null) || [];
@@ -203,9 +206,10 @@ export default function ProfilePage() {
       }
 
       if (badgesResponse.error) {
-        console.error('Erreur chargement badges profil :', badgesResponse.error);
+        console.error('USER BADGES ERROR:', badgesResponse.error);
         setBadges([]);
       } else {
+        console.log('USER BADGES:', badgesResponse.data || []);
         setBadges((badgesResponse.data as UserBadge[] | null) || []);
       }
 
@@ -332,11 +336,12 @@ export default function ProfilePage() {
   const completedChallenges = groupedChallenges.filter((challenge) => challenge.completed);
   const totalXp = profile?.total_xp || 0;
   const levelProgress = getLevelProgress(totalXp);
-  const unlockedBadgeCodes = new Set(badges.map((badge) => badge.badge_code));
-  const displayBadges = BADGES.map((badge) => ({
-    ...badge,
-    unlocked: unlockedBadgeCodes.has(badge.code),
-  }));
+  const unlockedBadgeCodes = new Set(
+    badges
+      .map((badge) => normalizeBadgeCode(badge.badge_code))
+      .filter((badgeCode): badgeCode is NonNullable<typeof badgeCode> => Boolean(badgeCode))
+  );
+  const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -482,15 +487,15 @@ export default function ProfilePage() {
           </div>
 
           <div className="badge-list">
-            {displayBadges.map((badge) => (
-              <span
-                key={badge.code}
-                className={`achievement-badge${badge.unlocked ? '' : ' achievement-badge--locked'}`}
-                title={badge.description}
-              >
-                {badge.label}
-              </span>
-            ))}
+            {unlockedBadges.length === 0 ? (
+              <span className="badge-list-empty">Aucun badge débloqué pour le moment.</span>
+            ) : (
+              unlockedBadges.map((badge) => (
+                <span key={badge.code} className="achievement-badge" title={badge.description}>
+                  {badge.label}
+                </span>
+              ))
+            )}
           </div>
         </section>
 
