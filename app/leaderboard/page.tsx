@@ -14,6 +14,7 @@ type Profile = {
 };
 
 type Activity = {
+  challenge_id: string;
   user_id: string | null;
   user_email: string | null;
   distance_km: number | null;
@@ -22,11 +23,26 @@ type Activity = {
   created_at: string | null;
 };
 
+type Challenge = {
+  id: string;
+  visibility: string | null;
+  created_by: string | null;
+};
+
+type ChallengeMember = {
+  challenge_id: string;
+  user_email: string | null;
+};
+
+type ChallengeParticipant = {
+  challenge_id: string;
+  user_id: string | null;
+};
+
 type Identity = {
   key: string;
   label: string;
   level: number | null;
-  email: string | null;
 };
 
 type RankedEntry = {
@@ -36,6 +52,8 @@ type RankedEntry = {
   value: number;
   meta: string;
 };
+
+const COMMUNITY_VISIBILITIES = ['public', 'community'];
 
 function getActivityActorKey(activity: Activity) {
   if (activity.user_id) return `user:${activity.user_id}`;
@@ -74,18 +92,115 @@ export default function LeaderboardPage() {
     const loadLeaderboard = async () => {
       setLoading(true);
 
-      const [profilesResponse, activitiesResponse] = await Promise.all([
-        supabase.from('profiles').select('id, email, username, total_xp, level'),
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      const userEmail = user?.email?.toLowerCase() || null;
+      const userId = user?.id || null;
+      let joinedChallengeIds: string[] = [];
+
+      if (userEmail) {
+        const [membersResponse, participantsResponse] = await Promise.all([
+          supabase
+            .from('challenge_members')
+            .select('challenge_id')
+            .eq('user_email', userEmail),
+          userId
+            ? supabase
+                .from('challenge_participants')
+                .select('challenge_id')
+                .eq('user_id', userId)
+            : Promise.resolve({ data: [], error: null }),
+        ]);
+
+        if (membersResponse.error) {
+          console.error('Erreur chargement challenge_members leaderboard :', membersResponse.error);
+        }
+
+        if (participantsResponse.error) {
+          console.error(
+            'Erreur chargement challenge_participants leaderboard :',
+            participantsResponse.error
+          );
+        }
+
+        joinedChallengeIds = [
+          ...(((membersResponse.data as { challenge_id: string }[] | null) || []).map(
+            (row) => row.challenge_id
+          )),
+          ...(((participantsResponse.data as { challenge_id: string }[] | null) || []).map(
+            (row) => row.challenge_id
+          )),
+        ];
+      }
+
+      joinedChallengeIds = Array.from(new Set(joinedChallengeIds));
+
+      let challengesQuery = supabase
+        .from('challenges')
+        .select('id, visibility, created_by')
+        .eq('is_deleted', false);
+
+      if (userEmail) {
+        const visibilityFilters = COMMUNITY_VISIBILITIES.map(
+          (visibility) => `visibility.eq.${visibility}`
+        );
+
+        if (userId) {
+          visibilityFilters.push(`created_by.eq.${userId}`);
+        }
+
+        if (joinedChallengeIds.length > 0) {
+          visibilityFilters.push(`id.in.(${joinedChallengeIds.join(',')})`);
+        }
+
+        challengesQuery = challengesQuery.or(visibilityFilters.join(','));
+      } else {
+        challengesQuery = challengesQuery.in('visibility', COMMUNITY_VISIBILITIES);
+      }
+
+      const { data: challengesData, error: challengesError } = await challengesQuery;
+
+      if (challengesError) {
+        console.error('Erreur chargement challenges leaderboard :', challengesError);
+        setProfiles([]);
+        setActivities([]);
+        setLoading(false);
+        return;
+      }
+
+      const visibleChallenges = (challengesData as Challenge[]) || [];
+      const visibleChallengeIds = visibleChallenges.map((challenge) => challenge.id);
+
+      if (visibleChallengeIds.length === 0) {
+        setProfiles([]);
+        setActivities([]);
+        setLoading(false);
+        return;
+      }
+
+      const [membersResponse, participantsResponse, activitiesResponse] = await Promise.all([
+        supabase
+          .from('challenge_members')
+          .select('challenge_id, user_email')
+          .in('challenge_id', visibleChallengeIds),
+        supabase
+          .from('challenge_participants')
+          .select('challenge_id, user_id')
+          .in('challenge_id', visibleChallengeIds),
         supabase
           .from('activities')
-          .select('user_id, user_email, distance_km, unit_type, unit_value, created_at'),
+          .select('challenge_id, user_id, user_email, distance_km, unit_type, unit_value, created_at')
+          .in('challenge_id', visibleChallengeIds),
       ]);
 
-      if (profilesResponse.error) {
-        console.error('Erreur chargement profils leaderboard :', profilesResponse.error);
-        setProfiles([]);
-      } else {
-        setProfiles((profilesResponse.data as Profile[]) || []);
+      if (membersResponse.error) {
+        console.error('Erreur chargement membres leaderboard :', membersResponse.error);
+      }
+
+      if (participantsResponse.error) {
+        console.error('Erreur chargement participants leaderboard :', participantsResponse.error);
       }
 
       if (activitiesResponse.error) {
@@ -95,6 +210,75 @@ export default function LeaderboardPage() {
         setActivities((activitiesResponse.data as Activity[]) || []);
       }
 
+      const allowedUserIds = new Set<string>();
+      const allowedEmails = new Set<string>();
+
+      visibleChallenges.forEach((challenge) => {
+        if (challenge.created_by) {
+          allowedUserIds.add(challenge.created_by);
+        }
+      });
+
+      ((participantsResponse.data as ChallengeParticipant[] | null) || []).forEach((participant) => {
+        if (participant.user_id) {
+          allowedUserIds.add(participant.user_id);
+        }
+      });
+
+      ((membersResponse.data as ChallengeMember[] | null) || []).forEach((member) => {
+        if (member.user_email) {
+          allowedEmails.add(member.user_email.toLowerCase());
+        }
+      });
+
+      (((activitiesResponse.data as Activity[]) || [])).forEach((activity) => {
+        if (activity.user_id) {
+          allowedUserIds.add(activity.user_id);
+        }
+
+        if (activity.user_email) {
+          allowedEmails.add(activity.user_email.toLowerCase());
+        }
+      });
+
+      let loadedProfiles: Profile[] = [];
+
+      if (allowedUserIds.size > 0) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, email, username, total_xp, level')
+          .in('id', Array.from(allowedUserIds));
+
+        if (error) {
+          console.error('Erreur chargement profils leaderboard par id :', error);
+        } else {
+          loadedProfiles = [...loadedProfiles, ...((data as Profile[]) || [])];
+        }
+      }
+
+      const missingEmails = Array.from(allowedEmails).filter((email) => {
+        return !loadedProfiles.some((profile) => profile.email?.toLowerCase() === email);
+      });
+
+      if (missingEmails.length > 0) {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, email, username, total_xp, level')
+          .in('email', missingEmails);
+
+        if (error) {
+          console.error('Erreur chargement profils leaderboard par email :', error);
+        } else {
+          loadedProfiles = [...loadedProfiles, ...((data as Profile[]) || [])];
+        }
+      }
+
+      const uniqueProfiles = new Map<string, Profile>();
+      loadedProfiles.forEach((profile) => {
+        uniqueProfiles.set(profile.id, profile);
+      });
+
+      setProfiles(Array.from(uniqueProfiles.values()));
       setLoading(false);
     };
 
@@ -110,7 +294,6 @@ export default function LeaderboardPage() {
         key: `user:${profile.id}`,
         label,
         level: profile.level,
-        email: profile.email,
       };
 
       byKey.set(identity.key, identity);
@@ -225,25 +408,25 @@ export default function LeaderboardPage() {
     {
       title: 'Top XP',
       kicker: 'Progression',
-      description: 'Les utilisateurs les plus avancés en XP.',
+      description: 'Les utilisateurs visibles les plus avancés en XP.',
       entries: topXp,
     },
     {
       title: 'Top distance',
       kicker: 'Endurance',
-      description: 'Distance cumulée sur les activités de type distance.',
+      description: 'Distance cumulée sur les activités visibles de type distance.',
       entries: topDistance,
     },
     {
       title: 'Top activités',
       kicker: 'Volume',
-      description: "Les membres les plus actifs sur l'ensemble de leurs activités.",
+      description: "Les membres visibles les plus actifs sur l'ensemble de leurs activités.",
       entries: topActivities,
     },
     {
       title: 'Top semaine',
       kicker: '7 jours',
-      description: 'Le nombre d’activités ajoutées sur les 7 derniers jours.',
+      description: 'Le nombre d’activités visibles ajoutées sur les 7 derniers jours.',
       entries: topWeek,
     },
   ];
@@ -256,7 +439,8 @@ export default function LeaderboardPage() {
             <span className="section-kicker">Classements</span>
             <h1>Classements globaux</h1>
             <p className="muted">
-              Retrouve les meilleurs profils Actyv par XP, distance et régularité.
+              Retrouve les meilleurs profils Actyv visibles selon tes challenges partagés et les
+              challenges publics.
             </p>
           </div>
         </section>
@@ -280,7 +464,7 @@ export default function LeaderboardPage() {
 
                 {section.entries.length === 0 ? (
                   <div className="challenge-state challenge-state--compact">
-                    <p>Pas encore assez de données pour ce classement.</p>
+                    <p>Pas encore assez de données visibles pour ce classement.</p>
                   </div>
                 ) : (
                   <div className="leaderboard-list">
