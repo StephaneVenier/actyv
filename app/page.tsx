@@ -375,7 +375,7 @@ export default function HomePage() {
                   <article key={activity.id} className="feed-item">
                     <div className="feed-item__top">
                       <div className="feed-item__identity">
-                        <span className="feed-item__eyebrow">Nouvelle activitÃ©</span>
+                        <span className="feed-item__eyebrow">Nouvelle activité</span>
                         <strong>{getDisplayName(activity.user_email)} a ajouté une activité</strong>
                         <span className="feed-item__date">{formatDate(activity.created_at)}</span>
                       </div>
@@ -409,7 +409,7 @@ export default function HomePage() {
                       )}
                       {durationText && (
                         <span>
-                          <small>DurÃ©e</small>
+                          <small>Durée</small>
                           <strong>{durationText}</strong>
                         </span>
                       )}
