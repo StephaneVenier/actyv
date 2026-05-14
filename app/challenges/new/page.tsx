@@ -146,10 +146,6 @@ export default function NewChallengePage() {
 
       if (participantError) {
         console.error('Erreur ajout createur challenge_participants :', participantError);
-        console.error(
-          'Erreur ajout createur challenge_participants :',
-          JSON.stringify(participantError, null, 2)
-        );
       }
 
       await awardXp({
@@ -166,8 +162,7 @@ export default function NewChallengePage() {
       );
 
       if (badgeError) {
-        console.error('REFRESH RPC ERROR:', badgeError);
-        console.error('REFRESH RPC ERROR:', JSON.stringify(badgeError, null, 2));
+        console.error('Erreur refresh badges challenge :', badgeError);
       }
 
       router.push(`/challenges/${challenge.id}`);
@@ -199,6 +194,7 @@ export default function NewChallengePage() {
               placeholder="Objectif 100 km"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={loading}
               required
             />
           </div>
@@ -210,6 +206,7 @@ export default function NewChallengePage() {
               name="sport"
               value={sport}
               onChange={(e) => setSport(e.target.value)}
+              disabled={loading}
               required
             >
               <option value="">Choisir un sport</option>
@@ -229,6 +226,7 @@ export default function NewChallengePage() {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
+              disabled={loading}
             />
           </div>
 
@@ -240,6 +238,7 @@ export default function NewChallengePage() {
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
+              disabled={loading}
             />
           </div>
 
@@ -250,6 +249,7 @@ export default function NewChallengePage() {
               name="goalType"
               value={goalType}
               onChange={(e) => setGoalType(e.target.value as GoalType)}
+              disabled={loading}
             >
               <option value="distance">Distance (km)</option>
               <option value="duration">Durée (minutes)</option>
@@ -268,6 +268,7 @@ export default function NewChallengePage() {
               placeholder={getGoalPlaceholder(goalType)}
               value={goalValue}
               onChange={(e) => setGoalValue(e.target.value)}
+              disabled={loading}
             />
           </div>
 
@@ -279,6 +280,7 @@ export default function NewChallengePage() {
               placeholder="Décris l’objectif du groupe"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
+              disabled={loading}
               rows={5}
             />
           </div>

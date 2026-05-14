@@ -205,7 +205,7 @@ export default function ProfilePage() {
       }
 
       if (badgesResponse.error) {
-        console.error('USER BADGES ERROR:', badgesResponse.error);
+        console.error('Erreur chargement badges profil :', badgesResponse.error);
         setBadges([]);
       } else {
         setBadges((badgesResponse.data as UserBadge[] | null) || []);

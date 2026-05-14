@@ -145,7 +145,6 @@ export async function awardXp({
 
     if (error) {
       console.error('Erreur gamification XP :', error);
-      console.error('Erreur gamification XP :', JSON.stringify(error, null, 2));
     }
   } catch (error) {
     console.error('Erreur gamification :', error);
@@ -173,8 +172,6 @@ export async function awardBadge(userId: string, badgeCode: string) {
 }
 
 export async function checkAndAwardBadges(userId: string) {
-  console.log('CHECK BADGES START');
-
   const [activitiesResponse, challengesResponse, participantsResponse, interactionsResponse] =
     await Promise.all([
       supabase
@@ -244,29 +241,15 @@ export async function checkAndAwardBadges(userId: string) {
     awarded,
   };
 
-  console.log('BADGES RESULT:', result);
   return result;
 }
 
 export async function refreshUserBadges(userId: string) {
   if (!userId) {
-    console.log('[badges] refresh skipped: missing userId');
     return { awarded: [], error: null };
   }
 
   try {
-    const { data: beforeBadges, error: beforeError } = await supabase
-      .from('user_badges')
-      .select('badge_code')
-      .eq('user_id', userId);
-
-    if (beforeError) {
-      console.error('[badges] error loading badges before refresh:', beforeError);
-    }
-
-    console.log('[badges] refresh start for user:', userId);
-    console.log('[badges] badges before refresh:', beforeBadges || []);
-
     const { data, error } = await supabase.rpc('refresh_user_badges', {
       p_user_id: userId,
     });
@@ -276,25 +259,13 @@ export async function refreshUserBadges(userId: string) {
       return { awarded: [], error };
     }
 
-    const { data: afterBadges, error: afterError } = await supabase
-      .from('user_badges')
-      .select('badge_code')
-      .eq('user_id', userId);
-
-    if (afterError) {
-      console.error('[badges] error loading badges after refresh:', afterError);
-      return { awarded: [], error: afterError };
-    }
-
     const result = {
       rpc: 'refresh_user_badges',
       table: 'user_badges',
       columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
       data,
-      afterBadges: afterBadges || [],
     };
 
-    console.log('BADGES RESULT:', result);
     return result;
   } catch (error) {
     console.error('BADGES ERROR:', error);

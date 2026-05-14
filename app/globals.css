@@ -794,8 +794,19 @@ img {
   padding: 24px;
   border-radius: 18px;
   background: #f8fafc;
+  border: 1px solid rgba(15, 23, 42, 0.05);
   color: #475569;
   text-align: center;
+}
+
+.challenge-state p {
+  margin: 0 auto;
+  max-width: 34ch;
+  line-height: 1.55;
+}
+
+.challenge-state--compact {
+  margin-bottom: 14px;
 }
 
 .challenges-page {
@@ -846,6 +857,9 @@ img {
   flex-direction: column;
   gap: 14px;
   padding: 22px;
+  border-radius: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
   animation: soft-card-enter 0.34s ease both;
   transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
@@ -869,6 +883,7 @@ img {
   color: #071226;
   font-size: 1.18rem;
   line-height: 1.25;
+  overflow-wrap: anywhere;
 }
 
 .challenge-overview-card p {
@@ -930,6 +945,7 @@ img {
 
 .completed-challenge-main strong {
   font-size: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .completed-challenge-main span,
@@ -992,6 +1008,7 @@ img {
 
 .profile-identity strong {
   color: #0f172a;
+  overflow-wrap: anywhere;
 }
 
 .profile-name-row,
@@ -1138,6 +1155,7 @@ img {
 .feed-item__identity {
   display: grid;
   gap: 5px;
+  min-width: 0;
 }
 
 .feed-item__eyebrow {
@@ -1152,6 +1170,7 @@ img {
   color: #071226;
   font-size: 1.08rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .feed-item__date {
@@ -1204,6 +1223,7 @@ img {
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.06);
+  text-align: center;
 }
 
 .feed-item__stats small {
@@ -1415,11 +1435,13 @@ img {
 .leaderboard-main {
   display: grid;
   gap: 6px;
+  min-width: 0;
 }
 
 .leaderboard-name {
   font-size: 1rem;
   color: #071226;
+  overflow-wrap: anywhere;
 }
 
 .leaderboard-meta {
@@ -1471,6 +1493,7 @@ img {
   color: #071226;
   font-size: 1.08rem;
   line-height: 1.35;
+  overflow-wrap: anywhere;
 }
 
 .activity-date {
@@ -1627,6 +1650,7 @@ img {
   border: 1px solid rgba(30, 107, 214, 0.12);
   color: #0f172a;
   font-weight: 600;
+  line-height: 1.5;
 }
 
 .activity-submit-btn {
@@ -1828,6 +1852,11 @@ img {
     min-width: 0;
   }
 
+  .leaderboard-item {
+    align-items: flex-start;
+    padding: 14px 16px;
+  }
+
   .profile-stats-grid {
     grid-template-columns: 1fr;
   }
@@ -1856,6 +1885,10 @@ img {
     padding: 18px;
   }
 
+  .challenge-state {
+    padding: 18px;
+  }
+
   .feed-item__top,
   .activity-top {
     align-items: flex-start;
@@ -1863,9 +1896,20 @@ img {
 
   .feed-item__stats span,
   .activity-stats span {
-    flex: 1 1 120px;
+    flex: 1 1 calc(50% - 8px);
     min-width: 0;
     justify-content: center;
+  }
+
+  .mini-level-badge {
+    min-height: 22px;
+    padding: 0 8px;
+    font-size: 0.72rem;
+  }
+
+  .leaderboard-rank {
+    min-width: 46px;
+    height: 46px;
   }
 
   .activity-reactions {

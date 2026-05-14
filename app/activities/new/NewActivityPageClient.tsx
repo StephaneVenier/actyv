@@ -205,9 +205,6 @@ export default function NewActivityPageClient() {
         error: userError,
       } = await supabase.auth.getUser();
 
-      console.log('[activity-create] connected user id:', user?.id);
-      console.log('USER ID:', user?.id);
-
       if (userError || !user?.email) {
         setMessage('Vous devez être connecté pour ajouter une activité.');
         setSubmitting(false);
@@ -300,9 +297,6 @@ export default function NewActivityPageClient() {
         .select('id')
         .single();
 
-      console.log('[activity-create] created activity:', createdActivity);
-      console.log('ACTIVITY CREATED:', createdActivity);
-
       if (error) {
         console.error('Erreur création activité :', error);
         setMessage("Impossible d'enregistrer l’activité.");
@@ -326,8 +320,7 @@ export default function NewActivityPageClient() {
       );
 
       if (refreshBadgeError) {
-        console.error('REFRESH RPC ERROR:', refreshBadgeError);
-        console.error('REFRESH RPC ERROR:', JSON.stringify(refreshBadgeError, null, 2));
+        console.error('Erreur refresh badges activité :', refreshBadgeError);
       }
 
       const nextProgress =
@@ -392,7 +385,7 @@ export default function NewActivityPageClient() {
                 name="challenge"
                 value={selectedChallengeId}
                 onChange={(e) => setSelectedChallengeId(e.target.value)}
-                disabled={loadingChallenges}
+                disabled={loadingChallenges || submitting}
               >
                 <option value="" disabled>
                   {loadingChallenges ? 'Chargement des challenges...' : 'Choisir un challenge'}
@@ -412,7 +405,7 @@ export default function NewActivityPageClient() {
                 name="sport"
                 value={selectedSport}
                 onChange={(e) => setSelectedSport(e.target.value)}
-                disabled={selectedChallengeCompleted}
+                disabled={submitting || selectedChallengeCompleted}
               >
                 <option value="" disabled>
                   Choisir une activité
@@ -436,7 +429,7 @@ export default function NewActivityPageClient() {
                 placeholder={getUnitPlaceholder(selectedGoalType)}
                 value={unitValue}
                 onChange={(e) => setUnitValue(e.target.value)}
-                disabled={selectedChallengeCompleted}
+                disabled={submitting || selectedChallengeCompleted}
               />
             </div>
 
@@ -448,7 +441,7 @@ export default function NewActivityPageClient() {
                   name="exerciseType"
                   value={exerciseType}
                   onChange={(e) => setExerciseType(e.target.value)}
-                  disabled={selectedChallengeCompleted}
+                  disabled={submitting || selectedChallengeCompleted}
                 >
                   <option value="" disabled>
                     Choisir un exercice
@@ -478,7 +471,7 @@ export default function NewActivityPageClient() {
                 placeholder="Comment tu t’es senti aujourd’hui ? Bonnes sensations, séance difficile, super sortie..."
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
-                disabled={selectedChallengeCompleted}
+                disabled={submitting || selectedChallengeCompleted}
               />
             </div>
 

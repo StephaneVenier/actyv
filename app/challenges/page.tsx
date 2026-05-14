@@ -310,6 +310,7 @@ export default function ChallengesPage() {
 
   const activeChallenges = filteredChallengeSummaries.filter((summary) => !summary.completed);
   const completedChallenges = filteredChallengeSummaries.filter((summary) => summary.completed);
+  const noFilteredResults = !loading && filteredChallengeSummaries.length === 0;
 
   return (
     <AppShell>
@@ -370,11 +371,17 @@ export default function ChallengesPage() {
             </Link>
           </div>
 
+          {noFilteredResults && (
+            <div className="challenge-state challenge-state--compact">
+              <p>Aucun challenge ne correspond aux filtres sÃ©lectionnÃ©s.</p>
+            </div>
+          )}
+
           {loading ? (
             <div className="challenge-state">
               <p>Chargement des challenges...</p>
             </div>
-          ) : activeChallenges.length === 0 ? (
+          ) : noFilteredResults ? null : activeChallenges.length === 0 ? (
             <div className="challenge-state">
               <p>Aucun challenge en cours pour le moment.</p>
             </div>
@@ -436,7 +443,7 @@ export default function ChallengesPage() {
             <div className="challenge-state">
               <p>Chargement des challenges...</p>
             </div>
-          ) : completedChallenges.length === 0 ? (
+          ) : noFilteredResults ? null : completedChallenges.length === 0 ? (
             <div className="challenge-state">
               <p>Aucun challenge terminé pour le moment.</p>
             </div>
