@@ -13,8 +13,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [quickMenuOpen, setQuickMenuOpen] = useState(false);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
+  const quickMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const loadUser = async () => {
@@ -80,9 +82,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (!menuRef.current) return;
-      if (!menuRef.current.contains(event.target as Node)) {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
         setMenuOpen(false);
+      }
+
+      if (quickMenuRef.current && !quickMenuRef.current.contains(event.target as Node)) {
+        setQuickMenuOpen(false);
       }
     };
 
@@ -201,7 +206,46 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Link>
         </div>
 
-        <button className="menu-center-btn" type="button" aria-label="Menu Actyv" />
+        <div ref={quickMenuRef} className="quick-menu-wrap">
+          {quickMenuOpen && (
+            <div className="quick-menu-panel">
+              <Link
+                href="/leaderboard"
+                className="quick-menu-item"
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <span className="quick-menu-item__title">Classements</span>
+                <span className="quick-menu-item__meta">Voir les classements Actyv</span>
+              </Link>
+
+              <button
+                type="button"
+                className="quick-menu-item quick-menu-item--disabled"
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <span className="quick-menu-item__title">Creer une seance</span>
+                <span className="quick-menu-item__meta">Bientot disponible</span>
+              </button>
+
+              <button
+                type="button"
+                className="quick-menu-item quick-menu-item--disabled"
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <span className="quick-menu-item__title">Creer un programme</span>
+                <span className="quick-menu-item__meta">Bientot disponible</span>
+              </button>
+            </div>
+          )}
+
+          <button
+            className="menu-center-btn"
+            type="button"
+            aria-label="Menu Actyv"
+            aria-expanded={quickMenuOpen}
+            onClick={() => setQuickMenuOpen((prev) => !prev)}
+          />
+        </div>
       </div>
     </ToastProvider>
   );
