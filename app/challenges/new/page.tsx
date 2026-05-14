@@ -132,11 +132,17 @@ export default function NewChallengePage() {
 
       const { error: participantError } = await supabase
         .from('challenge_participants')
-        .insert({
-          challenge_id: challenge.id,
-          user_id: user.id,
-          role: 'admin',
-        });
+        .upsert(
+          {
+            challenge_id: challenge.id,
+            user_id: user.id,
+            role: 'admin',
+          },
+          {
+            onConflict: 'challenge_id,user_id',
+            ignoreDuplicates: true,
+          }
+        );
 
       if (participantError) {
         console.error('Erreur ajout createur challenge_participants :', participantError);
