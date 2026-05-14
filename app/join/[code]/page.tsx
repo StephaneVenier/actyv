@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
 import { awardXp } from '@/lib/gamification';
@@ -16,6 +16,7 @@ type Challenge = {
 };
 
 export default function JoinChallengePage() {
+  const router = useRouter();
   const params = useParams();
   const code = typeof params.code === 'string' ? params.code : '';
 
@@ -44,7 +45,7 @@ export default function JoinChallengePage() {
           return;
         }
 
-        const { data, error } = await supabase.rpc('join_challenge_by_invite', {
+        const { data, error } = await supabase.rpc('join_challenge_by_invite_code', {
           p_invite_code: code,
         });
 
@@ -68,6 +69,7 @@ export default function JoinChallengePage() {
         if (foundChallenge.already_joined) {
           setJoined(true);
           setMessage('Vous faites déjà partie de ce challenge.');
+          router.replace(`/challenges/${foundChallenge.id}`);
           setLoading(false);
           return;
         }
@@ -80,6 +82,7 @@ export default function JoinChallengePage() {
 
         setJoined(true);
         setMessage('Vous avez rejoint le challenge avec succès !');
+        router.replace(`/challenges/${foundChallenge.id}`);
       } catch (error) {
         console.error('Erreur inattendue page join :', error);
         setMessage("Impossible de rejoindre ce challenge pour le moment.");
@@ -89,7 +92,7 @@ export default function JoinChallengePage() {
     };
 
     joinChallenge();
-  }, [code]);
+  }, [code, router]);
 
   return (
     <AppShell>

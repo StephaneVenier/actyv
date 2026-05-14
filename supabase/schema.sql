@@ -652,7 +652,7 @@ create policy "Challenge creators can read participants"
     )
   );
 
-create or replace function public.join_challenge_by_invite(p_invite_code text)
+create or replace function public.join_challenge_by_invite_code(p_invite_code text)
 returns table (
   id uuid,
   name text,
@@ -715,6 +715,24 @@ begin
     found_challenge.description::text,
     was_already_joined;
 end;
+$$;
+
+grant execute on function public.join_challenge_by_invite_code(text) to authenticated;
+
+create or replace function public.join_challenge_by_invite(p_invite_code text)
+returns table (
+  id uuid,
+  name text,
+  sport text,
+  description text,
+  already_joined boolean
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select *
+  from public.join_challenge_by_invite_code(p_invite_code);
 $$;
 
 grant execute on function public.join_challenge_by_invite(text) to authenticated;
