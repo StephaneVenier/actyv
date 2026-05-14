@@ -970,22 +970,27 @@ img {
 
 .feed-list {
   display: grid;
-  gap: 14px;
+  gap: 16px;
 }
 
 .feed-item {
-  padding: 20px;
+  padding: 22px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.86);
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.07);
   display: grid;
-  gap: 12px;
-  transition: all 0.2s ease;
+  gap: 14px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
 }
 
 .feed-item:hover {
   transform: translateY(-2px);
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+  border-color: rgba(32, 183, 166, 0.16);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
 }
 
 .feed-item__top {
@@ -998,12 +1003,20 @@ img {
 
 .feed-item__identity {
   display: grid;
-  gap: 4px;
+  gap: 5px;
+}
+
+.feed-item__eyebrow {
+  color: #16a34a;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .feed-item__identity strong {
   color: #071226;
-  font-size: 1.04rem;
+  font-size: 1.08rem;
   line-height: 1.35;
 }
 
@@ -1015,6 +1028,7 @@ img {
 .feed-item__challenge {
   display: inline-flex;
   align-items: center;
+  width: fit-content;
   min-height: 30px;
   padding: 0 12px;
   border-radius: 999px;
@@ -1027,7 +1041,7 @@ img {
 .feed-item__sport {
   display: inline-flex;
   align-items: center;
-  padding: 6px 12px;
+  padding: 7px 12px;
   border-radius: 999px;
   background: rgba(34, 197, 94, 0.12);
   color: #16a34a;
@@ -1038,7 +1052,7 @@ img {
 
 .feed-item__stats {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   color: #0f172a;
   font-weight: 800;
@@ -1046,16 +1060,32 @@ img {
 
 .feed-item__stats span {
   display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
+  gap: 2px;
+  min-height: 48px;
+  min-width: 118px;
+  padding: 8px 14px;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.feed-item__stats small {
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .feed-item__comment {
   margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid rgba(32, 183, 166, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.03);
   color: #475569;
   line-height: 1.55;
 }
@@ -1269,16 +1299,27 @@ img {
 .activity-list {
   margin-top: 1rem;
   display: grid;
-  gap: 1rem;
+  gap: 14px;
 }
 
 .activity-item {
-  padding: 20px;
-  border: 1px solid rgba(15, 23, 42, 0.08);
+  padding: 22px;
+  border: 1px solid rgba(15, 23, 42, 0.07);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(255, 255, 255, 0.92);
   display: grid;
-  gap: 12px;
+  gap: 14px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.activity-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(32, 183, 166, 0.16);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
 }
 
 .activity-top {
@@ -1291,9 +1332,10 @@ img {
 
 .activity-user {
   display: block;
-  margin-top: 3px;
+  margin-top: 5px;
   color: #071226;
-  font-size: 1.04rem;
+  font-size: 1.08rem;
+  line-height: 1.35;
 }
 
 .activity-date {
@@ -1332,7 +1374,7 @@ img {
 
 .activity-stats {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
   color: #0f172a;
   font-weight: 800;
@@ -1340,16 +1382,31 @@ img {
 
 .activity-stats span {
   display: inline-flex;
+  flex-direction: column;
   align-items: center;
-  min-height: 38px;
-  padding: 0 14px;
+  justify-content: center;
+  gap: 3px;
+  min-height: 48px;
+  min-width: 128px;
+  padding: 8px 14px;
   border-radius: 14px;
-  background: rgba(15, 23, 42, 0.06);
+  background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.activity-stats span strong {
+  color: #64748b;
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .activity-comment {
   margin: 0;
+  padding: 12px 14px;
+  border-left: 3px solid rgba(32, 183, 166, 0.24);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.03);
   color: #475569;
   line-height: 1.55;
 }
@@ -1733,45 +1790,52 @@ img {
 
 .activity-reactions {
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
 }
 
 .reaction-button {
   border: none;
-  background: transparent;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.06);
   cursor: pointer;
   font: inherit;
-  padding: 0;
-  color: inherit;
-}
-
-.reaction-button.active {
-  font-weight: 700;
-}
-
-.reaction-button {
-  border: none;
-  background: rgba(15, 23, 42, 0.05);
-  cursor: pointer;
-  font: inherit;
-  padding: 7px 12px;
+  padding: 8px 13px;
   border-radius: 999px;
   outline: none;
   font-weight: 800;
+  color: #0f172a;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .reaction-button:focus {
-  outline: none;
+  outline: 2px solid rgba(32, 183, 166, 0.22);
+  outline-offset: 2px;
 }
 
 .reaction-button:hover {
-  background: rgba(15, 23, 42, 0.09);
+  transform: translateY(-1px);
+  background: rgba(15, 23, 42, 0.07);
+  border-color: rgba(15, 23, 42, 0.1);
 }
 
 .reaction-button.active {
   font-weight: 700;
+}
+
+.reaction-button--like.active {
   background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.18);
   color: #15803d;
+}
+
+.reaction-button--boost.active {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.2);
+  color: #b45309;
 }

@@ -1204,7 +1204,7 @@ const handleBoost = async (activityId: string) => {
                   <div className="activity-reactions">
   <button
   type="button"
-  className={`reaction-button ${hasUserLiked(activity.id) ? 'active' : ''}`}
+  className={`reaction-button reaction-button--like ${hasUserLiked(activity.id) ? 'active' : ''}`}
   onClick={(e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1216,7 +1216,7 @@ const handleBoost = async (activityId: string) => {
 
   <button
     type="button"
-    className={`reaction-button ${hasUserBoosted(activity.id) ? 'active' : ''}`}
+    className={`reaction-button reaction-button--boost ${hasUserBoosted(activity.id) ? 'active' : ''}`}
     onClick={(e) => {
       e.preventDefault();
       e.stopPropagation();
