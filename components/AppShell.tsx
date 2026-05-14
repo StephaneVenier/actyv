@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ToastProvider } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 
 type Profile = {
@@ -98,124 +99,110 @@ export function AppShell({ children }: { children: ReactNode }) {
   const profileLabel = username || userEmail || 'Mon profil';
 
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="topbar-inner">
-          <div className="topbar-left">
-            <nav className="nav desktop-nav">
-              <Link href="/">Accueil</Link>
-              <Link href="/challenges/new" className="button primary">
-                Créer un challenge
-              </Link>
-              <Link href="/activities/new">Ajouter une activité</Link>
-            </nav>
-          </div>
+    <ToastProvider>
+      <div className="app-shell">
+        <header className="topbar">
+          <div className="topbar-inner">
+            <div className="topbar-left">
+              <nav className="nav desktop-nav">
+                <Link href="/">Accueil</Link>
+                <Link href="/challenges/new" className="button primary">
+                  Creer un challenge
+                </Link>
+                <Link href="/activities/new">Ajouter une activite</Link>
+              </nav>
+            </div>
 
-          <Link href="/" className="brand" aria-label="Retour à l'accueil Actyv">
-            <img
-              src="/images/actyv-logo.png"
-              alt="Actyv"
-              className="brand-logo"
-            />
+            <Link href="/" className="brand" aria-label="Retour a l'accueil Actyv">
+              <img src="/images/actyv-logo.png" alt="Actyv" className="brand-logo" />
+            </Link>
+
+            <div className="topbar-right">
+              {!userEmail ? (
+                <div ref={menuRef} className="profile-menu-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((prev) => !prev)}
+                    className="profile-trigger auth-trigger"
+                  >
+                    <span className="profile-trigger-text">Connexion / inscription</span>
+                    <span className="profile-trigger-arrow">▾</span>
+                  </button>
+
+                  {menuOpen && (
+                    <div className="profile-dropdown">
+                      <Link
+                        href="/login"
+                        onClick={() => setMenuOpen(false)}
+                        className="profile-dropdown-link"
+                      >
+                        Se connecter
+                      </Link>
+
+                      <Link
+                        href="/signup"
+                        onClick={() => setMenuOpen(false)}
+                        className="profile-dropdown-link"
+                      >
+                        Creer un compte
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div ref={menuRef} className="profile-menu-wrap">
+                  <button
+                    type="button"
+                    onClick={() => setMenuOpen((prev) => !prev)}
+                    className="profile-trigger"
+                  >
+                    <span className="profile-trigger-text">{profileLabel}</span>
+                    <span className="profile-trigger-arrow">▾</span>
+                  </button>
+
+                  {menuOpen && (
+                    <div className="profile-dropdown">
+                      <Link
+                        href="/profile"
+                        onClick={() => setMenuOpen(false)}
+                        className="profile-dropdown-link"
+                      >
+                        Mon profil
+                      </Link>
+
+                      <button
+                        type="button"
+                        onClick={handleLogout}
+                        className="profile-dropdown-button"
+                      >
+                        Deconnexion
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </header>
+
+        <main className="page-content">{children}</main>
+
+        <div className="bottom-bar">
+          <Link href="/challenges/new" className="bottom-btn" aria-label="Creer un challenge">
+            <span className="bottom-btn-icon">🏆</span>
+            <span className="bottom-btn-label">Challenge</span>
           </Link>
 
-          <div className="topbar-right">
-            {!userEmail ? (
-              <div ref={menuRef} className="profile-menu-wrap">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((prev) => !prev)}
-                  className="profile-trigger auth-trigger"
-                >
-                  <span className="profile-trigger-text">Connexion / inscription</span>
-                  <span className="profile-trigger-arrow">▾</span>
-                </button>
+          <div className="bottom-bar-center-space" />
 
-                {menuOpen && (
-                  <div className="profile-dropdown">
-                    <Link
-                      href="/login"
-                      onClick={() => setMenuOpen(false)}
-                      className="profile-dropdown-link"
-                    >
-                      Se connecter
-                    </Link>
-
-                    <Link
-                      href="/signup"
-                      onClick={() => setMenuOpen(false)}
-                      className="profile-dropdown-link"
-                    >
-                      Créer un compte
-                    </Link>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div ref={menuRef} className="profile-menu-wrap">
-                <button
-                  type="button"
-                  onClick={() => setMenuOpen((prev) => !prev)}
-                  className="profile-trigger"
-                >
-                  <span className="profile-trigger-text">{profileLabel}</span>
-                  <span className="profile-trigger-arrow">▾</span>
-                </button>
-
-                {menuOpen && (
-                  <div className="profile-dropdown">
-                    <Link
-                      href="/profile"
-                      onClick={() => setMenuOpen(false)}
-                      className="profile-dropdown-link"
-                    >
-                      Mon profil
-                    </Link>
-
-                    <button
-                      type="button"
-                      onClick={handleLogout}
-                      className="profile-dropdown-button"
-                    >
-                      Déconnexion
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <Link href="/activities/new" className="bottom-btn" aria-label="Ajouter une activite">
+            <span className="bottom-btn-icon">🏃</span>
+            <span className="bottom-btn-label">Activite</span>
+          </Link>
         </div>
-      </header>
 
-      <main className="page-content">{children}</main>
-
-      <div className="bottom-bar">
-        <Link
-          href="/challenges/new"
-          className="bottom-btn"
-          aria-label="Créer un challenge"
-        >
-          <span className="bottom-btn-icon">🏆</span>
-          <span className="bottom-btn-label">Challenge</span>
-        </Link>
-
-        <div className="bottom-bar-center-space" />
-
-        <Link
-          href="/activities/new"
-          className="bottom-btn"
-          aria-label="Ajouter une activité"
-        >
-          <span className="bottom-btn-icon">🏃</span>
-          <span className="bottom-btn-label">Activité</span>
-        </Link>
+        <button className="menu-center-btn" type="button" aria-label="Menu Actyv" />
       </div>
-
-      <button
-        className="menu-center-btn"
-        type="button"
-        aria-label="Menu Actyv"
-      />
-    </div>
+    </ToastProvider>
   );
 }

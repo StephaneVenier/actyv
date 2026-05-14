@@ -68,6 +68,12 @@ export const BADGES: BadgeRule[] = [
   { code: 'boosteur', label: '⚡ Boosteur', description: 'Premier like ou boost donne.' },
 ];
 
+export function getBadgeByCode(code: string | null | undefined) {
+  const normalizedCode = normalizeBadgeCode(code);
+  if (!normalizedCode) return null;
+  return BADGES.find((badge) => badge.code === normalizedCode) || null;
+}
+
 export function normalizeBadgeCode(code: string | null | undefined): BadgeCode | null {
   if (!code) return null;
   if (BADGES.some((badge) => badge.code === code)) {
@@ -133,7 +139,7 @@ export async function awardXp({
   metadata?: Record<string, unknown>;
 }) {
   const targetUserId = userId || (await resolveUserIdFromEmail(userEmail));
-  if (!targetUserId) return;
+  if (!targetUserId) return { awarded: false };
 
   try {
     const targetId = metadata?.target_id;
@@ -145,9 +151,13 @@ export async function awardXp({
 
     if (error) {
       console.error('Erreur gamification XP :', error);
+      return { awarded: false, error };
     }
+
+    return { awarded: true, error: null };
   } catch (error) {
     console.error('Erreur gamification :', error);
+    return { awarded: false, error };
   }
 }
 
@@ -246,29 +256,57 @@ export async function checkAndAwardBadges(userId: string) {
 
 export async function refreshUserBadges(userId: string) {
   if (!userId) {
-    return { awarded: [], error: null };
+    return { awarded: [], error: null, data: null };
   }
 
   try {
+    const { data: beforeBadges, error: beforeError } = await supabase
+      .from('user_badges')
+      .select('badge_code')
+      .eq('user_id', userId);
+
+    if (beforeError) {
+      console.error('Erreur lecture badges avant refresh :', beforeError);
+      return { awarded: [], error: beforeError, data: null };
+    }
+
     const { data, error } = await supabase.rpc('refresh_user_badges', {
       p_user_id: userId,
     });
 
     if (error) {
       console.error('BADGES ERROR:', error);
-      return { awarded: [], error };
+      return { awarded: [], error, data: null };
     }
+
+    const badgeCodes =
+      data && typeof data === 'object' && data !== null && Array.isArray((data as { badges?: unknown[] }).badges)
+        ? ((data as { badges: string[] }).badges || [])
+        : [];
+
+    const beforeSet = new Set(
+      ((beforeBadges as { badge_code: string }[] | null) || [])
+        .map((badge) => normalizeBadgeCode(badge.badge_code))
+        .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
+    );
+
+    const awarded = badgeCodes
+      .map((badgeCode) => normalizeBadgeCode(badgeCode))
+      .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
+      .filter((badgeCode) => !beforeSet.has(badgeCode));
 
     const result = {
       rpc: 'refresh_user_badges',
       table: 'user_badges',
       columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
       data,
+      awarded,
+      error: null,
     };
 
     return result;
   } catch (error) {
     console.error('BADGES ERROR:', error);
-    return { awarded: [], error };
+    return { awarded: [], error, data: null };
   }
 }

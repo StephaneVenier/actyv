@@ -1873,6 +1873,44 @@ img {
   transform: translateX(-50%) scale(0.96);
 }
 
+.toast-stack {
+  position: fixed;
+  right: 20px;
+  bottom: calc(var(--bottombar-height) + 18px);
+  z-index: 1400;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 24px));
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  min-height: 52px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  color: #0f172a;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(12px);
+  font-weight: 700;
+  line-height: 1.4;
+  animation: soft-card-enter 0.22s ease both;
+}
+
+.toast--success {
+  border-color: rgba(22, 163, 74, 0.16);
+}
+
+.toast--celebrate {
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.toast--info {
+  border-color: rgba(30, 107, 214, 0.16);
+}
+
 /* HELPERS */
 
 .desktop-only {
@@ -2125,6 +2163,13 @@ img {
   .bottom-bar {
     height: calc(74px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .toast-stack {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: calc(var(--bottombar-height) + env(safe-area-inset-bottom) + 12px);
   }
 
   .bottom-bar-center-space {

@@ -2,10 +2,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
 import { sports } from '@/components/challenge-data';
-import { awardXp } from '@/lib/gamification';
+import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -148,22 +149,31 @@ export default function NewChallengePage() {
         console.error('Erreur ajout createur challenge_participants :', participantError);
       }
 
-      await awardXp({
+      const xpResult = await awardXp({
         userId: user.id,
         source: 'challenge_created',
         metadata: { target_id: challenge.id },
       });
 
-      const { error: badgeError } = await supabase.rpc(
-        'refresh_user_badges',
-        {
-          p_user_id: user.id,
-        }
-      );
+      const badgeResult = await refreshUserBadges(user.id);
 
-      if (badgeError) {
-        console.error('Erreur refresh badges challenge :', badgeError);
+      if (badgeResult.error) {
+        console.error('Erreur refresh badges challenge :', badgeResult.error);
       }
+
+      queuePendingToast({ message: '✅ Challenge créé', tone: 'success' });
+
+      if (xpResult?.awarded) {
+        queuePendingToast({ message: '⬆️ XP gagnée', tone: 'info' });
+      }
+
+      badgeResult.awarded.forEach((badgeCode) => {
+        const badge = getBadgeByCode(badgeCode);
+        queuePendingToast({
+          message: `🎉 Badge débloqué : ${badge?.label || badgeCode}`,
+          tone: 'celebrate',
+        });
+      });
 
       router.push(`/challenges/${challenge.id}`);
     } catch (err) {

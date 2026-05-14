@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 import { sports } from '@/components/challenge-data';
-import { awardXp } from '@/lib/gamification';
+import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -305,23 +306,32 @@ export default function NewActivityPageClient() {
       }
 
       if (createdActivity?.id) {
-        await awardXp({
+        const xpResult = await awardXp({
           userId: user.id,
           source: 'activity_added',
           metadata: { target_id: createdActivity.id },
         });
-      }
 
-      const { error: refreshBadgeError } = await supabase.rpc(
-        'refresh_user_badges',
-        {
-          p_user_id: user.id,
+        if (xpResult?.awarded) {
+          queuePendingToast({ message: '⬆️ XP gagnée', tone: 'info' });
         }
-      );
-
-      if (refreshBadgeError) {
-        console.error('Erreur refresh badges activité :', refreshBadgeError);
       }
+
+      const badgeResult = await refreshUserBadges(user.id);
+
+      if (badgeResult.error) {
+        console.error('Erreur refresh badges activité :', badgeResult.error);
+      }
+
+      queuePendingToast({ message: '✅ Activité ajoutée', tone: 'success' });
+
+      badgeResult.awarded.forEach((badgeCode) => {
+        const badge = getBadgeByCode(badgeCode);
+        queuePendingToast({
+          message: `🎉 Badge débloqué : ${badge?.label || badgeCode}`,
+          tone: 'celebrate',
+        });
+      });
 
       const nextProgress =
         selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);
