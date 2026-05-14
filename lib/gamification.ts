@@ -145,6 +145,7 @@ export async function awardXp({
 
     if (error) {
       console.error('Erreur gamification XP :', error);
+      console.error('Erreur gamification XP :', JSON.stringify(error, null, 2));
     }
   } catch (error) {
     console.error('Erreur gamification :', error);

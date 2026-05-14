@@ -130,18 +130,20 @@ export default function NewChallengePage() {
         return;
       }
 
-      if (user.email) {
-        const { error: memberError } = await supabase
-          .from('challenge_members')
-          .insert({
-            challenge_id: challenge.id,
-            user_email: user.email,
-            role: 'admin',
-          });
+      const { error: participantError } = await supabase
+        .from('challenge_participants')
+        .insert({
+          challenge_id: challenge.id,
+          user_id: user.id,
+          role: 'admin',
+        });
 
-        if (memberError) {
-          console.error('Erreur ajout createur challenge_members :', memberError);
-        }
+      if (participantError) {
+        console.error('Erreur ajout createur challenge_participants :', participantError);
+        console.error(
+          'Erreur ajout createur challenge_participants :',
+          JSON.stringify(participantError, null, 2)
+        );
       }
 
       await awardXp({

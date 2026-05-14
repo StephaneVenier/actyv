@@ -284,7 +284,7 @@ begin
         (
           select count(*)
           from public.activities
-          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+          where user_id = p_user_id
         ) >= 10
       ),
       (
@@ -292,7 +292,7 @@ begin
         (
           select count(*)
           from public.activities
-          where coalesce(user_id, public.resolve_profile_id(user_email)) = p_user_id
+          where user_id = p_user_id
         ) >= 5
       )
   ) as badge_rules(badge_code, should_unlock)
