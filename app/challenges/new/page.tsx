@@ -161,6 +161,7 @@ export default function NewChallengePage() {
 
       console.log('REFRESH RPC DATA:', badgeResult);
       console.error('REFRESH RPC ERROR:', badgeError);
+      console.error('REFRESH RPC ERROR:', JSON.stringify(badgeError, null, 2));
 
       router.push(`/challenges/${challenge.id}`);
     } catch (err) {

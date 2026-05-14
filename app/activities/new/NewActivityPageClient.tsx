@@ -329,6 +329,7 @@ export default function NewActivityPageClient() {
 
       console.log('REFRESH RPC DATA:', refreshBadgeData);
       console.error('REFRESH RPC ERROR:', refreshBadgeError);
+      console.error('REFRESH RPC ERROR:', JSON.stringify(refreshBadgeError, null, 2));
 
       const nextProgress =
         selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);
