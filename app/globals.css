@@ -288,16 +288,85 @@ img {
 }
 
 .sport-badge {
+  --sport-bg: linear-gradient(135deg, rgba(76, 217, 100, 0.14), rgba(30, 107, 214, 0.12));
+  --sport-color: #0f766e;
+  --sport-border: rgba(32, 183, 166, 0.18);
+  --sport-dark-bg: rgba(76, 217, 100, 0.14);
+  --sport-dark-color: #bbf7d0;
+  --sport-dark-border: rgba(147, 245, 166, 0.18);
   display: inline-flex;
   align-items: center;
   gap: 7px;
   width: fit-content;
   max-width: 100%;
-  border: 1px solid rgba(32, 183, 166, 0.18);
-  background: linear-gradient(135deg, rgba(76, 217, 100, 0.14), rgba(30, 107, 214, 0.12));
-  color: #0f766e;
+  border: 1px solid var(--sport-border);
+  background: var(--sport-bg);
+  color: var(--sport-color);
   line-height: 1.2;
   white-space: nowrap;
+}
+
+.sport-badge--run {
+  --sport-bg: rgba(30, 107, 214, 0.12);
+  --sport-color: #1d4ed8;
+  --sport-border: rgba(30, 107, 214, 0.18);
+  --sport-dark-bg: rgba(96, 165, 250, 0.18);
+  --sport-dark-color: #bfdbfe;
+  --sport-dark-border: rgba(147, 197, 253, 0.2);
+}
+
+.sport-badge--walk {
+  --sport-bg: rgba(34, 197, 94, 0.13);
+  --sport-color: #15803d;
+  --sport-border: rgba(34, 197, 94, 0.18);
+  --sport-dark-bg: rgba(74, 222, 128, 0.16);
+  --sport-dark-color: #bbf7d0;
+  --sport-dark-border: rgba(134, 239, 172, 0.2);
+}
+
+.sport-badge--cycle {
+  --sport-bg: rgba(20, 184, 166, 0.13);
+  --sport-color: #0f766e;
+  --sport-border: rgba(20, 184, 166, 0.18);
+  --sport-dark-bg: rgba(45, 212, 191, 0.16);
+  --sport-dark-color: #99f6e4;
+  --sport-dark-border: rgba(153, 246, 228, 0.2);
+}
+
+.sport-badge--strength {
+  --sport-bg: rgba(245, 158, 11, 0.14);
+  --sport-color: #b45309;
+  --sport-border: rgba(245, 158, 11, 0.18);
+  --sport-dark-bg: rgba(251, 191, 36, 0.17);
+  --sport-dark-color: #fde68a;
+  --sport-dark-border: rgba(253, 230, 138, 0.2);
+}
+
+.sport-badge--swim {
+  --sport-bg: rgba(14, 165, 233, 0.13);
+  --sport-color: #0369a1;
+  --sport-border: rgba(14, 165, 233, 0.18);
+  --sport-dark-bg: rgba(56, 189, 248, 0.16);
+  --sport-dark-color: #bae6fd;
+  --sport-dark-border: rgba(186, 230, 253, 0.2);
+}
+
+.sport-badge--trail {
+  --sport-bg: rgba(101, 163, 13, 0.14);
+  --sport-color: #4d7c0f;
+  --sport-border: rgba(101, 163, 13, 0.18);
+  --sport-dark-bg: rgba(163, 230, 53, 0.15);
+  --sport-dark-color: #d9f99d;
+  --sport-dark-border: rgba(217, 249, 157, 0.2);
+}
+
+.sport-badge--other {
+  --sport-bg: rgba(100, 116, 139, 0.12);
+  --sport-color: #475569;
+  --sport-border: rgba(100, 116, 139, 0.16);
+  --sport-dark-bg: rgba(148, 163, 184, 0.16);
+  --sport-dark-color: #e2e8f0;
+  --sport-dark-border: rgba(226, 232, 240, 0.18);
 }
 
 /* BUTTONS */
@@ -635,15 +704,15 @@ img {
 }
 
 .challenge-item__pill.sport-badge {
-  border-color: rgba(32, 183, 166, 0.18);
-  background: rgba(32, 183, 166, 0.1);
-  color: #0f766e;
+  border-color: var(--sport-border);
+  background: var(--sport-bg);
+  color: var(--sport-color);
 }
 
 .challenge-item .challenge-item__pill.sport-badge {
-  border-color: rgba(147, 245, 166, 0.18);
-  background: rgba(76, 217, 100, 0.14);
-  color: #bbf7d0;
+  border-color: var(--sport-dark-border);
+  background: var(--sport-dark-bg);
+  color: var(--sport-dark-color);
 }
 
 .challenge-item h3 {
@@ -1256,9 +1325,9 @@ img {
 .feed-item__sport.sport-badge,
 .activity-sport.sport-badge {
   gap: 7px;
-  border: 1px solid rgba(32, 183, 166, 0.18);
-  background: linear-gradient(135deg, rgba(76, 217, 100, 0.14), rgba(30, 107, 214, 0.12));
-  color: #0f766e;
+  border: 1px solid var(--sport-border);
+  background: var(--sport-bg);
+  color: var(--sport-color);
 }
 
 .activity-stats {

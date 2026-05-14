@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
-import { formatSportLabel } from '@/components/challenge-data';
+import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { supabase } from '@/lib/supabase';
 
 type Challenge = {
@@ -322,8 +322,8 @@ export default function HomePage() {
                   className="challenge-item"
                 >
                   <div className="challenge-item__top">
-                    <span className="challenge-item__pill sport-badge">
-                      {formatSportLabel(challenge.sport)}
+                    <span className={getSportBadgeClassName(challenge.sport, 'challenge-item__pill', 'Sport')}>
+                      {formatSportBadgeLabel(challenge.sport, 'Sport')}
                     </span>
                     <span className="challenge-item__pill challenge-item__participants-pill">
                       {participantsCountMap[challenge.id] || 1} participant
@@ -389,8 +389,14 @@ export default function HomePage() {
                       )}
                     </div>
 
-                    <div className="feed-item__sport sport-badge">
-                      {formatSportLabel(activity.sport || challenge?.sport, 'Activité')}
+                    <div
+                      className={getSportBadgeClassName(
+                        activity.sport || challenge?.sport,
+                        'feed-item__sport',
+                        'Activité'
+                      )}
+                    >
+                      {formatSportBadgeLabel(activity.sport || challenge?.sport, 'Activité')}
                     </div>
 
                     <div className="feed-item__stats">
