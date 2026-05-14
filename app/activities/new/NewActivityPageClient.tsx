@@ -318,18 +318,17 @@ export default function NewActivityPageClient() {
         });
       }
 
-      console.log('CALLING refresh_user_badges FOR:', user.id);
-
-      const { data: refreshBadgeData, error: refreshBadgeError } = await supabase.rpc(
+      const { error: refreshBadgeError } = await supabase.rpc(
         'refresh_user_badges',
         {
           p_user_id: user.id,
         }
       );
 
-      console.log('REFRESH RPC DATA:', refreshBadgeData);
-      console.error('REFRESH RPC ERROR:', refreshBadgeError);
-      console.error('REFRESH RPC ERROR:', JSON.stringify(refreshBadgeError, null, 2));
+      if (refreshBadgeError) {
+        console.error('REFRESH RPC ERROR:', refreshBadgeError);
+        console.error('REFRESH RPC ERROR:', JSON.stringify(refreshBadgeError, null, 2));
+      }
 
       const nextProgress =
         selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);

@@ -158,18 +158,17 @@ export default function NewChallengePage() {
         metadata: { target_id: challenge.id },
       });
 
-      console.log('CALLING refresh_user_badges FOR:', user.id);
-
-      const { data: badgeResult, error: badgeError } = await supabase.rpc(
+      const { error: badgeError } = await supabase.rpc(
         'refresh_user_badges',
         {
           p_user_id: user.id,
         }
       );
 
-      console.log('REFRESH RPC DATA:', badgeResult);
-      console.error('REFRESH RPC ERROR:', badgeError);
-      console.error('REFRESH RPC ERROR:', JSON.stringify(badgeError, null, 2));
+      if (badgeError) {
+        console.error('REFRESH RPC ERROR:', badgeError);
+        console.error('REFRESH RPC ERROR:', JSON.stringify(badgeError, null, 2));
+      }
 
       router.push(`/challenges/${challenge.id}`);
     } catch (err) {

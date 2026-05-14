@@ -142,8 +142,6 @@ export default function ProfilePage() {
         return;
       }
 
-      console.log('PROFILE USER:', user.id);
-
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, email, username, total_xp, level')
@@ -209,7 +207,6 @@ export default function ProfilePage() {
         console.error('USER BADGES ERROR:', badgesResponse.error);
         setBadges([]);
       } else {
-        console.log('USER BADGES:', badgesResponse.data || []);
         setBadges((badgesResponse.data as UserBadge[] | null) || []);
       }
 
