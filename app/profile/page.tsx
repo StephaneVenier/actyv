@@ -22,10 +22,12 @@ type Activity = {
   id: string;
   challenge_id: string;
   user_email: string | null;
+  sport: string | null;
   distance_km: number | null;
   duration_minutes: number | null;
   unit_type: GoalType | null;
   unit_value: number | null;
+  comment: string | null;
   created_at: string | null;
 };
 
@@ -38,6 +40,7 @@ type Challenge = {
   goal_type: GoalType | null;
   goal_value: number | null;
   created_by: string | null;
+  created_at: string | null;
 };
 
 type ChallengeMember = {
@@ -51,9 +54,6 @@ type ActivityInteraction = {
 
 type UserBadge = {
   badge_code: string;
-  unlocked_at?: string | null;
-  earned_at?: string | null;
-  created_at?: string | null;
 };
 
 type UserChallengeSummary = {
@@ -75,7 +75,23 @@ function formatDuration(value: number) {
 }
 
 function formatReps(value: number) {
-  return `${value} répétition${value > 1 ? 's' : ''}`;
+  return `${value} repetition${value > 1 ? 's' : ''}`;
+}
+
+function formatRelativeDate(dateString: string | null) {
+  if (!dateString) return 'Date inconnue';
+
+  const now = Date.now();
+  const target = new Date(dateString).getTime();
+  const diffMs = target - now;
+  const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
+  const minutes = Math.round(diffMs / (1000 * 60));
+  const hours = Math.round(diffMs / (1000 * 60 * 60));
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+  if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
+  return rtf.format(days, 'day');
 }
 
 function getGoalType(challenge: Challenge): GoalType | null {
@@ -87,7 +103,7 @@ function getGoalValue(challenge: Challenge) {
 }
 
 function formatGoal(value: number | null, goalType: GoalType | null) {
-  if (value === null || value === undefined) return 'Objectif non défini';
+  if (value === null || value === undefined) return 'Objectif non defini';
   if (goalType === 'distance') return formatDistance(value);
   if (goalType === 'duration') return formatDuration(value);
   if (goalType === 'reps') return formatReps(value);
@@ -114,6 +130,18 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
         : null) ??
     0
   );
+}
+
+function formatActivitySummary(activity: Activity) {
+  if (activity.unit_type === 'duration') {
+    return formatDuration(activity.unit_value ?? activity.duration_minutes ?? 0);
+  }
+
+  if (activity.unit_type === 'reps') {
+    return formatReps(activity.unit_value ?? 0);
+  }
+
+  return formatDistance(activity.unit_value ?? activity.distance_km ?? 0);
 }
 
 export default function ProfilePage() {
@@ -160,37 +188,26 @@ export default function ProfilePage() {
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
 
-      const [
-        activitiesResponse,
-        membersResponse,
-        participantsResponse,
-        badgesResponse,
-      ] = await Promise.all([
-        supabase
-          .from('activities')
-          .select('id, challenge_id, user_email, distance_km, duration_minutes, unit_type, unit_value, created_at')
-          .eq('user_email', user.email)
-          .order('created_at', { ascending: false }),
-        user.email
-          ? supabase
-              .from('challenge_members')
-              .select('challenge_id')
-              .eq('user_email', user.email)
-          : Promise.resolve({ data: [], error: null }),
-        supabase
-          .from('challenge_participants')
-          .select('challenge_id')
-          .eq('user_id', user.id),
-        supabase
-          .from('user_badges')
-          .select('badge_code')
-          .eq('user_id', user.id),
-      ]);
+      const [activitiesResponse, membersResponse, participantsResponse, badgesResponse] =
+        await Promise.all([
+          supabase
+            .from('activities')
+            .select(
+              'id, challenge_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, comment, created_at'
+            )
+            .eq('user_email', user.email)
+            .order('created_at', { ascending: false }),
+          user.email
+            ? supabase.from('challenge_members').select('challenge_id').eq('user_email', user.email)
+            : Promise.resolve({ data: [], error: null }),
+          supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
+          supabase.from('user_badges').select('badge_code').eq('user_id', user.id),
+        ]);
 
       const loadedActivities = (activitiesResponse.data as Activity[] | null) || [];
 
       if (activitiesResponse.error) {
-        console.error('Erreur chargement activités profil :', activitiesResponse.error);
+        console.error('Erreur chargement activites profil :', activitiesResponse.error);
         setActivities([]);
       } else {
         setActivities(loadedActivities);
@@ -232,7 +249,9 @@ export default function ProfilePage() {
 
       const { data: challengesData, error: challengesError } = await supabase
         .from('challenges')
-        .select('id, name, sport, description, goal_km, goal_type, goal_value, created_by')
+        .select(
+          'id, name, sport, description, goal_km, goal_type, goal_value, created_by, created_at'
+        )
         .eq('is_deleted', false)
         .or(visibilityFilters.join(','))
         .order('created_at', { ascending: false });
@@ -340,6 +359,12 @@ export default function ProfilePage() {
       .filter((badgeCode): badgeCode is NonNullable<typeof badgeCode> => Boolean(badgeCode))
   );
   const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
+  const challengeMap = useMemo(() => {
+    return Object.fromEntries(challenges.map((challenge) => [challenge.id, challenge]));
+  }, [challenges]);
+  const recentActivities = activities.slice(0, 3);
+  const recentChallenges = challenges.slice(0, 3);
+  const badgeCount = unlockedBadges.length;
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -350,7 +375,7 @@ export default function ProfilePage() {
     const trimmed = usernameInput.trim();
 
     if (!trimmed) {
-      setMessage('Le pseudo ne peut pas être vide.');
+      setMessage('Le pseudo ne peut pas etre vide.');
       setSavingUsername(false);
       return;
     }
@@ -364,15 +389,15 @@ export default function ProfilePage() {
     });
 
     if (error) {
-      console.error('Erreur mise à jour pseudo :', error);
+      console.error('Erreur mise a jour pseudo :', error);
       setMessage("Impossible d'enregistrer le pseudo.");
       setSavingUsername(false);
       return;
     }
 
     setProfile((prev) => (prev ? { ...prev, username: trimmed } : prev));
+    setMessage('Pseudo mis a jour.');
     setEditMode(false);
-    setMessage('Pseudo mis à jour.');
     setSavingUsername(false);
   };
 
@@ -392,7 +417,7 @@ export default function ProfilePage() {
       <AppShell>
         <div className="card">
           <h1>Mon profil</h1>
-          <p>Vous devez être connecté pour voir cette page.</p>
+          <p>Vous devez etre connecte pour voir cette page.</p>
         </div>
       </AppShell>
     );
@@ -403,10 +428,16 @@ export default function ProfilePage() {
       <div className="profile-page">
         <section className="card profile-hero-card">
           <div className="profile-hero-main">
-            <div>
+            <div className="profile-hero-copy">
               <span className="section-kicker">Profil Actyv</span>
-              <h1>Mon profil</h1>
-              <p className="muted">Ton identité, tes challenges et tes contributions.</p>
+              <div className="profile-hero-heading">
+                <h1>{profile.username || 'Mon profil'}</h1>
+                <UserLevelBadge level={profile.level} />
+              </div>
+              <p className="muted">{profile.email}</p>
+              <p className="muted">
+                Ton hub personnel pour suivre ta progression, tes badges et tes derniers mouvements.
+              </p>
             </div>
 
             <div className="profile-identity">
@@ -420,15 +451,20 @@ export default function ProfilePage() {
                       placeholder="Choisir un pseudo"
                     />
                   ) : (
-                    <strong>{profile.username || 'Aucun pseudo défini'}</strong>
+                    <strong>{profile.username || 'Aucun pseudo defini'}</strong>
                   )}
                   <UserLevelBadge level={profile.level} />
                 </div>
               </div>
 
               <div>
-                <span>Email</span>
-                <strong>{profile.email}</strong>
+                <span>XP totale</span>
+                <strong>{totalXp} XP</strong>
+              </div>
+
+              <div>
+                <span>Badges debloques</span>
+                <strong>{badgeCount}</strong>
               </div>
 
               <div className="profile-actions">
@@ -463,20 +499,17 @@ export default function ProfilePage() {
               {message && <p className="muted">{message}</p>}
             </div>
           </div>
-        </section>
 
-        <section className="card gamification-card">
-          <div className="gamification-main">
-            <div>
-              <span className="section-kicker">Progression</span>
-              <h2>Niveau {levelProgress.level}</h2>
-              <p className="muted">{totalXp} XP au total</p>
-            </div>
+          <div className="profile-summary-grid">
+            <article className="profile-summary-card">
+              <span className="stat-card-label">Niveau actuel</span>
+              <strong className="stat-card-value">Nv.{levelProgress.level}</strong>
+            </article>
 
-            <div className="gamification-progress">
-              <div className="progress-meta">
-                <span>{levelProgress.xpToNextLevel} XP avant le niveau suivant</span>
-                <span>{levelProgress.progressPercent.toFixed(0)}%</span>
+            <article className="profile-summary-card profile-summary-card--wide">
+              <div className="profile-summary-card__top">
+                <span className="stat-card-label">Progression XP</span>
+                <strong>{levelProgress.progressPercent.toFixed(0)}%</strong>
               </div>
               <div className="progress-track">
                 <div
@@ -484,25 +517,21 @@ export default function ProfilePage() {
                   style={{ width: `${levelProgress.progressPercent}%` }}
                 />
               </div>
-            </div>
-          </div>
+              <p className="muted profile-summary-card__meta">
+                {levelProgress.xpToNextLevel} XP avant le niveau suivant
+              </p>
+            </article>
 
-          <div className="badge-list">
-            {unlockedBadges.length === 0 ? (
-              <span className="badge-list-empty">Aucun badge débloqué pour le moment.</span>
-            ) : (
-              unlockedBadges.map((badge) => (
-                <span key={badge.code} className="achievement-badge" title={badge.description}>
-                  {badge.label}
-                </span>
-              ))
-            )}
+            <article className="profile-summary-card">
+              <span className="stat-card-label">Badges</span>
+              <strong className="stat-card-value">{badgeCount}</strong>
+            </article>
           </div>
         </section>
 
         <section className="profile-stats-grid">
           <article className="card stat-card">
-            <span className="stat-card-label">Challenges créés</span>
+            <span className="stat-card-label">Challenges crees</span>
             <strong className="stat-card-value">{stats.createdChallenges}</strong>
           </article>
           <article className="card stat-card">
@@ -510,28 +539,143 @@ export default function ProfilePage() {
             <strong className="stat-card-value">{stats.joinedChallenges}</strong>
           </article>
           <article className="card stat-card">
-            <span className="stat-card-label">Activités</span>
+            <span className="stat-card-label">Activites ajoutees</span>
             <strong className="stat-card-value">{stats.totalActivities}</strong>
           </article>
           <article className="card stat-card">
-            <span className="stat-card-label">Distance</span>
+            <span className="stat-card-label">Distance totale</span>
             <strong className="stat-card-value">{formatDistance(stats.totalDistance)}</strong>
           </article>
           <article className="card stat-card">
-            <span className="stat-card-label">Durée</span>
+            <span className="stat-card-label">Duree totale</span>
             <strong className="stat-card-value">{formatDuration(stats.totalDuration)}</strong>
           </article>
           <article className="card stat-card">
-            <span className="stat-card-label">Répétitions</span>
+            <span className="stat-card-label">Repetitions</span>
             <strong className="stat-card-value">{stats.totalReps}</strong>
           </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Likes reçus</span>
-            <strong className="stat-card-value">{stats.totalLikes}</strong>
+        </section>
+
+        <section className="card gamification-card">
+          <div className="profile-section-heading">
+            <div>
+              <span className="section-kicker">Badges</span>
+              <h2>Badges debloques</h2>
+            </div>
+            <span className="badge">{badgeCount} badge{badgeCount > 1 ? 's' : ''}</span>
+          </div>
+
+          <div className="badge-grid">
+            {unlockedBadges.length === 0 ? (
+              <span className="badge-list-empty">Aucun badge debloque pour le moment.</span>
+            ) : (
+              unlockedBadges.map((badge) => (
+                <article
+                  key={badge.code}
+                  className="achievement-badge-card"
+                  title={badge.description}
+                >
+                  <span className="achievement-badge">{badge.label}</span>
+                  <p>{badge.description}</p>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="profile-history-grid">
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Recent</span>
+                <h2>Dernieres activites</h2>
+              </div>
+            </div>
+
+            {recentActivities.length === 0 ? (
+              <div className="challenge-state challenge-state--compact">
+                <p>Aucune activite recente pour le moment.</p>
+              </div>
+            ) : (
+              <div className="profile-history-list">
+                {recentActivities.map((activity) => {
+                  const linkedChallenge = challengeMap[activity.challenge_id];
+
+                  return (
+                    <Link
+                      key={activity.id}
+                      href={`/challenges/${activity.challenge_id}`}
+                      className="profile-history-item"
+                    >
+                      <div className="profile-history-item__top">
+                        <span
+                          className={getSportBadgeClassName(
+                            activity.sport || linkedChallenge?.sport,
+                            'challenge-item__pill',
+                            'Activite'
+                          )}
+                        >
+                          {formatSportBadgeLabel(activity.sport || linkedChallenge?.sport, 'Activite')}
+                        </span>
+                        <span className="profile-history-item__date">
+                          {formatRelativeDate(activity.created_at)}
+                        </span>
+                      </div>
+                      <strong>{linkedChallenge?.name || 'Activite personnelle'}</strong>
+                      <span>{formatActivitySummary(activity)}</span>
+                      {activity.comment?.trim() && <p>{activity.comment}</p>}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
           </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Boosts reçus</span>
-            <strong className="stat-card-value">{stats.totalBoosts}</strong>
+
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Recent</span>
+                <h2>Derniers challenges</h2>
+              </div>
+            </div>
+
+            {recentChallenges.length === 0 ? (
+              <div className="challenge-state challenge-state--compact">
+                <p>Aucun challenge recent pour le moment.</p>
+              </div>
+            ) : (
+              <div className="profile-history-list">
+                {recentChallenges.map((challenge) => (
+                  <Link
+                    key={challenge.id}
+                    href={`/challenges/${challenge.id}`}
+                    className="profile-history-item"
+                  >
+                    <div className="profile-history-item__top">
+                      <span
+                        className={getSportBadgeClassName(
+                          challenge.sport,
+                          'challenge-item__pill',
+                          'Challenge'
+                        )}
+                      >
+                        {formatSportBadgeLabel(challenge.sport, 'Challenge')}
+                      </span>
+                      <span className="profile-history-item__date">
+                        {formatRelativeDate(challenge.created_at)}
+                      </span>
+                    </div>
+                    <strong>{challenge.name}</strong>
+                    <span>{formatGoal(getGoalValue(challenge), getGoalType(challenge))}</span>
+                    <p>
+                      {challenge.description?.trim()
+                        ? challenge.description
+                        : 'Challenge disponible dans ton espace personnel.'}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            )}
           </article>
         </section>
 
@@ -549,41 +693,45 @@ export default function ProfilePage() {
             </div>
           ) : (
             <div className="challenges-grid">
-              {activeChallenges.map(({ challenge, goalType, goalValue, progress, progressPercent, myActivities }) => (
-                <article key={challenge.id} className="card challenge-overview-card">
-                  <div className="challenge-overview-top">
-                    <span className={getSportBadgeClassName(challenge.sport, 'badge', 'Sport')}>
-                      {formatSportBadgeLabel(challenge.sport, 'Sport')}
-                    </span>
-                  </div>
+              {activeChallenges.map(
+                ({ challenge, goalType, goalValue, progress, progressPercent, myActivities }) => (
+                  <article key={challenge.id} className="card challenge-overview-card">
+                    <div className="challenge-overview-top">
+                      <span className={getSportBadgeClassName(challenge.sport, 'badge', 'Sport')}>
+                        {formatSportBadgeLabel(challenge.sport, 'Sport')}
+                      </span>
+                    </div>
 
-                  <h3>{challenge.name}</h3>
-                  <p>
-                    {challenge.description?.trim()
-                      ? challenge.description
-                      : 'Continue à contribuer à ce challenge.'}
-                  </p>
+                    <h3>{challenge.name}</h3>
+                    <p>
+                      {challenge.description?.trim()
+                        ? challenge.description
+                        : 'Continue a contribuer a ce challenge.'}
+                    </p>
 
-                  <div className="challenge-overview-meta">
-                    <span>Progression</span>
-                    <strong>
-                      {formatGoal(progress, goalType)} / {formatGoal(goalValue, goalType)}
-                    </strong>
-                  </div>
+                    <div className="challenge-overview-meta">
+                      <span>Progression</span>
+                      <strong>
+                        {formatGoal(progress, goalType)} / {formatGoal(goalValue, goalType)}
+                      </strong>
+                    </div>
 
-                  <div className="progress-meta">
-                    <span className="progress-target">{myActivities} activité{myActivities > 1 ? 's' : ''}</span>
-                    <span className="progress-percent">{progressPercent.toFixed(1)}%</span>
-                  </div>
-                  <div className="progress-track">
-                    <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
-                  </div>
+                    <div className="progress-meta">
+                      <span className="progress-target">
+                        {myActivities} activite{myActivities > 1 ? 's' : ''}
+                      </span>
+                      <span className="progress-percent">{progressPercent.toFixed(1)}%</span>
+                    </div>
+                    <div className="progress-track">
+                      <div className="progress-fill" style={{ width: `${progressPercent}%` }} />
+                    </div>
 
-                  <Link href={`/challenges/${challenge.id}`} className="button ghost">
-                    Voir le détail
-                  </Link>
-                </article>
-              ))}
+                    <Link href={`/challenges/${challenge.id}`} className="button ghost">
+                      Voir le detail
+                    </Link>
+                  </article>
+                )
+              )}
             </div>
           )}
         </section>
@@ -592,13 +740,13 @@ export default function ProfilePage() {
           <div className="home-challenges__header">
             <div>
               <span className="section-kicker">Historique</span>
-              <h2>Challenges terminés</h2>
+              <h2>Challenges termines</h2>
             </div>
           </div>
 
           {completedChallenges.length === 0 ? (
             <div className="challenge-state">
-              <p>Aucun challenge terminé pour le moment.</p>
+              <p>Aucun challenge termine pour le moment.</p>
             </div>
           ) : (
             <div className="completed-challenge-list">
@@ -610,8 +758,14 @@ export default function ProfilePage() {
                 >
                   <div className="completed-challenge-main">
                     <div className="completed-challenge-tags">
-                      <span className="badge badge-completed">Terminé</span>
-                      <span className={getSportBadgeClassName(challenge.sport, 'challenge-item__pill', 'Sport')}>
+                      <span className="badge badge-completed">Termine</span>
+                      <span
+                        className={getSportBadgeClassName(
+                          challenge.sport,
+                          'challenge-item__pill',
+                          'Sport'
+                        )}
+                      >
                         {formatSportBadgeLabel(challenge.sport, 'Sport')}
                       </span>
                     </div>
@@ -621,7 +775,7 @@ export default function ProfilePage() {
 
                   <div className="completed-challenge-side">
                     <span>{formatGoal(progress, goalType)}</span>
-                    <strong>Voir le détail</strong>
+                    <strong>Voir le detail</strong>
                   </div>
                 </Link>
               ))}
