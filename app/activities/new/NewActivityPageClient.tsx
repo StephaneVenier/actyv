@@ -291,7 +291,11 @@ export default function NewActivityPageClient() {
         distance_km: selectedGoalType === 'distance' ? parsedUnitValue : null,
       };
 
-      const { error } = await supabase.from('activities').insert(insertPayload);
+      const { data: createdActivity, error } = await supabase
+        .from('activities')
+        .insert(insertPayload)
+        .select('id')
+        .single();
 
       if (error) {
         console.error('Erreur création activité :', error);
@@ -300,10 +304,13 @@ export default function NewActivityPageClient() {
         return;
       }
 
-      await awardXp({
-        userId: user.id,
-        source: 'activity_added',
-      });
+      if (createdActivity?.id) {
+        await awardXp({
+          userId: user.id,
+          source: 'activity_added',
+          metadata: { target_id: createdActivity.id },
+        });
+      }
 
       const nextProgress =
         selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);

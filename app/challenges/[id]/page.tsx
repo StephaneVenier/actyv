@@ -695,13 +695,15 @@ const handleLike = async (activityId: string) => {
       return;
     }
   } else {
-    const { error } = await supabase
+    const { data: createdInteraction, error } = await supabase
       .from('activity_interactions')
       .insert({
         activity_id: activityId,
         user_id: currentUserId,
         type: 'like',
-      });
+      })
+      .select('id')
+      .single();
 
     if (error) {
       console.error('Erreur ajout like :', error);
@@ -713,6 +715,7 @@ const handleLike = async (activityId: string) => {
 
     if (
       activity &&
+      createdInteraction?.id &&
       activity.user_id !== currentUserId &&
       activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
     ) {
@@ -720,7 +723,7 @@ const handleLike = async (activityId: string) => {
         userId: activity.user_id,
         userEmail: activity.user_email,
         source: 'like_received',
-        metadata: { target_id: activityId },
+        metadata: { target_id: createdInteraction.id },
       });
     }
   }
@@ -753,13 +756,15 @@ const handleBoost = async (activityId: string) => {
       return;
     }
   } else {
-    const { error } = await supabase
+    const { data: createdInteraction, error } = await supabase
       .from('activity_interactions')
       .insert({
         activity_id: activityId,
         user_id: currentUserId,
         type: 'boost',
-      });
+      })
+      .select('id')
+      .single();
 
     if (error) {
       console.error('Erreur ajout boost :', error);
@@ -771,6 +776,7 @@ const handleBoost = async (activityId: string) => {
 
     if (
       activity &&
+      createdInteraction?.id &&
       activity.user_id !== currentUserId &&
       activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
     ) {
@@ -778,7 +784,7 @@ const handleBoost = async (activityId: string) => {
         userId: activity.user_id,
         userEmail: activity.user_email,
         source: 'boost_received',
-        metadata: { target_id: activityId },
+        metadata: { target_id: createdInteraction.id },
       });
     }
   }

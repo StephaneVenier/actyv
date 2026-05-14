@@ -89,6 +89,24 @@ alter table if exists public.profiles
   add column if not exists total_xp integer not null default 0,
   add column if not exists level integer not null default 1;
 
+create table if not exists public.challenge_participants (
+  id uuid primary key default gen_random_uuid(),
+  challenge_id uuid not null references public.challenges(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  role text not null default 'participant',
+  joined_at timestamptz not null default now(),
+  unique (challenge_id, user_id)
+);
+
+create table if not exists public.activity_interactions (
+  id uuid primary key default gen_random_uuid(),
+  activity_id uuid not null references public.activities(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  type text not null,
+  created_at timestamptz not null default now(),
+  unique (activity_id, user_id, type)
+);
+
 create table if not exists public.xp_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -279,3 +297,312 @@ end;
 $$;
 
 grant execute on function public.award_xp(uuid, text, text) to authenticated;
+
+create or replace function public.award_xp_internal(
+  p_user_id uuid,
+  p_source text,
+  p_target_id text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  reward_xp integer := 0;
+  daily_xp integer := 0;
+  daily_count integer := 0;
+  next_level integer := 1;
+begin
+  if p_user_id is null then
+    return;
+  end if;
+
+  reward_xp := case p_source
+    when 'challenge_created' then 20
+    when 'challenge_joined' then 10
+    when 'activity_added' then 25
+    when 'like_received' then 1
+    when 'boost_received' then 3
+    when 'challenge_completed' then 50
+    else 0
+  end;
+
+  if reward_xp <= 0 then
+    return;
+  end if;
+
+  if p_source in ('challenge_created', 'activity_added') then
+    select count(*) into daily_count
+    from public.xp_events
+    where user_id = p_user_id
+      and source = p_source
+      and created_at >= date_trunc('day', now());
+
+    if (p_source = 'challenge_created' and daily_count >= 2)
+      or (p_source = 'activity_added' and daily_count >= 4) then
+      return;
+    end if;
+  end if;
+
+  if p_source in ('like_received', 'boost_received') then
+    select coalesce(sum(xp), 0) into daily_xp
+    from public.xp_events
+    where user_id = p_user_id
+      and source = p_source
+      and created_at >= date_trunc('day', now());
+
+    if (p_source = 'like_received' and daily_xp + reward_xp > 20)
+      or (p_source = 'boost_received' and daily_xp + reward_xp > 30) then
+      return;
+    end if;
+  end if;
+
+  insert into public.xp_events (user_id, source, xp, metadata)
+  values (
+    p_user_id,
+    p_source,
+    reward_xp,
+    case
+      when p_target_id is null then '{}'::jsonb
+      else jsonb_build_object('target_id', p_target_id)
+    end
+  )
+  on conflict do nothing;
+
+  if not found then
+    return;
+  end if;
+
+  update public.profiles
+  set
+    total_xp = coalesce(total_xp, 0) + reward_xp,
+    level = public.calculate_level(coalesce(total_xp, 0) + reward_xp)
+  where id = p_user_id
+  returning level into next_level;
+
+  insert into public.user_badges (user_id, badge_code)
+  select p_user_id, badge_code
+  from (
+    values
+      ('first-step', p_source = 'activity_added'),
+      ('creator', p_source = 'challenge_created'),
+      ('collective', p_source = 'challenge_joined'),
+      ('motivated', p_source = 'like_received'),
+      ('booster', p_source = 'boost_received'),
+      ('finisher', p_source = 'challenge_completed'),
+      ('serious', next_level >= 5),
+      (
+        'regular',
+        (
+          select count(*)
+          from public.xp_events
+          where user_id = p_user_id and source = 'activity_added'
+        ) >= 4
+      )
+  ) as badge_rules(badge_code, should_unlock)
+  where should_unlock
+  on conflict (user_id, badge_code) do nothing;
+end;
+$$;
+
+create or replace function public.award_xp(
+  p_user_id uuid,
+  p_source text,
+  p_target_id text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null or p_user_id is null then
+    return;
+  end if;
+
+  perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+end;
+$$;
+
+grant execute on function public.award_xp(uuid, text, text) to authenticated;
+
+create or replace function public.resolve_profile_id(p_user_email text)
+returns uuid
+language sql
+security definer
+set search_path = public
+as $$
+  select id
+  from public.profiles
+  where lower(email) = lower(p_user_email)
+  limit 1;
+$$;
+
+create or replace function public.get_challenge_progress(
+  p_challenge_id uuid,
+  p_goal_type text
+)
+returns numeric
+language sql
+security definer
+set search_path = public
+as $$
+  select coalesce(sum(
+    case
+      when p_goal_type = 'distance' then coalesce(unit_value, distance_km, 0)
+      when p_goal_type = 'duration' then coalesce(unit_value, duration_minutes, 0)
+      when p_goal_type = 'reps' then coalesce(unit_value, 0)
+      else 0
+    end
+  ), 0)
+  from public.activities
+  where challenge_id = p_challenge_id;
+$$;
+
+create or replace function public.award_xp_after_challenge_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.award_xp_internal(NEW.created_by, 'challenge_created', NEW.id::text);
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_award_xp_after_challenge_insert on public.challenges;
+create trigger trg_award_xp_after_challenge_insert
+after insert on public.challenges
+for each row
+execute function public.award_xp_after_challenge_insert();
+
+create or replace function public.award_xp_after_activity_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  actor_id uuid;
+  challenge_goal_type text;
+  challenge_goal_value numeric;
+  previous_progress numeric := 0;
+  next_progress numeric := 0;
+  new_activity_value numeric := 0;
+begin
+  actor_id := coalesce(NEW.user_id, public.resolve_profile_id(NEW.user_email));
+  perform public.award_xp_internal(actor_id, 'activity_added', NEW.id::text);
+
+  select
+    coalesce(goal_type, case when goal_km is not null then 'distance' else null end),
+    coalesce(goal_value, goal_km)
+  into challenge_goal_type, challenge_goal_value
+  from public.challenges
+  where id = NEW.challenge_id;
+
+  if actor_id is not null and challenge_goal_type is not null and challenge_goal_value > 0 then
+    next_progress := public.get_challenge_progress(NEW.challenge_id, challenge_goal_type);
+    new_activity_value := case
+      when challenge_goal_type = 'distance' then coalesce(NEW.unit_value, NEW.distance_km, 0)
+      when challenge_goal_type = 'duration' then coalesce(NEW.unit_value, NEW.duration_minutes, 0)
+      when challenge_goal_type = 'reps' then coalesce(NEW.unit_value, 0)
+      else 0
+    end;
+    previous_progress := next_progress - new_activity_value;
+
+    if previous_progress < challenge_goal_value and next_progress >= challenge_goal_value then
+      perform public.award_xp_internal(actor_id, 'challenge_completed', NEW.challenge_id::text);
+    end if;
+  end if;
+
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_award_xp_after_activity_insert on public.activities;
+create trigger trg_award_xp_after_activity_insert
+after insert on public.activities
+for each row
+execute function public.award_xp_after_activity_insert();
+
+create or replace function public.award_xp_after_interaction_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  activity_owner_id uuid;
+  activity_owner_email text;
+begin
+  select user_id, user_email
+  into activity_owner_id, activity_owner_email
+  from public.activities
+  where id = NEW.activity_id;
+
+  activity_owner_id := coalesce(activity_owner_id, public.resolve_profile_id(activity_owner_email));
+
+  if activity_owner_id is null or activity_owner_id = NEW.user_id then
+    return NEW;
+  end if;
+
+  if NEW.type = 'like' then
+    perform public.award_xp_internal(activity_owner_id, 'like_received', NEW.id::text);
+  elsif NEW.type = 'boost' then
+    perform public.award_xp_internal(activity_owner_id, 'boost_received', NEW.id::text);
+  end if;
+
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_award_xp_after_interaction_insert on public.activity_interactions;
+create trigger trg_award_xp_after_interaction_insert
+after insert on public.activity_interactions
+for each row
+execute function public.award_xp_after_interaction_insert();
+
+create or replace function public.award_xp_after_participant_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform public.award_xp_internal(NEW.user_id, 'challenge_joined', NEW.challenge_id::text);
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_award_xp_after_participant_insert on public.challenge_participants;
+create trigger trg_award_xp_after_participant_insert
+after insert on public.challenge_participants
+for each row
+execute function public.award_xp_after_participant_insert();
+
+create or replace function public.award_xp_after_member_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  member_user_id uuid;
+begin
+  if coalesce(NEW.role, 'member') <> 'member' then
+    return NEW;
+  end if;
+
+  member_user_id := public.resolve_profile_id(NEW.user_email);
+  perform public.award_xp_internal(member_user_id, 'challenge_joined', NEW.challenge_id::text);
+  return NEW;
+end;
+$$;
+
+drop trigger if exists trg_award_xp_after_member_insert on public.challenge_members;
+create trigger trg_award_xp_after_member_insert
+after insert on public.challenge_members
+for each row
+execute function public.award_xp_after_member_insert();
