@@ -309,6 +309,21 @@ img {
   color: #15803d;
 }
 
+.mini-level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  color: #334155;
+  font-size: 0.74rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .sport-badge {
   --sport-bg: linear-gradient(135deg, rgba(76, 217, 100, 0.14), rgba(30, 107, 214, 0.12));
   --sport-color: #0f766e;
@@ -977,6 +992,19 @@ img {
 
 .profile-identity strong {
   color: #0f172a;
+}
+
+.profile-name-row,
+.leaderboard-name-row,
+.feed-item__headline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.profile-name-row input {
+  flex: 1 1 220px;
 }
 
 .profile-identity input {

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
+import { UserLevelBadge } from '@/components/user-level-badge';
 import { BADGES, getLevelProgress, normalizeBadgeCode } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
@@ -411,15 +412,18 @@ export default function ProfilePage() {
             <div className="profile-identity">
               <div>
                 <span>Pseudo</span>
-                {editMode ? (
-                  <input
-                    value={usernameInput}
-                    onChange={(event) => setUsernameInput(event.target.value)}
-                    placeholder="Choisir un pseudo"
-                  />
-                ) : (
-                  <strong>{profile.username || 'Aucun pseudo défini'}</strong>
-                )}
+                <div className="profile-name-row">
+                  {editMode ? (
+                    <input
+                      value={usernameInput}
+                      onChange={(event) => setUsernameInput(event.target.value)}
+                      placeholder="Choisir un pseudo"
+                    />
+                  ) : (
+                    <strong>{profile.username || 'Aucun pseudo défini'}</strong>
+                  )}
+                  <UserLevelBadge level={profile.level} />
+                </div>
               </div>
 
               <div>

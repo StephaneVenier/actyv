@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
+import { UserLevelBadge } from '@/components/user-level-badge';
 import { supabase } from '@/lib/supabase';
 import { awardXp } from '@/lib/gamification';
 
@@ -49,6 +50,12 @@ type Profile = {
   id: string;
   email: string | null;
   username: string | null;
+  level: number | null;
+};
+
+type SocialProfile = {
+  username: string;
+  level: number | null;
 };
 
 type ChallengeParticipant = {
@@ -77,6 +84,7 @@ type ActivityInteraction = {
 type LeaderboardRow = {
   user_key: string;
   displayName: string;
+  level: number | null;
   totalValue: number;
   totalActivities: number;
   totalDistance: number;
@@ -194,8 +202,8 @@ export default function ChallengeDetailPage() {
   const [participants, setParticipants] = useState<ChallengeParticipant[]>([]);
   const [memberRows, setMemberRows] = useState<ChallengeMember[]>([]);
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
-  const [profilesById, setProfilesById] = useState<Record<string, string>>({});
-  const [profilesByEmail, setProfilesByEmail] = useState<Record<string, string>>({});
+  const [profilesById, setProfilesById] = useState<Record<string, SocialProfile>>({});
+  const [profilesByEmail, setProfilesByEmail] = useState<Record<string, SocialProfile>>({});
   const [loading, setLoading] = useState(true);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [participantsLoading, setParticipantsLoading] = useState(true);
@@ -387,7 +395,7 @@ setShareMessage('');
   if (uniqueUserIds.length > 0) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, username')
+      .select('id, email, username, level')
       .in('id', uniqueUserIds);
 
     if (error) {
@@ -406,7 +414,7 @@ setShareMessage('');
   if (missingEmails.length > 0) {
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, email, username')
+      .select('id, email, username, level')
       .in('email', missingEmails);
 
     if (error) {
@@ -416,16 +424,21 @@ setShareMessage('');
     }
   }
 
-  const nextProfilesById: Record<string, string> = {};
-  const nextProfilesByEmail: Record<string, string> = {};
+  const nextProfilesById: Record<string, SocialProfile> = {};
+  const nextProfilesByEmail: Record<string, SocialProfile> = {};
 
   profilesData.forEach((profile) => {
-    if (profile.id && profile.username) {
-      nextProfilesById[profile.id] = profile.username;
+    const profileSummary = {
+      username: profile.username || profile.email || 'Utilisateur inconnu',
+      level: profile.level,
+    };
+
+    if (profile.id) {
+      nextProfilesById[profile.id] = profileSummary;
     }
 
-    if (profile.email && profile.username) {
-      nextProfilesByEmail[profile.email.toLowerCase()] = profile.username;
+    if (profile.email) {
+      nextProfilesByEmail[profile.email.toLowerCase()] = profileSummary;
     }
   });
 
@@ -466,15 +479,34 @@ useEffect(() => {
     }
   };
 
-  const getDisplayName = (
+  const getDisplayProfile = (
     userId: string | null | undefined,
     email: string | null | undefined
   ) => {
     if (userId && profilesById[userId]) return profilesById[userId];
     if (email && profilesByEmail[email.toLowerCase()]) return profilesByEmail[email.toLowerCase()];
-    if (email) return email;
-    return 'Utilisateur inconnu';
+    if (email) {
+      return {
+        username: email,
+        level: 1,
+      };
+    }
+
+    return {
+      username: 'Utilisateur inconnu',
+      level: 1,
+    };
   };
+
+  const getDisplayName = (
+    userId: string | null | undefined,
+    email: string | null | undefined
+  ) => getDisplayProfile(userId, email).username;
+
+  const getDisplayLevel = (
+    userId: string | null | undefined,
+    email: string | null | undefined
+  ) => getDisplayProfile(userId, email).level;
 
   const effectiveGoalType: GoalType | null =
     challenge?.goal_type || (challenge?.goal_km ? 'distance' : null);
@@ -547,12 +579,13 @@ useEffect(() => {
 
     for (const activity of normalizedActivities) {
       const userKey = activity.user_id || activity.user_email || 'Utilisateur inconnu';
-      const displayName = getDisplayName(activity.user_id, activity.user_email);
+      const activityProfile = getDisplayProfile(activity.user_id, activity.user_email);
 
       if (!grouped.has(userKey)) {
         grouped.set(userKey, {
           user_key: userKey,
-          displayName,
+          displayName: activityProfile.username,
+          level: activityProfile.level,
           totalValue: 0,
           totalActivities: 0,
           totalDistance: 0,
@@ -1118,9 +1151,12 @@ const handleBoost = async (activityId: string) => {
                   </div>
 
                   <div className="leaderboard-main">
-                    <strong className="leaderboard-name">
-                      {getDisplayName(participant.user_id, null)}
-                    </strong>
+                    <div className="leaderboard-name-row">
+                      <strong className="leaderboard-name">
+                        {getDisplayName(participant.user_id, null)}
+                      </strong>
+                      <UserLevelBadge level={getDisplayLevel(participant.user_id, null)} />
+                    </div>
                     <div className="leaderboard-meta">
                       <span>
                         {participant.role === 'admin' ? 'Administrateur' : 'Participant'}
@@ -1146,7 +1182,10 @@ const handleBoost = async (activityId: string) => {
                   <div className="leaderboard-rank">#{index + 1}</div>
 
                   <div className="leaderboard-main">
-                    <strong className="leaderboard-name">{row.displayName}</strong>
+                    <div className="leaderboard-name-row">
+                      <strong className="leaderboard-name">{row.displayName}</strong>
+                      <UserLevelBadge level={row.level} />
+                    </div>
                     <div className="leaderboard-meta">
                       <span>
                         <strong>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
+import { UserLevelBadge } from '@/components/user-level-badge';
 import { supabase } from '@/lib/supabase';
 
 type Challenge = {
@@ -33,6 +34,12 @@ type Activity = {
 type Profile = {
   email: string | null;
   username: string | null;
+  level: number | null;
+};
+
+type SocialProfile = {
+  username: string;
+  level: number | null;
 };
 
 type ChallengeMember = {
@@ -70,7 +77,7 @@ export default function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
-  const [profilesMap, setProfilesMap] = useState<Record<string, string>>({});
+  const [profilesMap, setProfilesMap] = useState<Record<string, SocialProfile>>({});
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
 
@@ -236,18 +243,21 @@ export default function HomePage() {
       if (emails.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
           .from('profiles')
-          .select('email, username')
+          .select('email, username, level')
           .in('email', emails);
 
         if (profilesError) {
           console.error('Erreur chargement profils :', profilesError);
           setProfilesMap({});
         } else {
-          const nextProfilesMap: Record<string, string> = {};
+          const nextProfilesMap: Record<string, SocialProfile> = {};
 
           (profilesData as Profile[] | null)?.forEach((profile) => {
-            if (profile.email && profile.username) {
-              nextProfilesMap[profile.email] = profile.username;
+            if (profile.email) {
+              nextProfilesMap[profile.email] = {
+                username: profile.username || profile.email,
+                level: profile.level,
+              };
             }
           });
 
@@ -267,9 +277,12 @@ export default function HomePage() {
     return Object.fromEntries(challenges.map((challenge) => [challenge.id, challenge]));
   }, [challenges]);
 
-  const getDisplayName = (email: string | null) => {
-    if (!email) return 'Utilisateur inconnu';
-    return profilesMap[email] || email;
+  const getDisplayProfile = (email: string | null) => {
+    if (!email) {
+      return { username: 'Utilisateur inconnu', level: 1 };
+    }
+
+    return profilesMap[email] || { username: email, level: 1 };
   };
 
   return (
@@ -370,13 +383,18 @@ export default function HomePage() {
                 const challenge = challengesMap[activity.challenge_id];
                 const distanceText = formatDistance(activity.distance_km);
                 const durationText = formatDuration(activity.duration_minutes);
+                const activityProfile = getDisplayProfile(activity.user_email);
 
                 return (
                   <article key={activity.id} className="feed-item">
                     <div className="feed-item__top">
                       <div className="feed-item__identity">
                         <span className="feed-item__eyebrow">Nouvelle activité</span>
-                        <strong>{getDisplayName(activity.user_email)} a ajouté une activité</strong>
+                        <strong className="feed-item__headline">
+                          <span>{activityProfile.username}</span>
+                          <UserLevelBadge level={activityProfile.level} />
+                          <span>a ajouté une activité</span>
+                        </strong>
                         <span className="feed-item__date">{formatDate(activity.created_at)}</span>
                       </div>
 
