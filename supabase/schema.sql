@@ -606,3 +606,115 @@ create trigger trg_award_xp_after_member_insert
 after insert on public.challenge_members
 for each row
 execute function public.award_xp_after_member_insert();
+
+alter table if exists public.challenge_participants enable row level security;
+
+alter table if exists public.challenges enable row level security;
+
+drop policy if exists "Users can read visible challenges" on public.challenges;
+create policy "Users can read visible challenges"
+  on public.challenges for select
+  using (
+    visibility = 'public'
+    or created_by = auth.uid()
+    or exists (
+      select 1
+      from public.challenge_participants
+      where challenge_participants.challenge_id = challenges.id
+        and challenge_participants.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can create own challenges" on public.challenges;
+create policy "Users can create own challenges"
+  on public.challenges for insert
+  with check (created_by = auth.uid());
+
+drop policy if exists "Users can read own challenge participants" on public.challenge_participants;
+create policy "Users can read own challenge participants"
+  on public.challenge_participants for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can join challenge as participant" on public.challenge_participants;
+create policy "Users can join challenge as participant"
+  on public.challenge_participants for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Challenge creators can read participants" on public.challenge_participants;
+create policy "Challenge creators can read participants"
+  on public.challenge_participants for select
+  using (
+    exists (
+      select 1
+      from public.challenges
+      where challenges.id = challenge_participants.challenge_id
+        and challenges.created_by = auth.uid()
+    )
+  );
+
+create or replace function public.join_challenge_by_invite(p_invite_code text)
+returns table (
+  id uuid,
+  name text,
+  sport text,
+  description text,
+  already_joined boolean
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  found_challenge record;
+  was_already_joined boolean := false;
+begin
+  if auth.uid() is null then
+    raise exception 'auth_required';
+  end if;
+
+  if p_invite_code is null or length(trim(p_invite_code)) = 0 then
+    raise exception 'invalid_invite';
+  end if;
+
+  select
+    challenges.id,
+    challenges.name,
+    challenges.sport,
+    challenges.description,
+    challenges.created_by
+  into found_challenge
+  from public.challenges
+  where challenges.invite_code = p_invite_code
+    and coalesce(challenges.is_deleted, false) = false
+  limit 1;
+
+  if found_challenge.id is null then
+    raise exception 'invalid_invite';
+  end if;
+
+  was_already_joined :=
+    found_challenge.created_by = auth.uid()
+    or exists (
+      select 1
+      from public.challenge_participants
+      where challenge_id = found_challenge.id
+        and user_id = auth.uid()
+    );
+
+  if not was_already_joined then
+    insert into public.challenge_participants (challenge_id, user_id, role)
+    values (found_challenge.id, auth.uid(), 'participant')
+    on conflict (challenge_id, user_id) do nothing;
+  end if;
+
+  return query
+  select
+    found_challenge.id::uuid,
+    found_challenge.name::text,
+    found_challenge.sport::text,
+    found_challenge.description::text,
+    was_already_joined;
+end;
+$$;
+
+grant execute on function public.join_challenge_by_invite(text) to authenticated;

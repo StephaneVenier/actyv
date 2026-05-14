@@ -12,6 +12,7 @@ type Challenge = {
   name: string;
   sport: string;
   description: string | null;
+  already_joined?: boolean;
 };
 
 export default function JoinChallengePage() {
@@ -37,60 +38,36 @@ export default function JoinChallengePage() {
           error: userError,
         } = await supabase.auth.getUser();
 
-        if (userError || !user || !user.email) {
+        if (userError || !user) {
           setMessage('Vous devez être connecté pour rejoindre un challenge.');
           setLoading(false);
           return;
         }
 
-        const { data: foundChallenge, error: challengeError } = await supabase
-          .from('challenges')
-          .select('id, name, sport, description')
-          .eq('invite_code', code)
-          .single();
+        const { data, error } = await supabase.rpc('join_challenge_by_invite', {
+          p_invite_code: code,
+        });
 
-        if (challengeError || !foundChallenge) {
-          setMessage('Challenge introuvable ou lien invalide.');
+        const foundChallenge = Array.isArray(data)
+          ? (data[0] as Challenge | undefined)
+          : (data as Challenge | null);
+
+        if (error || !foundChallenge) {
+          console.error('Erreur invitation challenge :', error);
+          setMessage(
+            error?.message?.includes('invalid_invite')
+              ? "Ce lien d'invitation est invalide ou expiré."
+              : "Impossible de rejoindre ce challenge avec ce lien pour le moment."
+          );
           setLoading(false);
           return;
         }
 
         setChallenge(foundChallenge);
 
-        const { data: existingMember, error: existingMemberError } = await supabase
-          .from('challenge_members')
-          .select('id')
-          .eq('challenge_id', foundChallenge.id)
-          .eq('user_email', user.email)
-          .maybeSingle();
-
-        if (existingMemberError) {
-          console.error('Erreur vérification membre existant :', existingMemberError);
-          setMessage("Une erreur s'est produite lors de la vérification du challenge.");
-          setLoading(false);
-          return;
-        }
-
-        if (existingMember) {
+        if (foundChallenge.already_joined) {
           setJoined(true);
           setMessage('Vous faites déjà partie de ce challenge.');
-          setLoading(false);
-          return;
-        }
-
-        const { error: insertError } = await supabase
-          .from('challenge_members')
-          .insert([
-            {
-              challenge_id: foundChallenge.id,
-              user_email: user.email,
-              role: 'member',
-            },
-          ]);
-
-        if (insertError) {
-          console.error('Erreur ajout membre :', insertError);
-          setMessage("Impossible de rejoindre le challenge pour le moment.");
           setLoading(false);
           return;
         }
@@ -105,7 +82,7 @@ export default function JoinChallengePage() {
         setMessage('Vous avez rejoint le challenge avec succès !');
       } catch (error) {
         console.error('Erreur inattendue page join :', error);
-        setMessage("Une erreur inattendue s'est produite.");
+        setMessage("Impossible de rejoindre ce challenge pour le moment.");
       } finally {
         setLoading(false);
       }
@@ -141,8 +118,8 @@ export default function JoinChallengePage() {
               message.includes('succès') || message.includes('déjà')
                 ? '#16a34a'
                 : loading
-                ? 'inherit'
-                : 'crimson',
+                  ? 'inherit'
+                  : 'crimson',
           }}
         >
           {message}
