@@ -406,6 +406,34 @@ begin
 end;
 $$;
 
+create or replace function public.add_user_xp(
+  p_user_id uuid,
+  p_source text,
+  p_xp integer,
+  p_target_id text default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_source = 'challenge_joined' and p_xp = 10 then
+    perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+  elsif p_source = 'challenge_created' and p_xp = 20 then
+    perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+  elsif p_source = 'activity_added' and p_xp = 25 then
+    perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+  elsif p_source = 'like_received' and p_xp = 1 then
+    perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+  elsif p_source = 'boost_received' and p_xp = 3 then
+    perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+  elsif p_source = 'challenge_completed' and p_xp = 50 then
+    perform public.award_xp_internal(p_user_id, p_source, p_target_id);
+  end if;
+end;
+$$;
+
 create or replace function public.award_xp(
   p_user_id uuid,
   p_source text,
@@ -667,6 +695,7 @@ as $$
 declare
   found_challenge record;
   was_already_joined boolean := false;
+  inserted_participant boolean := false;
 begin
   if auth.uid() is null then
     raise exception 'auth_required';
@@ -705,6 +734,14 @@ begin
     insert into public.challenge_participants (challenge_id, user_id, role)
     values (found_challenge.id, auth.uid(), 'participant')
     on conflict (challenge_id, user_id) do nothing;
+
+    inserted_participant := found;
+
+    if inserted_participant then
+      perform public.add_user_xp(auth.uid(), 'challenge_joined', 10, found_challenge.id::text);
+    else
+      was_already_joined := true;
+    end if;
   end if;
 
   return query

@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
-import { awardXp } from '@/lib/gamification';
 
 type Challenge = {
   id: string;
@@ -73,12 +72,6 @@ export default function JoinChallengePage() {
           setLoading(false);
           return;
         }
-
-        await awardXp({
-          userId: user.id,
-          source: 'challenge_joined',
-          metadata: { target_id: foundChallenge.id },
-        });
 
         setJoined(true);
         setMessage('Vous avez rejoint le challenge avec succès !');
