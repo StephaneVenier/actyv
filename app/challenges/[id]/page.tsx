@@ -103,6 +103,33 @@ function formatDate(dateString: string | null) {
   }).format(date);
 }
 
+function formatRelativeTime(dateString: string | null) {
+  if (!dateString) return "A l'instant";
+
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return "A l'instant";
+  }
+
+  const diffMs = date.getTime() - Date.now();
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+  const formatter = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
+
+  if (Math.abs(diffMinutes) < 60) {
+    return formatter.format(diffMinutes, 'minute');
+  }
+
+  const diffHours = Math.round(diffMs / (1000 * 60 * 60));
+
+  if (Math.abs(diffHours) < 24) {
+    return formatter.format(diffHours, 'hour');
+  }
+
+  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return formatter.format(diffDays, 'day');
+}
+
 function formatDistance(distance: number | null | undefined) {
   if (distance === null || distance === undefined) return '0 km';
   return `${distance.toFixed(1)} km`;
@@ -635,6 +662,10 @@ useEffect(() => {
   const isChallengeCompleted =
     Boolean(effectiveGoalValue && effectiveGoalValue > 0) &&
     totalChallengeProgress >= (effectiveGoalValue || 0);
+  const challengeCreatedRelative = challenge?.created_at
+    ? formatRelativeTime(challenge.created_at)
+    : null;
+  const challengeEndRelative = challenge?.end_date ? formatRelativeTime(challenge.end_date) : null;
   const participantCount = useMemo(() => {
     const keys = new Set<string>();
 
@@ -1049,12 +1080,22 @@ const handleBoost = async (activityId: string) => {
           <div className="challenge-meta-grid">
             <div className="challenge-meta-item">
               <span className="challenge-meta-label">Date de début</span>
-              <strong>{formatDate(challenge.start_date)}</strong>
+              <strong title={formatDate(challenge.start_date)}>{formatDate(challenge.start_date)}</strong>
+              <span className="challenge-meta-helper">
+                {challengeCreatedRelative ? `Cree ${challengeCreatedRelative}` : 'Creation non renseignee'}
+              </span>
             </div>
 
             <div className="challenge-meta-item">
               <span className="challenge-meta-label">Date de fin</span>
-              <strong>{formatDate(challenge.end_date)}</strong>
+              <strong title={formatDate(challenge.end_date)}>{formatDate(challenge.end_date)}</strong>
+              <span className="challenge-meta-helper">
+                {!challenge.end_date
+                  ? 'Pas de date de fin'
+                  : isChallengeCompleted
+                    ? `Termine ${challengeEndRelative}`
+                    : `Se termine ${challengeEndRelative}`}
+              </span>
             </div>
 
             <div className="challenge-meta-item">
@@ -1236,7 +1277,9 @@ const handleBoost = async (activityId: string) => {
                         {getDisplayName(activity.user_id, activity.user_email)}
                       </strong>
                     </div>
-                    <span className="activity-date">{formatDate(activity.created_at)}</span>
+                    <span className="activity-date" title={formatDate(activity.created_at)}>
+                      {formatRelativeTime(activity.created_at)}
+                    </span>
                   </div>
 
                   <div
