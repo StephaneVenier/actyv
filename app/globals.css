@@ -1299,16 +1299,16 @@ img {
 
 .feed-list {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .feed-item {
-  padding: 22px;
+  padding: 24px;
   border-radius: 20px;
   background: rgba(255, 255, 255, 0.92);
   border: 1px solid rgba(15, 23, 42, 0.07);
   display: grid;
-  gap: 14px;
+  gap: 16px;
   box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
   animation: soft-card-enter 0.34s ease both;
   transition:
@@ -1350,6 +1350,15 @@ img {
   font-size: 1.08rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.feed-item__author {
+  color: #071226;
+}
+
+.feed-item__action {
+  color: #334155;
+  font-weight: 700;
 }
 
 .feed-item__date {
@@ -1398,7 +1407,7 @@ img {
   gap: 2px;
   min-height: 48px;
   min-width: 118px;
-  padding: 8px 14px;
+  padding: 10px 14px;
   border-radius: 14px;
   background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.06);
@@ -2213,6 +2222,10 @@ img {
     padding: 16px;
   }
 
+  .feed-item {
+    gap: 14px;
+  }
+
   .challenge-item,
   .challenge-overview-card {
     padding: 18px;
@@ -2232,6 +2245,10 @@ img {
     flex: 1 1 calc(50% - 8px);
     min-width: 0;
     justify-content: center;
+  }
+
+  .feed-item__challenge {
+    max-width: 100%;
   }
 
   .mini-level-badge {
@@ -2446,6 +2463,7 @@ img {
 .reaction-button.active {
   font-weight: 700;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  animation: reaction-pop 0.2s ease;
 }
 
 .reaction-button--like.active {
@@ -2458,6 +2476,20 @@ img {
   background: rgba(245, 158, 11, 0.14);
   border-color: rgba(245, 158, 11, 0.2);
   color: #b45309;
+}
+
+@keyframes reaction-pop {
+  0% {
+    transform: scale(0.96);
+  }
+
+  60% {
+    transform: scale(1.04);
+  }
+
+  100% {
+    transform: scale(1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

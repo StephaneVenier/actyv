@@ -63,6 +63,23 @@ function formatDate(dateString: string | null) {
   }).format(date);
 }
 
+function formatRelativeTime(dateString: string | null) {
+  if (!dateString) return 'A l instant';
+
+  const target = new Date(dateString).getTime();
+  if (Number.isNaN(target)) return 'A l instant';
+
+  const diffMs = target - Date.now();
+  const minutes = Math.round(diffMs / (1000 * 60));
+  const hours = Math.round(diffMs / (1000 * 60 * 60));
+  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
+
+  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
+  if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
+  return rtf.format(days, 'day');
+}
+
 function formatDistance(distance: number | null) {
   if (distance === null || distance === undefined) return null;
   return `${distance.toFixed(1)} km`;
@@ -391,11 +408,13 @@ export default function HomePage() {
                       <div className="feed-item__identity">
                         <span className="feed-item__eyebrow">Nouvelle activite</span>
                         <strong className="feed-item__headline">
-                          <span>{activityProfile.username}</span>
+                          <span className="feed-item__author">{activityProfile.username}</span>
                           <UserLevelBadge level={activityProfile.level} />
-                          <span>a ajoute une activite</span>
+                          <span className="feed-item__action">a ajoute une activite</span>
                         </strong>
-                        <span className="feed-item__date">{formatDate(activity.created_at)}</span>
+                        <span className="feed-item__date" title={formatDate(activity.created_at)}>
+                          {formatRelativeTime(activity.created_at)}
+                        </span>
                       </div>
 
                       {challenge && (
