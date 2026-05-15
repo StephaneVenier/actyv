@@ -2037,6 +2037,11 @@ img {
   border-color: rgba(30, 107, 214, 0.16);
 }
 
+.toast--error {
+  border-color: rgba(220, 38, 38, 0.18);
+  color: #991b1b;
+}
+
 /* HELPERS */
 
 .desktop-only {

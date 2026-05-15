@@ -196,6 +196,7 @@ export default function NewActivityPageClient() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
 
     setSubmitting(true);
     setMessage(null);

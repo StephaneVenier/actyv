@@ -66,6 +66,7 @@ export default function NewChallengePage() {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (loading) return;
     setMessage('');
 
     if (!name.trim() || !sport) {
