@@ -80,7 +80,7 @@ function formatDistance(value: number) {
 }
 
 function pluralizeActivities(value: number) {
-  return `${value} activité${value > 1 ? 's' : ''}`;
+  return `${value} activite${value > 1 ? 's' : ''}`;
 }
 
 export default function LeaderboardPage() {
@@ -204,7 +204,7 @@ export default function LeaderboardPage() {
       }
 
       if (activitiesResponse.error) {
-        console.error('Erreur chargement activités leaderboard :', activitiesResponse.error);
+        console.error('Erreur chargement activites leaderboard :', activitiesResponse.error);
         setActivities([]);
       } else {
         setActivities((activitiesResponse.data as Activity[]) || []);
@@ -408,25 +408,25 @@ export default function LeaderboardPage() {
     {
       title: 'Top XP',
       kicker: 'Progression',
-      description: 'Les utilisateurs visibles les plus avancés en XP.',
+      description: 'Les utilisateurs visibles les plus avances en XP.',
       entries: topXp,
     },
     {
       title: 'Top distance',
       kicker: 'Endurance',
-      description: 'Distance cumulée sur les activités visibles de type distance.',
+      description: 'Distance cumulee sur les activites visibles de type distance.',
       entries: topDistance,
     },
     {
-      title: 'Top activités',
+      title: 'Top activites',
       kicker: 'Volume',
-      description: "Les membres visibles les plus actifs sur l'ensemble de leurs activités.",
+      description: "Les membres visibles les plus actifs sur l'ensemble de leurs activites.",
       entries: topActivities,
     },
     {
       title: 'Top semaine',
       kicker: '7 jours',
-      description: 'Le nombre d’activités visibles ajoutées sur les 7 derniers jours.',
+      description: 'Le nombre d activites visibles ajoutees sur les 7 derniers jours.',
       entries: topWeek,
     },
   ];
@@ -439,7 +439,7 @@ export default function LeaderboardPage() {
             <span className="section-kicker">Classements</span>
             <h1>Classements globaux</h1>
             <p className="muted">
-              Retrouve les meilleurs profils Actyv visibles selon tes challenges partagés et les
+              Retrouve les meilleurs profils Actyv visibles selon tes challenges partages et les
               challenges publics.
             </p>
           </div>
@@ -464,7 +464,7 @@ export default function LeaderboardPage() {
 
                 {section.entries.length === 0 ? (
                   <div className="challenge-state challenge-state--compact">
-                    <p>Pas encore assez de données visibles pour ce classement.</p>
+                    <p>Pas encore assez de donnees visibles pour ce classement.</p>
                   </div>
                 ) : (
                   <div className="leaderboard-list">

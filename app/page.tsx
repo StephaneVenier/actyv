@@ -222,7 +222,7 @@ export default function HomePage() {
         .limit(8);
 
       if (feedError) {
-        console.error('Erreur chargement feed activités :', feedError);
+        console.error('Erreur chargement feed activites :', feedError);
         setActivities([]);
         setProfilesMap({});
         setLoadingFeed(false);
@@ -294,7 +294,7 @@ export default function HomePage() {
               href="/challenges/new"
               className="hero-btn hero-btn--primary hero-btn-left"
             >
-              Créer un challenge
+              Creer un challenge
             </Link>
 
             <Link
@@ -351,10 +351,10 @@ export default function HomePage() {
                       ? challenge.description
                       : challenge.goal_km
                         ? `Objectif : ${challenge.goal_km} km`
-                        : 'Rejoins ce challenge et commence à faire progresser ton équipe.'}
+                        : 'Rejoins ce challenge et commence a faire progresser ton equipe.'}
                   </p>
 
-                  <span className="challenge-item__cta">Voir le détail →</span>
+                  <span className="challenge-item__cta">Voir le detail -&gt;</span>
                 </Link>
               ))}
             </div>
@@ -364,18 +364,18 @@ export default function HomePage() {
         <section className="home-feed">
           <div className="home-feed__header">
             <div>
-              <span className="section-kicker">À suivre</span>
-              <h2>Activités récentes</h2>
+              <span className="section-kicker">A suivre</span>
+              <h2>Activites recentes</h2>
             </div>
           </div>
 
           {loadingFeed ? (
             <div className="challenge-state">
-              <p>Chargement des activités...</p>
+              <p>Chargement des activites...</p>
             </div>
           ) : activities.length === 0 ? (
             <div className="challenge-state">
-              <p>Aucune activité récente sur tes challenges pour le moment.</p>
+              <p>Aucune activite recente sur tes challenges pour le moment.</p>
             </div>
           ) : (
             <div className="feed-list">
@@ -389,11 +389,11 @@ export default function HomePage() {
                   <article key={activity.id} className="feed-item">
                     <div className="feed-item__top">
                       <div className="feed-item__identity">
-                        <span className="feed-item__eyebrow">Nouvelle activité</span>
+                        <span className="feed-item__eyebrow">Nouvelle activite</span>
                         <strong className="feed-item__headline">
                           <span>{activityProfile.username}</span>
                           <UserLevelBadge level={activityProfile.level} />
-                          <span>a ajouté une activité</span>
+                          <span>a ajoute une activite</span>
                         </strong>
                         <span className="feed-item__date">{formatDate(activity.created_at)}</span>
                       </div>
@@ -412,10 +412,10 @@ export default function HomePage() {
                       className={getSportBadgeClassName(
                         activity.sport || challenge?.sport,
                         'feed-item__sport',
-                        'Activité'
+                        'Activite'
                       )}
                     >
-                      {formatSportBadgeLabel(activity.sport || challenge?.sport, 'Activité')}
+                      {formatSportBadgeLabel(activity.sport || challenge?.sport, 'Activite')}
                     </div>
 
                     <div className="feed-item__stats">
@@ -427,7 +427,7 @@ export default function HomePage() {
                       )}
                       {durationText && (
                         <span>
-                          <small>Durée</small>
+                          <small>Duree</small>
                           <strong>{durationText}</strong>
                         </span>
                       )}

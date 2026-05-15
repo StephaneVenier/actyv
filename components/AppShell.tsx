@@ -218,23 +218,23 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <span className="quick-menu-item__meta">Voir les classements Actyv</span>
               </Link>
 
-              <button
-                type="button"
-                className="quick-menu-item quick-menu-item--disabled"
+              <Link
+                href="/sessions/new"
+                className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <span className="quick-menu-item__title">Creer une seance</span>
                 <span className="quick-menu-item__meta">Bientot disponible</span>
-              </button>
+              </Link>
 
-              <button
-                type="button"
-                className="quick-menu-item quick-menu-item--disabled"
+              <Link
+                href="/programs/new"
+                className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <span className="quick-menu-item__title">Creer un programme</span>
                 <span className="quick-menu-item__meta">Bientot disponible</span>
-              </button>
+              </Link>
             </div>
           )}
 
