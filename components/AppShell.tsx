@@ -228,7 +228,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <span className="quick-menu-item__title">Creer une seance</span>
-                <span className="quick-menu-item__meta">Bientot disponible</span>
+                <span className="quick-menu-item__meta">Composer une seance simple</span>
               </Link>
 
               <Link

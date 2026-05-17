@@ -929,3 +929,109 @@ as $$
 $$;
 
 grant execute on function public.join_challenge_by_invite(text) to authenticated;
+
+create table if not exists public.training_sessions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  sport text,
+  description text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.training_session_blocks (
+  id uuid primary key default gen_random_uuid(),
+  session_id uuid not null references public.training_sessions(id) on delete cascade,
+  position integer not null default 0,
+  name text not null,
+  block_type text not null,
+  target_value numeric,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists training_sessions_user_created_idx
+  on public.training_sessions (user_id, created_at desc);
+
+create index if not exists training_session_blocks_session_position_idx
+  on public.training_session_blocks (session_id, position asc);
+
+alter table if exists public.training_sessions enable row level security;
+alter table if exists public.training_session_blocks enable row level security;
+
+drop policy if exists "Users can read own training sessions" on public.training_sessions;
+create policy "Users can read own training sessions"
+  on public.training_sessions for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own training sessions" on public.training_sessions;
+create policy "Users can insert own training sessions"
+  on public.training_sessions for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own training sessions" on public.training_sessions;
+create policy "Users can update own training sessions"
+  on public.training_sessions for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own training sessions" on public.training_sessions;
+create policy "Users can delete own training sessions"
+  on public.training_sessions for delete
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own training session blocks" on public.training_session_blocks;
+create policy "Users can read own training session blocks"
+  on public.training_session_blocks for select
+  using (
+    exists (
+      select 1
+      from public.training_sessions
+      where training_sessions.id = training_session_blocks.session_id
+        and training_sessions.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can insert own training session blocks" on public.training_session_blocks;
+create policy "Users can insert own training session blocks"
+  on public.training_session_blocks for insert
+  with check (
+    exists (
+      select 1
+      from public.training_sessions
+      where training_sessions.id = training_session_blocks.session_id
+        and training_sessions.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can update own training session blocks" on public.training_session_blocks;
+create policy "Users can update own training session blocks"
+  on public.training_session_blocks for update
+  using (
+    exists (
+      select 1
+      from public.training_sessions
+      where training_sessions.id = training_session_blocks.session_id
+        and training_sessions.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.training_sessions
+      where training_sessions.id = training_session_blocks.session_id
+        and training_sessions.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can delete own training session blocks" on public.training_session_blocks;
+create policy "Users can delete own training session blocks"
+  on public.training_session_blocks for delete
+  using (
+    exists (
+      select 1
+      from public.training_sessions
+      where training_sessions.id = training_session_blocks.session_id
+        and training_sessions.user_id = auth.uid()
+    )
+  );
