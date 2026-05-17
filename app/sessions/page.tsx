@@ -6,6 +6,7 @@ import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { formatSessionBlockSummary } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
+import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
 type TrainingSession = {
   id: string;
@@ -14,16 +15,6 @@ type TrainingSession = {
   sport: string | null;
   description: string | null;
   created_at: string | null;
-};
-
-type TrainingSessionBlock = {
-  id: string;
-  session_id: string;
-  position: number;
-  name: string;
-  block_type: 'reps' | 'duration' | 'distance' | 'free';
-  sets_count: number | null;
-  target_value: number | null;
 };
 
 function formatRelativeDate(dateString: string | null) {
@@ -44,7 +35,7 @@ function formatRelativeDate(dateString: string | null) {
 
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
-  const [blocks, setBlocks] = useState<TrainingSessionBlock[]>([]);
+  const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -95,14 +86,9 @@ export default function SessionsPage() {
           return;
         }
 
-        const { data: blockRows, error: blocksError } = await supabase
-          .from('training_session_blocks')
-          .select('id, session_id, position, name, block_type, sets_count, target_value')
-          .in(
-            'session_id',
-            nextSessions.map((session) => session.id)
-          )
-          .order('position', { ascending: true });
+        const { data: blockRows, error: blocksError } = await fetchTrainingSessionBlocks(
+          nextSessions.map((session) => session.id)
+        );
 
         if (blocksError) {
           console.error('Erreur chargement blocs séances :', blocksError);
@@ -110,7 +96,7 @@ export default function SessionsPage() {
           return;
         }
 
-        setBlocks((blockRows as TrainingSessionBlock[]) || []);
+        setBlocks(blockRows || []);
       } finally {
         setLoading(false);
       }
@@ -120,7 +106,7 @@ export default function SessionsPage() {
   }, []);
 
   const blocksBySession = useMemo(() => {
-    const grouped = new Map<string, TrainingSessionBlock[]>();
+    const grouped = new Map<string, TrainingSessionBlockRecord[]>();
 
     blocks.forEach((block) => {
       const current = grouped.get(block.session_id) || [];

@@ -12,6 +12,7 @@ import {
   SessionBlockType,
 } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
+import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
 type TrainingSession = {
   id: string;
@@ -20,16 +21,6 @@ type TrainingSession = {
   sport: string | null;
   description: string | null;
   created_at: string | null;
-};
-
-type TrainingSessionBlock = {
-  id: string;
-  session_id: string;
-  position: number;
-  name: string;
-  block_type: SessionBlockType;
-  sets_count: number | null;
-  target_value: number | null;
 };
 
 function formatRelativeDate(dateString: string | null) {
@@ -54,7 +45,7 @@ export default function SessionDetailPage() {
   const id = params?.id as string;
 
   const [session, setSession] = useState<TrainingSession | null>(null);
-  const [blocks, setBlocks] = useState<TrainingSessionBlock[]>([]);
+  const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -104,11 +95,7 @@ export default function SessionDetailPage() {
 
         setSession(sessionRow as TrainingSession);
 
-        const { data: blockRows, error: blocksError } = await supabase
-          .from('training_session_blocks')
-          .select('id, session_id, position, name, block_type, sets_count, target_value')
-          .eq('session_id', id)
-          .order('position', { ascending: true });
+        const { data: blockRows, error: blocksError } = await fetchTrainingSessionBlocks([id]);
 
         if (blocksError) {
           console.error('Erreur chargement blocs détail séance :', blocksError);
@@ -116,7 +103,7 @@ export default function SessionDetailPage() {
           return;
         }
 
-        setBlocks((blockRows as TrainingSessionBlock[]) || []);
+        setBlocks(blockRows || []);
       } finally {
         setLoading(false);
       }
