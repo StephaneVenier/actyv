@@ -381,7 +381,7 @@ export default function NewActivityPageClient() {
           )}
 
           {selectedChallengeCompleted && (
-            <div className="activity-feedback-message" style={{ marginTop: '1rem' }}>
+            <div className="activity-feedback-message form-feedback form-feedback--error" style={{ marginTop: '1rem' }}>
               Ce challenge est terminé. Il n'est plus possible d'ajouter une activité.
             </div>
           )}
@@ -488,7 +488,7 @@ export default function NewActivityPageClient() {
 
             {message && (
               <div className="field full">
-                <div className="activity-feedback-message">{message}</div>
+                <div className="activity-feedback-message form-feedback form-feedback--error">{message}</div>
               </div>
             )}
 
@@ -497,6 +497,7 @@ export default function NewActivityPageClient() {
                 type="submit"
                 className="button primary activity-submit-btn"
                 disabled={submitting || selectedChallengeCompleted}
+                aria-busy={submitting}
               >
                 {submitting ? '⏳ Ajout en cours...' : 'Publier mon activité'}
               </button>

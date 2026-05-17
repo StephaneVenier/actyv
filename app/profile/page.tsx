@@ -496,7 +496,11 @@ export default function ProfilePage() {
                 )}
               </div>
 
-              {message && <p className="muted">{message}</p>}
+              {message && (
+                <p className={`form-feedback ${message.includes('Impossible') ? 'form-feedback--error' : 'form-feedback--success'}`}>
+                  {message}
+                </p>
+              )}
             </div>
           </div>
 

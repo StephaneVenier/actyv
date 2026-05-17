@@ -129,6 +129,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={() => setMenuOpen((prev) => !prev)}
                     className="profile-trigger auth-trigger"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
                   >
                     <span className="profile-trigger-text">Connexion / inscription</span>
                     <span className="profile-trigger-arrow">▾</span>
@@ -160,6 +162,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                     type="button"
                     onClick={() => setMenuOpen((prev) => !prev)}
                     className="profile-trigger"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
                   >
                     <span className="profile-trigger-text">{profileLabel}</span>
                     <span className="profile-trigger-arrow">▾</span>
@@ -242,6 +246,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             className="menu-center-btn"
             type="button"
             aria-label="Menu Actyv"
+            aria-haspopup="menu"
             aria-expanded={quickMenuOpen}
             onClick={() => setQuickMenuOpen((prev) => !prev)}
           />

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
 import { supabase } from '@/lib/supabase';
@@ -242,6 +243,7 @@ export default function ChallengeDetailPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [currentUserEmail, setCurrentUserEmail] = useState<string | null>(null);
   const [shareMessage, setShareMessage] = useState('');
+  const [pendingReactionKey, setPendingReactionKey] = useState<string | null>(null);
 
   const fetchChallengeAndActivities = async (showPageLoader = true) => {
   if (!id) return;
@@ -734,126 +736,143 @@ const hasUserBoosted = (activityId: string) => {
   );
 };
 
+const isReactionPending = (activityId: string, type: ActivityInteractionType) =>
+  pendingReactionKey === `${type}:${activityId}`;
+
 const handleLike = async (activityId: string) => {
   if (!currentUserId) {
-    alert('Tu dois être connecté pour liker une activité.');
+    queuePendingToast({ message: 'Connecte-toi pour liker une activite.', tone: 'error' });
     return;
   }
 
-  const existingLike = interactions.find(
-    (interaction) =>
-      interaction.activity_id === activityId &&
-      interaction.user_id === currentUserId &&
-      interaction.type === 'like'
-  );
+  if (isReactionPending(activityId, 'like')) return;
+  setPendingReactionKey(`like:${activityId}`);
 
-  if (existingLike) {
-    const { error } = await supabase
-      .from('activity_interactions')
-      .delete()
-      .eq('id', existingLike.id);
+  try {
+    const existingLike = interactions.find(
+      (interaction) =>
+        interaction.activity_id === activityId &&
+        interaction.user_id === currentUserId &&
+        interaction.type === 'like'
+    );
 
-    if (error) {
-      console.error('Erreur suppression like :', error);
-      alert("Impossible de retirer le like pour le moment.");
-      return;
+    if (existingLike) {
+      const { error } = await supabase
+        .from('activity_interactions')
+        .delete()
+        .eq('id', existingLike.id);
+
+      if (error) {
+        console.error('Erreur suppression like :', error);
+        queuePendingToast({ message: 'Impossible de retirer le like pour le moment.', tone: 'error' });
+        return;
+      }
+    } else {
+      const { data: createdInteraction, error } = await supabase
+        .from('activity_interactions')
+        .insert({
+          activity_id: activityId,
+          user_id: currentUserId,
+          type: 'like',
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Erreur ajout like :', error);
+        queuePendingToast({ message: "Impossible d'ajouter le like pour le moment.", tone: 'error' });
+        return;
+      }
+
+      const activity = activities.find((item) => item.id === activityId);
+
+      if (
+        activity &&
+        createdInteraction?.id &&
+        activity.user_id !== currentUserId &&
+        activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
+      ) {
+        await awardXp({
+          userId: activity.user_id,
+          userEmail: activity.user_email,
+          source: 'like_received',
+          metadata: { target_id: createdInteraction.id },
+        });
+      }
     }
-  } else {
-    const { data: createdInteraction, error } = await supabase
-      .from('activity_interactions')
-      .insert({
-        activity_id: activityId,
-        user_id: currentUserId,
-        type: 'like',
-      })
-      .select('id')
-      .single();
 
-    if (error) {
-      console.error('Erreur ajout like :', error);
-      alert("Impossible d'ajouter le like pour le moment.");
-      return;
-    }
-
-    const activity = activities.find((item) => item.id === activityId);
-
-    if (
-      activity &&
-      createdInteraction?.id &&
-      activity.user_id !== currentUserId &&
-      activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
-    ) {
-      await awardXp({
-        userId: activity.user_id,
-        userEmail: activity.user_email,
-        source: 'like_received',
-        metadata: { target_id: createdInteraction.id },
-      });
-    }
+    await fetchChallengeAndActivities(false);
+  } finally {
+    setPendingReactionKey(null);
   }
-
-  await fetchChallengeAndActivities(false);
 };
 
 const handleBoost = async (activityId: string) => {
   if (!currentUserId) {
-    alert('Tu dois etre connecte pour booster une activite.');
+    queuePendingToast({ message: 'Connecte-toi pour booster une activite.', tone: 'error' });
     return;
   }
 
-  const existingBoost = interactions.find(
-    (interaction) =>
-      interaction.activity_id === activityId &&
-      interaction.user_id === currentUserId &&
-      interaction.type === 'boost'
-  );
+  if (isReactionPending(activityId, 'boost')) return;
+  setPendingReactionKey(`boost:${activityId}`);
 
-  if (existingBoost) {
-    const { error } = await supabase
-      .from('activity_interactions')
-      .delete()
-      .eq('id', existingBoost.id);
+  try {
+    const existingBoost = interactions.find(
+      (interaction) =>
+        interaction.activity_id === activityId &&
+        interaction.user_id === currentUserId &&
+        interaction.type === 'boost'
+    );
 
-    if (error) {
-      console.error('Erreur suppression boost :', error);
-      alert('Impossible de retirer le boost pour le moment.');
-      return;
+    if (existingBoost) {
+      const { error } = await supabase
+        .from('activity_interactions')
+        .delete()
+        .eq('id', existingBoost.id);
+
+      if (error) {
+        console.error('Erreur suppression boost :', error);
+        queuePendingToast({ message: 'Impossible de retirer le boost pour le moment.', tone: 'error' });
+        return;
+      }
+    } else {
+      const { data: createdInteraction, error } = await supabase
+        .from('activity_interactions')
+        .insert({
+          activity_id: activityId,
+          user_id: currentUserId,
+          type: 'boost',
+        })
+        .select('id')
+        .single();
+
+      if (error) {
+        console.error('Erreur ajout boost :', error);
+        queuePendingToast({ message: "Impossible d'ajouter le boost pour le moment.", tone: 'error' });
+        return;
+      }
+
+      const activity = activities.find((item) => item.id === activityId);
+
+      if (
+        activity &&
+        createdInteraction?.id &&
+        activity.user_id !== currentUserId &&
+        activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
+      ) {
+        await awardXp({
+          userId: activity.user_id,
+          userEmail: activity.user_email,
+          source: 'boost_received',
+          metadata: { target_id: createdInteraction.id },
+        });
+      }
     }
-  } else {
-    const { data: createdInteraction, error } = await supabase
-      .from('activity_interactions')
-      .insert({
-        activity_id: activityId,
-        user_id: currentUserId,
-        type: 'boost',
-      })
-      .select('id')
-      .single();
 
-    if (error) {
-      console.error('Erreur ajout boost :', error);
-      alert("Impossible d'ajouter le boost pour le moment.");
-      return;
-    }
-
-    const activity = activities.find((item) => item.id === activityId);
-
-    if (
-      activity &&
-      createdInteraction?.id &&
-      activity.user_id !== currentUserId &&
-      activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
-    ) {
-      await awardXp({
-        userId: activity.user_id,
-        userEmail: activity.user_email,
-        source: 'boost_received',
-        metadata: { target_id: createdInteraction.id },
-      });
-    }
+    await fetchChallengeAndActivities(false);
+  } finally {
+    setPendingReactionKey(null);
   }
-
-  await fetchChallengeAndActivities(false);
 };
 
 
@@ -1328,9 +1347,10 @@ const handleBoost = async (activityId: string) => {
                     </p>
                   )}
                   <div className="activity-reactions">
-  <button
+<button
   type="button"
   className={`reaction-button reaction-button--like ${hasUserLiked(activity.id) ? 'active' : ''}`}
+  disabled={isReactionPending(activity.id, 'like')}
   onClick={(e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1343,6 +1363,7 @@ const handleBoost = async (activityId: string) => {
   <button
     type="button"
     className={`reaction-button reaction-button--boost ${hasUserBoosted(activity.id) ? 'active' : ''}`}
+    disabled={isReactionPending(activity.id, 'boost')}
     onClick={(e) => {
       e.preventDefault();
       e.stopPropagation();

@@ -298,7 +298,7 @@ export default function NewChallengePage() {
 
           {message && (
             <p
-              className="full"
+              className="full form-feedback form-feedback--error"
               style={{
                 margin: 0,
                 color: message.includes('succès') ? '#16a34a' : 'crimson',
@@ -313,6 +313,7 @@ export default function NewChallengePage() {
               type="submit"
               disabled={loading}
               className="button primary"
+              aria-busy={loading}
             >
               {loading ? 'Création...' : 'Créer le challenge'}
             </button>
