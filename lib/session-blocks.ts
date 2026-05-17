@@ -81,14 +81,20 @@ export function formatSessionBlockTarget(
 export function formatSessionBlockSummary(
   blockType: SessionBlockType,
   targetValue: number | null | undefined,
-  setsCount: number | null | undefined
+  setsCount: number | null | undefined,
+  chargeKg?: number | null | undefined
 ) {
   const normalizedSets = setsCount && setsCount > 0 ? setsCount : 1;
   const targetLabel = formatSessionBlockTarget(blockType, targetValue);
+  const normalizedCharge =
+    chargeKg === null || chargeKg === undefined || Number.isNaN(Number(chargeKg))
+      ? null
+      : Number(chargeKg);
+  const chargeLabel = normalizedCharge && normalizedCharge > 0 ? ` • ${normalizedCharge} kg` : '';
 
   if (blockType === 'free') {
-    return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} · ${targetLabel}`;
+    return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} · ${targetLabel}${chargeLabel}`;
   }
 
-  return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}`;
+  return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}${chargeLabel}`;
 }

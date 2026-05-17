@@ -180,7 +180,8 @@ export default function SessionsPage() {
                         ? `${firstBlock.name} · ${formatSessionBlockSummary(
                             firstBlock.block_type,
                             firstBlock.target_value,
-                            firstBlock.sets_count
+                            firstBlock.sets_count,
+                            firstBlock.charge_kg
                           )}`
                         : 'Bloc à compléter'}
                     </span>

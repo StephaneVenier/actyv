@@ -23,6 +23,7 @@ type DraftBlock = {
   blockType: SessionBlockType;
   setsCount: string;
   targetValue: string;
+  chargeKg: string;
 };
 
 function createEmptyBlock(index: number): DraftBlock {
@@ -32,6 +33,7 @@ function createEmptyBlock(index: number): DraftBlock {
     blockType: 'reps',
     setsCount: '1',
     targetValue: '',
+    chargeKg: '',
   };
 }
 
@@ -84,6 +86,7 @@ export default function NewSessionPage() {
           block.blockType === 'free' || block.targetValue.trim() === ''
             ? null
             : Number(block.targetValue),
+        charge_kg: block.chargeKg.trim() === '' ? null : Number(block.chargeKg),
       }))
       .filter((block) => block.name);
 
@@ -97,12 +100,15 @@ export default function NewSessionPage() {
         Number.isNaN(block.sets_count) ||
         block.sets_count <= 0 ||
         !Number.isInteger(block.sets_count) ||
+        (block.charge_kg !== null && (Number.isNaN(block.charge_kg) || block.charge_kg <= 0)) ||
         (block.block_type !== 'free' &&
           (block.target_value === null || Number.isNaN(block.target_value) || block.target_value <= 0))
     );
 
     if (invalidBlock) {
-      setMessage('Chaque bloc doit avoir un nombre de series valide, et une cible valide si necessaire.');
+      setMessage(
+        'Chaque bloc doit avoir un nombre de series valide, une cible valide si necessaire, et une charge positive si renseignee.'
+      );
       return;
     }
 
@@ -292,6 +298,19 @@ export default function NewSessionPage() {
                       />
                     </div>
 
+                    <div className="field">
+                      <label>Charge (kg)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.5"
+                        value={block.chargeKg}
+                        onChange={(event) => updateBlock(block.id, { chargeKg: event.target.value })}
+                        placeholder="Ex : 80"
+                        disabled={loading}
+                      />
+                    </div>
+
                     <div className="field full">
                       <label>{getSessionBlockInputLabel(block.blockType)}</label>
                       <input
@@ -311,7 +330,8 @@ export default function NewSessionPage() {
                     {formatSessionBlockSummary(
                       block.blockType,
                       block.targetValue ? Number(block.targetValue) : null,
-                      block.setsCount ? Number(block.setsCount) : 1
+                      block.setsCount ? Number(block.setsCount) : 1,
+                      block.chargeKg ? Number(block.chargeKg) : null
                     )}
                   </p>
                 </article>

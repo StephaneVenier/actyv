@@ -309,7 +309,8 @@ export default function SessionDetailPage() {
                       ? `${firstBlock.name} · ${formatSessionBlockSummary(
                           firstBlock.block_type,
                           firstBlock.target_value,
-                          firstBlock.sets_count
+                          firstBlock.sets_count,
+                          firstBlock.charge_kg
                         )}`
                       : 'Ajoute un premier bloc pour préparer le mode séance.'}
                   </p>
@@ -376,7 +377,7 @@ export default function SessionDetailPage() {
                         <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
                       </div>
                       <p className="session-block-preview">
-                        Objectif : <strong>{formatSessionBlockSummary(block.block_type, block.target_value, block.sets_count)}</strong>
+                        Objectif : <strong>{formatSessionBlockSummary(block.block_type, block.target_value, block.sets_count, block.charge_kg)}</strong>
                       </p>
                     </article>
                   ))}
