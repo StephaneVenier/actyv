@@ -1039,3 +1039,6 @@ create policy "Users can delete own training session blocks"
         and training_sessions.user_id = auth.uid()
     )
   );
+
+grant select, insert, update, delete on public.training_sessions to authenticated;
+grant select, insert, update, delete on public.training_session_blocks to authenticated;

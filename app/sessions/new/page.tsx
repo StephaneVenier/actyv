@@ -135,20 +135,59 @@ export default function NewSessionPage() {
         return;
       }
 
-      const { error: blocksError } = await supabase.from('training_session_blocks').insert(
-        normalizedBlocks.map((block) => ({
-          session_id: session.id,
-          position: block.position,
-          name: block.name,
-          block_type: block.block_type,
-          sets_count: block.sets_count,
-          target_value: block.target_value,
-        }))
-      );
+      const blockInsertPayload = normalizedBlocks.map((block) => ({
+        session_id: session.id,
+        position: block.position,
+        name: block.name,
+        block_type: block.block_type,
+        sets_count: block.sets_count,
+        target_value: block.target_value,
+      }));
+
+      let blocksError: unknown = null;
+
+      const { error: initialBlocksError } = await supabase
+        .from('training_session_blocks')
+        .insert(blockInsertPayload);
+
+      blocksError = initialBlocksError;
+
+      if (initialBlocksError) {
+        const serializedError = JSON.stringify(initialBlocksError, null, 2);
+        console.error('Erreur creation blocs seance :', serializedError);
+
+        const shouldRetryWithoutSets =
+          serializedError.includes('sets_count') ||
+          serializedError.includes('Could not find the') ||
+          serializedError.includes('column') ||
+          serializedError.includes('PGRST204');
+
+        if (shouldRetryWithoutSets) {
+          const { error: fallbackBlocksError } = await supabase
+            .from('training_session_blocks')
+            .insert(
+              normalizedBlocks.map((block) => ({
+                session_id: session.id,
+                position: block.position,
+                name: block.name,
+                block_type: block.block_type,
+                target_value: block.target_value,
+              }))
+            );
+
+          blocksError = fallbackBlocksError;
+
+          if (fallbackBlocksError) {
+            console.error(
+              'Erreur creation blocs seance fallback :',
+              JSON.stringify(fallbackBlocksError, null, 2)
+            );
+          }
+        }
+      }
 
       if (blocksError) {
-        console.error('Erreur création blocs séance :', blocksError);
-        setMessage("La séance a été créée mais les blocs n'ont pas pu être enregistrés.");
+        setMessage("La seance a ete creee mais les blocs n'ont pas pu etre enregistres.");
         return;
       }
 
