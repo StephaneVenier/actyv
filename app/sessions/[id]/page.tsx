@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
-  formatSessionBlockTarget,
+  formatSessionBlockSummary,
   getSessionBlockTypeLabel,
   SessionBlockType,
 } from '@/lib/session-blocks';
@@ -27,6 +27,7 @@ type TrainingSessionBlock = {
   position: number;
   name: string;
   block_type: SessionBlockType;
+  sets_count: number | null;
   target_value: number | null;
 };
 
@@ -102,7 +103,7 @@ export default function SessionDetailPage() {
 
         const { data: blockRows, error: blocksError } = await supabase
           .from('training_session_blocks')
-          .select('id, session_id, position, name, block_type, target_value')
+          .select('id, session_id, position, name, block_type, sets_count, target_value')
           .eq('session_id', id)
           .order('position', { ascending: true });
 
@@ -216,9 +217,10 @@ export default function SessionDetailPage() {
                   <strong>Prochain bloc</strong>
                   <p>
                     {firstBlock
-                      ? `${firstBlock.name} · ${formatSessionBlockTarget(
+                      ? `${firstBlock.name} · ${formatSessionBlockSummary(
                           firstBlock.block_type,
-                          firstBlock.target_value
+                          firstBlock.target_value,
+                          firstBlock.sets_count
                         )}`
                       : 'Ajoute un premier bloc pour préparer le mode séance.'}
                   </p>
@@ -247,7 +249,7 @@ export default function SessionDetailPage() {
                         <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
                       </div>
                       <p className="session-block-preview">
-                        Objectif : <strong>{formatSessionBlockTarget(block.block_type, block.target_value)}</strong>
+                        Objectif : <strong>{formatSessionBlockSummary(block.block_type, block.target_value, block.sets_count)}</strong>
                       </p>
                     </article>
                   ))}
@@ -260,3 +262,4 @@ export default function SessionDetailPage() {
     </AppShell>
   );
 }
+

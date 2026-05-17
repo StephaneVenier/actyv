@@ -946,9 +946,13 @@ create table if not exists public.training_session_blocks (
   position integer not null default 0,
   name text not null,
   block_type text not null,
+  sets_count integer not null default 1,
   target_value numeric,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.training_session_blocks
+  add column if not exists sets_count integer not null default 1;
 
 create index if not exists training_sessions_user_created_idx
   on public.training_sessions (user_id, created_at desc);

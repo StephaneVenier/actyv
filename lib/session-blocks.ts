@@ -77,3 +77,18 @@ export function formatSessionBlockTarget(
       return `${value}`;
   }
 }
+
+export function formatSessionBlockSummary(
+  blockType: SessionBlockType,
+  targetValue: number | null | undefined,
+  setsCount: number | null | undefined
+) {
+  const normalizedSets = setsCount && setsCount > 0 ? setsCount : 1;
+  const targetLabel = formatSessionBlockTarget(blockType, targetValue);
+
+  if (blockType === 'free') {
+    return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} · ${targetLabel}`;
+  }
+
+  return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}`;
+}

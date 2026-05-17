@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
-import { formatSessionBlockTarget } from '@/lib/session-blocks';
+import { formatSessionBlockSummary } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 
 type TrainingSession = {
@@ -22,6 +22,7 @@ type TrainingSessionBlock = {
   position: number;
   name: string;
   block_type: 'reps' | 'duration' | 'distance' | 'free';
+  sets_count: number | null;
   target_value: number | null;
 };
 
@@ -96,7 +97,7 @@ export default function SessionsPage() {
 
         const { data: blockRows, error: blocksError } = await supabase
           .from('training_session_blocks')
-          .select('id, session_id, position, name, block_type, target_value')
+          .select('id, session_id, position, name, block_type, sets_count, target_value')
           .in(
             'session_id',
             nextSessions.map((session) => session.id)
@@ -190,9 +191,10 @@ export default function SessionsPage() {
                     <span>{sessionBlocks.length} bloc{sessionBlocks.length > 1 ? 's' : ''}</span>
                     <span>
                       {firstBlock
-                        ? `${firstBlock.name} · ${formatSessionBlockTarget(
+                        ? `${firstBlock.name} · ${formatSessionBlockSummary(
                             firstBlock.block_type,
-                            firstBlock.target_value
+                            firstBlock.target_value,
+                            firstBlock.sets_count
                           )}`
                         : 'Bloc à compléter'}
                     </span>
@@ -210,3 +212,6 @@ export default function SessionsPage() {
     </AppShell>
   );
 }
+
+
+

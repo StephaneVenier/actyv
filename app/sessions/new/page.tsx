@@ -7,7 +7,7 @@ import { AppShell } from '@/components/AppShell';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { sports } from '@/components/challenge-data';
 import {
-  formatSessionBlockTarget,
+  formatSessionBlockSummary,
   getSessionBlockInputLabel,
   getSessionBlockPlaceholder,
   getSessionBlockTypeLabel,
@@ -20,6 +20,7 @@ type DraftBlock = {
   id: string;
   name: string;
   blockType: SessionBlockType;
+  setsCount: string;
   targetValue: string;
 };
 
@@ -28,6 +29,7 @@ function createEmptyBlock(index: number): DraftBlock {
     id: `block-${Date.now()}-${index}`,
     name: '',
     blockType: 'reps',
+    setsCount: '1',
     targetValue: '',
   };
 }
@@ -76,6 +78,7 @@ export default function NewSessionPage() {
         position: index,
         name: block.name.trim(),
         block_type: block.blockType,
+        sets_count: block.setsCount.trim() === '' ? 1 : Number(block.setsCount),
         target_value:
           block.blockType === 'free' || block.targetValue.trim() === ''
             ? null
@@ -90,12 +93,15 @@ export default function NewSessionPage() {
 
     const invalidBlock = normalizedBlocks.find(
       (block) =>
-        block.block_type !== 'free' &&
-        (block.target_value === null || Number.isNaN(block.target_value) || block.target_value <= 0)
+        Number.isNaN(block.sets_count) ||
+        block.sets_count <= 0 ||
+        !Number.isInteger(block.sets_count) ||
+        (block.block_type !== 'free' &&
+          (block.target_value === null || Number.isNaN(block.target_value) || block.target_value <= 0))
     );
 
     if (invalidBlock) {
-      setMessage('Chaque bloc chiffré doit avoir une cible valide.');
+      setMessage('Chaque bloc doit avoir un nombre de series valide, et une cible valide si necessaire.');
       return;
     }
 
@@ -135,6 +141,7 @@ export default function NewSessionPage() {
           position: block.position,
           name: block.name,
           block_type: block.block_type,
+          sets_count: block.sets_count,
           target_value: block.target_value,
         }))
       );
@@ -281,6 +288,19 @@ export default function NewSessionPage() {
                       </select>
                     </div>
 
+                    <div className="field">
+                      <label>Series</label>
+                      <input
+                        type="number"
+                        min="1"
+                        step="1"
+                        value={block.setsCount}
+                        onChange={(event) => updateBlock(block.id, { setsCount: event.target.value })}
+                        placeholder="Ex : 3"
+                        disabled={loading}
+                      />
+                    </div>
+
                     <div className="field full">
                       <label>{getSessionBlockInputLabel(block.blockType)}</label>
                       <input
@@ -297,9 +317,10 @@ export default function NewSessionPage() {
 
                   <p className="session-block-preview">
                     Apercu : <strong>{block.name.trim() || 'Bloc sans nom'}</strong> ·{' '}
-                    {formatSessionBlockTarget(
+                    {formatSessionBlockSummary(
                       block.blockType,
-                      block.targetValue ? Number(block.targetValue) : null
+                      block.targetValue ? Number(block.targetValue) : null,
+                      block.setsCount ? Number(block.setsCount) : 1
                     )}
                   </p>
                 </article>
@@ -329,3 +350,4 @@ export default function NewSessionPage() {
     </AppShell>
   );
 }
+
