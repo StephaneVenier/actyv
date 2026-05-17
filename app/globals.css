@@ -2075,6 +2075,27 @@ img {
   color: #071226;
 }
 
+.session-runner-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-progress-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(22, 163, 74, 0.1);
+  border: 1px solid rgba(22, 163, 74, 0.14);
+  color: #166534;
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
 .session-block-chip {
   display: inline-flex;
   align-items: center;
@@ -2083,6 +2104,54 @@ img {
   border-radius: 999px;
   background: rgba(15, 23, 42, 0.04);
   border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.session-block-card--completed {
+  border-color: rgba(22, 163, 74, 0.16);
+  background: rgba(22, 163, 74, 0.05);
+}
+
+.session-block-card--completed .session-block-preview,
+.session-block-card--completed .session-block-chip,
+.session-block-card--completed .session-block-check__label small {
+  color: #64748b;
+}
+
+.session-block-card--completed .session-block-check__label strong {
+  color: #475569;
+}
+
+.session-block-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.session-block-check input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: #16a34a;
+  flex-shrink: 0;
+}
+
+.session-block-check__label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.session-block-check__label strong {
+  color: #071226;
+  overflow-wrap: anywhere;
+}
+
+.session-block-check__label small {
+  color: #16a34a;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .session-delete-button {

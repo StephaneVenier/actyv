@@ -50,6 +50,9 @@ export default function SessionDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [runnerOpen, setRunnerOpen] = useState(false);
+  const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
+
+  const completionStorageKey = `actyv.session.completed.${id}`;
 
   useEffect(() => {
     const loadSession = async () => {
@@ -112,12 +115,67 @@ export default function SessionDetailPage() {
     loadSession();
   }, [id]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      const savedValue = window.localStorage.getItem(completionStorageKey);
+      if (!savedValue) {
+        setCompletedBlockIds([]);
+        return;
+      }
+
+      const parsedValue = JSON.parse(savedValue);
+      setCompletedBlockIds(Array.isArray(parsedValue) ? parsedValue.filter(Boolean) : []);
+    } catch (error) {
+      console.error('Erreur lecture progression seance :', error);
+      setCompletedBlockIds([]);
+    }
+  }, [completionStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const validBlockIds = new Set(blocks.map((block) => block.id));
+    const sanitizedIds = completedBlockIds.filter((blockId) => validBlockIds.has(blockId));
+
+    if (sanitizedIds.length !== completedBlockIds.length) {
+      setCompletedBlockIds(sanitizedIds);
+      return;
+    }
+
+    try {
+      if (sanitizedIds.length === 0) {
+        window.localStorage.removeItem(completionStorageKey);
+      } else {
+        window.localStorage.setItem(completionStorageKey, JSON.stringify(sanitizedIds));
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde progression seance :', error);
+    }
+  }, [blocks, completedBlockIds, completionStorageKey]);
+
   const totalStructuredBlocks = useMemo(
     () => blocks.filter((block) => block.block_type !== 'free').length,
     [blocks]
   );
 
+  const completedBlocksCount = useMemo(
+    () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
+    [blocks, completedBlockIds]
+  );
+
+  const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+
   const firstBlock = blocks[0] || null;
+
+  const toggleBlockCompleted = (blockId: string) => {
+    setCompletedBlockIds((current) =>
+      current.includes(blockId)
+        ? current.filter((value) => value !== blockId)
+        : [...current, blockId]
+    );
+  };
 
   const handleDeleteSession = async () => {
     if (!session || deleting) return;
@@ -256,6 +314,15 @@ export default function SessionDetailPage() {
                       : 'Ajoute un premier bloc pour préparer le mode séance.'}
                   </p>
                 </div>
+
+                {blocks.length > 0 && (
+                  <div className="session-runner-status">
+                    <span className="session-progress-pill">
+                      {completedBlocksCount} / {blocks.length} blocs realises
+                    </span>
+                    {allBlocksCompleted && <strong>✅ Seance terminee</strong>}
+                  </div>
+                )}
               </article>
             )}
 
@@ -265,9 +332,18 @@ export default function SessionDetailPage() {
                   <span className="section-kicker">Blocs</span>
                   <h2>Plan de la seance</h2>
                 </div>
+                {blocks.length > 0 && (
+                  <span className="session-progress-pill">
+                    {completedBlocksCount} / {blocks.length} blocs realises
+                  </span>
+                )}
               </div>
 
               {message && <p className="form-feedback form-feedback--error">{message}</p>}
+
+              {allBlocksCompleted && (
+                <p className="form-feedback form-feedback--success">✅ Seance terminee</p>
+              )}
 
               {blocks.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">
@@ -276,9 +352,27 @@ export default function SessionDetailPage() {
               ) : (
                 <div className="session-block-list">
                   {blocks.map((block) => (
-                    <article key={block.id} className="session-block-card">
+                    <article
+                      key={block.id}
+                      className={`session-block-card${
+                        completedBlockIds.includes(block.id) ? ' session-block-card--completed' : ''
+                      }`}
+                    >
                       <div className="session-block-card__top">
-                        <strong>{block.position + 1}. {block.name}</strong>
+                        <label className="session-block-check">
+                          <input
+                            type="checkbox"
+                            checked={completedBlockIds.includes(block.id)}
+                            onChange={() => toggleBlockCompleted(block.id)}
+                            aria-label={`Marquer ${block.name} comme realise`}
+                          />
+                          <span className="session-block-check__label">
+                            <strong>{block.position + 1}. {block.name}</strong>
+                            <small>
+                              {completedBlockIds.includes(block.id) ? 'Bloc realise' : 'A realiser'}
+                            </small>
+                          </span>
+                        </label>
                         <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
                       </div>
                       <p className="session-block-preview">
