@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
   formatSessionBlockSummary,
@@ -49,11 +50,13 @@ function formatRelativeDate(dateString: string | null) {
 
 export default function SessionDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
 
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlock[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [runnerOpen, setRunnerOpen] = useState(false);
 
@@ -129,6 +132,37 @@ export default function SessionDetailPage() {
 
   const firstBlock = blocks[0] || null;
 
+  const handleDeleteSession = async () => {
+    if (!session || deleting) return;
+
+    const confirmed = window.confirm(
+      'Supprimer cette séance ? Tous les blocs liés seront supprimés aussi.'
+    );
+
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase.from('training_sessions').delete().eq('id', session.id);
+
+      if (error) {
+        console.error('Erreur suppression séance :', error);
+        setMessage("Impossible de supprimer la séance pour le moment.");
+        return;
+      }
+
+      queuePendingToast({ message: '🗑️ Séance supprimée', tone: 'info' });
+      router.push('/sessions');
+    } catch (error) {
+      console.error('Erreur inattendue suppression séance :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <AppShell>
       <section className="sessions-page">
@@ -165,12 +199,22 @@ export default function SessionDetailPage() {
                   type="button"
                   className="button primary"
                   onClick={() => setRunnerOpen((current) => !current)}
+                  disabled={deleting}
                 >
                   {runnerOpen ? 'Fermer la seance' : 'Lancer la seance'}
                 </button>
                 <Link href="/sessions/new" className="button ghost">
                   Creer une autre seance
                 </Link>
+                <button
+                  type="button"
+                  className="button ghost session-delete-button"
+                  onClick={handleDeleteSession}
+                  disabled={deleting}
+                  aria-busy={deleting}
+                >
+                  {deleting ? 'Suppression...' : 'Supprimer la seance'}
+                </button>
               </div>
 
               <div className="session-detail-meta">
@@ -235,6 +279,8 @@ export default function SessionDetailPage() {
                   <h2>Plan de la seance</h2>
                 </div>
               </div>
+
+              {message && <p className="form-feedback form-feedback--error">{message}</p>}
 
               {blocks.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">

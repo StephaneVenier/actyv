@@ -2085,6 +2085,18 @@ img {
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.session-delete-button {
+  border-color: rgba(220, 38, 38, 0.14);
+  color: #991b1b;
+  background: rgba(220, 38, 38, 0.04);
+}
+
+.session-delete-button:hover {
+  border-color: rgba(220, 38, 38, 0.2);
+  background: rgba(220, 38, 38, 0.08);
+  box-shadow: 0 8px 18px rgba(220, 38, 38, 0.08);
+}
+
 /* BOTTOM BAR */
 
 .bottom-bar {
