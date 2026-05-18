@@ -236,6 +236,9 @@ export default function SessionDetailPage() {
                 <Link href={`/sessions/${session.id}/live`} className="button primary">
                   Lancer la seance
                 </Link>
+                <Link href={`/sessions/${session.id}/edit`} className="button ghost">
+                  Modifier la seance
+                </Link>
                 <Link href="/sessions/new" className="button ghost">
                   Creer une autre seance
                 </Link>
