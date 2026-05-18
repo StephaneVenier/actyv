@@ -6,7 +6,12 @@ import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
-import { formatSessionBlockSummary, getSessionBlockTypeLabel } from '@/lib/session-blocks';
+import {
+  formatSessionBlockSummary,
+  formatSessionVolumeKg,
+  getSessionBlockTypeLabel,
+  getSessionBlockVolumeKg,
+} from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
@@ -161,6 +166,19 @@ export default function SessionDetailPage() {
   );
 
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+  const sessionTotalVolume = useMemo(
+    () =>
+      blocks.reduce((total, block) => {
+        const volume = getSessionBlockVolumeKg(
+          block.block_type,
+          block.target_value,
+          block.sets_count,
+          block.charge_kg
+        );
+        return total + (volume ?? 0);
+      }, 0),
+    [blocks]
+  );
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -266,6 +284,10 @@ export default function SessionDetailPage() {
                   <span>Blocs structures</span>
                   <strong>{totalStructuredBlocks}</strong>
                 </div>
+                <div className="session-meta-card">
+                  <span>Volume total</span>
+                  <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
+                </div>
               </div>
             </article>
 
@@ -295,43 +317,57 @@ export default function SessionDetailPage() {
               ) : (
                 <div className="session-block-list">
                   {blocks.map((block) => (
-                    <article
-                      key={block.id}
-                      className={`session-block-card${
-                        completedBlockIds.includes(block.id) ? ' session-block-card--completed' : ''
-                      }`}
-                    >
-                      <div className="session-block-card__top">
-                        <label className="session-block-check">
-                          <input
-                            type="checkbox"
-                            checked={completedBlockIds.includes(block.id)}
-                            onChange={() => toggleBlockCompleted(block.id)}
-                            aria-label={`Marquer ${block.name} comme realise`}
-                          />
-                          <span className="session-block-check__label">
+                    (() => {
+                      const blockVolume = getSessionBlockVolumeKg(
+                        block.block_type,
+                        block.target_value,
+                        block.sets_count,
+                        block.charge_kg
+                      );
+
+                      return (
+                        <article
+                          key={block.id}
+                          className={`session-block-card${
+                            completedBlockIds.includes(block.id) ? ' session-block-card--completed' : ''
+                          }`}
+                        >
+                          <div className="session-block-card__top">
+                            <label className="session-block-check">
+                              <input
+                                type="checkbox"
+                                checked={completedBlockIds.includes(block.id)}
+                                onChange={() => toggleBlockCompleted(block.id)}
+                                aria-label={`Marquer ${block.name} comme realise`}
+                              />
+                              <span className="session-block-check__label">
+                                <strong>
+                                  {block.position + 1}. {block.name}
+                                </strong>
+                                <small>
+                                  {completedBlockIds.includes(block.id) ? 'Bloc realise' : 'A realiser'}
+                                </small>
+                              </span>
+                            </label>
+                            <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
+                          </div>
+                          <p className="session-block-preview">
+                            Objectif :{' '}
                             <strong>
-                              {block.position + 1}. {block.name}
+                              {formatSessionBlockSummary(
+                                block.block_type,
+                                block.target_value,
+                                block.sets_count,
+                                block.charge_kg
+                              )}
                             </strong>
-                            <small>
-                              {completedBlockIds.includes(block.id) ? 'Bloc realise' : 'A realiser'}
-                            </small>
-                          </span>
-                        </label>
-                        <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
-                      </div>
-                      <p className="session-block-preview">
-                        Objectif :{' '}
-                        <strong>
-                          {formatSessionBlockSummary(
-                            block.block_type,
-                            block.target_value,
-                            block.sets_count,
-                            block.charge_kg
-                          )}
-                        </strong>
-                      </p>
-                    </article>
+                          </p>
+                          {blockVolume ? (
+                            <p className="session-block-volume">Volume : {formatSessionVolumeKg(blockVolume)}</p>
+                          ) : null}
+                        </article>
+                      );
+                    })()
                   ))}
                 </div>
               )}

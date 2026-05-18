@@ -99,6 +99,42 @@ export function formatSessionBlockSummary(
   return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}${chargeLabel}`;
 }
 
+export function getSessionBlockVolumeKg(
+  blockType: SessionBlockType,
+  targetValue: number | null | undefined,
+  setsCount: number | null | undefined,
+  chargeKg: number | null | undefined
+) {
+  if (blockType !== 'reps') {
+    return null;
+  }
+
+  const reps = Number(targetValue);
+  const charge = Number(chargeKg);
+  const normalizedSets = normalizeSessionSetsCount(setsCount);
+
+  if (!Number.isFinite(reps) || reps <= 0 || !Number.isFinite(charge) || charge <= 0) {
+    return null;
+  }
+
+  const volume = normalizedSets * reps * charge;
+  return Number.isFinite(volume) && volume > 0 ? volume : null;
+}
+
+export function formatSessionVolumeKg(volumeKg: number | null | undefined) {
+  if (volumeKg === null || volumeKg === undefined || !Number.isFinite(Number(volumeKg)) || Number(volumeKg) <= 0) {
+    return null;
+  }
+
+  const normalizedVolume = Number(volumeKg);
+  const hasDecimals = Math.abs(normalizedVolume % 1) > 0.001;
+
+  return `${normalizedVolume.toLocaleString('fr-FR', {
+    minimumFractionDigits: hasDecimals ? 1 : 0,
+    maximumFractionDigits: hasDecimals ? 1 : 0,
+  })} kg`;
+}
+
 export function normalizeSessionSetsCount(
   value: number | string | null | undefined
 ) {

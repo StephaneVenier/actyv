@@ -8,7 +8,9 @@ import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/spor
 import {
   formatSessionBlockSummary,
   formatSessionBlockTarget,
+  formatSessionVolumeKg,
   getSessionBlockTypeLabel,
+  getSessionBlockVolumeKg,
   normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
@@ -176,9 +178,30 @@ export default function LiveSessionPage() {
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
     [blocks, completedBlockIds]
   );
+  const sessionTotalVolume = useMemo(
+    () =>
+      blocks.reduce((total, block) => {
+        const volume = getSessionBlockVolumeKg(
+          block.block_type,
+          block.target_value,
+          block.sets_count,
+          block.charge_kg
+        );
+        return total + (volume ?? 0);
+      }, 0),
+    [blocks]
+  );
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
   const currentBlock = blocks[currentIndex] || null;
   const currentBlockSetsTotal = currentBlock ? normalizeSessionSetsCount(currentBlock.sets_count) : 1;
+  const currentBlockVolume = currentBlock
+    ? getSessionBlockVolumeKg(
+        currentBlock.block_type,
+        currentBlock.target_value,
+        currentBlock.sets_count,
+        currentBlock.charge_kg
+      )
+    : null;
   const rawCurrentCompletedSets = currentBlock ? Number(completedSetsByBlockId[currentBlock.id] ?? 0) : 0;
   const currentCompletedSets = currentBlock
     ? Math.min(
@@ -431,6 +454,9 @@ export default function LiveSessionPage() {
               <article className="card session-live-finished">
                 <strong>Seance terminee ✅</strong>
                 <p className="session-live-total-time">Duree totale : {formatElapsedDuration(elapsedSeconds)}</p>
+                {sessionTotalVolume > 0 ? (
+                  <p className="session-live-total-time">Volume total : {formatSessionVolumeKg(sessionTotalVolume)}</p>
+                ) : null}
                 <p>Tous les exercices ont ete valides. Tu peux revenir au detail ou relancer la seance.</p>
                 <div className="session-live-actions">
                   <button type="button" className="button primary" onClick={resetLiveProgress}>
@@ -517,6 +543,12 @@ export default function LiveSessionPage() {
                     <div className="session-meta-card">
                       <span>Charge</span>
                       <strong>{currentBlock.charge_kg} kg</strong>
+                    </div>
+                  ) : null}
+                  {currentBlockVolume ? (
+                    <div className="session-meta-card">
+                      <span>Volume</span>
+                      <strong>{formatSessionVolumeKg(currentBlockVolume)}</strong>
                     </div>
                   ) : null}
                 </div>

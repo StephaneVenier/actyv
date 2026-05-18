@@ -2255,6 +2255,12 @@ img {
   font-weight: 700;
 }
 
+.session-block-volume {
+  margin: 0;
+  color: #0f172a;
+  font-weight: 700;
+}
+
 /* BOTTOM BAR */
 
 .bottom-bar {
