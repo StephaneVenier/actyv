@@ -2321,6 +2321,59 @@ img {
   transition: height 160ms ease;
 }
 
+.session-progress-chart__svg-wrap {
+  display: grid;
+  gap: 12px;
+}
+
+.session-progress-chart__svg {
+  width: 100%;
+  height: 180px;
+  overflow: visible;
+}
+
+.session-progress-chart__axis {
+  stroke: rgba(100, 116, 139, 0.35);
+  stroke-width: 1.5;
+  fill: none;
+}
+
+.session-progress-chart__line {
+  stroke: #0f766e;
+  stroke-width: 2.5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.session-progress-chart__point {
+  fill: #22c55e;
+  stroke: #ffffff;
+  stroke-width: 1.4;
+}
+
+.session-progress-chart__labels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 10px;
+}
+
+.session-progress-chart__label-item {
+  display: grid;
+  gap: 4px;
+  text-align: center;
+}
+
+.session-progress-chart__label-item strong {
+  font-size: 0.82rem;
+  color: #0f172a;
+}
+
+.session-progress-chart__label-item span {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
 /* BOTTOM BAR */
 
 .bottom-bar {

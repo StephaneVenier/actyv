@@ -83,6 +83,14 @@ function formatChartDayLabel(dateString: string) {
   });
 }
 
+function buildChartPath(points: Array<{ x: number; y: number }>) {
+  if (points.length === 0) return '';
+
+  return points
+    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
+    .join(' ');
+}
+
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -314,34 +322,94 @@ export default function SessionDetailPage() {
       ? historyEntries.reduce((best, entry) => Math.max(best, Number(entry.total_volume || 0)), 0)
       : 0;
   const lastCompletedAt = historyEntries[0]?.completed_at || null;
-  const recentHistoryEntries = useMemo(() => historyEntries.slice(0, 10).reverse(), [historyEntries]);
-  const volumeHistoryEntries = useMemo(
-    () => recentHistoryEntries.filter((entry) => Number(entry.total_volume || 0) > 0),
-    [recentHistoryEntries]
-  );
-  const usesVolumeChart = volumeHistoryEntries.length > 0;
-  const chartMetricLabel = usesVolumeChart ? 'Volume total' : 'Duree totale';
-  const chartMetricEntries = useMemo(
-    () =>
-      (usesVolumeChart ? volumeHistoryEntries : recentHistoryEntries).map((entry) => {
-        const rawValue = usesVolumeChart ? Number(entry.total_volume || 0) : Number(entry.duration_seconds || 0);
-        return {
-          id: entry.id,
-          label: formatChartDayLabel(entry.completed_at),
-          rawValue: Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0,
-          formattedValue: usesVolumeChart
+  const progressionData = useMemo(() => {
+    const sortedEntries = [...historyEntries]
+      .filter((entry) => entry.workout_id === id)
+      .sort(
+        (left, right) =>
+          new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime()
+      )
+      .slice(-10);
+
+    const metricCandidates = sortedEntries.map((entry) => ({
+      id: entry.id,
+      label: formatChartDayLabel(entry.completed_at),
+      completedAt: entry.completed_at,
+      volume: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
+      duration: Number.isFinite(Number(entry.duration_seconds)) ? Number(entry.duration_seconds) : 0,
+      calories: getEstimatedWorkoutCalories(entry.duration_seconds, session?.sport) || 0,
+    }));
+
+    const hasVolume = metricCandidates.some((entry) => entry.volume > 0);
+    const hasDuration = metricCandidates.some((entry) => entry.duration > 0);
+    const hasCalories = metricCandidates.some((entry) => entry.calories > 0);
+
+    const metricKey = hasVolume ? 'volume' : hasDuration ? 'duration' : hasCalories ? 'calories' : null;
+
+    if (!metricKey) {
+      return {
+        entries: [] as Array<{
+          id: string;
+          label: string;
+          rawValue: number;
+          formattedValue: string | null;
+        }>,
+        metricLabel: null as string | null,
+      };
+    }
+
+    const entries = metricCandidates.map((entry) => {
+      const rawValue = metricKey === 'volume' ? entry.volume : metricKey === 'duration' ? entry.duration : entry.calories;
+      return {
+        id: entry.id,
+        label: entry.label,
+        rawValue,
+        formattedValue:
+          metricKey === 'volume'
             ? formatSessionVolumeKg(rawValue)
-            : formatDurationLabel(rawValue),
-        };
-      }),
-    [recentHistoryEntries, usesVolumeChart, volumeHistoryEntries]
-  );
+            : metricKey === 'duration'
+              ? formatDurationLabel(rawValue)
+              : formatEstimatedWorkoutCalories(rawValue),
+      };
+    });
+
+    return {
+      entries,
+      metricLabel:
+        metricKey === 'volume'
+          ? 'Volume total'
+          : metricKey === 'duration'
+            ? 'Duree totale'
+            : 'Calories estimees',
+    };
+  }, [historyEntries, id, session?.sport]);
+  const chartMetricEntries = progressionData.entries;
+  const chartMetricLabel = progressionData.metricLabel;
   const chartMaxValue = useMemo(
     () => Math.max(...chartMetricEntries.map((entry) => entry.rawValue), 0),
     [chartMetricEntries]
   );
-  const hasEnoughDataForChart = chartMetricEntries.length >= 2 && chartMaxValue > 0;
   const singleProgressEntry = chartMetricEntries.length === 1 ? chartMetricEntries[0] : null;
+  const chartPoints = useMemo(() => {
+    if (chartMetricEntries.length < 2 || chartMaxValue <= 0) {
+      return [] as Array<{ x: number; y: number; label: string; formattedValue: string | null }>;
+    }
+
+    const chartWidth = 100;
+    const chartHeight = 100;
+    const stepX = chartMetricEntries.length === 1 ? chartWidth / 2 : chartWidth / (chartMetricEntries.length - 1);
+
+    return chartMetricEntries.map((entry, index) => {
+      const ratio = chartMaxValue > 0 ? entry.rawValue / chartMaxValue : 0;
+      return {
+        x: Number((index * stepX).toFixed(2)),
+        y: Number((chartHeight - ratio * chartHeight).toFixed(2)),
+        label: entry.label,
+        formattedValue: entry.formattedValue,
+      };
+    });
+  }, [chartMaxValue, chartMetricEntries]);
+  const chartPath = useMemo(() => buildChartPath(chartPoints), [chartPoints]);
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -539,30 +607,33 @@ export default function SessionDetailPage() {
               ) : (
                 <div className="session-progress-chart">
                   <div className="session-progress-chart__header">
-                    <span>{chartMetricLabel}</span>
+                    <span>{chartMetricLabel || 'Progression'}</span>
                     <strong>{chartMetricEntries.length} derniere(s) seance(s)</strong>
                   </div>
 
-                  <div className="session-progress-chart__bars">
-                    {chartMetricEntries.map((entry) => {
-                      const ratio = hasEnoughDataForChart
-                        ? Math.max(entry.rawValue / chartMaxValue, 0.12)
-                        : 0.12;
-                      return (
-                        <div key={entry.id} className="session-progress-chart__item">
-                          <span className="session-progress-chart__value">
-                            {entry.formattedValue || '-'}
-                          </span>
-                          <div className="session-progress-chart__track">
-                            <div
-                              className="session-progress-chart__bar"
-                              style={{ height: `${Math.min(ratio * 100, 100)}%` }}
-                            />
-                          </div>
-                          <span className="session-progress-chart__label">{entry.label}</span>
+                  <div className="session-progress-chart__svg-wrap">
+                    <svg viewBox="0 0 100 100" className="session-progress-chart__svg" preserveAspectRatio="none">
+                      <path d="M 0 100 L 100 100" className="session-progress-chart__axis" />
+                      <path d={chartPath} className="session-progress-chart__line" />
+                      {chartPoints.map((point) => (
+                        <circle
+                          key={point.label + point.x}
+                          cx={point.x}
+                          cy={point.y}
+                          r="2.8"
+                          className="session-progress-chart__point"
+                        />
+                      ))}
+                    </svg>
+
+                    <div className="session-progress-chart__labels">
+                      {chartMetricEntries.map((entry) => (
+                        <div key={entry.id} className="session-progress-chart__label-item">
+                          <strong>{entry.formattedValue || '-'}</strong>
+                          <span>{entry.label}</span>
                         </div>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
