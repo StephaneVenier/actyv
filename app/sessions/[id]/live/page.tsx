@@ -444,7 +444,6 @@ export default function LiveSessionPage() {
         estimated_calories: estimatedCalories ?? null,
         total_volume: sessionTotalVolume > 0 ? sessionTotalVolume : null,
         completed_exercises: blocks.length,
-        run_key: runKey,
       };
 
       console.log('Workout history payload:', payload);
