@@ -26,6 +26,16 @@ type TrainingSession = {
   created_at: string | null;
 };
 
+type WorkoutHistoryEntry = {
+  id: string;
+  workout_id: string | null;
+  workout_name: string;
+  completed_at: string;
+  duration_seconds: number | null;
+  total_volume: number | null;
+  completed_exercises: number | null;
+};
+
 function formatRelativeDate(dateString: string | null) {
   if (!dateString) return 'recentement';
 
@@ -42,6 +52,24 @@ function formatRelativeDate(dateString: string | null) {
   return formatter.format(Math.round(diffHours / 24), 'day');
 }
 
+function formatDurationLabel(durationSeconds: number | null | undefined) {
+  const normalizedSeconds = Number(durationSeconds);
+
+  if (!Number.isFinite(normalizedSeconds) || normalizedSeconds <= 0) {
+    return null;
+  }
+
+  const totalSeconds = Math.floor(normalizedSeconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds} sec`;
+  }
+
+  return `${minutes} min ${seconds.toString().padStart(2, '0')} sec`;
+}
+
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -55,6 +83,7 @@ export default function SessionDetailPage() {
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
   const [lastLiveElapsedSeconds, setLastLiveElapsedSeconds] = useState(0);
   const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
+  const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -77,6 +106,7 @@ export default function SessionDetailPage() {
           setMessage('Connecte-toi pour consulter cette seance.');
           setSession(null);
           setBlocks([]);
+          setHistoryEntries([]);
           return;
         }
 
@@ -92,12 +122,14 @@ export default function SessionDetailPage() {
           setMessage('Impossible de charger cette seance.');
           setSession(null);
           setBlocks([]);
+          setHistoryEntries([]);
           return;
         }
 
         if (!sessionRow) {
           setSession(null);
           setBlocks([]);
+          setHistoryEntries([]);
           return;
         }
 
@@ -108,10 +140,25 @@ export default function SessionDetailPage() {
         if (blocksError) {
           console.error('Erreur chargement blocs detail seance :', blocksError);
           setBlocks([]);
-          return;
+        } else {
+          setBlocks(blockRows || []);
         }
 
-        setBlocks(blockRows || []);
+        const { data: historyRows, error: historyError } = await supabase
+          .from('workout_sessions_history')
+          .select(
+            'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises'
+          )
+          .eq('user_id', user.id)
+          .eq('workout_id', id)
+          .order('completed_at', { ascending: false });
+
+        if (historyError) {
+          console.error('Erreur chargement historique detail seance :', historyError);
+          setHistoryEntries([]);
+        } else {
+          setHistoryEntries((historyRows as WorkoutHistoryEntry[]) || []);
+        }
       } finally {
         setLoading(false);
       }
@@ -223,6 +270,37 @@ export default function SessionDetailPage() {
       }, 0),
     [blocks]
   );
+  const totalSets = useMemo(
+    () =>
+      blocks.reduce((total, block) => total + Math.max(Number(block.sets_count || 1), 1), 0),
+    [blocks]
+  );
+  const totalRealizations = historyEntries.length;
+  const completedDurationEntries = historyEntries.filter(
+    (entry) => Number.isFinite(Number(entry.duration_seconds)) && Number(entry.duration_seconds) > 0
+  );
+  const averageDurationSeconds =
+    completedDurationEntries.length > 0
+      ? Math.round(
+          completedDurationEntries.reduce((total, entry) => total + Number(entry.duration_seconds || 0), 0) /
+            completedDurationEntries.length
+        )
+      : null;
+  const averageCalories =
+    completedDurationEntries.length > 0
+      ? Math.round(
+          completedDurationEntries.reduce(
+            (total, entry) =>
+              total + (getEstimatedWorkoutCalories(entry.duration_seconds, session?.sport) || 0),
+            0
+          ) / completedDurationEntries.length
+        )
+      : null;
+  const bestVolume =
+    historyEntries.length > 0
+      ? historyEntries.reduce((best, entry) => Math.max(best, Number(entry.total_volume || 0)), 0)
+      : 0;
+  const lastCompletedAt = historyEntries[0]?.completed_at || null;
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -337,6 +415,56 @@ export default function SessionDetailPage() {
                   <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '-'}</strong>
                 </div>
               </div>
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Stats</span>
+                  <h2>Stats de la seance</h2>
+                </div>
+              </div>
+
+              <div className="session-detail-meta">
+                <div className="session-meta-card">
+                  <span>Exercices</span>
+                  <strong>{blocks.length}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Series totales</span>
+                  <strong>{totalSets}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Volume prevu</span>
+                  <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Seances realisees</span>
+                  <strong>{totalRealizations}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Duree moyenne</span>
+                  <strong>{formatDurationLabel(averageDurationSeconds) || '-'}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Calories moyennes</span>
+                  <strong>{formatEstimatedWorkoutCalories(averageCalories) || '-'}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Meilleur volume</span>
+                  <strong>{bestVolume > 0 ? formatSessionVolumeKg(bestVolume) : '-'}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Dernier entrainement</span>
+                  <strong>{lastCompletedAt ? formatRelativeDate(lastCompletedAt) : '-'}</strong>
+                </div>
+              </div>
+
+              {historyEntries.length === 0 && (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Pas encore de seance realisee.</p>
+                </div>
+              )}
             </article>
 
             <article className="card session-form-card stack">
