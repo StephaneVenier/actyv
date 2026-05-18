@@ -2179,6 +2179,7 @@ img {
 }
 
 .session-live-stage,
+.session-live-rest,
 .session-live-finished {
   display: grid;
   gap: 16px;
@@ -2215,6 +2216,28 @@ img {
 .session-live-block-state {
   display: flex;
   flex-wrap: wrap;
+}
+
+.session-live-rest {
+  border: 1px solid rgba(14, 116, 144, 0.14);
+  background: linear-gradient(180deg, rgba(240, 249, 255, 0.92), rgba(255, 255, 255, 0.98));
+}
+
+.session-live-rest__timer {
+  display: grid;
+  gap: 4px;
+  justify-items: start;
+}
+
+.session-live-rest__timer strong {
+  font-size: clamp(1.85rem, 5vw, 2.5rem);
+  line-height: 1;
+  color: #0f172a;
+}
+
+.session-live-rest__timer span {
+  color: #475569;
+  font-weight: 600;
 }
 
 .session-live-finished {
@@ -2727,6 +2750,7 @@ img {
   .session-summary-card,
   .session-runner-card,
   .session-live-stage,
+  .session-live-rest,
   .session-live-finished,
   .session-card,
   .session-block-card {

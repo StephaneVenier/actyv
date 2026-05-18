@@ -25,7 +25,11 @@ type TrainingSession = {
 type LiveState = {
   currentIndex: number;
   completedBlockIds: string[];
+  restAfterBlockId: string | null;
+  restSecondsLeft: number;
 };
+
+const DEFAULT_REST_SECONDS = 60;
 
 export default function LiveSessionPage() {
   const params = useParams();
@@ -37,6 +41,8 @@ export default function LiveSessionPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
+  const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
+  const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -116,10 +122,30 @@ export default function LiveSessionPage() {
       if (Array.isArray(parsedValue.completedBlockIds)) {
         setCompletedBlockIds(parsedValue.completedBlockIds.filter(Boolean));
       }
+      if (
+        typeof parsedValue.restAfterBlockId === 'string' ||
+        parsedValue.restAfterBlockId === null
+      ) {
+        setRestAfterBlockId(parsedValue.restAfterBlockId ?? null);
+      }
+      if (
+        typeof parsedValue.restSecondsLeft === 'number' &&
+        Number.isFinite(parsedValue.restSecondsLeft)
+      ) {
+        setRestSecondsLeft(Math.max(0, Math.floor(parsedValue.restSecondsLeft)));
+      }
     } catch (error) {
       console.error('Erreur lecture etat live seance :', error);
     }
   }, [liveStorageKey]);
+
+  const completedBlocksCount = useMemo(
+    () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
+    [blocks, completedBlockIds]
+  );
+  const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+  const currentBlock = blocks[currentIndex] || null;
+  const isResting = Boolean(restAfterBlockId) && !allBlocksCompleted;
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -129,6 +155,14 @@ export default function LiveSessionPage() {
 
     if (sanitizedIds.length !== completedBlockIds.length) {
       setCompletedBlockIds(sanitizedIds);
+      return;
+    }
+
+    const sanitizedRestAfterBlockId =
+      restAfterBlockId && validBlockIds.has(restAfterBlockId) ? restAfterBlockId : null;
+
+    if (sanitizedRestAfterBlockId !== restAfterBlockId) {
+      setRestAfterBlockId(sanitizedRestAfterBlockId);
       return;
     }
 
@@ -142,25 +176,44 @@ export default function LiveSessionPage() {
       const payload: LiveState = {
         currentIndex: nextIndex,
         completedBlockIds: sanitizedIds,
+        restAfterBlockId: sanitizedRestAfterBlockId,
+        restSecondsLeft,
       };
       window.localStorage.setItem(liveStorageKey, JSON.stringify(payload));
     } catch (error) {
       console.error('Erreur sauvegarde etat live seance :', error);
     }
-  }, [blocks, completedBlockIds, currentIndex, liveStorageKey]);
+  }, [blocks, completedBlockIds, currentIndex, liveStorageKey, restAfterBlockId, restSecondsLeft]);
 
-  const currentBlock = blocks[currentIndex] || null;
-  const completedBlocksCount = useMemo(
-    () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
-    [blocks, completedBlockIds]
-  );
-  const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+  useEffect(() => {
+    if (!isResting || restSecondsLeft <= 0) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setRestSecondsLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isResting, restSecondsLeft]);
+
+  const clearRestState = () => {
+    setRestAfterBlockId(null);
+    setRestSecondsLeft(DEFAULT_REST_SECONDS);
+  };
 
   const goToPrevious = () => {
+    clearRestState();
     setCurrentIndex((value) => Math.max(value - 1, 0));
   };
 
   const goToNext = () => {
+    clearRestState();
+    setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
+  };
+
+  const goToNextExercise = () => {
+    clearRestState();
     setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
@@ -171,10 +224,13 @@ export default function LiveSessionPage() {
       current.includes(currentBlock.id) ? current : [...current, currentBlock.id]
     );
 
-    setCurrentIndex((value) => {
-      const nextIndex = Math.min(value + 1, Math.max(blocks.length - 1, 0));
-      return nextIndex;
-    });
+    if (currentIndex >= blocks.length - 1) {
+      clearRestState();
+      return;
+    }
+
+    setRestAfterBlockId(currentBlock.id);
+    setRestSecondsLeft(DEFAULT_REST_SECONDS);
   };
 
   return (
@@ -234,7 +290,49 @@ export default function LiveSessionPage() {
               </article>
             )}
 
-            {currentBlock && (
+            {isResting && currentBlock ? (
+              <article className="card session-live-rest">
+                <div className="session-live-stage__top">
+                  <div>
+                    <span className="section-kicker">Repos</span>
+                    <h2>Recuperation</h2>
+                  </div>
+                  <span className="session-block-chip">60 sec</span>
+                </div>
+
+                <p className="muted">
+                  Exercice valide. Prends une minute avant de passer au suivant, ou avance
+                  directement si tu es pret.
+                </p>
+
+                <div className="session-live-rest__timer">
+                  <strong>{restSecondsLeft}s</strong>
+                  <span>{restSecondsLeft > 0 ? 'de repos restant' : 'Repos termine'}</span>
+                </div>
+
+                <div className="session-live-actions">
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={goToPrevious}
+                    disabled={currentIndex === 0}
+                  >
+                    Precedent
+                  </button>
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={() => setRestSecondsLeft(0)}
+                    disabled={restSecondsLeft === 0}
+                  >
+                    Passer le repos
+                  </button>
+                  <button type="button" className="button primary" onClick={goToNextExercise}>
+                    Exercice suivant
+                  </button>
+                </div>
+              </article>
+            ) : currentBlock ? (
               <article className="card session-live-stage">
                 <div className="session-live-stage__top">
                   <div>
@@ -307,7 +405,7 @@ export default function LiveSessionPage() {
                   </button>
                 </div>
               </article>
-            )}
+            ) : null}
           </>
         )}
       </section>
