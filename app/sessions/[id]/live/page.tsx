@@ -6,9 +6,11 @@ import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
+  formatEstimatedWorkoutCalories,
   formatSessionBlockSummary,
   formatSessionBlockTarget,
   formatSessionVolumeKg,
+  getEstimatedWorkoutCalories,
   getSessionBlockTypeLabel,
   getSessionBlockVolumeKg,
   normalizeSessionSetsCount,
@@ -190,6 +192,10 @@ export default function LiveSessionPage() {
         return total + (volume ?? 0);
       }, 0),
     [blocks]
+  );
+  const estimatedCalories = useMemo(
+    () => getEstimatedWorkoutCalories(elapsedSeconds, session?.sport),
+    [elapsedSeconds, session?.sport]
   );
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
   const currentBlock = blocks[currentIndex] || null;
@@ -425,6 +431,11 @@ export default function LiveSessionPage() {
                 <span className="session-progress-pill">
                   {allBlocksCompleted ? 'Duree totale' : 'Temps'} {formatElapsedDuration(elapsedSeconds)}
                 </span>
+                {estimatedCalories ? (
+                  <span className="session-progress-pill">
+                    Calories estimees {formatEstimatedWorkoutCalories(estimatedCalories)}
+                  </span>
+                ) : null}
                 <span className="session-progress-pill">
                   Exercice {Math.min(currentIndex + 1, blocks.length)} / {blocks.length}
                 </span>
@@ -454,6 +465,11 @@ export default function LiveSessionPage() {
               <article className="card session-live-finished">
                 <strong>Seance terminee ✅</strong>
                 <p className="session-live-total-time">Duree totale : {formatElapsedDuration(elapsedSeconds)}</p>
+                {estimatedCalories ? (
+                  <p className="session-live-total-time">
+                    Calories estimees : {formatEstimatedWorkoutCalories(estimatedCalories)}
+                  </p>
+                ) : null}
                 {sessionTotalVolume > 0 ? (
                   <p className="session-live-total-time">Volume total : {formatSessionVolumeKg(sessionTotalVolume)}</p>
                 ) : null}

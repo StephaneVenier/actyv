@@ -135,6 +135,71 @@ export function formatSessionVolumeKg(volumeKg: number | null | undefined) {
   })} kg`;
 }
 
+export function getWorkoutCaloriesPerMinute(sport: string | null | undefined) {
+  const normalizedSport = (sport || '').trim().toLowerCase();
+
+  if (
+    normalizedSport.includes('musculation') ||
+    normalizedSport.includes('renfo') ||
+    normalizedSport.includes('fitness') ||
+    normalizedSport.includes('strength')
+  ) {
+    return 6.5;
+  }
+
+  if (
+    normalizedSport.includes('cardio') ||
+    normalizedSport.includes('course') ||
+    normalizedSport.includes('running') ||
+    normalizedSport.includes('velo') ||
+    normalizedSport.includes('cycl') ||
+    normalizedSport.includes('natation') ||
+    normalizedSport.includes('swim') ||
+    normalizedSport.includes('hiit')
+  ) {
+    return 10;
+  }
+
+  if (
+    normalizedSport.includes('marche') ||
+    normalizedSport.includes('walk') ||
+    normalizedSport.includes('rando') ||
+    normalizedSport.includes('hike')
+  ) {
+    return 5;
+  }
+
+  return 7;
+}
+
+export function getEstimatedWorkoutCalories(
+  elapsedSeconds: number | null | undefined,
+  sport: string | null | undefined
+) {
+  const normalizedSeconds = Number(elapsedSeconds);
+
+  if (!Number.isFinite(normalizedSeconds) || normalizedSeconds <= 0) {
+    return null;
+  }
+
+  const minutes = normalizedSeconds / 60;
+  const calories = minutes * getWorkoutCaloriesPerMinute(sport);
+
+  if (!Number.isFinite(calories) || calories <= 0) {
+    return null;
+  }
+
+  return Math.round(calories);
+}
+
+export function formatEstimatedWorkoutCalories(calories: number | null | undefined) {
+  if (calories === null || calories === undefined || !Number.isFinite(Number(calories)) || Number(calories) <= 0) {
+    return null;
+  }
+
+  return `~${Math.round(Number(calories))} kcal`;
+}
+
 export function normalizeSessionSetsCount(
   value: number | string | null | undefined
 ) {

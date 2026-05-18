@@ -7,8 +7,10 @@ import { AppShell } from '@/components/AppShell';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
+  formatEstimatedWorkoutCalories,
   formatSessionBlockSummary,
   formatSessionVolumeKg,
+  getEstimatedWorkoutCalories,
   getSessionBlockTypeLabel,
   getSessionBlockVolumeKg,
 } from '@/lib/session-blocks';
@@ -51,8 +53,11 @@ export default function SessionDetailPage() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
+  const [lastLiveElapsedSeconds, setLastLiveElapsedSeconds] = useState(0);
+  const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
+  const liveStorageKey = `actyv.session.live.${id}`;
 
   useEffect(() => {
     const loadSession = async () => {
@@ -136,6 +141,37 @@ export default function SessionDetailPage() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
+    try {
+      const savedValue = window.localStorage.getItem(liveStorageKey);
+      if (!savedValue) {
+        setLastLiveElapsedSeconds(0);
+        setLastLiveCompletedCount(0);
+        return;
+      }
+
+      const parsedValue = JSON.parse(savedValue) as {
+        elapsedSeconds?: number;
+        completedBlockIds?: string[];
+      };
+
+      setLastLiveElapsedSeconds(
+        typeof parsedValue.elapsedSeconds === 'number' && Number.isFinite(parsedValue.elapsedSeconds)
+          ? Math.max(0, Math.floor(parsedValue.elapsedSeconds))
+          : 0
+      );
+      setLastLiveCompletedCount(
+        Array.isArray(parsedValue.completedBlockIds) ? parsedValue.completedBlockIds.filter(Boolean).length : 0
+      );
+    } catch (error) {
+      console.error('Erreur lecture progression live seance :', error);
+      setLastLiveElapsedSeconds(0);
+      setLastLiveCompletedCount(0);
+    }
+  }, [liveStorageKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
     const validBlockIds = new Set(blocks.map((block) => block.id));
     const sanitizedIds = completedBlockIds.filter((blockId) => validBlockIds.has(blockId));
 
@@ -166,6 +202,14 @@ export default function SessionDetailPage() {
   );
 
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+  const lastLiveWasCompleted = blocks.length > 0 && lastLiveCompletedCount === blocks.length;
+  const estimatedCalories = useMemo(
+    () =>
+      lastLiveWasCompleted
+        ? getEstimatedWorkoutCalories(lastLiveElapsedSeconds, session?.sport)
+        : null,
+    [lastLiveElapsedSeconds, lastLiveWasCompleted, session?.sport]
+  );
   const sessionTotalVolume = useMemo(
     () =>
       blocks.reduce((total, block) => {
@@ -287,6 +331,10 @@ export default function SessionDetailPage() {
                 <div className="session-meta-card">
                   <span>Volume total</span>
                   <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Calories estimees</span>
+                  <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '-'}</strong>
                 </div>
               </div>
             </article>
