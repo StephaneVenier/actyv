@@ -4,7 +4,12 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
-import { formatSessionBlockSummary } from '@/lib/session-blocks';
+import {
+  formatEstimatedWorkoutCalories,
+  formatSessionBlockSummary,
+  formatSessionVolumeKg,
+  getEstimatedWorkoutCalories,
+} from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
@@ -15,6 +20,16 @@ type TrainingSession = {
   sport: string | null;
   description: string | null;
   created_at: string | null;
+};
+
+type WorkoutHistoryEntry = {
+  id: string;
+  workout_id: string | null;
+  workout_name: string;
+  completed_at: string;
+  duration_seconds: number | null;
+  total_volume: number | null;
+  completed_exercises: number | null;
 };
 
 function formatRelativeDate(dateString: string | null) {
@@ -33,9 +48,23 @@ function formatRelativeDate(dateString: string | null) {
   return formatter.format(Math.round(diffHours / 24), 'day');
 }
 
+function formatSessionDuration(durationSeconds: number | null) {
+  if (!durationSeconds || durationSeconds <= 0) return null;
+
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds} sec`;
+  }
+
+  return `${minutes} min${seconds > 0 ? ` ${seconds.toString().padStart(2, '0')}` : ''}`;
+}
+
 export default function SessionsPage() {
   const [sessions, setSessions] = useState<TrainingSession[]>([]);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
+  const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -51,16 +80,18 @@ export default function SessionsPage() {
         } = await supabase.auth.getUser();
 
         if (userError) {
-          console.error('Erreur chargement user séances :', userError);
-          setMessage('Impossible de charger tes séances pour le moment.');
+          console.error('Erreur chargement user seances :', userError);
+          setMessage('Impossible de charger tes seances pour le moment.');
           setSessions([]);
           setBlocks([]);
+          setHistoryEntries([]);
           return;
         }
 
         if (!user) {
           setSessions([]);
           setBlocks([]);
+          setHistoryEntries([]);
           return;
         }
 
@@ -71,15 +102,32 @@ export default function SessionsPage() {
           .order('created_at', { ascending: false });
 
         if (sessionsError) {
-          console.error('Erreur chargement séances :', sessionsError);
-          setMessage('Impossible de charger tes séances pour le moment.');
+          console.error('Erreur chargement seances :', sessionsError);
+          setMessage('Impossible de charger tes seances pour le moment.');
           setSessions([]);
           setBlocks([]);
+          setHistoryEntries([]);
           return;
         }
 
         const nextSessions = (sessionRows as TrainingSession[]) || [];
         setSessions(nextSessions);
+
+        const { data: historyRows, error: historyError } = await supabase
+          .from('workout_sessions_history')
+          .select(
+            'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises'
+          )
+          .eq('user_id', user.id)
+          .order('completed_at', { ascending: false })
+          .limit(12);
+
+        if (historyError) {
+          console.error('Erreur chargement historique seances :', historyError);
+          setHistoryEntries([]);
+        } else {
+          setHistoryEntries((historyRows as WorkoutHistoryEntry[]) || []);
+        }
 
         if (nextSessions.length === 0) {
           setBlocks([]);
@@ -91,7 +139,7 @@ export default function SessionsPage() {
         );
 
         if (blocksError) {
-          console.error('Erreur chargement blocs séances :', blocksError);
+          console.error('Erreur chargement blocs seances :', blocksError);
           setBlocks([]);
           return;
         }
@@ -140,14 +188,14 @@ export default function SessionsPage() {
 
         {loading ? (
           <div className="challenge-state">
-            <p>Chargement de tes séances...</p>
+            <p>Chargement de tes seances...</p>
           </div>
         ) : sessions.length === 0 ? (
           <div className="challenge-state">
-            <p>Aucune séance créée.</p>
+            <p>Aucune seance creee.</p>
             <div className="session-empty-actions">
               <Link href="/sessions/new" className="button primary">
-                Créer une séance
+                Creer une seance
               </Link>
             </div>
           </div>
@@ -163,14 +211,12 @@ export default function SessionsPage() {
                     <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                       {formatSportBadgeLabel(session.sport, 'Sport')}
                     </div>
-                    <span className="session-card__date">
-                      Cree {formatRelativeDate(session.created_at)}
-                    </span>
+                    <span className="session-card__date">Cree {formatRelativeDate(session.created_at)}</span>
                   </div>
 
                   <div className="session-card__content">
                     <h2>{session.name}</h2>
-                    <p>{session.description || 'Séance sans description pour le moment.'}</p>
+                    <p>{session.description || 'Seance sans description pour le moment.'}</p>
                   </div>
 
                   <div className="session-card__meta">
@@ -183,7 +229,7 @@ export default function SessionsPage() {
                             firstBlock.sets_count,
                             firstBlock.charge_kg
                           )}`
-                        : 'Bloc à compléter'}
+                        : 'Bloc a completer'}
                     </span>
                   </div>
 
@@ -195,10 +241,66 @@ export default function SessionsPage() {
             })}
           </div>
         )}
+
+        <article className="card session-form-card stack">
+          <div className="session-blocks-header">
+            <div>
+              <span className="section-kicker">Historique</span>
+              <h2>Historique des seances</h2>
+            </div>
+          </div>
+
+          {historyEntries.length === 0 ? (
+            <div className="challenge-state challenge-state--compact">
+              <p>Aucune seance realisee pour le moment.</p>
+            </div>
+          ) : (
+            <div className="session-block-list">
+              {historyEntries.map((entry) => {
+                const linkedSession = sessions.find((session) => session.id === entry.workout_id) || null;
+                const estimatedCalories =
+                  entry.duration_seconds && linkedSession
+                    ? getEstimatedWorkoutCalories(entry.duration_seconds, linkedSession.sport)
+                    : null;
+
+                return (
+                  <article key={entry.id} className="session-block-card">
+                    <div className="session-block-card__top">
+                      <div className="session-block-check__label">
+                        <strong>{entry.workout_name}</strong>
+                        <small>{new Date(entry.completed_at).toLocaleDateString('fr-FR')}</small>
+                      </div>
+                      {linkedSession ? (
+                        <div className={getSportBadgeClassName(linkedSession.sport, 'badge', 'Sport')}>
+                          {formatSportBadgeLabel(linkedSession.sport, 'Sport')}
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <p className="session-block-preview">
+                      {formatSessionDuration(entry.duration_seconds) || '-'} •{' '}
+                      {entry.completed_exercises || 0} exercice
+                      {(entry.completed_exercises || 0) > 1 ? 's' : ''}
+                    </p>
+
+                    {entry.total_volume ? (
+                      <p className="session-block-volume">
+                        Volume : {formatSessionVolumeKg(entry.total_volume)}
+                      </p>
+                    ) : null}
+
+                    {estimatedCalories ? (
+                      <p className="session-block-preview">
+                        Calories estimees : {formatEstimatedWorkoutCalories(estimatedCalories)}
+                      </p>
+                    ) : null}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </article>
       </section>
     </AppShell>
   );
 }
-
-
-

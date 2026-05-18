@@ -35,6 +35,8 @@ type LiveState = {
   restSecondsLeft: number;
   elapsedSeconds: number;
   isTimerPaused: boolean;
+  runKey: string;
+  historySaved: boolean;
 };
 
 const DEFAULT_REST_SECONDS = 60;
@@ -47,11 +49,20 @@ function formatElapsedDuration(totalSeconds: number) {
   return `${minutes} min ${seconds.toString().padStart(2, '0')} sec`;
 }
 
+function createLiveRunKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export default function LiveSessionPage() {
   const params = useParams();
   const id = params?.id as string;
 
   const [session, setSession] = useState<TrainingSession | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
@@ -62,6 +73,8 @@ export default function LiveSessionPage() {
   const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
+  const [runKey, setRunKey] = useState('');
+  const [historySaved, setHistorySaved] = useState(false);
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -80,11 +93,14 @@ export default function LiveSessionPage() {
           if (userError) {
             console.error('Erreur chargement user seance live :', userError);
           }
+          setUserId(null);
           setMessage('Connecte-toi pour lancer cette seance.');
           setSession(null);
           setBlocks([]);
           return;
         }
+
+        setUserId(user.id);
 
         const { data: sessionRow, error: sessionError } = await supabase
           .from('training_sessions')
@@ -171,10 +187,22 @@ export default function LiveSessionPage() {
       if (typeof parsedValue.isTimerPaused === 'boolean') {
         setIsTimerPaused(parsedValue.isTimerPaused);
       }
+      if (typeof parsedValue.runKey === 'string' && parsedValue.runKey.trim().length > 0) {
+        setRunKey(parsedValue.runKey);
+      }
+      if (typeof parsedValue.historySaved === 'boolean') {
+        setHistorySaved(parsedValue.historySaved);
+      }
     } catch (error) {
       console.error('Erreur lecture etat live seance :', error);
     }
   }, [liveStorageKey]);
+
+  useEffect(() => {
+    if (!runKey) {
+      setRunKey(createLiveRunKey());
+    }
+  }, [runKey]);
 
   const completedBlocksCount = useMemo(
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
@@ -275,6 +303,8 @@ export default function LiveSessionPage() {
         restSecondsLeft,
         elapsedSeconds,
         isTimerPaused,
+        runKey,
+        historySaved,
       };
       window.localStorage.setItem(liveStorageKey, JSON.stringify(payload));
     } catch (error) {
@@ -290,6 +320,8 @@ export default function LiveSessionPage() {
     restSecondsLeft,
     elapsedSeconds,
     isTimerPaused,
+    runKey,
+    historySaved,
   ]);
 
   useEffect(() => {
@@ -342,6 +374,8 @@ export default function LiveSessionPage() {
     setCurrentIndex(0);
     setElapsedSeconds(0);
     setIsTimerPaused(false);
+    setHistorySaved(false);
+    setRunKey(createLiveRunKey());
     clearRestState();
   };
 
@@ -386,6 +420,48 @@ export default function LiveSessionPage() {
 
     completeCurrentExercise();
   };
+
+  useEffect(() => {
+    if (!allBlocksCompleted || historySaved || !session || !userId || !runKey) return;
+
+    const saveHistoryEntry = async () => {
+      const payload = {
+        user_id: userId,
+        workout_id: session.id,
+        workout_name: session.name,
+        completed_at: new Date().toISOString(),
+        duration_seconds: elapsedSeconds,
+        total_volume: sessionTotalVolume > 0 ? sessionTotalVolume : null,
+        completed_exercises: blocks.length,
+        run_key: runKey,
+      };
+
+      const { error } = await supabase.from('workout_sessions_history').insert(payload);
+
+      if (error) {
+        if (error.code === '23505') {
+          setHistorySaved(true);
+          return;
+        }
+
+        console.error('Erreur sauvegarde historique seance :', error);
+        return;
+      }
+
+      setHistorySaved(true);
+    };
+
+    saveHistoryEntry();
+  }, [
+    allBlocksCompleted,
+    blocks.length,
+    elapsedSeconds,
+    historySaved,
+    runKey,
+    session,
+    sessionTotalVolume,
+    userId,
+  ]);
 
   return (
     <AppShell>

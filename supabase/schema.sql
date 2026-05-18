@@ -956,14 +956,31 @@ alter table if exists public.training_session_blocks
   add column if not exists sets_count integer not null default 1,
   add column if not exists charge_kg numeric;
 
+create table if not exists public.workout_sessions_history (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  workout_id uuid references public.training_sessions(id) on delete set null,
+  workout_name text not null,
+  completed_at timestamptz not null default now(),
+  duration_seconds integer,
+  total_volume numeric,
+  completed_exercises integer,
+  run_key text unique,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists training_sessions_user_created_idx
   on public.training_sessions (user_id, created_at desc);
 
 create index if not exists training_session_blocks_session_position_idx
   on public.training_session_blocks (session_id, position asc);
 
+create index if not exists workout_sessions_history_user_completed_idx
+  on public.workout_sessions_history (user_id, completed_at desc);
+
 alter table if exists public.training_sessions enable row level security;
 alter table if exists public.training_session_blocks enable row level security;
+alter table if exists public.workout_sessions_history enable row level security;
 
 drop policy if exists "Users can read own training sessions" on public.training_sessions;
 create policy "Users can read own training sessions"
@@ -1042,5 +1059,16 @@ create policy "Users can delete own training session blocks"
     )
   );
 
+drop policy if exists "Users can read own workout history" on public.workout_sessions_history;
+create policy "Users can read own workout history"
+  on public.workout_sessions_history for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own workout history" on public.workout_sessions_history;
+create policy "Users can insert own workout history"
+  on public.workout_sessions_history for insert
+  with check (auth.uid() = user_id);
+
 grant select, insert, update, delete on public.training_sessions to authenticated;
 grant select, insert, update, delete on public.training_session_blocks to authenticated;
+grant select, insert on public.workout_sessions_history to authenticated;
