@@ -39,11 +39,12 @@ type WorkoutHistoryEntry = {
 
 type WorkoutHistoryDebug = {
   currentWorkoutId: string;
-  totalRowsForUser: number;
-  matchedByWorkoutId: number;
+  currentUserId: string;
+  exactRows: number;
   matchedByWorkoutNameWithNullId: number;
   loadedRows: number;
   loadedWorkoutIds: string[];
+  queryError: string | null;
 };
 
 function formatRelativeDate(dateString: string | null) {
@@ -186,33 +187,72 @@ export default function SessionDetailPage() {
             'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
           )
           .eq('user_id', user.id)
-          .order('completed_at', { ascending: false });
+          .eq('workout_id', currentSession.id)
+          .order('completed_at', { ascending: true });
 
         if (historyError) {
           console.error('Erreur chargement historique detail seance :', historyError);
           setHistoryEntries([]);
-          setHistoryDebug(null);
+          if (process.env.NODE_ENV === 'development') {
+            console.log('WORKOUT HISTORY SELECT SESSION ID:', currentSession.id);
+            console.log('WORKOUT HISTORY SELECT USER ID:', user.id);
+            console.log('WORKOUT HISTORY SELECT DATA:', null);
+            console.log('WORKOUT HISTORY SELECT ERROR:', historyError);
+            setHistoryDebug({
+              currentWorkoutId: currentSession.id,
+              currentUserId: user.id,
+              exactRows: 0,
+              matchedByWorkoutNameWithNullId: 0,
+              loadedRows: 0,
+              loadedWorkoutIds: [],
+              queryError: JSON.stringify(historyError),
+            });
+          } else {
+            setHistoryDebug(null);
+          }
         } else {
-          const allHistoryRows = (historyRows as WorkoutHistoryEntry[]) || [];
-          const matchedByWorkoutId = allHistoryRows.filter((entry) => entry.workout_id === id);
-          const matchedByWorkoutNameWithNullId = allHistoryRows.filter(
-            (entry) => !entry.workout_id && entry.workout_name === currentSession.name
-          );
-          const resolvedHistoryEntries =
-            matchedByWorkoutId.length > 0 ? matchedByWorkoutId : matchedByWorkoutNameWithNullId;
+          const exactHistoryRows = (historyRows as WorkoutHistoryEntry[]) || [];
+          let resolvedHistoryEntries = exactHistoryRows;
+          let matchedByWorkoutNameWithNullId: WorkoutHistoryEntry[] = [];
+
+          if (exactHistoryRows.length === 0) {
+            const { data: fallbackRows, error: fallbackError } = await supabase
+              .from('workout_sessions_history')
+              .select(
+                'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
+              )
+              .eq('user_id', user.id)
+              .is('workout_id', null)
+              .eq('workout_name', currentSession.name)
+              .order('completed_at', { ascending: true });
+
+            if (fallbackError) {
+              console.error('Erreur chargement historique fallback detail seance :', fallbackError);
+            } else {
+              matchedByWorkoutNameWithNullId = (fallbackRows as WorkoutHistoryEntry[]) || [];
+              if (matchedByWorkoutNameWithNullId.length > 0) {
+                resolvedHistoryEntries = matchedByWorkoutNameWithNullId;
+              }
+            }
+          }
 
           setHistoryEntries(resolvedHistoryEntries);
 
           if (process.env.NODE_ENV === 'development') {
+            console.log('WORKOUT HISTORY SELECT SESSION ID:', currentSession.id);
+            console.log('WORKOUT HISTORY SELECT USER ID:', user.id);
+            console.log('WORKOUT HISTORY SELECT DATA:', exactHistoryRows);
+            console.log('WORKOUT HISTORY SELECT ERROR:', null);
             setHistoryDebug({
-              currentWorkoutId: id,
-              totalRowsForUser: allHistoryRows.length,
-              matchedByWorkoutId: matchedByWorkoutId.length,
+              currentWorkoutId: currentSession.id,
+              currentUserId: user.id,
+              exactRows: exactHistoryRows.length,
               matchedByWorkoutNameWithNullId: matchedByWorkoutNameWithNullId.length,
               loadedRows: resolvedHistoryEntries.length,
               loadedWorkoutIds: resolvedHistoryEntries
                 .map((entry) => entry.workout_id || 'null')
                 .slice(0, 10),
+              queryError: null,
             });
           } else {
             setHistoryDebug(null);
@@ -365,7 +405,6 @@ export default function SessionDetailPage() {
   const lastCompletedAt = historyEntries[0]?.completed_at || null;
   const progressionData = useMemo(() => {
     const sortedEntries = [...historyEntries]
-      .filter((entry) => entry.workout_id === id)
       .sort(
         (left, right) =>
           new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime()
@@ -627,11 +666,12 @@ export default function SessionDetailPage() {
                 </div>
                 <div className="challenge-state challenge-state--compact">
                   <p>Workout courant : {historyDebug.currentWorkoutId}</p>
-                  <p>Lignes utilisateur : {historyDebug.totalRowsForUser}</p>
-                  <p>Matches workout_id : {historyDebug.matchedByWorkoutId}</p>
+                  <p>User courant : {historyDebug.currentUserId}</p>
+                  <p>Matches workout_id exact : {historyDebug.exactRows}</p>
                   <p>Matches nom + id null : {historyDebug.matchedByWorkoutNameWithNullId}</p>
                   <p>Historique retenu : {historyDebug.loadedRows}</p>
                   <p>Workout ids charges : {historyDebug.loadedWorkoutIds.join(', ') || '-'}</p>
+                  <p>Erreur requete : {historyDebug.queryError || 'aucune'}</p>
                 </div>
               </article>
             ) : null}

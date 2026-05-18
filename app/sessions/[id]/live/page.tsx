@@ -437,15 +437,56 @@ export default function LiveSessionPage() {
         run_key: runKey,
       };
 
-      const { error } = await supabase.from('workout_sessions_history').insert(payload);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WORKOUT HISTORY INSERT PAYLOAD:', payload);
+      }
 
-      if (error) {
-        if (error.code === '23505') {
+      let insertResult = await supabase
+        .from('workout_sessions_history')
+        .insert(payload)
+        .select(
+          'id, workout_id, user_id, workout_name, duration_seconds, estimated_calories, total_volume, completed_exercises, completed_at'
+        );
+
+      if (
+        insertResult.error &&
+        JSON.stringify(insertResult.error).includes('estimated_calories')
+      ) {
+        const fallbackPayload = {
+          user_id: userId,
+          workout_id: session.id,
+          workout_name: session.name,
+          completed_at: new Date().toISOString(),
+          duration_seconds: elapsedSeconds,
+          total_volume: sessionTotalVolume > 0 ? sessionTotalVolume : null,
+          completed_exercises: blocks.length,
+          run_key: runKey,
+        };
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log('WORKOUT HISTORY INSERT FALLBACK PAYLOAD:', fallbackPayload);
+        }
+
+        insertResult = await supabase
+          .from('workout_sessions_history')
+          .insert(fallbackPayload)
+          .select(
+            'id, workout_id, user_id, workout_name, duration_seconds, total_volume, completed_exercises, completed_at'
+          );
+      }
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('WORKOUT HISTORY INSERT DATA:', insertResult.data);
+        console.log('WORKOUT HISTORY INSERT ERROR:', insertResult.error);
+      }
+
+      if (insertResult.error) {
+        if (insertResult.error.code === '23505') {
           setHistorySaved(true);
           return;
         }
 
-        console.error('Erreur sauvegarde historique seance :', error);
+        console.error('Erreur sauvegarde historique seance :', insertResult.error);
         return;
       }
 
