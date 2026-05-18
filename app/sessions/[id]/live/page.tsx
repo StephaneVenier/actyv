@@ -62,10 +62,10 @@ export default function LiveSessionPage() {
   const id = params?.id as string;
 
   const [session, setSession] = useState<TrainingSession | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
+  const [historyMessage, setHistoryMessage] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
   const [completedSetsByBlockId, setCompletedSetsByBlockId] = useState<Record<string, number>>({});
@@ -82,6 +82,7 @@ export default function LiveSessionPage() {
     const loadSession = async () => {
       setLoading(true);
       setMessage(null);
+      setHistoryMessage(null);
 
       try {
         const {
@@ -93,14 +94,11 @@ export default function LiveSessionPage() {
           if (userError) {
             console.error('Erreur chargement user seance live :', userError);
           }
-          setUserId(null);
           setMessage('Connecte-toi pour lancer cette seance.');
           setSession(null);
           setBlocks([]);
           return;
         }
-
-        setUserId(user.id);
 
         const { data: sessionRow, error: sessionError } = await supabase
           .from('training_sessions')
@@ -375,6 +373,7 @@ export default function LiveSessionPage() {
     setElapsedSeconds(0);
     setIsTimerPaused(false);
     setHistorySaved(false);
+    setHistoryMessage(null);
     setRunKey(createLiveRunKey());
     clearRestState();
   };
@@ -422,11 +421,22 @@ export default function LiveSessionPage() {
   };
 
   useEffect(() => {
-    if (!allBlocksCompleted || historySaved || !session || !userId || !runKey) return;
+    if (!allBlocksCompleted || historySaved || !session || !runKey) return;
 
     const saveHistoryEntry = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        console.error('Workout history insert error:', userError || new Error('No authenticated user'));
+        setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
+        return;
+      }
+
       const payload = {
-        user_id: userId,
+        user_id: user.id,
         workout_id: session.id,
         workout_name: session.name,
         completed_at: new Date().toISOString(),
@@ -437,60 +447,29 @@ export default function LiveSessionPage() {
         run_key: runKey,
       };
 
-      if (process.env.NODE_ENV === 'development') {
-        console.log('WORKOUT HISTORY INSERT PAYLOAD:', payload);
-      }
-
-      let insertResult = await supabase
+      const { data, error } = await supabase
         .from('workout_sessions_history')
         .insert(payload)
         .select(
           'id, workout_id, user_id, workout_name, duration_seconds, estimated_calories, total_volume, completed_exercises, completed_at'
-        );
+        )
+        .single();
 
-      if (
-        insertResult.error &&
-        JSON.stringify(insertResult.error).includes('estimated_calories')
-      ) {
-        const fallbackPayload = {
-          user_id: userId,
-          workout_id: session.id,
-          workout_name: session.name,
-          completed_at: new Date().toISOString(),
-          duration_seconds: elapsedSeconds,
-          total_volume: sessionTotalVolume > 0 ? sessionTotalVolume : null,
-          completed_exercises: blocks.length,
-          run_key: runKey,
-        };
-
-        if (process.env.NODE_ENV === 'development') {
-          console.log('WORKOUT HISTORY INSERT FALLBACK PAYLOAD:', fallbackPayload);
-        }
-
-        insertResult = await supabase
-          .from('workout_sessions_history')
-          .insert(fallbackPayload)
-          .select(
-            'id, workout_id, user_id, workout_name, duration_seconds, total_volume, completed_exercises, completed_at'
-          );
-      }
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('WORKOUT HISTORY INSERT DATA:', insertResult.data);
-        console.log('WORKOUT HISTORY INSERT ERROR:', insertResult.error);
-      }
-
-      if (insertResult.error) {
-        if (insertResult.error.code === '23505') {
+      if (error) {
+        if (error.code === '23505') {
           setHistorySaved(true);
+          setHistoryMessage(null);
           return;
         }
 
-        console.error('Erreur sauvegarde historique seance :', insertResult.error);
+        console.error('Workout history insert error:', error);
+        setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
         return;
       }
 
+      console.log('Workout history saved:', data);
       setHistorySaved(true);
+      setHistoryMessage(null);
     };
 
     saveHistoryEntry();
@@ -503,7 +482,6 @@ export default function LiveSessionPage() {
     runKey,
     session,
     sessionTotalVolume,
-    userId,
   ]);
 
   return (
@@ -591,6 +569,9 @@ export default function LiveSessionPage() {
                 ) : null}
                 {sessionTotalVolume > 0 ? (
                   <p className="session-live-total-time">Volume total : {formatSessionVolumeKg(sessionTotalVolume)}</p>
+                ) : null}
+                {historyMessage ? (
+                  <p className="form-feedback form-feedback--error">{historyMessage}</p>
                 ) : null}
                 <p>Tous les exercices ont ete valides. Tu peux revenir au detail ou relancer la seance.</p>
                 <div className="session-live-actions">
