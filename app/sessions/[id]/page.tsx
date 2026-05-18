@@ -340,6 +340,8 @@ export default function SessionDetailPage() {
     () => Math.max(...chartMetricEntries.map((entry) => entry.rawValue), 0),
     [chartMetricEntries]
   );
+  const hasEnoughDataForChart = chartMetricEntries.length >= 2 && chartMaxValue > 0;
+  const singleProgressEntry = chartMetricEntries.length === 1 ? chartMetricEntries[0] : null;
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -518,6 +520,22 @@ export default function SessionDetailPage() {
                 <div className="challenge-state challenge-state--compact">
                   <p>Pas encore assez de donnees.</p>
                 </div>
+              ) : singleProgressEntry ? (
+                <div className="session-progress-chart session-progress-chart--single">
+                  <div className="session-progress-chart__header">
+                    <span>{chartMetricLabel}</span>
+                    <strong>1 seance</strong>
+                  </div>
+
+                  <article className="session-block-card">
+                    <div className="session-block-card__top">
+                      <div className="session-block-check__label">
+                        <strong>{singleProgressEntry.formattedValue || '-'}</strong>
+                        <small>{singleProgressEntry.label}</small>
+                      </div>
+                    </div>
+                  </article>
+                </div>
               ) : (
                 <div className="session-progress-chart">
                   <div className="session-progress-chart__header">
@@ -527,7 +545,9 @@ export default function SessionDetailPage() {
 
                   <div className="session-progress-chart__bars">
                     {chartMetricEntries.map((entry) => {
-                      const ratio = chartMaxValue > 0 ? Math.max(entry.rawValue / chartMaxValue, 0.12) : 0.12;
+                      const ratio = hasEnoughDataForChart
+                        ? Math.max(entry.rawValue / chartMaxValue, 0.12)
+                        : 0.12;
                       return (
                         <div key={entry.id} className="session-progress-chart__item">
                           <span className="session-progress-chart__value">
