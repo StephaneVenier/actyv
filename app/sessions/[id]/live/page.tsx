@@ -435,15 +435,28 @@ export default function LiveSessionPage() {
         return;
       }
 
+      const normalizedDurationSeconds = Number.isFinite(Number(elapsedSeconds))
+        ? Number(elapsedSeconds)
+        : 0;
+      const normalizedEstimatedCalories = Number.isFinite(Number(estimatedCalories))
+        ? Number(estimatedCalories)
+        : 0;
+      const normalizedTotalVolume = Number.isFinite(Number(sessionTotalVolume))
+        ? Number(sessionTotalVolume)
+        : 0;
+      const normalizedCompletedExercises = Number.isFinite(Number(blocks.length))
+        ? Number(blocks.length)
+        : 0;
+
       const payload = {
         user_id: user.id,
         workout_id: session.id,
         workout_name: session.name,
         completed_at: new Date().toISOString(),
-        duration_seconds: elapsedSeconds,
-        estimated_calories: estimatedCalories ?? null,
-        total_volume: sessionTotalVolume > 0 ? sessionTotalVolume : null,
-        completed_exercises: blocks.length,
+        duration_seconds: normalizedDurationSeconds,
+        estimated_calories: normalizedEstimatedCalories,
+        total_volume: normalizedTotalVolume,
+        completed_exercises: normalizedCompletedExercises,
       };
 
       console.log('Workout history payload:', payload);
