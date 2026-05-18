@@ -21,6 +21,11 @@ export type TrainingSessionBlockInsert = {
   charge_kg: number | null;
 };
 
+type BlockVariant = {
+  label: string;
+  rows: Record<string, unknown>[];
+};
+
 function isSchemaAlignmentError(serializedError: string) {
   return (
     serializedError.includes('PGRST204') ||
@@ -76,9 +81,7 @@ export async function insertTrainingSessionBlocks(
   sessionId: string,
   blocksPayload: TrainingSessionBlockInsert[]
 ) {
-  console.log('BLOCKS PAYLOAD:', blocksPayload);
-
-  const variants = [
+  const variants: BlockVariant[] = [
     {
       label: 'canonical',
       rows: blocksPayload.map((block) => ({
@@ -87,17 +90,6 @@ export async function insertTrainingSessionBlocks(
         name: block.name,
         block_type: block.block_type,
         sets_count: block.sets_count,
-        target_value: block.target_value,
-        charge_kg: block.charge_kg,
-      })),
-    },
-    {
-      label: 'canonical_without_sets',
-      rows: blocksPayload.map((block) => ({
-        session_id: sessionId,
-        position: block.position,
-        name: block.name,
-        block_type: block.block_type,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
       })),
@@ -114,6 +106,16 @@ export async function insertTrainingSessionBlocks(
       })),
     },
     {
+      label: 'canonical_without_sets',
+      rows: blocksPayload.map((block) => ({
+        session_id: sessionId,
+        position: block.position,
+        name: block.name,
+        block_type: block.block_type,
+        target_value: block.target_value,
+      })),
+    },
+    {
       label: 'legacy',
       rows: blocksPayload.map((block) => ({
         session_id: sessionId,
@@ -126,17 +128,6 @@ export async function insertTrainingSessionBlocks(
       })),
     },
     {
-      label: 'legacy_without_sets',
-      rows: blocksPayload.map((block) => ({
-        session_id: sessionId,
-        order_index: block.position,
-        block_name: block.name,
-        type: block.block_type,
-        target_value: block.target_value,
-        charge_kg: block.charge_kg,
-      })),
-    },
-    {
       label: 'legacy_without_charge',
       rows: blocksPayload.map((block) => ({
         session_id: sessionId,
@@ -144,6 +135,16 @@ export async function insertTrainingSessionBlocks(
         block_name: block.name,
         type: block.block_type,
         sets_count: block.sets_count,
+        target_value: block.target_value,
+      })),
+    },
+    {
+      label: 'legacy_without_sets',
+      rows: blocksPayload.map((block) => ({
+        session_id: sessionId,
+        order_index: block.position,
+        block_name: block.name,
+        type: block.block_type,
         target_value: block.target_value,
       })),
     },
@@ -175,89 +176,103 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
     return { data: [] as TrainingSessionBlockRecord[], error: null };
   }
 
-  const canonicalQuery = applySessionFilter(
-    supabase
-      .from('training_session_blocks')
-      .select('id, session_id, position, name, block_type, sets_count, target_value, charge_kg')
-      .order('position', { ascending: true }),
-    sessionIds
-  );
-  const canonicalResponse = await canonicalQuery;
+  const selectVariants = [
+    {
+      label: 'canonical',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, position, name, block_type, sets_count, target_value, charge_kg')
+            .order('position', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeCanonicalRows,
+    },
+    {
+      label: 'canonical_without_charge',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, position, name, block_type, sets_count, target_value')
+            .order('position', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeCanonicalRows,
+    },
+    {
+      label: 'canonical_without_sets',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, position, name, block_type, target_value, charge_kg')
+            .order('position', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeCanonicalRows,
+    },
+    {
+      label: 'legacy',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, order_index, block_name, type, sets_count, target_value, charge_kg')
+            .order('order_index', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeLegacyRows,
+    },
+    {
+      label: 'legacy_without_charge',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, order_index, block_name, type, sets_count, target_value')
+            .order('order_index', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeLegacyRows,
+    },
+    {
+      label: 'legacy_without_sets',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, order_index, block_name, type, target_value, charge_kg')
+            .order('order_index', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeLegacyRows,
+    },
+  ];
 
-  if (!canonicalResponse.error) {
-    return {
-      data: normalizeCanonicalRows((canonicalResponse.data as any[]) || []),
-      error: null,
-    };
+  let lastError: any = null;
+
+  for (const variant of selectVariants) {
+    const response = await variant.query();
+
+    if (!response.error) {
+      return {
+        data: variant.normalize((response.data as any[]) || []),
+        error: null,
+      };
+    }
+
+    lastError = response.error;
+    console.error(
+      `SESSION BLOCKS SELECT ERROR (${variant.label}):`,
+      JSON.stringify(response.error, null, 2)
+    );
+
+    if (!isSchemaAlignmentError(JSON.stringify(response.error, null, 2))) {
+      break;
+    }
   }
 
-  console.error(
-    'SESSION BLOCKS SELECT ERROR:',
-    JSON.stringify(canonicalResponse.error, null, 2)
-  );
-
-  const canonicalFallbackQuery = applySessionFilter(
-    supabase
-      .from('training_session_blocks')
-      .select('id, session_id, position, name, block_type, target_value, charge_kg')
-      .order('position', { ascending: true }),
-    sessionIds
-  );
-  const canonicalFallbackResponse = await canonicalFallbackQuery;
-
-  if (!canonicalFallbackResponse.error) {
-    return {
-      data: normalizeCanonicalRows((canonicalFallbackResponse.data as any[]) || []),
-      error: null,
-    };
-  }
-
-  console.error(
-    'SESSION BLOCKS SELECT FALLBACK ERROR:',
-    JSON.stringify(canonicalFallbackResponse.error, null, 2)
-  );
-
-  const legacyQuery = applySessionFilter(
-    supabase
-      .from('training_session_blocks')
-      .select('id, session_id, order_index, block_name, type, sets_count, target_value, charge_kg')
-      .order('order_index', { ascending: true }),
-    sessionIds
-  );
-  const legacyResponse = await legacyQuery;
-
-  if (!legacyResponse.error) {
-    return {
-      data: normalizeLegacyRows((legacyResponse.data as any[]) || []),
-      error: null,
-    };
-  }
-
-  console.error(
-    'SESSION BLOCKS LEGACY SELECT ERROR:',
-    JSON.stringify(legacyResponse.error, null, 2)
-  );
-
-  const legacyFallbackQuery = applySessionFilter(
-    supabase
-      .from('training_session_blocks')
-      .select('id, session_id, order_index, block_name, type, target_value, charge_kg')
-      .order('order_index', { ascending: true }),
-    sessionIds
-  );
-  const legacyFallbackResponse = await legacyFallbackQuery;
-
-  if (!legacyFallbackResponse.error) {
-    return {
-      data: normalizeLegacyRows((legacyFallbackResponse.data as any[]) || []),
-      error: null,
-    };
-  }
-
-  console.error(
-    'SESSION BLOCKS LEGACY FALLBACK ERROR:',
-    JSON.stringify(legacyFallbackResponse.error, null, 2)
-  );
-
-  return { data: [] as TrainingSessionBlockRecord[], error: legacyFallbackResponse.error };
+  return { data: [] as TrainingSessionBlockRecord[], error: lastError };
 }
