@@ -9,6 +9,7 @@ import {
   formatSessionBlockSummary,
   formatSessionBlockTarget,
   getSessionBlockTypeLabel,
+  normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
@@ -25,6 +26,7 @@ type TrainingSession = {
 type LiveState = {
   currentIndex: number;
   completedBlockIds: string[];
+  completedSetsByBlockId: Record<string, number>;
   restAfterBlockId: string | null;
   restSecondsLeft: number;
 };
@@ -41,6 +43,7 @@ export default function LiveSessionPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
+  const [completedSetsByBlockId, setCompletedSetsByBlockId] = useState<Record<string, number>>({});
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
   const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
 
@@ -122,6 +125,15 @@ export default function LiveSessionPage() {
       if (Array.isArray(parsedValue.completedBlockIds)) {
         setCompletedBlockIds(parsedValue.completedBlockIds.filter(Boolean));
       }
+      if (parsedValue.completedSetsByBlockId && typeof parsedValue.completedSetsByBlockId === 'object') {
+        const nextCompletedSets = Object.fromEntries(
+          Object.entries(parsedValue.completedSetsByBlockId).filter(
+            ([blockId, completedSets]) =>
+              Boolean(blockId) && typeof completedSets === 'number' && Number.isFinite(completedSets)
+          )
+        );
+        setCompletedSetsByBlockId(nextCompletedSets);
+      }
       if (
         typeof parsedValue.restAfterBlockId === 'string' ||
         parsedValue.restAfterBlockId === null
@@ -145,6 +157,21 @@ export default function LiveSessionPage() {
   );
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
   const currentBlock = blocks[currentIndex] || null;
+  const currentBlockSetsTotal = currentBlock ? normalizeSessionSetsCount(currentBlock.sets_count) : 1;
+  const rawCurrentCompletedSets = currentBlock ? Number(completedSetsByBlockId[currentBlock.id] ?? 0) : 0;
+  const currentCompletedSets = currentBlock
+    ? Math.min(
+        Number.isFinite(rawCurrentCompletedSets) ? Math.max(Math.trunc(rawCurrentCompletedSets), 0) : 0,
+        currentBlockSetsTotal
+      )
+    : 0;
+  const usesSetBySetValidation =
+    Boolean(currentBlock) &&
+    currentBlockSetsTotal > 1 &&
+    !completedBlockIds.includes(currentBlock.id);
+  const displayedSeriesStep = currentBlock
+    ? Math.min(currentCompletedSets + (completedBlockIds.includes(currentBlock.id) ? 0 : 1), currentBlockSetsTotal)
+    : 1;
   const isResting = Boolean(restAfterBlockId) && !allBlocksCompleted;
 
   useEffect(() => {
@@ -155,6 +182,23 @@ export default function LiveSessionPage() {
 
     if (sanitizedIds.length !== completedBlockIds.length) {
       setCompletedBlockIds(sanitizedIds);
+      return;
+    }
+
+    const sanitizedCompletedSetsByBlockId = Object.fromEntries(
+      Object.entries(completedSetsByBlockId)
+        .filter(([blockId]) => validBlockIds.has(blockId))
+        .map(([blockId, completedSets]) => {
+          const matchingBlock = blocks.find((block) => block.id === blockId);
+          const maxSets = normalizeSessionSetsCount(matchingBlock?.sets_count ?? 1);
+          return [blockId, Math.min(Math.max(Math.trunc(completedSets), 0), maxSets)];
+        })
+    );
+
+    if (
+      JSON.stringify(sanitizedCompletedSetsByBlockId) !== JSON.stringify(completedSetsByBlockId)
+    ) {
+      setCompletedSetsByBlockId(sanitizedCompletedSetsByBlockId);
       return;
     }
 
@@ -176,6 +220,7 @@ export default function LiveSessionPage() {
       const payload: LiveState = {
         currentIndex: nextIndex,
         completedBlockIds: sanitizedIds,
+        completedSetsByBlockId: sanitizedCompletedSetsByBlockId,
         restAfterBlockId: sanitizedRestAfterBlockId,
         restSecondsLeft,
       };
@@ -183,7 +228,15 @@ export default function LiveSessionPage() {
     } catch (error) {
       console.error('Erreur sauvegarde etat live seance :', error);
     }
-  }, [blocks, completedBlockIds, currentIndex, liveStorageKey, restAfterBlockId, restSecondsLeft]);
+  }, [
+    blocks,
+    completedBlockIds,
+    completedSetsByBlockId,
+    currentIndex,
+    liveStorageKey,
+    restAfterBlockId,
+    restSecondsLeft,
+  ]);
 
   useEffect(() => {
     if (!isResting || restSecondsLeft <= 0) return;
@@ -219,11 +272,12 @@ export default function LiveSessionPage() {
 
   const resetLiveProgress = () => {
     setCompletedBlockIds([]);
+    setCompletedSetsByBlockId({});
     setCurrentIndex(0);
     clearRestState();
   };
 
-  const handleValidateCurrent = () => {
+  const completeCurrentExercise = () => {
     if (!currentBlock) return;
 
     setCompletedBlockIds((current) =>
@@ -237,6 +291,32 @@ export default function LiveSessionPage() {
 
     setRestAfterBlockId(currentBlock.id);
     setRestSecondsLeft(DEFAULT_REST_SECONDS);
+  };
+
+  const handleValidateCurrent = () => {
+    if (!currentBlock) return;
+
+    if (usesSetBySetValidation) {
+      const nextCompletedSets = Math.min(currentCompletedSets + 1, currentBlockSetsTotal);
+
+      setCompletedSetsByBlockId((current) => ({
+        ...current,
+        [currentBlock.id]: nextCompletedSets,
+      }));
+
+      if (nextCompletedSets >= currentBlockSetsTotal) {
+        completeCurrentExercise();
+      }
+
+      return;
+    }
+
+    setCompletedSetsByBlockId((current) => ({
+      ...current,
+      [currentBlock.id]: currentBlockSetsTotal,
+    }));
+
+    completeCurrentExercise();
   };
 
   return (
@@ -283,6 +363,11 @@ export default function LiveSessionPage() {
                 <span className="session-progress-pill">
                   Exercice {Math.min(currentIndex + 1, blocks.length)} / {blocks.length}
                 </span>
+                {currentBlock && currentBlockSetsTotal > 1 ? (
+                  <span className="session-progress-pill">
+                    Serie {Math.max(displayedSeriesStep, 1)} / {currentBlockSetsTotal}
+                  </span>
+                ) : null}
                 <span className="session-progress-pill">
                   {completedBlocksCount} / {blocks.length} valides
                 </span>
@@ -385,6 +470,10 @@ export default function LiveSessionPage() {
                 <div className="session-live-block-state">
                   {completedBlockIds.includes(currentBlock.id) ? (
                     <span className="form-feedback form-feedback--success">Exercice valide</span>
+                  ) : usesSetBySetValidation ? (
+                    <span className="form-feedback">
+                      Serie {Math.max(displayedSeriesStep, 1)} / {currentBlockSetsTotal}
+                    </span>
                   ) : (
                     <span className="form-feedback">Exercice en attente</span>
                   )}
@@ -407,7 +496,9 @@ export default function LiveSessionPage() {
                   >
                     {completedBlockIds.includes(currentBlock.id)
                       ? 'Exercice valide'
-                      : 'Valider cet exercice'}
+                      : usesSetBySetValidation
+                        ? `Valider la serie ${Math.max(displayedSeriesStep, 1)}`
+                        : 'Valider cet exercice'}
                   </button>
                   <button
                     type="button"
