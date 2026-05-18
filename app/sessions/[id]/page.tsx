@@ -34,6 +34,16 @@ type WorkoutHistoryEntry = {
   duration_seconds: number | null;
   total_volume: number | null;
   completed_exercises: number | null;
+  estimated_calories?: number | null;
+};
+
+type WorkoutHistoryDebug = {
+  currentWorkoutId: string;
+  totalRowsForUser: number;
+  matchedByWorkoutId: number;
+  matchedByWorkoutNameWithNullId: number;
+  loadedRows: number;
+  loadedWorkoutIds: string[];
 };
 
 function formatRelativeDate(dateString: string | null) {
@@ -105,6 +115,7 @@ export default function SessionDetailPage() {
   const [lastLiveElapsedSeconds, setLastLiveElapsedSeconds] = useState(0);
   const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
+  const [historyDebug, setHistoryDebug] = useState<WorkoutHistoryDebug | null>(null);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -128,6 +139,7 @@ export default function SessionDetailPage() {
           setSession(null);
           setBlocks([]);
           setHistoryEntries([]);
+          setHistoryDebug(null);
           return;
         }
 
@@ -144,6 +156,7 @@ export default function SessionDetailPage() {
           setSession(null);
           setBlocks([]);
           setHistoryEntries([]);
+          setHistoryDebug(null);
           return;
         }
 
@@ -151,10 +164,12 @@ export default function SessionDetailPage() {
           setSession(null);
           setBlocks([]);
           setHistoryEntries([]);
+          setHistoryDebug(null);
           return;
         }
 
-        setSession(sessionRow as TrainingSession);
+        const currentSession = sessionRow as TrainingSession;
+        setSession(currentSession);
 
         const { data: blockRows, error: blocksError } = await fetchTrainingSessionBlocks([id]);
 
@@ -168,17 +183,40 @@ export default function SessionDetailPage() {
         const { data: historyRows, error: historyError } = await supabase
           .from('workout_sessions_history')
           .select(
-            'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises'
+            'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
           )
           .eq('user_id', user.id)
-          .eq('workout_id', id)
           .order('completed_at', { ascending: false });
 
         if (historyError) {
           console.error('Erreur chargement historique detail seance :', historyError);
           setHistoryEntries([]);
+          setHistoryDebug(null);
         } else {
-          setHistoryEntries((historyRows as WorkoutHistoryEntry[]) || []);
+          const allHistoryRows = (historyRows as WorkoutHistoryEntry[]) || [];
+          const matchedByWorkoutId = allHistoryRows.filter((entry) => entry.workout_id === id);
+          const matchedByWorkoutNameWithNullId = allHistoryRows.filter(
+            (entry) => !entry.workout_id && entry.workout_name === currentSession.name
+          );
+          const resolvedHistoryEntries =
+            matchedByWorkoutId.length > 0 ? matchedByWorkoutId : matchedByWorkoutNameWithNullId;
+
+          setHistoryEntries(resolvedHistoryEntries);
+
+          if (process.env.NODE_ENV === 'development') {
+            setHistoryDebug({
+              currentWorkoutId: id,
+              totalRowsForUser: allHistoryRows.length,
+              matchedByWorkoutId: matchedByWorkoutId.length,
+              matchedByWorkoutNameWithNullId: matchedByWorkoutNameWithNullId.length,
+              loadedRows: resolvedHistoryEntries.length,
+              loadedWorkoutIds: resolvedHistoryEntries
+                .map((entry) => entry.workout_id || 'null')
+                .slice(0, 10),
+            });
+          } else {
+            setHistoryDebug(null);
+          }
         }
       } finally {
         setLoading(false);
@@ -312,7 +350,10 @@ export default function SessionDetailPage() {
       ? Math.round(
           completedDurationEntries.reduce(
             (total, entry) =>
-              total + (getEstimatedWorkoutCalories(entry.duration_seconds, session?.sport) || 0),
+              total +
+                (Number.isFinite(Number(entry.estimated_calories))
+                  ? Number(entry.estimated_calories)
+                  : getEstimatedWorkoutCalories(entry.duration_seconds, session?.sport) || 0),
             0
           ) / completedDurationEntries.length
         )
@@ -575,6 +616,25 @@ export default function SessionDetailPage() {
                 </div>
               )}
             </article>
+
+            {process.env.NODE_ENV === 'development' && historyDebug ? (
+              <article className="card session-form-card stack">
+                <div className="session-blocks-header">
+                  <div>
+                    <span className="section-kicker">Debug</span>
+                    <h2>Historique charge</h2>
+                  </div>
+                </div>
+                <div className="challenge-state challenge-state--compact">
+                  <p>Workout courant : {historyDebug.currentWorkoutId}</p>
+                  <p>Lignes utilisateur : {historyDebug.totalRowsForUser}</p>
+                  <p>Matches workout_id : {historyDebug.matchedByWorkoutId}</p>
+                  <p>Matches nom + id null : {historyDebug.matchedByWorkoutNameWithNullId}</p>
+                  <p>Historique retenu : {historyDebug.loadedRows}</p>
+                  <p>Workout ids charges : {historyDebug.loadedWorkoutIds.join(', ') || '-'}</p>
+                </div>
+              </article>
+            ) : null}
 
             <article className="card session-form-card stack">
               <div className="session-blocks-header">

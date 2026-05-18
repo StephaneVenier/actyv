@@ -963,11 +963,15 @@ create table if not exists public.workout_sessions_history (
   workout_name text not null,
   completed_at timestamptz not null default now(),
   duration_seconds integer,
+  estimated_calories integer,
   total_volume numeric,
   completed_exercises integer,
   run_key text unique,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.workout_sessions_history
+  add column if not exists estimated_calories integer;
 
 create index if not exists training_sessions_user_created_idx
   on public.training_sessions (user_id, created_at desc);
