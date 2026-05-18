@@ -98,3 +98,16 @@ export function formatSessionBlockSummary(
 
   return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}${chargeLabel}`;
 }
+
+export function normalizeSessionSetsCount(
+  value: number | string | null | undefined
+) {
+  const parsedValue =
+    typeof value === 'string' ? Number.parseInt(value, 10) : Number(value);
+
+  if (!Number.isFinite(parsedValue) || parsedValue <= 0) {
+    return 1;
+  }
+
+  return Math.trunc(parsedValue);
+}

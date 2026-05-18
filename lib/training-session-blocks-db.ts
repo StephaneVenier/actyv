@@ -47,7 +47,7 @@ function normalizeCanonicalRows(rows: any[]) {
       position: Number(row.position ?? 0),
       name: row.name,
       block_type: row.block_type,
-      sets_count: row.sets_count ?? 1,
+      sets_count: row.sets_count ?? row.set_count ?? row.sets ?? row.series_count ?? 1,
       target_value: row.target_value,
       charge_kg: row.charge_kg ?? null,
     })
@@ -62,7 +62,7 @@ function normalizeLegacyRows(rows: any[]) {
       position: Number(row.order_index ?? 0),
       name: row.block_name,
       block_type: row.type,
-      sets_count: row.sets_count ?? 1,
+      sets_count: row.sets_count ?? row.set_count ?? row.sets ?? row.series_count ?? 1,
       target_value: row.target_value,
       charge_kg: row.charge_kg ?? null,
     })
@@ -106,6 +106,30 @@ export async function insertTrainingSessionBlocks(
       })),
     },
     {
+      label: 'canonical_with_set_count',
+      rows: blocksPayload.map((block) => ({
+        session_id: sessionId,
+        position: block.position,
+        name: block.name,
+        block_type: block.block_type,
+        set_count: block.sets_count,
+        target_value: block.target_value,
+        charge_kg: block.charge_kg,
+      })),
+    },
+    {
+      label: 'canonical_with_sets',
+      rows: blocksPayload.map((block) => ({
+        session_id: sessionId,
+        position: block.position,
+        name: block.name,
+        block_type: block.block_type,
+        sets: block.sets_count,
+        target_value: block.target_value,
+        charge_kg: block.charge_kg,
+      })),
+    },
+    {
       label: 'canonical_without_sets',
       rows: blocksPayload.map((block) => ({
         session_id: sessionId,
@@ -123,6 +147,30 @@ export async function insertTrainingSessionBlocks(
         block_name: block.name,
         type: block.block_type,
         sets_count: block.sets_count,
+        target_value: block.target_value,
+        charge_kg: block.charge_kg,
+      })),
+    },
+    {
+      label: 'legacy_with_set_count',
+      rows: blocksPayload.map((block) => ({
+        session_id: sessionId,
+        order_index: block.position,
+        block_name: block.name,
+        type: block.block_type,
+        set_count: block.sets_count,
+        target_value: block.target_value,
+        charge_kg: block.charge_kg,
+      })),
+    },
+    {
+      label: 'legacy_with_sets',
+      rows: blocksPayload.map((block) => ({
+        session_id: sessionId,
+        order_index: block.position,
+        block_name: block.name,
+        type: block.block_type,
+        sets: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
       })),
@@ -202,6 +250,30 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
       normalize: normalizeCanonicalRows,
     },
     {
+      label: 'canonical_with_set_count',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, position, name, block_type, set_count, target_value, charge_kg')
+            .order('position', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeCanonicalRows,
+    },
+    {
+      label: 'canonical_with_sets',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, position, name, block_type, sets, target_value, charge_kg')
+            .order('position', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeCanonicalRows,
+    },
+    {
       label: 'canonical_without_sets',
       query: () =>
         applySessionFilter(
@@ -232,6 +304,30 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
           supabase
             .from('training_session_blocks')
             .select('id, session_id, order_index, block_name, type, sets_count, target_value')
+            .order('order_index', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeLegacyRows,
+    },
+    {
+      label: 'legacy_with_set_count',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, order_index, block_name, type, set_count, target_value, charge_kg')
+            .order('order_index', { ascending: true }),
+          sessionIds
+        ),
+      normalize: normalizeLegacyRows,
+    },
+    {
+      label: 'legacy_with_sets',
+      query: () =>
+        applySessionFilter(
+          supabase
+            .from('training_session_blocks')
+            .select('id, session_id, order_index, block_name, type, sets, target_value, charge_kg')
             .order('order_index', { ascending: true }),
           sessionIds
         ),

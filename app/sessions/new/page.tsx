@@ -11,6 +11,7 @@ import {
   getSessionBlockInputLabel,
   getSessionBlockPlaceholder,
   getSessionBlockTypeLabel,
+  normalizeSessionSetsCount,
   SESSION_BLOCK_TYPES,
   SessionBlockType,
 } from '@/lib/session-blocks';
@@ -21,7 +22,7 @@ type DraftBlock = {
   id: string;
   name: string;
   blockType: SessionBlockType;
-  setsCount: string;
+  sets_count: number | '';
   targetValue: string;
   chargeKg: string;
 };
@@ -31,7 +32,7 @@ function createEmptyBlock(index: number): DraftBlock {
     id: `block-${Date.now()}-${index}`,
     name: '',
     blockType: 'reps',
-    setsCount: '1',
+    sets_count: 1,
     targetValue: '',
     chargeKg: '',
   };
@@ -81,7 +82,7 @@ export default function NewSessionPage() {
         position: index,
         name: block.name.trim(),
         block_type: block.blockType,
-        sets_count: block.setsCount.trim() === '' ? 1 : Number(block.setsCount),
+        sets_count: normalizeSessionSetsCount(block.sets_count),
         target_value:
           block.blockType === 'free' || block.targetValue.trim() === ''
             ? null
@@ -291,8 +292,15 @@ export default function NewSessionPage() {
                         type="number"
                         min="1"
                         step="1"
-                        value={block.setsCount}
-                        onChange={(event) => updateBlock(block.id, { setsCount: event.target.value })}
+                        value={block.sets_count}
+                        onChange={(event) =>
+                          updateBlock(block.id, {
+                            sets_count:
+                              event.target.value.trim() === ''
+                                ? ''
+                                : normalizeSessionSetsCount(event.target.value),
+                          })
+                        }
                         placeholder="Ex : 3"
                         disabled={loading}
                       />
@@ -330,7 +338,7 @@ export default function NewSessionPage() {
                     {formatSessionBlockSummary(
                       block.blockType,
                       block.targetValue ? Number(block.targetValue) : null,
-                      block.setsCount ? Number(block.setsCount) : 1,
+                      normalizeSessionSetsCount(block.sets_count),
                       block.chargeKg ? Number(block.chargeKg) : null
                     )}
                   </p>
