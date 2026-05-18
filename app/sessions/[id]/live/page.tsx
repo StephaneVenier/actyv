@@ -29,9 +29,19 @@ type LiveState = {
   completedSetsByBlockId: Record<string, number>;
   restAfterBlockId: string | null;
   restSecondsLeft: number;
+  elapsedSeconds: number;
+  isTimerPaused: boolean;
 };
 
 const DEFAULT_REST_SECONDS = 60;
+
+function formatElapsedDuration(totalSeconds: number) {
+  const normalizedSeconds = Math.max(0, Math.trunc(totalSeconds));
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
+
+  return `${minutes} min ${seconds.toString().padStart(2, '0')} sec`;
+}
 
 export default function LiveSessionPage() {
   const params = useParams();
@@ -46,6 +56,8 @@ export default function LiveSessionPage() {
   const [completedSetsByBlockId, setCompletedSetsByBlockId] = useState<Record<string, number>>({});
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
   const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -146,6 +158,15 @@ export default function LiveSessionPage() {
       ) {
         setRestSecondsLeft(Math.max(0, Math.floor(parsedValue.restSecondsLeft)));
       }
+      if (
+        typeof parsedValue.elapsedSeconds === 'number' &&
+        Number.isFinite(parsedValue.elapsedSeconds)
+      ) {
+        setElapsedSeconds(Math.max(0, Math.floor(parsedValue.elapsedSeconds)));
+      }
+      if (typeof parsedValue.isTimerPaused === 'boolean') {
+        setIsTimerPaused(parsedValue.isTimerPaused);
+      }
     } catch (error) {
       console.error('Erreur lecture etat live seance :', error);
     }
@@ -223,6 +244,8 @@ export default function LiveSessionPage() {
         completedSetsByBlockId: sanitizedCompletedSetsByBlockId,
         restAfterBlockId: sanitizedRestAfterBlockId,
         restSecondsLeft,
+        elapsedSeconds,
+        isTimerPaused,
       };
       window.localStorage.setItem(liveStorageKey, JSON.stringify(payload));
     } catch (error) {
@@ -236,6 +259,8 @@ export default function LiveSessionPage() {
     liveStorageKey,
     restAfterBlockId,
     restSecondsLeft,
+    elapsedSeconds,
+    isTimerPaused,
   ]);
 
   useEffect(() => {
@@ -249,6 +274,18 @@ export default function LiveSessionPage() {
       window.clearTimeout(timeoutId);
     };
   }, [isResting, restSecondsLeft]);
+
+  useEffect(() => {
+    if (loading || !session || blocks.length === 0 || allBlocksCompleted || isTimerPaused) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setElapsedSeconds((current) => current + 1);
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [allBlocksCompleted, blocks.length, isTimerPaused, loading, session, elapsedSeconds]);
 
   const clearRestState = () => {
     setRestAfterBlockId(null);
@@ -274,6 +311,8 @@ export default function LiveSessionPage() {
     setCompletedBlockIds([]);
     setCompletedSetsByBlockId({});
     setCurrentIndex(0);
+    setElapsedSeconds(0);
+    setIsTimerPaused(false);
     clearRestState();
   };
 
@@ -361,6 +400,9 @@ export default function LiveSessionPage() {
 
               <div className="session-live-header">
                 <span className="session-progress-pill">
+                  {allBlocksCompleted ? 'Duree totale' : 'Temps'} {formatElapsedDuration(elapsedSeconds)}
+                </span>
+                <span className="session-progress-pill">
                   Exercice {Math.min(currentIndex + 1, blocks.length)} / {blocks.length}
                 </span>
                 {currentBlock && currentBlockSetsTotal > 1 ? (
@@ -372,11 +414,23 @@ export default function LiveSessionPage() {
                   {completedBlocksCount} / {blocks.length} valides
                 </span>
               </div>
+
+              <div className="session-live-actions">
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => setIsTimerPaused((current) => !current)}
+                  disabled={allBlocksCompleted}
+                >
+                  {isTimerPaused ? 'Reprendre' : 'Pause'}
+                </button>
+              </div>
             </article>
 
             {allBlocksCompleted && (
               <article className="card session-live-finished">
                 <strong>Seance terminee ✅</strong>
+                <p className="session-live-total-time">Duree totale : {formatElapsedDuration(elapsedSeconds)}</p>
                 <p>Tous les exercices ont ete valides. Tu peux revenir au detail ou relancer la seance.</p>
                 <div className="session-live-actions">
                   <button type="button" className="button primary" onClick={resetLiveProgress}>

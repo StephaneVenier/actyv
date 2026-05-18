@@ -2251,6 +2251,10 @@ img {
   line-height: 1.55;
 }
 
+.session-live-total-time {
+  font-weight: 700;
+}
+
 /* BOTTOM BAR */
 
 .bottom-bar {
