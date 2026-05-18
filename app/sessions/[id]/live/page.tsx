@@ -447,6 +447,8 @@ export default function LiveSessionPage() {
         run_key: runKey,
       };
 
+      console.log('Workout history payload:', payload);
+
       const { data, error } = await supabase
         .from('workout_sessions_history')
         .insert(payload)
