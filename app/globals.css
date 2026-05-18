@@ -2166,6 +2166,68 @@ img {
   box-shadow: 0 8px 18px rgba(220, 38, 38, 0.08);
 }
 
+.session-live-page {
+  display: grid;
+  gap: 20px;
+}
+
+.session-live-header,
+.session-live-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-live-stage,
+.session-live-finished {
+  display: grid;
+  gap: 16px;
+}
+
+.session-live-stage__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-live-stage__top h2,
+.session-live-finished strong {
+  margin: 0;
+  color: #071226;
+}
+
+.session-live-summary {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.5;
+}
+
+.session-live-meta {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.session-live-block-state {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.session-live-finished {
+  border: 1px solid rgba(22, 163, 74, 0.16);
+  background: rgba(22, 163, 74, 0.06);
+}
+
+.session-live-finished p {
+  margin: 0;
+  color: #166534;
+  line-height: 1.55;
+}
+
 /* BOTTOM BAR */
 
 .bottom-bar {
@@ -2529,6 +2591,7 @@ img {
   .sessions-grid,
   .session-detail-meta,
   .session-runner-grid,
+  .session-live-meta,
   .session-form-grid {
     grid-template-columns: 1fr;
   }
@@ -2663,6 +2726,8 @@ img {
   .session-form-card,
   .session-summary-card,
   .session-runner-card,
+  .session-live-stage,
+  .session-live-finished,
   .session-card,
   .session-block-card {
     padding: 18px;

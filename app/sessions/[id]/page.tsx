@@ -6,11 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
-import {
-  formatSessionBlockSummary,
-  getSessionBlockTypeLabel,
-  SessionBlockType,
-} from '@/lib/session-blocks';
+import { formatSessionBlockSummary, getSessionBlockTypeLabel } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
@@ -49,7 +45,6 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [runnerOpen, setRunnerOpen] = useState(false);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
@@ -67,9 +62,9 @@ export default function SessionDetailPage() {
 
         if (userError || !user) {
           if (userError) {
-            console.error('Erreur chargement user séance :', userError);
+            console.error('Erreur chargement user seance :', userError);
           }
-          setMessage('Connecte-toi pour consulter cette séance.');
+          setMessage('Connecte-toi pour consulter cette seance.');
           setSession(null);
           setBlocks([]);
           return;
@@ -83,8 +78,8 @@ export default function SessionDetailPage() {
           .maybeSingle();
 
         if (sessionError) {
-          console.error('Erreur chargement détail séance :', sessionError);
-          setMessage('Impossible de charger cette séance.');
+          console.error('Erreur chargement detail seance :', sessionError);
+          setMessage('Impossible de charger cette seance.');
           setSession(null);
           setBlocks([]);
           return;
@@ -101,7 +96,7 @@ export default function SessionDetailPage() {
         const { data: blockRows, error: blocksError } = await fetchTrainingSessionBlocks([id]);
 
         if (blocksError) {
-          console.error('Erreur chargement blocs détail séance :', blocksError);
+          console.error('Erreur chargement blocs detail seance :', blocksError);
           setBlocks([]);
           return;
         }
@@ -167,8 +162,6 @@ export default function SessionDetailPage() {
 
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
 
-  const firstBlock = blocks[0] || null;
-
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
       current.includes(blockId)
@@ -181,7 +174,7 @@ export default function SessionDetailPage() {
     if (!session || deleting) return;
 
     const confirmed = window.confirm(
-      'Supprimer cette séance ? Tous les blocs liés seront supprimés aussi.'
+      'Supprimer cette seance ? Tous les blocs lies seront supprimes aussi.'
     );
 
     if (!confirmed) return;
@@ -193,15 +186,15 @@ export default function SessionDetailPage() {
       const { error } = await supabase.from('training_sessions').delete().eq('id', session.id);
 
       if (error) {
-        console.error('Erreur suppression séance :', error);
-        setMessage("Impossible de supprimer la séance pour le moment.");
+        console.error('Erreur suppression seance :', error);
+        setMessage("Impossible de supprimer la seance pour le moment.");
         return;
       }
 
-      queuePendingToast({ message: '🗑️ Séance supprimée', tone: 'info' });
+      queuePendingToast({ message: 'Seance supprimee', tone: 'info' });
       router.push('/sessions');
     } catch (error) {
-      console.error('Erreur inattendue suppression séance :', error);
+      console.error('Erreur inattendue suppression seance :', error);
       setMessage("Une erreur inattendue s'est produite.");
     } finally {
       setDeleting(false);
@@ -217,14 +210,14 @@ export default function SessionDetailPage() {
 
         {loading ? (
           <div className="challenge-state">
-            <p>Chargement de la séance...</p>
+            <p>Chargement de la seance...</p>
           </div>
         ) : !session ? (
           <div className="challenge-state">
-            <p>{message || 'Cette séance est introuvable.'}</p>
+            <p>{message || 'Cette seance est introuvable.'}</p>
             <div className="session-empty-actions">
               <Link href="/sessions" className="button primary">
-                Revenir à mes séances
+                Revenir a mes seances
               </Link>
             </div>
           </div>
@@ -240,14 +233,9 @@ export default function SessionDetailPage() {
               </div>
 
               <div className="session-hero-actions">
-                <button
-                  type="button"
-                  className="button primary"
-                  onClick={() => setRunnerOpen((current) => !current)}
-                  disabled={deleting}
-                >
-                  {runnerOpen ? 'Fermer la seance' : 'Lancer la seance'}
-                </button>
+                <Link href={`/sessions/${session.id}/live`} className="button primary">
+                  Lancer la seance
+                </Link>
                 <Link href="/sessions/new" className="button ghost">
                   Creer une autre seance
                 </Link>
@@ -264,7 +252,7 @@ export default function SessionDetailPage() {
 
               <div className="session-detail-meta">
                 <div className="session-meta-card">
-                  <span>Créée</span>
+                  <span>Creee</span>
                   <strong>{formatRelativeDate(session.created_at)}</strong>
                 </div>
                 <div className="session-meta-card">
@@ -272,60 +260,11 @@ export default function SessionDetailPage() {
                   <strong>{blocks.length}</strong>
                 </div>
                 <div className="session-meta-card">
-                  <span>Blocs structurés</span>
+                  <span>Blocs structures</span>
                   <strong>{totalStructuredBlocks}</strong>
                 </div>
               </div>
             </article>
-
-            {runnerOpen && (
-              <article className="card session-runner-card">
-                <div className="session-blocks-header">
-                  <div>
-                    <span className="section-kicker">Mode seance</span>
-                    <h2>Structure chrono V1</h2>
-                  </div>
-                </div>
-
-                <div className="session-runner-grid">
-                  <div className="session-runner-timer">
-                    <span>Chrono seance</span>
-                    <strong>00:00</strong>
-                  </div>
-                  <div className="session-runner-timer">
-                    <span>Chrono exercice</span>
-                    <strong>00:00</strong>
-                  </div>
-                  <div className="session-runner-timer">
-                    <span>Chrono repos</span>
-                    <strong>00:00</strong>
-                  </div>
-                </div>
-
-                <div className="session-runner-preview">
-                  <strong>Prochain bloc</strong>
-                  <p>
-                    {firstBlock
-                      ? `${firstBlock.name} · ${formatSessionBlockSummary(
-                          firstBlock.block_type,
-                          firstBlock.target_value,
-                          firstBlock.sets_count,
-                          firstBlock.charge_kg
-                        )}`
-                      : 'Ajoute un premier bloc pour préparer le mode séance.'}
-                  </p>
-                </div>
-
-                {blocks.length > 0 && (
-                  <div className="session-runner-status">
-                    <span className="session-progress-pill">
-                      {completedBlocksCount} / {blocks.length} blocs realises
-                    </span>
-                    {allBlocksCompleted && <strong>✅ Seance terminee</strong>}
-                  </div>
-                )}
-              </article>
-            )}
 
             <article className="card session-form-card stack">
               <div className="session-blocks-header">
@@ -343,12 +282,12 @@ export default function SessionDetailPage() {
               {message && <p className="form-feedback form-feedback--error">{message}</p>}
 
               {allBlocksCompleted && (
-                <p className="form-feedback form-feedback--success">✅ Seance terminee</p>
+                <p className="form-feedback form-feedback--success">Seance terminee ✅</p>
               )}
 
               {blocks.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">
-                  <p>Aucun bloc ajouté pour le moment.</p>
+                  <p>Aucun bloc ajoute pour le moment.</p>
                 </div>
               ) : (
                 <div className="session-block-list">
@@ -368,7 +307,9 @@ export default function SessionDetailPage() {
                             aria-label={`Marquer ${block.name} comme realise`}
                           />
                           <span className="session-block-check__label">
-                            <strong>{block.position + 1}. {block.name}</strong>
+                            <strong>
+                              {block.position + 1}. {block.name}
+                            </strong>
                             <small>
                               {completedBlockIds.includes(block.id) ? 'Bloc realise' : 'A realiser'}
                             </small>
@@ -377,7 +318,15 @@ export default function SessionDetailPage() {
                         <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
                       </div>
                       <p className="session-block-preview">
-                        Objectif : <strong>{formatSessionBlockSummary(block.block_type, block.target_value, block.sets_count, block.charge_kg)}</strong>
+                        Objectif :{' '}
+                        <strong>
+                          {formatSessionBlockSummary(
+                            block.block_type,
+                            block.target_value,
+                            block.sets_count,
+                            block.charge_kg
+                          )}
+                        </strong>
                       </p>
                     </article>
                   ))}
@@ -390,4 +339,3 @@ export default function SessionDetailPage() {
     </AppShell>
   );
 }
-
