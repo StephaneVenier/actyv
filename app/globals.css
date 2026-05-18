@@ -2261,6 +2261,66 @@ img {
   font-weight: 700;
 }
 
+.session-progress-chart {
+  display: grid;
+  gap: 16px;
+}
+
+.session-progress-chart__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.session-progress-chart__header strong {
+  color: #0f172a;
+}
+
+.session-progress-chart__bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(52px, 1fr));
+  gap: 10px;
+  align-items: end;
+}
+
+.session-progress-chart__item {
+  display: grid;
+  gap: 8px;
+}
+
+.session-progress-chart__value,
+.session-progress-chart__label {
+  font-size: 0.8rem;
+  text-align: center;
+  color: #475569;
+}
+
+.session-progress-chart__value {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.session-progress-chart__track {
+  height: 140px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.06);
+  padding: 8px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.session-progress-chart__bar {
+  width: 100%;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #22c55e, #0f766e);
+  min-height: 14px;
+  transition: height 160ms ease;
+}
+
 /* BOTTOM BAR */
 
 .bottom-bar {

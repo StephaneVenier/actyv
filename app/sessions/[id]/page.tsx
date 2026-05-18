@@ -70,6 +70,19 @@ function formatDurationLabel(durationSeconds: number | null | undefined) {
   return `${minutes} min ${seconds.toString().padStart(2, '0')} sec`;
 }
 
+function formatChartDayLabel(dateString: string) {
+  const date = new Date(dateString);
+
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+}
+
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -301,6 +314,32 @@ export default function SessionDetailPage() {
       ? historyEntries.reduce((best, entry) => Math.max(best, Number(entry.total_volume || 0)), 0)
       : 0;
   const lastCompletedAt = historyEntries[0]?.completed_at || null;
+  const recentHistoryEntries = useMemo(() => historyEntries.slice(0, 10).reverse(), [historyEntries]);
+  const volumeHistoryEntries = useMemo(
+    () => recentHistoryEntries.filter((entry) => Number(entry.total_volume || 0) > 0),
+    [recentHistoryEntries]
+  );
+  const usesVolumeChart = volumeHistoryEntries.length > 0;
+  const chartMetricLabel = usesVolumeChart ? 'Volume total' : 'Duree totale';
+  const chartMetricEntries = useMemo(
+    () =>
+      (usesVolumeChart ? volumeHistoryEntries : recentHistoryEntries).map((entry) => {
+        const rawValue = usesVolumeChart ? Number(entry.total_volume || 0) : Number(entry.duration_seconds || 0);
+        return {
+          id: entry.id,
+          label: formatChartDayLabel(entry.completed_at),
+          rawValue: Number.isFinite(rawValue) && rawValue > 0 ? rawValue : 0,
+          formattedValue: usesVolumeChart
+            ? formatSessionVolumeKg(rawValue)
+            : formatDurationLabel(rawValue),
+        };
+      }),
+    [recentHistoryEntries, usesVolumeChart, volumeHistoryEntries]
+  );
+  const chartMaxValue = useMemo(
+    () => Math.max(...chartMetricEntries.map((entry) => entry.rawValue), 0),
+    [chartMetricEntries]
+  );
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -463,6 +502,48 @@ export default function SessionDetailPage() {
               {historyEntries.length === 0 && (
                 <div className="challenge-state challenge-state--compact">
                   <p>Pas encore de seance realisee.</p>
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Progression</span>
+                  <h2>Progression</h2>
+                </div>
+              </div>
+
+              {chartMetricEntries.length === 0 || chartMaxValue <= 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Pas encore assez de donnees.</p>
+                </div>
+              ) : (
+                <div className="session-progress-chart">
+                  <div className="session-progress-chart__header">
+                    <span>{chartMetricLabel}</span>
+                    <strong>{chartMetricEntries.length} derniere(s) seance(s)</strong>
+                  </div>
+
+                  <div className="session-progress-chart__bars">
+                    {chartMetricEntries.map((entry) => {
+                      const ratio = chartMaxValue > 0 ? Math.max(entry.rawValue / chartMaxValue, 0.12) : 0.12;
+                      return (
+                        <div key={entry.id} className="session-progress-chart__item">
+                          <span className="session-progress-chart__value">
+                            {entry.formattedValue || '-'}
+                          </span>
+                          <div className="session-progress-chart__track">
+                            <div
+                              className="session-progress-chart__bar"
+                              style={{ height: `${Math.min(ratio * 100, 100)}%` }}
+                            />
+                          </div>
+                          <span className="session-progress-chart__label">{entry.label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </article>
