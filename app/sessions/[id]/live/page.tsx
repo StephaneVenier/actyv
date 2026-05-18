@@ -217,6 +217,12 @@ export default function LiveSessionPage() {
     setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
+  const resetLiveProgress = () => {
+    setCompletedBlockIds([]);
+    setCurrentIndex(0);
+    clearRestState();
+  };
+
   const handleValidateCurrent = () => {
     if (!currentBlock) return;
 
@@ -287,6 +293,14 @@ export default function LiveSessionPage() {
               <article className="card session-live-finished">
                 <strong>Seance terminee ✅</strong>
                 <p>Tous les exercices ont ete valides. Tu peux revenir au detail ou relancer la seance.</p>
+                <div className="session-live-actions">
+                  <button type="button" className="button primary" onClick={resetLiveProgress}>
+                    Relancer la seance
+                  </button>
+                  <Link href={`/sessions/${id}`} className="button ghost">
+                    Retour au detail
+                  </Link>
+                </div>
               </article>
             )}
 
