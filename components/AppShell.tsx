@@ -9,11 +9,32 @@ type Profile = {
   username: string | null;
 };
 
+type QuickStatsSummary = {
+  completedWorkouts: number;
+  totalDurationSeconds: number;
+};
+
+function formatQuickStatsDuration(totalSeconds: number) {
+  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
+    return '0 min';
+  }
+
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours} h ${minutes.toString().padStart(2, '0')}`;
+  }
+
+  return `${minutes} min`;
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
+  const [quickStatsSummary, setQuickStatsSummary] = useState<QuickStatsSummary | null>(null);
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const quickMenuRef = useRef<HTMLDivElement | null>(null);
@@ -30,12 +51,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           console.error('Erreur getUser :', userError);
           setUserEmail(null);
           setUsername(null);
+          setQuickStatsSummary(null);
           return;
         }
 
         if (!user) {
           setUserEmail(null);
           setUsername(null);
+          setQuickStatsSummary(null);
           return;
         }
 
@@ -44,26 +67,48 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         if (!email) {
           setUsername(null);
+        } else {
+          const { data, error: profileError } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('email', email)
+            .maybeSingle<Profile>();
+
+          if (profileError) {
+            console.error('Erreur chargement profil :', profileError);
+            setUsername(null);
+          } else {
+            setUsername(data?.username || null);
+          }
+        }
+
+        const { data: statsRows, error: statsError } = await supabase
+          .from('workout_sessions_history')
+          .select('id, duration_seconds')
+          .eq('user_id', user.id)
+          .order('completed_at', { ascending: false });
+
+        if (statsError) {
+          console.error('Erreur chargement resume statistiques menu :', statsError);
+          setQuickStatsSummary(null);
           return;
         }
 
-        const { data, error: profileError } = await supabase
-          .from('profiles')
-          .select('username')
-          .eq('email', email)
-          .maybeSingle<Profile>();
+        const completedWorkouts = (statsRows || []).length;
+        const totalDurationSeconds = (statsRows || []).reduce((sum, row) => {
+          const duration = Number((row as { duration_seconds?: number | null }).duration_seconds || 0);
+          return sum + (Number.isFinite(duration) ? duration : 0);
+        }, 0);
 
-        if (profileError) {
-          console.error('Erreur chargement profil :', profileError);
-          setUsername(null);
-          return;
-        }
-
-        setUsername(data?.username || null);
+        setQuickStatsSummary({
+          completedWorkouts,
+          totalDurationSeconds,
+        });
       } catch (err) {
         console.error('Erreur AppShell :', err);
         setUserEmail(null);
         setUsername(null);
+        setQuickStatsSummary(null);
       }
     };
 
@@ -215,11 +260,18 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="quick-menu-panel">
               <Link
                 href="/stats"
-                className="quick-menu-item"
+                className="quick-menu-item quick-menu-item--featured"
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <span className="quick-menu-item__title">Statistiques</span>
                 <span className="quick-menu-item__meta">Voir tes donnees detaillees</span>
+                {quickStatsSummary ? (
+                  <span className="quick-menu-item__summary">
+                    {quickStatsSummary.completedWorkouts} seance
+                    {quickStatsSummary.completedWorkouts > 1 ? 's' : ''} •{' '}
+                    {formatQuickStatsDuration(quickStatsSummary.totalDurationSeconds)}
+                  </span>
+                ) : null}
               </Link>
 
               <Link

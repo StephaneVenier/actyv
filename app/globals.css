@@ -2668,6 +2668,23 @@ img {
   line-height: 1.4;
 }
 
+.quick-menu-item__summary {
+  color: #0f766e;
+  font-size: 0.8rem;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.quick-menu-item--featured {
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.96), rgba(236, 253, 245, 0.98));
+  border-color: rgba(32, 183, 166, 0.18);
+}
+
+.quick-menu-item--featured:hover {
+  background: linear-gradient(180deg, rgba(236, 253, 245, 1), rgba(220, 252, 231, 1));
+  border-color: rgba(16, 185, 129, 0.24);
+}
+
 .quick-menu-item--disabled {
   cursor: default;
   opacity: 0.88;
