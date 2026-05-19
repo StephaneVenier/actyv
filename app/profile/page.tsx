@@ -546,17 +546,64 @@ export default function ProfilePage() {
             <span className="stat-card-label">Activites ajoutees</span>
             <strong className="stat-card-value">{stats.totalActivities}</strong>
           </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Distance totale</span>
-            <strong className="stat-card-value">{formatDistance(stats.totalDistance)}</strong>
+        </section>
+
+        <section className="profile-history-grid">
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Raccourcis</span>
+                <h2>Mon espace training</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              <Link href="/sessions" className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Mes seances</strong>
+                </div>
+                <span>Retrouve tes templates, ton live et ton historique recent.</span>
+              </Link>
+
+              <Link href="/stats" className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Mes statistiques</strong>
+                </div>
+                <span>Volume, calories, progression, records et stats par exercice.</span>
+              </Link>
+            </div>
           </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Duree totale</span>
-            <strong className="stat-card-value">{formatDuration(stats.totalDuration)}</strong>
-          </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Repetitions</span>
-            <strong className="stat-card-value">{stats.totalReps}</strong>
+
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Resume</span>
+                <h2>Vue rapide</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Distance totale</strong>
+                </div>
+                <span>{formatDistance(stats.totalDistance)}</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Duree totale</strong>
+                </div>
+                <span>{formatDuration(stats.totalDuration)}</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Repetitions</strong>
+                </div>
+                <span>{stats.totalReps}</span>
+              </div>
+            </div>
           </article>
         </section>
 
@@ -585,102 +632,6 @@ export default function ProfilePage() {
               ))
             )}
           </div>
-        </section>
-
-        <section className="profile-history-grid">
-          <article className="card profile-history-card">
-            <div className="profile-section-heading">
-              <div>
-                <span className="section-kicker">Recent</span>
-                <h2>Dernieres activites</h2>
-              </div>
-            </div>
-
-            {recentActivities.length === 0 ? (
-              <div className="challenge-state challenge-state--compact">
-                <p>Aucune activite recente pour le moment.</p>
-              </div>
-            ) : (
-              <div className="profile-history-list">
-                {recentActivities.map((activity) => {
-                  const linkedChallenge = challengeMap[activity.challenge_id];
-
-                  return (
-                    <Link
-                      key={activity.id}
-                      href={`/challenges/${activity.challenge_id}`}
-                      className="profile-history-item"
-                    >
-                      <div className="profile-history-item__top">
-                        <span
-                          className={getSportBadgeClassName(
-                            activity.sport || linkedChallenge?.sport,
-                            'challenge-item__pill',
-                            'Activite'
-                          )}
-                        >
-                          {formatSportBadgeLabel(activity.sport || linkedChallenge?.sport, 'Activite')}
-                        </span>
-                        <span className="profile-history-item__date">
-                          {formatRelativeDate(activity.created_at)}
-                        </span>
-                      </div>
-                      <strong>{linkedChallenge?.name || 'Activite personnelle'}</strong>
-                      <span>{formatActivitySummary(activity)}</span>
-                      {activity.comment?.trim() && <p>{activity.comment}</p>}
-                    </Link>
-                  );
-                })}
-              </div>
-            )}
-          </article>
-
-          <article className="card profile-history-card">
-            <div className="profile-section-heading">
-              <div>
-                <span className="section-kicker">Recent</span>
-                <h2>Derniers challenges</h2>
-              </div>
-            </div>
-
-            {recentChallenges.length === 0 ? (
-              <div className="challenge-state challenge-state--compact">
-                <p>Aucun challenge recent pour le moment.</p>
-              </div>
-            ) : (
-              <div className="profile-history-list">
-                {recentChallenges.map((challenge) => (
-                  <Link
-                    key={challenge.id}
-                    href={`/challenges/${challenge.id}`}
-                    className="profile-history-item"
-                  >
-                    <div className="profile-history-item__top">
-                      <span
-                        className={getSportBadgeClassName(
-                          challenge.sport,
-                          'challenge-item__pill',
-                          'Challenge'
-                        )}
-                      >
-                        {formatSportBadgeLabel(challenge.sport, 'Challenge')}
-                      </span>
-                      <span className="profile-history-item__date">
-                        {formatRelativeDate(challenge.created_at)}
-                      </span>
-                    </div>
-                    <strong>{challenge.name}</strong>
-                    <span>{formatGoal(getGoalValue(challenge), getGoalType(challenge))}</span>
-                    <p>
-                      {challenge.description?.trim()
-                        ? challenge.description
-                        : 'Challenge disponible dans ton espace personnel.'}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </article>
         </section>
 
         <section className="home-challenges profile-section">

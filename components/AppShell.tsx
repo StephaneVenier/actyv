@@ -214,6 +214,15 @@ export function AppShell({ children }: { children: ReactNode }) {
           {quickMenuOpen && (
             <div className="quick-menu-panel">
               <Link
+                href="/stats"
+                className="quick-menu-item"
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <span className="quick-menu-item__title">Statistiques</span>
+                <span className="quick-menu-item__meta">Voir tes donnees detaillees</span>
+              </Link>
+
+              <Link
                 href="/leaderboard"
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
