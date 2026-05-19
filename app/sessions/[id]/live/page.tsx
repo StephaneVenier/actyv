@@ -528,6 +528,12 @@ export default function LiveSessionPage() {
         if (exerciseHistoryError) {
           console.error('Workout exercise history insert error:', exerciseHistoryError);
           console.error('Exercise history insert error:', exerciseHistoryError);
+          console.error('Exercise history insert error details:', {
+            message: exerciseHistoryError.message,
+            code: exerciseHistoryError.code,
+            details: exerciseHistoryError.details,
+            hint: exerciseHistoryError.hint,
+          });
           console.error(
             'Exercise history insert error full:',
             JSON.stringify(exerciseHistoryError, null, 2)
