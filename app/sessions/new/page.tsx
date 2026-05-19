@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { SessionExercisePicker } from '@/components/session-exercise-picker';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { sports } from '@/components/challenge-data';
 import {
@@ -257,6 +258,14 @@ export default function NewSessionPage() {
                   <div className="session-form-grid">
                     <div className="field">
                       <label>Nom du bloc</label>
+                      <div className="session-block-name-field">
+                        <SessionExercisePicker
+                          disabled={loading}
+                          onSelectExercise={(exerciseName) =>
+                            updateBlock(block.id, { name: exerciseName })
+                          }
+                        />
+                      </div>
                       <input
                         value={block.name}
                         onChange={(event) => updateBlock(block.id, { name: event.target.value })}

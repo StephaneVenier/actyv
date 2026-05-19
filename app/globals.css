@@ -1956,6 +1956,10 @@ img {
   gap: 16px;
 }
 
+.session-block-name-field {
+  margin-bottom: 10px;
+}
+
 .session-blocks-header {
   display: flex;
   align-items: flex-start;
@@ -2119,6 +2123,92 @@ img {
 
 .session-block-card--completed .session-block-check__label strong {
   color: #475569;
+}
+
+.session-exercise-picker-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.46);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 60;
+}
+
+.session-exercise-picker-modal {
+  width: min(720px, 100%);
+  max-height: min(82vh, 760px);
+  overflow: auto;
+  border-radius: 24px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.18);
+  padding: 22px;
+  display: grid;
+  gap: 18px;
+}
+
+.session-exercise-picker-header,
+.session-exercise-picker-controls {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.session-exercise-picker-header h3 {
+  margin: 0;
+  color: #071226;
+}
+
+.session-exercise-picker-controls input,
+.session-exercise-picker-controls select {
+  flex: 1 1 240px;
+}
+
+.session-exercise-picker-section {
+  display: grid;
+  gap: 12px;
+}
+
+.session-exercise-picker-list {
+  display: grid;
+  gap: 10px;
+}
+
+.session-exercise-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(248, 250, 252, 0.88);
+  border-radius: 16px;
+  padding: 14px 16px;
+  transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+}
+
+.session-exercise-picker-item:hover {
+  background: rgba(239, 246, 255, 0.9);
+  border-color: rgba(14, 165, 233, 0.24);
+  transform: translateY(-1px);
+}
+
+.session-exercise-picker-item span {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.session-exercise-picker-item small {
+  color: #64748b;
+}
+
+.session-exercise-picker-item--custom {
+  border-style: dashed;
 }
 
 .session-block-check {
@@ -2740,6 +2830,16 @@ img {
   .session-live-meta,
   .session-form-grid {
     grid-template-columns: 1fr;
+  }
+
+  .session-exercise-picker-modal {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .session-exercise-picker-item {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .challenge-state {

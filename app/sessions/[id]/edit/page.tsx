@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { SessionExercisePicker } from '@/components/session-exercise-picker';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { sports } from '@/components/challenge-data';
 import {
@@ -358,6 +359,14 @@ export default function EditSessionPage() {
                     <div className="session-form-grid">
                       <div className="field">
                         <label>Nom du bloc</label>
+                        <div className="session-block-name-field">
+                          <SessionExercisePicker
+                            disabled={saving}
+                            onSelectExercise={(exerciseName) =>
+                              updateBlock(block.id, { name: exerciseName })
+                            }
+                          />
+                        </div>
                         <input
                           value={block.name}
                           onChange={(event) => updateBlock(block.id, { name: event.target.value })}
