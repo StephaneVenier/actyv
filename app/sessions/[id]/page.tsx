@@ -58,6 +58,18 @@ type ExercisePersonalRecord = {
   bestDurationSeconds: number | null;
 };
 
+type ExerciseStatsCard = ExercisePersonalRecord & {
+  completedCount: number;
+  lastCompletedAt: string | null;
+  progressionEntries: Array<{
+    id: string;
+    label: string;
+    rawValue: number;
+    formattedValue: string | null;
+  }>;
+  progressionMetricLabel: string | null;
+};
+
 type WorkoutHistoryDebug = {
   currentWorkoutId: string;
   currentUserId: string;
@@ -139,6 +151,7 @@ export default function SessionDetailPage() {
   const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
   const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
   const [historyDebug, setHistoryDebug] = useState<WorkoutHistoryDebug | null>(null);
+  const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -479,6 +492,155 @@ export default function SessionDetailPage() {
       return left.exerciseName.localeCompare(right.exerciseName, 'fr');
     });
   }, [blocks, historyExerciseEntries]);
+  const exerciseStatsCards = useMemo<ExerciseStatsCard[]>(() => {
+    if (historyExerciseEntries.length === 0) {
+      return [];
+    }
+
+    const groupedEntries = new Map<string, WorkoutHistoryExerciseEntry[]>();
+    const sessionExerciseOrder = new Map(
+      blocks.map((block, index) => [block.name.trim().toLowerCase(), index] as const)
+    );
+
+    historyExerciseEntries.forEach((entry) => {
+      const exerciseName = entry.exercise_name.trim();
+      if (!exerciseName) return;
+
+      const key = exerciseName.toLowerCase();
+      const currentEntries = groupedEntries.get(key) || [];
+      currentEntries.push(entry);
+      groupedEntries.set(key, currentEntries);
+    });
+
+    return [...groupedEntries.entries()]
+      .map(([, entries]) => {
+        const sortedEntries = [...entries].sort(
+          (left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+        );
+        const latestEntry = sortedEntries[sortedEntries.length - 1] || null;
+        const exerciseName = latestEntry?.exercise_name || entries[0]?.exercise_name || 'Exercice';
+        const maxChargeKg = sortedEntries.reduce((best, entry) => {
+          const value =
+            Number.isFinite(Number(entry.charge_kg)) && Number(entry.charge_kg) > 0 ? Number(entry.charge_kg) : 0;
+          return Math.max(best, value);
+        }, 0);
+        const bestVolumeKg = sortedEntries.reduce((best, entry) => {
+          const value =
+            Number.isFinite(Number(entry.total_volume)) && Number(entry.total_volume) > 0
+              ? Number(entry.total_volume)
+              : 0;
+          return Math.max(best, value);
+        }, 0);
+        const maxReps = sortedEntries.reduce((best, entry) => {
+          const value =
+            entry.block_type === 'reps' && Number.isFinite(Number(entry.target_value)) && Number(entry.target_value) > 0
+              ? Number(entry.target_value)
+              : 0;
+          return Math.max(best, value);
+        }, 0);
+        const bestDurationSeconds = sortedEntries.reduce((best, entry) => {
+          const value =
+            entry.block_type === 'duration' &&
+            Number.isFinite(Number(entry.target_value)) &&
+            Number(entry.target_value) > 0
+              ? Number(entry.target_value)
+              : 0;
+          return Math.max(best, value);
+        }, 0);
+
+        const progressionCandidates = sortedEntries.slice(-10).map((entry) => ({
+          id: entry.id,
+          label: formatChartDayLabel(entry.created_at),
+          volume: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
+          charge: Number.isFinite(Number(entry.charge_kg)) ? Number(entry.charge_kg) : 0,
+          reps:
+            entry.block_type === 'reps' && Number.isFinite(Number(entry.target_value))
+              ? Number(entry.target_value)
+              : 0,
+          duration:
+            entry.block_type === 'duration' && Number.isFinite(Number(entry.target_value))
+              ? Number(entry.target_value)
+              : 0,
+        }));
+
+        const metricKey = progressionCandidates.some((entry) => entry.volume > 0)
+          ? 'volume'
+          : progressionCandidates.some((entry) => entry.charge > 0)
+            ? 'charge'
+            : progressionCandidates.some((entry) => entry.reps > 0)
+              ? 'reps'
+              : progressionCandidates.some((entry) => entry.duration > 0)
+                ? 'duration'
+                : null;
+
+        const progressionEntries =
+          metricKey === null
+            ? []
+            : progressionCandidates.map((entry) => {
+                const rawValue =
+                  metricKey === 'volume'
+                    ? entry.volume
+                    : metricKey === 'charge'
+                      ? entry.charge
+                      : metricKey === 'reps'
+                        ? entry.reps
+                        : entry.duration;
+
+                return {
+                  id: entry.id,
+                  label: entry.label,
+                  rawValue,
+                  formattedValue:
+                    metricKey === 'volume'
+                      ? formatSessionVolumeKg(rawValue)
+                      : metricKey === 'charge'
+                        ? `${rawValue} kg`
+                        : metricKey === 'reps'
+                          ? `${rawValue} reps`
+                          : formatDurationLabel(rawValue),
+                };
+              });
+
+        return {
+          exerciseName,
+          completedCount: sortedEntries.length,
+          lastCompletedAt: latestEntry?.created_at || null,
+          maxChargeKg: maxChargeKg > 0 ? maxChargeKg : null,
+          bestVolumeKg: bestVolumeKg > 0 ? bestVolumeKg : null,
+          maxReps: maxReps > 0 ? maxReps : null,
+          bestDurationSeconds: bestDurationSeconds > 0 ? bestDurationSeconds : null,
+          progressionEntries,
+          progressionMetricLabel:
+            metricKey === 'volume'
+              ? 'Volume'
+              : metricKey === 'charge'
+                ? 'Charge'
+                : metricKey === 'reps'
+                  ? 'Reps'
+                  : metricKey === 'duration'
+                    ? 'Duree'
+                    : null,
+        };
+      })
+      .sort((left, right) => {
+        const leftOrder = sessionExerciseOrder.get(left.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+        const rightOrder = sessionExerciseOrder.get(right.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return left.exerciseName.localeCompare(right.exerciseName, 'fr');
+      });
+  }, [blocks, historyExerciseEntries]);
+  useEffect(() => {
+    if (exerciseStatsCards.length === 0) {
+      setSelectedExerciseName(null);
+      return;
+    }
+
+    if (!selectedExerciseName || !exerciseStatsCards.some((entry) => entry.exerciseName === selectedExerciseName)) {
+      setSelectedExerciseName(exerciseStatsCards[0].exerciseName);
+    }
+  }, [exerciseStatsCards, selectedExerciseName]);
+  const selectedExerciseStats =
+    exerciseStatsCards.find((entry) => entry.exerciseName === selectedExerciseName) || exerciseStatsCards[0] || null;
   const totalSets = useMemo(
     () =>
       blocks.reduce((total, block) => total + Math.max(Number(block.sets_count || 1), 1), 0),
@@ -600,6 +762,39 @@ export default function SessionDetailPage() {
     });
   }, [chartMaxValue, chartMetricEntries]);
   const chartPath = useMemo(() => buildChartPath(chartPoints), [chartPoints]);
+  const selectedExerciseChartEntries = selectedExerciseStats?.progressionEntries || [];
+  const selectedExerciseSingleEntry =
+    selectedExerciseChartEntries.length === 1 ? selectedExerciseChartEntries[0] : null;
+  const selectedExerciseChartMaxValue = useMemo(
+    () => Math.max(...selectedExerciseChartEntries.map((entry) => entry.rawValue), 0),
+    [selectedExerciseChartEntries]
+  );
+  const selectedExerciseChartPoints = useMemo(() => {
+    if (selectedExerciseChartEntries.length < 2 || selectedExerciseChartMaxValue <= 0) {
+      return [] as Array<{ x: number; y: number; label: string; formattedValue: string | null }>;
+    }
+
+    const chartWidth = 100;
+    const chartHeight = 100;
+    const stepX =
+      selectedExerciseChartEntries.length === 1
+        ? chartWidth / 2
+        : chartWidth / (selectedExerciseChartEntries.length - 1);
+
+    return selectedExerciseChartEntries.map((entry, index) => {
+      const ratio = selectedExerciseChartMaxValue > 0 ? entry.rawValue / selectedExerciseChartMaxValue : 0;
+      return {
+        x: Number((index * stepX).toFixed(2)),
+        y: Number((chartHeight - ratio * chartHeight).toFixed(2)),
+        label: entry.label,
+        formattedValue: entry.formattedValue,
+      };
+    });
+  }, [selectedExerciseChartEntries, selectedExerciseChartMaxValue]);
+  const selectedExerciseChartPath = useMemo(
+    () => buildChartPath(selectedExerciseChartPoints),
+    [selectedExerciseChartPoints]
+  );
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -896,6 +1091,164 @@ export default function SessionDetailPage() {
                       </div>
                     </article>
                   ))}
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Exercices</span>
+                  <h2>Stats par exercice</h2>
+                </div>
+              </div>
+
+              {exerciseStatsCards.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Pas encore assez de donnees par exercice.</p>
+                </div>
+              ) : (
+                <div className="stack">
+                  <div className="session-records-list">
+                    {exerciseStatsCards.map((entry) => (
+                      <button
+                        key={entry.exerciseName}
+                        type="button"
+                        className={`session-block-card session-record-card session-exercise-stat-card${
+                          selectedExerciseStats?.exerciseName === entry.exerciseName ? ' is-active' : ''
+                        }`}
+                        onClick={() => setSelectedExerciseName(entry.exerciseName)}
+                      >
+                        <div className="session-block-card__top">
+                          <div className="session-block-check__label">
+                            <strong>{entry.exerciseName}</strong>
+                            <small>{entry.completedCount} fois realise</small>
+                          </div>
+                        </div>
+
+                        <div className="session-record-lines">
+                          <p>
+                            Derniere fois : <strong>{entry.lastCompletedAt ? formatRelativeDate(entry.lastCompletedAt) : '-'}</strong>
+                          </p>
+                          {entry.bestVolumeKg ? (
+                            <p>
+                              Volume max : <strong>{formatSessionVolumeKg(entry.bestVolumeKg)}</strong>
+                            </p>
+                          ) : entry.maxChargeKg ? (
+                            <p>
+                              Charge max : <strong>{entry.maxChargeKg} kg</strong>
+                            </p>
+                          ) : entry.maxReps ? (
+                            <p>
+                              Reps max : <strong>{entry.maxReps} reps</strong>
+                            </p>
+                          ) : entry.bestDurationSeconds ? (
+                            <p>
+                              Duree max : <strong>{formatDurationLabel(entry.bestDurationSeconds)}</strong>
+                            </p>
+                          ) : (
+                            <p>
+                              Progression : <strong>Aucune valeur chiffree</strong>
+                            </p>
+                          )}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedExerciseStats ? (
+                    <article className="session-block-card session-exercise-stat-detail">
+                      <div className="session-block-card__top">
+                        <div className="session-block-check__label">
+                          <strong>{selectedExerciseStats.exerciseName}</strong>
+                          <small>Detail et progression</small>
+                        </div>
+                        <span className="session-block-chip">
+                          {selectedExerciseStats.progressionMetricLabel || 'Stats'}
+                        </span>
+                      </div>
+
+                      <div className="session-detail-meta">
+                        <div className="session-meta-card">
+                          <span>Realisations</span>
+                          <strong>{selectedExerciseStats.completedCount}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Derniere fois</span>
+                          <strong>{selectedExerciseStats.lastCompletedAt ? formatRelativeDate(selectedExerciseStats.lastCompletedAt) : '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Charge max</span>
+                          <strong>{selectedExerciseStats.maxChargeKg ? `${selectedExerciseStats.maxChargeKg} kg` : '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Volume max</span>
+                          <strong>{selectedExerciseStats.bestVolumeKg ? formatSessionVolumeKg(selectedExerciseStats.bestVolumeKg) : '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Reps max</span>
+                          <strong>{selectedExerciseStats.maxReps ? `${selectedExerciseStats.maxReps} reps` : '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Duree max</span>
+                          <strong>{selectedExerciseStats.bestDurationSeconds ? formatDurationLabel(selectedExerciseStats.bestDurationSeconds) : '-'}</strong>
+                        </div>
+                      </div>
+
+                      {selectedExerciseChartEntries.length === 0 ? (
+                        <div className="challenge-state challenge-state--compact">
+                          <p>Pas encore de progression chiffree pour cet exercice.</p>
+                        </div>
+                      ) : selectedExerciseSingleEntry ? (
+                        <div className="session-progress-chart session-progress-chart--single">
+                          <div className="session-progress-chart__header">
+                            <span>{selectedExerciseStats.progressionMetricLabel}</span>
+                            <strong>1 seance</strong>
+                          </div>
+                          <article className="session-block-card">
+                            <div className="session-block-card__top">
+                              <div className="session-block-check__label">
+                                <strong>{selectedExerciseSingleEntry.formattedValue || '-'}</strong>
+                                <small>{selectedExerciseSingleEntry.label}</small>
+                              </div>
+                            </div>
+                          </article>
+                        </div>
+                      ) : (
+                        <div className="session-progress-chart">
+                          <div className="session-progress-chart__header">
+                            <span>{selectedExerciseStats.progressionMetricLabel || 'Progression'}</span>
+                            <strong>{selectedExerciseChartEntries.length} derniere(s) seance(s)</strong>
+                          </div>
+
+                          <div className="session-progress-chart__svg-wrap">
+                            <svg viewBox="0 0 100 100" className="session-progress-chart__svg" preserveAspectRatio="none">
+                              <path d="M 0 100 L 100 100" className="session-progress-chart__axis" />
+                              <path d={selectedExerciseChartPath} className="session-progress-chart__line" />
+                              {selectedExerciseChartPoints.map((point) => (
+                                <circle
+                                  key={point.label + point.x}
+                                  cx={point.x}
+                                  cy={point.y}
+                                  r="2.8"
+                                  className="session-progress-chart__point"
+                                />
+                              ))}
+                            </svg>
+
+                            <div className="session-progress-chart__labels">
+                              {selectedExerciseChartEntries.map((entry) => (
+                                <div key={entry.id} className="session-progress-chart__label-item">
+                                  <strong>{entry.formattedValue || '-'}</strong>
+                                  <span>{entry.label}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </article>
+                  ) : null}
                 </div>
               )}
             </article>

@@ -1307,6 +1307,22 @@ img {
   gap: 14px;
 }
 
+.session-exercise-stat-card {
+  width: 100%;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.session-exercise-stat-card.is-active {
+  border-color: rgba(32, 183, 166, 0.26);
+  box-shadow: 0 16px 28px rgba(15, 23, 42, 0.08);
+  background: rgba(240, 253, 250, 0.92);
+}
+
+.session-exercise-stat-detail {
+  gap: 18px;
+}
+
 .session-record-lines {
   display: grid;
   gap: 8px;
