@@ -90,6 +90,51 @@ function formatDuration(duration: number | null) {
   return `${duration} min`;
 }
 
+const HOME_ACTIONS = [
+  {
+    title: 'Creer un challenge',
+    description: 'Lancer un objectif solo ou collectif.',
+    href: '/challenges/new',
+    emoji: '🏆',
+  },
+  {
+    title: 'Rejoindre un challenge',
+    description: 'Explorer les challenges ouverts.',
+    href: '/challenges',
+    emoji: '🤝',
+  },
+  {
+    title: 'Creer une seance',
+    description: 'Composer une seance personnalisee.',
+    href: '/sessions/new',
+    emoji: '📝',
+  },
+  {
+    title: 'Lancer une seance',
+    description: 'Reprendre ton training en mode live.',
+    href: '/sessions',
+    emoji: '▶️',
+  },
+  {
+    title: 'Voir mes statistiques',
+    description: 'Retrouver progression, records et historique.',
+    href: '/stats',
+    emoji: '📊',
+  },
+  {
+    title: 'Classements',
+    description: 'Comparer l’activite avec ta communaute.',
+    href: '/leaderboard',
+    emoji: '🥇',
+  },
+  {
+    title: 'Badges / XP',
+    description: 'Suivre niveau, badges et progression.',
+    href: '/profile',
+    emoji: '✨',
+  },
+] as const;
+
 export default function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -323,15 +368,49 @@ export default function HomePage() {
           </div>
         </section>
 
+        <section className="home-actions card">
+          <div className="home-challenges__header">
+            <div>
+              <span className="section-kicker">Actyv en ce moment</span>
+              <h2>Ce que tu peux faire sur Actyv</h2>
+            </div>
+          </div>
+
+          <div className="home-actions-grid">
+            {HOME_ACTIONS.map((action) => (
+              <Link key={action.title} href={action.href} className="home-action-card">
+                <span className="home-action-card__emoji" aria-hidden="true">
+                  {action.emoji}
+                </span>
+                <strong>{action.title}</strong>
+                <p>{action.description}</p>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="home-placeholder card">
+          <div className="home-challenges__header">
+            <div>
+              <span className="section-kicker">Bientot</span>
+              <h2>Seance du jour</h2>
+            </div>
+          </div>
+          <p className="muted">
+            Cet espace accueillera bientot une proposition simple pour t’aider a lancer plus vite ta prochaine seance.
+          </p>
+          {/* Placeholder structure kept intentionally for the future "Séance du jour" module. */}
+        </section>
+
         <section className="home-challenges">
           <div className="home-challenges__header">
             <div>
               <span className="section-kicker">En ce moment</span>
-              <h2>Challenges en cours</h2>
+              <h2>Challenges a suivre</h2>
             </div>
 
             <Link href="/challenges" className="home-challenges__link">
-              Voir tout
+              Voir tous les challenges
             </Link>
           </div>
 
@@ -345,7 +424,7 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="challenge-list">
-              {challenges.slice(0, 6).map((challenge) => (
+              {challenges.slice(0, 3).map((challenge) => (
                 <Link
                   key={challenge.id}
                   href={`/challenges/${challenge.id}`}
@@ -371,7 +450,7 @@ export default function HomePage() {
                         : 'Rejoins ce challenge et commence a faire progresser ton equipe.'}
                   </p>
 
-                  <span className="challenge-item__cta">Voir le detail -&gt;</span>
+                  <span className="challenge-item__cta">Voir le detail</span>
                 </Link>
               ))}
             </div>
