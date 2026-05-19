@@ -140,11 +140,19 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 6px 10px;
+  border-radius: 18px;
   z-index: 2;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+
+.brand:hover {
+  transform: translateX(-50%) translateY(-1px);
+  background: rgba(15, 23, 42, 0.03);
 }
 
 .brand-logo {
-  height: 42px;
+  height: 56px;
   width: auto;
   object-fit: contain;
 }
@@ -2859,7 +2867,7 @@ img {
   }
 
   .brand-logo {
-    height: 32px;
+    height: 40px;
   }
 
   .topbar-left {
