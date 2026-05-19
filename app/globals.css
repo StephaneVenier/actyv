@@ -1334,6 +1334,26 @@ img {
   line-height: 1.5;
 }
 
+.session-live-records {
+  display: grid;
+  gap: 14px;
+  margin-top: 6px;
+}
+
+.session-live-records__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-live-record-card {
+  border-color: rgba(245, 158, 11, 0.22);
+  background: linear-gradient(180deg, rgba(254, 252, 232, 0.9), rgba(240, 253, 244, 0.92));
+  box-shadow: 0 12px 28px rgba(245, 158, 11, 0.08);
+}
+
 /* HOME FEED */
 
 .home-feed {

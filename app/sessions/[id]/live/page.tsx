@@ -39,6 +39,12 @@ type LiveState = {
   historySaved: boolean;
 };
 
+type NewPersonalRecord = {
+  exerciseName: string;
+  metric: 'reps' | 'charge' | 'volume' | 'duration';
+  value: number;
+};
+
 const DEFAULT_REST_SECONDS = 60;
 
 function formatElapsedDuration(totalSeconds: number) {
@@ -75,6 +81,7 @@ export default function LiveSessionPage() {
   const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [runKey, setRunKey] = useState('');
   const [historySaved, setHistorySaved] = useState(false);
+  const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -371,11 +378,12 @@ export default function LiveSessionPage() {
     setCompletedSetsByBlockId({});
     setCurrentIndex(0);
     setElapsedSeconds(0);
-    setIsTimerPaused(false);
-    setHistorySaved(false);
-    setHistoryMessage(null);
-    setRunKey(createLiveRunKey());
-    clearRestState();
+      setIsTimerPaused(false);
+      setHistorySaved(false);
+      setHistoryMessage(null);
+      setNewPersonalRecords([]);
+      setRunKey(createLiveRunKey());
+      clearRestState();
   };
 
   const completeCurrentExercise = () => {
@@ -519,6 +527,89 @@ export default function LiveSessionPage() {
         });
 
       if (exerciseHistoryPayload.length > 0) {
+        const exerciseNames = [...new Set(exerciseHistoryPayload.map((entry) => entry.exercise_name))];
+        const { data: previousExerciseHistory, error: previousExerciseHistoryError } = await supabase
+          .from('workout_exercise_history')
+          .select('exercise_name, reps, duration_seconds, charge_kg, volume')
+          .eq('user_id', user.id)
+          .in('exercise_name', exerciseNames);
+
+        if (previousExerciseHistoryError) {
+          console.error('Workout exercise history comparison error:', previousExerciseHistoryError);
+        }
+
+        const previousBestByExercise = new Map<
+          string,
+          { reps: number; duration: number; charge: number; volume: number }
+        >();
+
+        (((previousExerciseHistory as Array<{
+          exercise_name: string;
+          reps: number | null;
+          duration_seconds: number | null;
+          charge_kg: number | null;
+          volume: number | null;
+        }>) || [])).forEach((entry) => {
+          const key = entry.exercise_name.trim().toLowerCase();
+          const current = previousBestByExercise.get(key) || {
+            reps: 0,
+            duration: 0,
+            charge: 0,
+            volume: 0,
+          };
+
+          previousBestByExercise.set(key, {
+            reps: Math.max(current.reps, Number(entry.reps || 0)),
+            duration: Math.max(current.duration, Number(entry.duration_seconds || 0)),
+            charge: Math.max(current.charge, Number(entry.charge_kg || 0)),
+            volume: Math.max(current.volume, Number(entry.volume || 0)),
+          });
+        });
+
+        const detectedNewRecords: NewPersonalRecord[] = [];
+
+        exerciseHistoryPayload.forEach((entry) => {
+          const key = entry.exercise_name.trim().toLowerCase();
+          const previousBest = previousBestByExercise.get(key) || {
+            reps: 0,
+            duration: 0,
+            charge: 0,
+            volume: 0,
+          };
+
+          if (entry.reps > 0 && entry.reps > previousBest.reps) {
+            detectedNewRecords.push({
+              exerciseName: entry.exercise_name,
+              metric: 'reps',
+              value: entry.reps,
+            });
+          }
+
+          if (entry.charge_kg > 0 && entry.charge_kg > previousBest.charge) {
+            detectedNewRecords.push({
+              exerciseName: entry.exercise_name,
+              metric: 'charge',
+              value: entry.charge_kg,
+            });
+          }
+
+          if (entry.volume > 0 && entry.volume > previousBest.volume) {
+            detectedNewRecords.push({
+              exerciseName: entry.exercise_name,
+              metric: 'volume',
+              value: entry.volume,
+            });
+          }
+
+          if (entry.duration_seconds > 0 && entry.duration_seconds > previousBest.duration) {
+            detectedNewRecords.push({
+              exerciseName: entry.exercise_name,
+              metric: 'duration',
+              value: entry.duration_seconds,
+            });
+          }
+        });
+
         console.log('Exercise history payload:', exerciseHistoryPayload);
 
         const { error: exerciseHistoryError } = await supabase
@@ -542,6 +633,8 @@ export default function LiveSessionPage() {
           setHistorySaved(true);
           return;
         }
+
+        setNewPersonalRecords(detectedNewRecords);
       }
 
       console.log('Workout history saved:', data);
@@ -649,6 +742,37 @@ export default function LiveSessionPage() {
                 ) : null}
                 {historyMessage ? (
                   <p className="form-feedback form-feedback--error">{historyMessage}</p>
+                ) : null}
+                {newPersonalRecords.length > 0 ? (
+                  <div className="session-live-records">
+                    <div className="session-live-records__header">
+                      <strong>Nouveaux records</strong>
+                      <span className="session-block-chip">NEW PR</span>
+                    </div>
+                    <div className="session-records-list">
+                      {newPersonalRecords.map((record, index) => (
+                        <article key={`${record.exerciseName}-${record.metric}-${index}`} className="session-block-card session-record-card session-live-record-card">
+                          <div className="session-block-card__top">
+                            <div className="session-block-check__label">
+                              <strong>🏆 {record.exerciseName}</strong>
+                              <small>Nouveau record personnel</small>
+                            </div>
+                          </div>
+                          <p className="session-record-lines">
+                            <span>
+                              {record.metric === 'reps'
+                                ? `${record.value} reps`
+                                : record.metric === 'charge'
+                                  ? `${record.value} kg`
+                                  : record.metric === 'volume'
+                                    ? formatSessionVolumeKg(record.value)
+                                    : formatElapsedDuration(record.value)}
+                            </span>
+                          </p>
+                        </article>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
                 <p>Tous les exercices ont ete valides. Tu peux revenir au detail ou relancer la seance.</p>
                 <div className="session-live-actions">
