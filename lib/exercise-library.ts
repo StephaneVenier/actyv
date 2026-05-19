@@ -50,3 +50,4 @@ export const EXERCISE_LIBRARY: ExerciseLibraryItem[] = [
 ];
 
 export const RECENT_EXERCISES_STORAGE_KEY = 'actyv.exercise-library.recent';
+export const FAVORITE_EXERCISES_STORAGE_KEY = 'actyv.exercise-library.favorites';
