@@ -519,12 +519,19 @@ export default function LiveSessionPage() {
         });
 
       if (exerciseHistoryPayload.length > 0) {
+        console.log('Exercise history payload:', exerciseHistoryPayload);
+
         const { error: exerciseHistoryError } = await supabase
           .from('workout_exercise_history')
           .insert(exerciseHistoryPayload);
 
         if (exerciseHistoryError) {
           console.error('Workout exercise history insert error:', exerciseHistoryError);
+          console.error('Exercise history insert error:', exerciseHistoryError);
+          console.error(
+            'Exercise history insert error full:',
+            JSON.stringify(exerciseHistoryError, null, 2)
+          );
           setHistoryMessage("L'historique a ete enregistre, mais pas les records d'exercices.");
           setHistorySaved(true);
           return;
