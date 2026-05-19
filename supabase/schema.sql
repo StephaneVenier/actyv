@@ -984,6 +984,23 @@ create table if not exists public.workout_session_history_exercises (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.workout_exercise_history (
+  id uuid primary key default gen_random_uuid(),
+  history_id uuid references public.workout_sessions_history(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  workout_id uuid not null references public.training_sessions(id) on delete cascade,
+  exercise_name text not null,
+  block_type text,
+  sets_count integer not null default 1,
+  reps numeric not null default 0,
+  duration_seconds integer not null default 0,
+  distance numeric not null default 0,
+  charge_kg numeric not null default 0,
+  volume numeric not null default 0,
+  completed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
 alter table if exists public.workout_sessions_history
   add column if not exists estimated_calories integer;
 
@@ -1002,10 +1019,17 @@ create index if not exists workout_session_history_exercises_user_workout_idx
 create index if not exists workout_session_history_exercises_history_idx
   on public.workout_session_history_exercises (history_id);
 
+create index if not exists workout_exercise_history_user_workout_completed_idx
+  on public.workout_exercise_history (user_id, workout_id, completed_at desc);
+
+create index if not exists workout_exercise_history_history_idx
+  on public.workout_exercise_history (history_id);
+
 alter table if exists public.training_sessions enable row level security;
 alter table if exists public.training_session_blocks enable row level security;
 alter table if exists public.workout_sessions_history enable row level security;
 alter table if exists public.workout_session_history_exercises enable row level security;
+alter table if exists public.workout_exercise_history enable row level security;
 
 drop policy if exists "Users can read own training sessions" on public.training_sessions;
 create policy "Users can read own training sessions"
@@ -1104,7 +1128,18 @@ create policy "Users can insert own workout history exercises"
   on public.workout_session_history_exercises for insert
   with check (auth.uid() = user_id);
 
+drop policy if exists "Users can read own workout exercise history" on public.workout_exercise_history;
+create policy "Users can read own workout exercise history"
+  on public.workout_exercise_history for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own workout exercise history" on public.workout_exercise_history;
+create policy "Users can insert own workout exercise history"
+  on public.workout_exercise_history for insert
+  with check (auth.uid() = user_id);
+
 grant select, insert, update, delete on public.training_sessions to authenticated;
 grant select, insert, update, delete on public.training_session_blocks to authenticated;
 grant select, insert on public.workout_sessions_history to authenticated;
 grant select, insert on public.workout_session_history_exercises to authenticated;
+grant select, insert on public.workout_exercise_history to authenticated;

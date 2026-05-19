@@ -485,32 +485,22 @@ export default function LiveSessionPage() {
         .filter((block) => block.name.trim().length > 0)
         .map((block) => {
           const normalizedSetsCount = normalizeSessionSetsCount(block.sets_count);
-          const normalizedTargetValue = Number.isFinite(Number(block.target_value))
-            ? Number(block.target_value)
-            : null;
+          const normalizedTargetValue =
+            Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
+              ? Number(block.target_value)
+              : 0;
           const normalizedChargeKg =
-            Number.isFinite(Number(block.charge_kg)) && Number(block.charge_kg) > 0
-              ? Number(block.charge_kg)
-              : null;
-          const normalizedBlockVolume = Number.isFinite(
-            Number(
-              getSessionBlockVolumeKg(
-                block.block_type,
-                block.target_value,
-                block.sets_count,
-                block.charge_kg
-              )
-            )
-          )
-            ? Number(
-                getSessionBlockVolumeKg(
-                  block.block_type,
-                  block.target_value,
-                  block.sets_count,
-                  block.charge_kg
-                )
-              )
-            : 0;
+            Number.isFinite(Number(block.charge_kg)) && Number(block.charge_kg) > 0 ? Number(block.charge_kg) : 0;
+          const computedBlockVolume = getSessionBlockVolumeKg(
+            block.block_type,
+            block.target_value,
+            block.sets_count,
+            block.charge_kg
+          );
+          const normalizedBlockVolume =
+            Number.isFinite(Number(computedBlockVolume)) && Number(computedBlockVolume) > 0
+              ? Number(computedBlockVolume)
+              : 0;
 
           return {
             history_id: data.id,
@@ -519,15 +509,18 @@ export default function LiveSessionPage() {
             exercise_name: block.name.trim(),
             block_type: block.block_type,
             sets_count: normalizedSetsCount,
-            target_value: normalizedTargetValue,
+            reps: block.block_type === 'reps' ? normalizedTargetValue : 0,
+            duration_seconds: block.block_type === 'duration' ? Math.trunc(normalizedTargetValue) : 0,
+            distance: block.block_type === 'distance' ? normalizedTargetValue : 0,
             charge_kg: normalizedChargeKg,
-            total_volume: normalizedBlockVolume,
+            volume: normalizedBlockVolume,
+            completed_at: payload.completed_at,
           };
         });
 
       if (exerciseHistoryPayload.length > 0) {
         const { error: exerciseHistoryError } = await supabase
-          .from('workout_session_history_exercises')
+          .from('workout_exercise_history')
           .insert(exerciseHistoryPayload);
 
         if (exerciseHistoryError) {

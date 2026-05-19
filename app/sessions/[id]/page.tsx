@@ -39,14 +39,17 @@ type WorkoutHistoryEntry = {
 
 type WorkoutHistoryExerciseEntry = {
   id: string;
-  history_id: string;
-  workout_id: string | null;
+  history_id: string | null;
+  workout_id: string;
   exercise_name: string;
   block_type: TrainingSessionBlockRecord['block_type'] | null;
   sets_count: number | null;
-  target_value: number | null;
+  reps: number | null;
+  duration_seconds: number | null;
+  distance: number | null;
   charge_kg: number | null;
-  total_volume: number | null;
+  volume: number | null;
+  completed_at: string;
   created_at: string;
 };
 
@@ -278,13 +281,13 @@ export default function SessionDetailPage() {
           setHistoryEntries(resolvedHistoryEntries);
 
           const { data: historyExerciseRows, error: historyExerciseError } = await supabase
-            .from('workout_session_history_exercises')
+            .from('workout_exercise_history')
             .select(
-              'id, history_id, workout_id, exercise_name, block_type, sets_count, target_value, charge_kg, total_volume, created_at'
+              'id, history_id, workout_id, exercise_name, block_type, sets_count, reps, duration_seconds, distance, charge_kg, volume, completed_at, created_at'
             )
             .eq('user_id', user.id)
             .eq('workout_id', currentSession.id)
-            .order('created_at', { ascending: true });
+            .order('completed_at', { ascending: true });
 
           if (historyExerciseError) {
             console.error('Erreur chargement records exercices detail seance :', historyExerciseError);
@@ -444,12 +447,14 @@ export default function SessionDetailPage() {
           ? Number(entry.charge_kg)
           : null;
       const nextVolume =
-        Number.isFinite(Number(entry.total_volume)) && Number(entry.total_volume) > 0
-          ? Number(entry.total_volume)
+        Number.isFinite(Number(entry.volume)) && Number(entry.volume) > 0
+          ? Number(entry.volume)
           : null;
-      const nextTargetValue =
-        Number.isFinite(Number(entry.target_value)) && Number(entry.target_value) > 0
-          ? Number(entry.target_value)
+      const nextReps =
+        Number.isFinite(Number(entry.reps)) && Number(entry.reps) > 0 ? Number(entry.reps) : null;
+      const nextDurationSeconds =
+        Number.isFinite(Number(entry.duration_seconds)) && Number(entry.duration_seconds) > 0
+          ? Number(entry.duration_seconds)
           : null;
 
       const existingRecord = groupedRecords.get(recordKey) || {
@@ -471,13 +476,13 @@ export default function SessionDetailPage() {
             ? existingRecord.bestVolumeKg
             : Math.max(existingRecord.bestVolumeKg || 0, nextVolume),
         maxReps:
-          entry.block_type !== 'reps' || nextTargetValue === null
+          entry.block_type !== 'reps' || nextReps === null
             ? existingRecord.maxReps
-            : Math.max(existingRecord.maxReps || 0, nextTargetValue),
+            : Math.max(existingRecord.maxReps || 0, nextReps),
         bestDurationSeconds:
-          entry.block_type !== 'duration' || nextTargetValue === null
+          entry.block_type !== 'duration' || nextDurationSeconds === null
             ? existingRecord.bestDurationSeconds
-            : Math.max(existingRecord.bestDurationSeconds || 0, nextTargetValue),
+            : Math.max(existingRecord.bestDurationSeconds || 0, nextDurationSeconds),
       });
     });
 
@@ -515,7 +520,7 @@ export default function SessionDetailPage() {
     return [...groupedEntries.entries()]
       .map(([, entries]) => {
         const sortedEntries = [...entries].sort(
-          (left, right) => new Date(left.created_at).getTime() - new Date(right.created_at).getTime()
+          (left, right) => new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime()
         );
         const latestEntry = sortedEntries[sortedEntries.length - 1] || null;
         const exerciseName = latestEntry?.exercise_name || entries[0]?.exercise_name || 'Exercice';
@@ -526,40 +531,37 @@ export default function SessionDetailPage() {
         }, 0);
         const bestVolumeKg = sortedEntries.reduce((best, entry) => {
           const value =
-            Number.isFinite(Number(entry.total_volume)) && Number(entry.total_volume) > 0
-              ? Number(entry.total_volume)
+            Number.isFinite(Number(entry.volume)) && Number(entry.volume) > 0
+              ? Number(entry.volume)
               : 0;
           return Math.max(best, value);
         }, 0);
         const maxReps = sortedEntries.reduce((best, entry) => {
           const value =
-            entry.block_type === 'reps' && Number.isFinite(Number(entry.target_value)) && Number(entry.target_value) > 0
-              ? Number(entry.target_value)
+            entry.block_type === 'reps' && Number.isFinite(Number(entry.reps)) && Number(entry.reps) > 0
+              ? Number(entry.reps)
               : 0;
           return Math.max(best, value);
         }, 0);
         const bestDurationSeconds = sortedEntries.reduce((best, entry) => {
           const value =
             entry.block_type === 'duration' &&
-            Number.isFinite(Number(entry.target_value)) &&
-            Number(entry.target_value) > 0
-              ? Number(entry.target_value)
+            Number.isFinite(Number(entry.duration_seconds)) &&
+            Number(entry.duration_seconds) > 0
+              ? Number(entry.duration_seconds)
               : 0;
           return Math.max(best, value);
         }, 0);
 
         const progressionCandidates = sortedEntries.slice(-10).map((entry) => ({
           id: entry.id,
-          label: formatChartDayLabel(entry.created_at),
-          volume: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
+          label: formatChartDayLabel(entry.completed_at),
+          volume: Number.isFinite(Number(entry.volume)) ? Number(entry.volume) : 0,
           charge: Number.isFinite(Number(entry.charge_kg)) ? Number(entry.charge_kg) : 0,
-          reps:
-            entry.block_type === 'reps' && Number.isFinite(Number(entry.target_value))
-              ? Number(entry.target_value)
-              : 0,
+          reps: entry.block_type === 'reps' && Number.isFinite(Number(entry.reps)) ? Number(entry.reps) : 0,
           duration:
-            entry.block_type === 'duration' && Number.isFinite(Number(entry.target_value))
-              ? Number(entry.target_value)
+            entry.block_type === 'duration' && Number.isFinite(Number(entry.duration_seconds))
+              ? Number(entry.duration_seconds)
               : 0,
         }));
 
@@ -604,7 +606,7 @@ export default function SessionDetailPage() {
         return {
           exerciseName,
           completedCount: sortedEntries.length,
-          lastCompletedAt: latestEntry?.created_at || null,
+          lastCompletedAt: latestEntry?.completed_at || null,
           maxChargeKg: maxChargeKg > 0 ? maxChargeKg : null,
           bestVolumeKg: bestVolumeKg > 0 ? bestVolumeKg : null,
           maxReps: maxReps > 0 ? maxReps : null,
