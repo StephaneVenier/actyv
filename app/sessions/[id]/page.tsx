@@ -37,6 +37,27 @@ type WorkoutHistoryEntry = {
   estimated_calories?: number | null;
 };
 
+type WorkoutHistoryExerciseEntry = {
+  id: string;
+  history_id: string;
+  workout_id: string | null;
+  exercise_name: string;
+  block_type: TrainingSessionBlockRecord['block_type'] | null;
+  sets_count: number | null;
+  target_value: number | null;
+  charge_kg: number | null;
+  total_volume: number | null;
+  created_at: string;
+};
+
+type ExercisePersonalRecord = {
+  exerciseName: string;
+  maxChargeKg: number | null;
+  bestVolumeKg: number | null;
+  maxReps: number | null;
+  bestDurationSeconds: number | null;
+};
+
 type WorkoutHistoryDebug = {
   currentWorkoutId: string;
   currentUserId: string;
@@ -116,6 +137,7 @@ export default function SessionDetailPage() {
   const [lastLiveElapsedSeconds, setLastLiveElapsedSeconds] = useState(0);
   const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
+  const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
   const [historyDebug, setHistoryDebug] = useState<WorkoutHistoryDebug | null>(null);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
@@ -140,6 +162,7 @@ export default function SessionDetailPage() {
           setSession(null);
           setBlocks([]);
           setHistoryEntries([]);
+          setHistoryExerciseEntries([]);
           setHistoryDebug(null);
           return;
         }
@@ -157,6 +180,7 @@ export default function SessionDetailPage() {
           setSession(null);
           setBlocks([]);
           setHistoryEntries([]);
+          setHistoryExerciseEntries([]);
           setHistoryDebug(null);
           return;
         }
@@ -165,6 +189,7 @@ export default function SessionDetailPage() {
           setSession(null);
           setBlocks([]);
           setHistoryEntries([]);
+          setHistoryExerciseEntries([]);
           setHistoryDebug(null);
           return;
         }
@@ -193,6 +218,7 @@ export default function SessionDetailPage() {
         if (historyError) {
           console.error('Erreur chargement historique detail seance :', historyError);
           setHistoryEntries([]);
+          setHistoryExerciseEntries([]);
           if (process.env.NODE_ENV === 'development') {
             console.log('WORKOUT HISTORY SELECT SESSION ID:', currentSession.id);
             console.log('WORKOUT HISTORY SELECT USER ID:', user.id);
@@ -237,6 +263,22 @@ export default function SessionDetailPage() {
           }
 
           setHistoryEntries(resolvedHistoryEntries);
+
+          const { data: historyExerciseRows, error: historyExerciseError } = await supabase
+            .from('workout_session_history_exercises')
+            .select(
+              'id, history_id, workout_id, exercise_name, block_type, sets_count, target_value, charge_kg, total_volume, created_at'
+            )
+            .eq('user_id', user.id)
+            .eq('workout_id', currentSession.id)
+            .order('created_at', { ascending: true });
+
+          if (historyExerciseError) {
+            console.error('Erreur chargement records exercices detail seance :', historyExerciseError);
+            setHistoryExerciseEntries([]);
+          } else {
+            setHistoryExerciseEntries((historyExerciseRows as WorkoutHistoryExerciseEntry[]) || []);
+          }
 
           if (process.env.NODE_ENV === 'development') {
             console.log('WORKOUT HISTORY SELECT SESSION ID:', currentSession.id);
@@ -369,6 +411,74 @@ export default function SessionDetailPage() {
       }, 0),
     [blocks]
   );
+  const personalExerciseRecords = useMemo<ExercisePersonalRecord[]>(() => {
+    if (historyExerciseEntries.length === 0) {
+      return [];
+    }
+
+    const groupedRecords = new Map<string, ExercisePersonalRecord>();
+    const sessionExerciseOrder = new Map(
+      blocks.map((block, index) => [block.name.trim().toLowerCase(), index] as const)
+    );
+
+    historyExerciseEntries.forEach((entry) => {
+      const exerciseName = entry.exercise_name.trim();
+      if (!exerciseName) return;
+
+      const recordKey = exerciseName.toLowerCase();
+      const nextCharge =
+        Number.isFinite(Number(entry.charge_kg)) && Number(entry.charge_kg) > 0
+          ? Number(entry.charge_kg)
+          : null;
+      const nextVolume =
+        Number.isFinite(Number(entry.total_volume)) && Number(entry.total_volume) > 0
+          ? Number(entry.total_volume)
+          : null;
+      const nextTargetValue =
+        Number.isFinite(Number(entry.target_value)) && Number(entry.target_value) > 0
+          ? Number(entry.target_value)
+          : null;
+
+      const existingRecord = groupedRecords.get(recordKey) || {
+        exerciseName,
+        maxChargeKg: null,
+        bestVolumeKg: null,
+        maxReps: null,
+        bestDurationSeconds: null,
+      };
+
+      groupedRecords.set(recordKey, {
+        exerciseName: existingRecord.exerciseName,
+        maxChargeKg:
+          nextCharge === null
+            ? existingRecord.maxChargeKg
+            : Math.max(existingRecord.maxChargeKg || 0, nextCharge),
+        bestVolumeKg:
+          nextVolume === null
+            ? existingRecord.bestVolumeKg
+            : Math.max(existingRecord.bestVolumeKg || 0, nextVolume),
+        maxReps:
+          entry.block_type !== 'reps' || nextTargetValue === null
+            ? existingRecord.maxReps
+            : Math.max(existingRecord.maxReps || 0, nextTargetValue),
+        bestDurationSeconds:
+          entry.block_type !== 'duration' || nextTargetValue === null
+            ? existingRecord.bestDurationSeconds
+            : Math.max(existingRecord.bestDurationSeconds || 0, nextTargetValue),
+      });
+    });
+
+    return [...groupedRecords.values()].sort((left, right) => {
+      const leftOrder = sessionExerciseOrder.get(left.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = sessionExerciseOrder.get(right.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+
+      if (leftOrder !== rightOrder) {
+        return leftOrder - rightOrder;
+      }
+
+      return left.exerciseName.localeCompare(right.exerciseName, 'fr');
+    });
+  }, [blocks, historyExerciseEntries]);
   const totalSets = useMemo(
     () =>
       blocks.reduce((total, block) => total + Math.max(Number(block.sets_count || 1), 1), 0),
@@ -735,6 +845,57 @@ export default function SessionDetailPage() {
                       ))}
                     </div>
                   </div>
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Records</span>
+                  <h2>Records personnels 🏆</h2>
+                </div>
+              </div>
+
+              {personalExerciseRecords.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Aucun record personnel pour le moment.</p>
+                </div>
+              ) : (
+                <div className="session-block-list session-records-list">
+                  {personalExerciseRecords.map((record) => (
+                    <article key={record.exerciseName} className="session-block-card session-record-card">
+                      <div className="session-block-card__top">
+                        <div className="session-block-check__label">
+                          <strong>{record.exerciseName}</strong>
+                          <small>Record personnel</small>
+                        </div>
+                      </div>
+
+                      <div className="session-record-lines">
+                        {record.maxChargeKg ? (
+                          <p>
+                            Charge max : <strong>{record.maxChargeKg} kg</strong>
+                          </p>
+                        ) : null}
+                        {record.bestVolumeKg ? (
+                          <p>
+                            Meilleur volume : <strong>{formatSessionVolumeKg(record.bestVolumeKg)}</strong>
+                          </p>
+                        ) : null}
+                        {record.maxReps ? (
+                          <p>
+                            Meilleur reps : <strong>{record.maxReps} reps</strong>
+                          </p>
+                        ) : null}
+                        {record.bestDurationSeconds ? (
+                          <p>
+                            Meilleur temps : <strong>{formatDurationLabel(record.bestDurationSeconds)}</strong>
+                          </p>
+                        ) : null}
+                      </div>
+                    </article>
+                  ))}
                 </div>
               )}
             </article>

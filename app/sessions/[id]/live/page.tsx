@@ -481,6 +481,63 @@ export default function LiveSessionPage() {
         return;
       }
 
+      const exerciseHistoryPayload = blocks
+        .filter((block) => block.name.trim().length > 0)
+        .map((block) => {
+          const normalizedSetsCount = normalizeSessionSetsCount(block.sets_count);
+          const normalizedTargetValue = Number.isFinite(Number(block.target_value))
+            ? Number(block.target_value)
+            : null;
+          const normalizedChargeKg =
+            Number.isFinite(Number(block.charge_kg)) && Number(block.charge_kg) > 0
+              ? Number(block.charge_kg)
+              : null;
+          const normalizedBlockVolume = Number.isFinite(
+            Number(
+              getSessionBlockVolumeKg(
+                block.block_type,
+                block.target_value,
+                block.sets_count,
+                block.charge_kg
+              )
+            )
+          )
+            ? Number(
+                getSessionBlockVolumeKg(
+                  block.block_type,
+                  block.target_value,
+                  block.sets_count,
+                  block.charge_kg
+                )
+              )
+            : 0;
+
+          return {
+            history_id: data.id,
+            user_id: user.id,
+            workout_id: session.id,
+            exercise_name: block.name.trim(),
+            block_type: block.block_type,
+            sets_count: normalizedSetsCount,
+            target_value: normalizedTargetValue,
+            charge_kg: normalizedChargeKg,
+            total_volume: normalizedBlockVolume,
+          };
+        });
+
+      if (exerciseHistoryPayload.length > 0) {
+        const { error: exerciseHistoryError } = await supabase
+          .from('workout_session_history_exercises')
+          .insert(exerciseHistoryPayload);
+
+        if (exerciseHistoryError) {
+          console.error('Workout exercise history insert error:', exerciseHistoryError);
+          setHistoryMessage("L'historique a ete enregistre, mais pas les records d'exercices.");
+          setHistorySaved(true);
+          return;
+        }
+      }
+
       console.log('Workout history saved:', data);
       setHistorySaved(true);
       setHistoryMessage(null);
