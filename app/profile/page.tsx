@@ -78,22 +78,6 @@ function formatReps(value: number) {
   return `${value} repetition${value > 1 ? 's' : ''}`;
 }
 
-function formatRelativeDate(dateString: string | null) {
-  if (!dateString) return 'Date inconnue';
-
-  const now = Date.now();
-  const target = new Date(dateString).getTime();
-  const diffMs = target - now;
-  const rtf = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
-  const minutes = Math.round(diffMs / (1000 * 60));
-  const hours = Math.round(diffMs / (1000 * 60 * 60));
-  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
-
-  if (Math.abs(minutes) < 60) return rtf.format(minutes, 'minute');
-  if (Math.abs(hours) < 24) return rtf.format(hours, 'hour');
-  return rtf.format(days, 'day');
-}
-
 function getGoalType(challenge: Challenge): GoalType | null {
   return challenge.goal_type || (challenge.goal_km ? 'distance' : null);
 }
@@ -130,18 +114,6 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
         : null) ??
     0
   );
-}
-
-function formatActivitySummary(activity: Activity) {
-  if (activity.unit_type === 'duration') {
-    return formatDuration(activity.unit_value ?? activity.duration_minutes ?? 0);
-  }
-
-  if (activity.unit_type === 'reps') {
-    return formatReps(activity.unit_value ?? 0);
-  }
-
-  return formatDistance(activity.unit_value ?? activity.distance_km ?? 0);
 }
 
 export default function ProfilePage() {
@@ -350,7 +322,6 @@ export default function ProfilePage() {
   }, [activities, challenges]);
 
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
-  const completedChallenges = groupedChallenges.filter((challenge) => challenge.completed);
   const totalXp = profile?.total_xp || 0;
   const levelProgress = getLevelProgress(totalXp);
   const unlockedBadgeCodes = new Set(
@@ -359,11 +330,6 @@ export default function ProfilePage() {
       .filter((badgeCode): badgeCode is NonNullable<typeof badgeCode> => Boolean(badgeCode))
   );
   const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
-  const challengeMap = useMemo(() => {
-    return Object.fromEntries(challenges.map((challenge) => [challenge.id, challenge]));
-  }, [challenges]);
-  const recentActivities = activities.slice(0, 3);
-  const recentChallenges = challenges.slice(0, 3);
   const badgeCount = unlockedBadges.length;
 
   const handleSaveUsername = async () => {
@@ -469,9 +435,14 @@ export default function ProfilePage() {
 
               <div className="profile-actions">
                 {!editMode ? (
-                  <button type="button" className="button ghost" onClick={() => setEditMode(true)}>
-                    Modifier mon pseudo
-                  </button>
+                  <>
+                    <button type="button" className="button ghost" onClick={() => setEditMode(true)}>
+                      Modifier mon pseudo
+                    </button>
+                    <Link href="/stats" className="button primary">
+                      Voir mes statistiques
+                    </Link>
+                  </>
                 ) : (
                   <>
                     <button
@@ -562,12 +533,12 @@ export default function ProfilePage() {
                 <div className="profile-history-item__top">
                   <strong>Mes seances</strong>
                 </div>
-                <span>Retrouve tes templates, ton live et ton historique recent.</span>
+                <span>Retrouve tes templates, ton live et l’historique de tes seances.</span>
               </Link>
 
               <Link href="/stats" className="profile-history-item">
                 <div className="profile-history-item__top">
-                  <strong>Mes statistiques</strong>
+                  <strong>Voir toutes mes statistiques</strong>
                 </div>
                 <span>Volume, calories, progression, records et stats par exercice.</span>
               </Link>
@@ -611,7 +582,7 @@ export default function ProfilePage() {
           <div className="profile-section-heading">
             <div>
               <span className="section-kicker">Badges</span>
-              <h2>Badges debloques</h2>
+              <h2>Badges principaux</h2>
             </div>
             <span className="badge">{badgeCount} badge{badgeCount > 1 ? 's' : ''}</span>
           </div>
@@ -620,7 +591,7 @@ export default function ProfilePage() {
             {unlockedBadges.length === 0 ? (
               <span className="badge-list-empty">Aucun badge debloque pour le moment.</span>
             ) : (
-              unlockedBadges.map((badge) => (
+              unlockedBadges.slice(0, 6).map((badge) => (
                 <article
                   key={badge.code}
                   className="achievement-badge-card"
@@ -687,53 +658,6 @@ export default function ProfilePage() {
                   </article>
                 )
               )}
-            </div>
-          )}
-        </section>
-
-        <section className="home-challenges profile-section">
-          <div className="home-challenges__header">
-            <div>
-              <span className="section-kicker">Historique</span>
-              <h2>Challenges termines</h2>
-            </div>
-          </div>
-
-          {completedChallenges.length === 0 ? (
-            <div className="challenge-state">
-              <p>Aucun challenge termine pour le moment.</p>
-            </div>
-          ) : (
-            <div className="completed-challenge-list">
-              {completedChallenges.map(({ challenge, goalType, goalValue, progress }) => (
-                <Link
-                  key={challenge.id}
-                  href={`/challenges/${challenge.id}`}
-                  className="completed-challenge-item"
-                >
-                  <div className="completed-challenge-main">
-                    <div className="completed-challenge-tags">
-                      <span className="badge badge-completed">Termine</span>
-                      <span
-                        className={getSportBadgeClassName(
-                          challenge.sport,
-                          'challenge-item__pill',
-                          'Sport'
-                        )}
-                      >
-                        {formatSportBadgeLabel(challenge.sport, 'Sport')}
-                      </span>
-                    </div>
-                    <strong>{challenge.name}</strong>
-                    <span>Objectif atteint : {formatGoal(goalValue, goalType)}</span>
-                  </div>
-
-                  <div className="completed-challenge-side">
-                    <span>{formatGoal(progress, goalType)}</span>
-                    <strong>Voir le detail</strong>
-                  </div>
-                </Link>
-              ))}
             </div>
           )}
         </section>
