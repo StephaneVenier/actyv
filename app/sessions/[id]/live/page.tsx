@@ -42,6 +42,7 @@ type LiveState = {
 type NewPersonalRecord = {
   exerciseName: string;
   metric: 'reps' | 'charge' | 'volume' | 'duration';
+  previousValue: number;
   value: number;
 };
 
@@ -61,6 +62,26 @@ function createLiveRunKey() {
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function formatPersonalRecordValue(metric: NewPersonalRecord['metric'], value: number) {
+  if (!Number.isFinite(value) || value <= 0) {
+    return '-';
+  }
+
+  if (metric === 'reps') {
+    return `${value} reps`;
+  }
+
+  if (metric === 'charge') {
+    return `${value} kg`;
+  }
+
+  if (metric === 'volume') {
+    return formatSessionVolumeKg(value) || `${value} kg`;
+  }
+
+  return formatElapsedDuration(value);
 }
 
 export default function LiveSessionPage() {
@@ -577,34 +598,42 @@ export default function LiveSessionPage() {
             volume: 0,
           };
 
-          if (entry.reps > 0 && entry.reps > previousBest.reps) {
+          if (entry.reps > 0 && previousBest.reps > 0 && entry.reps > previousBest.reps) {
             detectedNewRecords.push({
               exerciseName: entry.exercise_name,
               metric: 'reps',
+              previousValue: previousBest.reps,
               value: entry.reps,
             });
           }
 
-          if (entry.charge_kg > 0 && entry.charge_kg > previousBest.charge) {
+          if (entry.charge_kg > 0 && previousBest.charge > 0 && entry.charge_kg > previousBest.charge) {
             detectedNewRecords.push({
               exerciseName: entry.exercise_name,
               metric: 'charge',
+              previousValue: previousBest.charge,
               value: entry.charge_kg,
             });
           }
 
-          if (entry.volume > 0 && entry.volume > previousBest.volume) {
+          if (entry.volume > 0 && previousBest.volume > 0 && entry.volume > previousBest.volume) {
             detectedNewRecords.push({
               exerciseName: entry.exercise_name,
               metric: 'volume',
+              previousValue: previousBest.volume,
               value: entry.volume,
             });
           }
 
-          if (entry.duration_seconds > 0 && entry.duration_seconds > previousBest.duration) {
+          if (
+            entry.duration_seconds > 0 &&
+            previousBest.duration > 0 &&
+            entry.duration_seconds > previousBest.duration
+          ) {
             detectedNewRecords.push({
               exerciseName: entry.exercise_name,
               metric: 'duration',
+              previousValue: previousBest.duration,
               value: entry.duration_seconds,
             });
           }
@@ -757,18 +786,19 @@ export default function LiveSessionPage() {
                               <strong>🏆 {record.exerciseName}</strong>
                               <small>Nouveau record personnel</small>
                             </div>
+                            <span className="session-block-chip">NEW PR</span>
                           </div>
-                          <p className="session-record-lines">
-                            <span>
-                              {record.metric === 'reps'
-                                ? `${record.value} reps`
-                                : record.metric === 'charge'
-                                  ? `${record.value} kg`
-                                  : record.metric === 'volume'
-                                    ? formatSessionVolumeKg(record.value)
-                                    : formatElapsedDuration(record.value)}
-                            </span>
-                          </p>
+                          <div className="session-record-lines">
+                            <p>
+                              Type : <strong>{record.metric === 'reps' ? 'Reps' : record.metric === 'charge' ? 'Charge' : record.metric === 'volume' ? 'Volume' : 'Duree'}</strong>
+                            </p>
+                            <p>
+                              Ancien : <strong>{formatPersonalRecordValue(record.metric, record.previousValue)}</strong>
+                            </p>
+                            <p>
+                              Nouveau : <strong>{formatPersonalRecordValue(record.metric, record.value)}</strong>
+                            </p>
+                          </div>
                         </article>
                       ))}
                     </div>
