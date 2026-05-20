@@ -10,6 +10,7 @@ export type TrainingSessionBlockRecord = {
   sets_count: number | null;
   target_value: number | null;
   charge_kg: number | null;
+  rest_seconds: number | null;
 };
 
 export type TrainingSessionBlockInsert = {
@@ -19,6 +20,7 @@ export type TrainingSessionBlockInsert = {
   sets_count: number;
   target_value: number | null;
   charge_kg: number | null;
+  rest_seconds: number;
 };
 
 type BlockVariant = {
@@ -35,7 +37,8 @@ function isSchemaAlignmentError(serializedError: string) {
     serializedError.includes('block_name') ||
     serializedError.includes('block_type') ||
     serializedError.includes('sets_count') ||
-    serializedError.includes('charge_kg')
+    serializedError.includes('charge_kg') ||
+    serializedError.includes('rest_seconds')
   );
 }
 
@@ -50,6 +53,7 @@ function normalizeCanonicalRows(rows: any[]) {
       sets_count: row.sets_count ?? row.set_count ?? row.sets ?? row.series_count ?? 1,
       target_value: row.target_value,
       charge_kg: row.charge_kg ?? null,
+      rest_seconds: row.rest_seconds ?? 60,
     })
   );
 }
@@ -65,6 +69,7 @@ function normalizeLegacyRows(rows: any[]) {
       sets_count: row.sets_count ?? row.set_count ?? row.sets ?? row.series_count ?? 1,
       target_value: row.target_value,
       charge_kg: row.charge_kg ?? null,
+      rest_seconds: row.rest_seconds ?? 60,
     })
   );
 }
@@ -92,6 +97,7 @@ export async function insertTrainingSessionBlocks(
         sets_count: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -103,6 +109,7 @@ export async function insertTrainingSessionBlocks(
         block_type: block.block_type,
         sets_count: block.sets_count,
         target_value: block.target_value,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -115,6 +122,7 @@ export async function insertTrainingSessionBlocks(
         set_count: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -127,6 +135,7 @@ export async function insertTrainingSessionBlocks(
         sets: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -137,6 +146,7 @@ export async function insertTrainingSessionBlocks(
         name: block.name,
         block_type: block.block_type,
         target_value: block.target_value,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -149,6 +159,7 @@ export async function insertTrainingSessionBlocks(
         sets_count: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -161,6 +172,7 @@ export async function insertTrainingSessionBlocks(
         set_count: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -173,6 +185,7 @@ export async function insertTrainingSessionBlocks(
         sets: block.sets_count,
         target_value: block.target_value,
         charge_kg: block.charge_kg,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -184,6 +197,7 @@ export async function insertTrainingSessionBlocks(
         type: block.block_type,
         sets_count: block.sets_count,
         target_value: block.target_value,
+        rest_seconds: block.rest_seconds,
       })),
     },
     {
@@ -194,6 +208,7 @@ export async function insertTrainingSessionBlocks(
         block_name: block.name,
         type: block.block_type,
         target_value: block.target_value,
+        rest_seconds: block.rest_seconds,
       })),
     },
   ];
@@ -231,7 +246,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, position, name, block_type, sets_count, target_value, charge_kg')
+            .select('id, session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds')
             .order('position', { ascending: true }),
           sessionIds
         ),
@@ -243,7 +258,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, position, name, block_type, sets_count, target_value')
+            .select('id, session_id, position, name, block_type, sets_count, target_value, rest_seconds')
             .order('position', { ascending: true }),
           sessionIds
         ),
@@ -255,7 +270,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, position, name, block_type, set_count, target_value, charge_kg')
+            .select('id, session_id, position, name, block_type, set_count, target_value, charge_kg, rest_seconds')
             .order('position', { ascending: true }),
           sessionIds
         ),
@@ -267,7 +282,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, position, name, block_type, sets, target_value, charge_kg')
+            .select('id, session_id, position, name, block_type, sets, target_value, charge_kg, rest_seconds')
             .order('position', { ascending: true }),
           sessionIds
         ),
@@ -279,7 +294,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, position, name, block_type, target_value, charge_kg')
+            .select('id, session_id, position, name, block_type, target_value, charge_kg, rest_seconds')
             .order('position', { ascending: true }),
           sessionIds
         ),
@@ -291,7 +306,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, order_index, block_name, type, sets_count, target_value, charge_kg')
+            .select('id, session_id, order_index, block_name, type, sets_count, target_value, charge_kg, rest_seconds')
             .order('order_index', { ascending: true }),
           sessionIds
         ),
@@ -303,7 +318,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, order_index, block_name, type, sets_count, target_value')
+            .select('id, session_id, order_index, block_name, type, sets_count, target_value, rest_seconds')
             .order('order_index', { ascending: true }),
           sessionIds
         ),
@@ -315,7 +330,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, order_index, block_name, type, set_count, target_value, charge_kg')
+            .select('id, session_id, order_index, block_name, type, set_count, target_value, charge_kg, rest_seconds')
             .order('order_index', { ascending: true }),
           sessionIds
         ),
@@ -327,7 +342,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, order_index, block_name, type, sets, target_value, charge_kg')
+            .select('id, session_id, order_index, block_name, type, sets, target_value, charge_kg, rest_seconds')
             .order('order_index', { ascending: true }),
           sessionIds
         ),
@@ -339,7 +354,7 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
         applySessionFilter(
           supabase
             .from('training_session_blocks')
-            .select('id, session_id, order_index, block_name, type, target_value, charge_kg')
+            .select('id, session_id, order_index, block_name, type, target_value, charge_kg, rest_seconds')
             .order('order_index', { ascending: true }),
           sessionIds
         ),

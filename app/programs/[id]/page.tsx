@@ -225,6 +225,9 @@ export default function ProgramDetailPage() {
               </div>
 
               <div className="session-hero-actions">
+                <Link href={`/programs/${program.id}/edit`} className="button primary">
+                  Modifier le programme
+                </Link>
                 <Link href="/programs/new" className="button ghost">
                   Creer un autre programme
                 </Link>

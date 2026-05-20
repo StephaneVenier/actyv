@@ -99,6 +99,20 @@ export function formatSessionBlockSummary(
   return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}${chargeLabel}`;
 }
 
+export function formatSessionRestSeconds(restSeconds: number | null | undefined) {
+  const normalizedRest = Number(restSeconds);
+
+  if (!Number.isFinite(normalizedRest) || normalizedRest < 0) {
+    return null;
+  }
+
+  if (normalizedRest === 0) {
+    return 'Sans repos';
+  }
+
+  return `${Math.trunc(normalizedRest)} sec repos`;
+}
+
 export function getSessionBlockVolumeKg(
   blockType: SessionBlockType,
   targetValue: number | null | undefined,

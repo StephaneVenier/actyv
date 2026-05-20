@@ -2177,6 +2177,12 @@ img {
   font-weight: 600;
 }
 
+.program-mode-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .program-progress-track {
   width: 100%;
   height: 10px;

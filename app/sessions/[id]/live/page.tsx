@@ -257,6 +257,10 @@ export default function LiveSessionPage() {
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
   const currentBlock = blocks[currentIndex] || null;
   const currentBlockSetsTotal = currentBlock ? normalizeSessionSetsCount(currentBlock.sets_count) : 1;
+  const currentBlockRestSeconds =
+    currentBlock && Number.isFinite(Number(currentBlock.rest_seconds))
+      ? Math.max(0, Math.trunc(Number(currentBlock.rest_seconds)))
+      : DEFAULT_REST_SECONDS;
   const currentBlockVolume = currentBlock
     ? getSessionBlockVolumeKg(
         currentBlock.block_type,
@@ -423,7 +427,7 @@ export default function LiveSessionPage() {
     }
 
     setRestAfterBlockId(currentBlock.id);
-    setRestSecondsLeft(DEFAULT_REST_SECONDS);
+    setRestSecondsLeft(currentBlockRestSeconds);
   };
 
   const handleValidateCurrent = () => {
@@ -934,6 +938,10 @@ export default function LiveSessionPage() {
                   <div className="session-meta-card">
                     <span>Cible</span>
                     <strong>{formatSessionBlockTarget(currentBlock.block_type, currentBlock.target_value)}</strong>
+                  </div>
+                  <div className="session-meta-card">
+                    <span>Repos</span>
+                    <strong>{currentBlockRestSeconds > 0 ? `${currentBlockRestSeconds} sec` : 'Aucun'}</strong>
                   </div>
                   {currentBlock.charge_kg ? (
                     <div className="session-meta-card">

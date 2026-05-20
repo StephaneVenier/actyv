@@ -949,12 +949,14 @@ create table if not exists public.training_session_blocks (
   sets_count integer not null default 1,
   target_value numeric,
   charge_kg numeric,
+  rest_seconds integer not null default 60,
   created_at timestamptz not null default now()
 );
 
 alter table if exists public.training_session_blocks
   add column if not exists sets_count integer not null default 1,
-  add column if not exists charge_kg numeric;
+  add column if not exists charge_kg numeric,
+  add column if not exists rest_seconds integer not null default 60;
 
 create table if not exists public.workout_sessions_history (
   id uuid primary key default gen_random_uuid(),
