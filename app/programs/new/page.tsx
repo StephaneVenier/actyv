@@ -258,22 +258,26 @@ export default function NewProgramPage() {
         });
       }
 
+      const programPayload = {
+        user_id: user.id,
+        name: name.trim(),
+        description: description.trim() || null,
+        sport,
+        duration_weeks: durationWeeks,
+        visibility: 'private',
+        start_date: startDate,
+      };
+
+      console.log('Program payload:', programPayload);
+
       const { data: createdProgram, error: programError } = await supabase
         .from('training_programs')
-        .insert({
-          user_id: user.id,
-          name: name.trim(),
-          description: description.trim() || null,
-          sport,
-          duration_weeks: durationWeeks,
-          visibility: 'private',
-          start_date: startDate,
-        })
+        .insert(programPayload)
         .select('id')
         .single();
 
       if (programError || !createdProgram) {
-        console.error('Erreur creation programme :', programError);
+        console.error('Program insert error:', programError);
         setMessage('Impossible de creer le programme pour le moment.');
         return;
       }
