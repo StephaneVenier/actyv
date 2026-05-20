@@ -2146,6 +2146,89 @@ img {
   gap: 4px;
 }
 
+.programs-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.program-card {
+  align-content: start;
+}
+
+.program-card__summary {
+  display: grid;
+  gap: 10px;
+}
+
+.program-progress-track {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  overflow: hidden;
+}
+
+.program-progress-track__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #1d4ed8 0%, #22c55e 100%);
+}
+
+.program-next-card {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-next-card strong,
+.program-next-card p,
+.program-next-card small {
+  margin: 0;
+}
+
+.program-next-card p {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.program-next-card small {
+  color: #64748b;
+}
+
+.program-session-card {
+  gap: 12px;
+}
+
+.program-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+.program-status--todo {
+  color: #1d4ed8;
+  background: rgba(59, 130, 246, 0.12);
+}
+
+.program-status--passed {
+  color: #b45309;
+  background: rgba(251, 191, 36, 0.16);
+}
+
+.program-status--completed {
+  color: #15803d;
+  background: rgba(34, 197, 94, 0.16);
+}
+
 .session-detail-meta,
 .session-runner-grid {
   display: grid;

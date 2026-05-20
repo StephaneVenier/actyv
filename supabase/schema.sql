@@ -1143,3 +1143,157 @@ grant select, insert, update, delete on public.training_session_blocks to authen
 grant select, insert on public.workout_sessions_history to authenticated;
 grant select, insert on public.workout_session_history_exercises to authenticated;
 grant select, insert on public.workout_exercise_history to authenticated;
+
+create table if not exists public.training_programs (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  name text not null,
+  description text,
+  sport text,
+  duration_weeks integer not null default 4 check (duration_weeks > 0),
+  visibility text not null default 'private' check (visibility in ('private')),
+  start_date date not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.training_program_sessions (
+  id uuid primary key default gen_random_uuid(),
+  program_id uuid not null references public.training_programs(id) on delete cascade,
+  session_id uuid references public.training_sessions(id) on delete set null,
+  session_name text not null,
+  sport text,
+  week_number integer not null check (week_number > 0),
+  day_of_week integer not null check (day_of_week between 1 and 7),
+  order_index integer not null default 1,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.training_program_completions (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  program_id uuid not null references public.training_programs(id) on delete cascade,
+  program_session_id uuid not null references public.training_program_sessions(id) on delete cascade,
+  session_id uuid references public.training_sessions(id) on delete set null,
+  workout_history_id uuid references public.workout_sessions_history(id) on delete set null,
+  completed_at timestamptz not null default now(),
+  created_at timestamptz not null default now()
+);
+
+create index if not exists training_programs_user_created_idx
+  on public.training_programs (user_id, created_at desc);
+
+create index if not exists training_program_sessions_program_schedule_idx
+  on public.training_program_sessions (program_id, week_number, day_of_week, order_index);
+
+create index if not exists training_program_completions_user_program_idx
+  on public.training_program_completions (user_id, program_id, completed_at desc);
+
+create unique index if not exists training_program_completions_program_session_uidx
+  on public.training_program_completions (program_session_id);
+
+alter table if exists public.training_programs enable row level security;
+alter table if exists public.training_program_sessions enable row level security;
+alter table if exists public.training_program_completions enable row level security;
+
+drop policy if exists "Users can read own training programs" on public.training_programs;
+create policy "Users can read own training programs"
+  on public.training_programs for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own training programs" on public.training_programs;
+create policy "Users can insert own training programs"
+  on public.training_programs for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own training programs" on public.training_programs;
+create policy "Users can update own training programs"
+  on public.training_programs for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own training programs" on public.training_programs;
+create policy "Users can delete own training programs"
+  on public.training_programs for delete
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can read own training program sessions" on public.training_program_sessions;
+create policy "Users can read own training program sessions"
+  on public.training_program_sessions for select
+  using (
+    exists (
+      select 1
+      from public.training_programs
+      where training_programs.id = training_program_sessions.program_id
+        and training_programs.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can insert own training program sessions" on public.training_program_sessions;
+create policy "Users can insert own training program sessions"
+  on public.training_program_sessions for insert
+  with check (
+    exists (
+      select 1
+      from public.training_programs
+      where training_programs.id = training_program_sessions.program_id
+        and training_programs.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can update own training program sessions" on public.training_program_sessions;
+create policy "Users can update own training program sessions"
+  on public.training_program_sessions for update
+  using (
+    exists (
+      select 1
+      from public.training_programs
+      where training_programs.id = training_program_sessions.program_id
+        and training_programs.user_id = auth.uid()
+    )
+  )
+  with check (
+    exists (
+      select 1
+      from public.training_programs
+      where training_programs.id = training_program_sessions.program_id
+        and training_programs.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can delete own training program sessions" on public.training_program_sessions;
+create policy "Users can delete own training program sessions"
+  on public.training_program_sessions for delete
+  using (
+    exists (
+      select 1
+      from public.training_programs
+      where training_programs.id = training_program_sessions.program_id
+        and training_programs.user_id = auth.uid()
+    )
+  );
+
+drop policy if exists "Users can read own training program completions" on public.training_program_completions;
+create policy "Users can read own training program completions"
+  on public.training_program_completions for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert own training program completions" on public.training_program_completions;
+create policy "Users can insert own training program completions"
+  on public.training_program_completions for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update own training program completions" on public.training_program_completions;
+create policy "Users can update own training program completions"
+  on public.training_program_completions for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete own training program completions" on public.training_program_completions;
+create policy "Users can delete own training program completions"
+  on public.training_program_completions for delete
+  using (auth.uid() = user_id);
+
+grant select, insert, update, delete on public.training_programs to authenticated;
+grant select, insert, update, delete on public.training_program_sessions to authenticated;
+grant select, insert, update, delete on public.training_program_completions to authenticated;

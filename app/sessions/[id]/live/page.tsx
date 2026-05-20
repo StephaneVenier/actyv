@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
@@ -86,7 +86,10 @@ function formatPersonalRecordValue(metric: NewPersonalRecord['metric'], value: n
 
 export default function LiveSessionPage() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
+  const programSessionId = searchParams.get('programSessionId');
+  const programId = searchParams.get('programId');
 
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
@@ -489,6 +492,7 @@ export default function LiveSessionPage() {
       };
 
       console.log('Workout history payload:', payload);
+      let completionMessage: string | null = null;
 
       const { data, error } = await supabase
         .from('workout_sessions_history')
@@ -508,6 +512,29 @@ export default function LiveSessionPage() {
         console.error('Workout history insert error:', error);
         setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
         return;
+      }
+
+      if (programSessionId && programId) {
+        const { error: completionError } = await supabase
+          .from('training_program_completions')
+          .upsert(
+            {
+              user_id: user.id,
+              program_id: programId,
+              program_session_id: programSessionId,
+              session_id: session.id,
+              workout_history_id: data.id,
+              completed_at: payload.completed_at,
+            },
+            {
+              onConflict: 'program_session_id',
+            }
+          );
+
+        if (completionError) {
+          console.error('Program completion insert error:', completionError);
+          completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
+        }
       }
 
       const exerciseHistoryPayload = blocks
@@ -668,7 +695,7 @@ export default function LiveSessionPage() {
 
       console.log('Workout history saved:', data);
       setHistorySaved(true);
-      setHistoryMessage(null);
+      setHistoryMessage(completionMessage);
     };
 
     saveHistoryEntry();
@@ -678,6 +705,8 @@ export default function LiveSessionPage() {
     elapsedSeconds,
     estimatedCalories,
     historySaved,
+    programId,
+    programSessionId,
     runKey,
     session,
     sessionTotalVolume,

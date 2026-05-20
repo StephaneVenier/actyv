@@ -293,12 +293,12 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Link>
 
               <Link
-                href="/programs/new"
+                href="/programs"
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Creer un programme</span>
-                <span className="quick-menu-item__meta">Bientot disponible</span>
+                <span className="quick-menu-item__title">Programmes</span>
+                <span className="quick-menu-item__meta">Planifier et suivre tes cycles</span>
               </Link>
             </div>
           )}
