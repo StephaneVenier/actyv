@@ -346,7 +346,7 @@ export default function ProgramDetailPage() {
                                   href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
                                   className="button primary"
                                 >
-                                  Lancer la seance
+                                  Lancer
                                 </Link>
                                 <Link href={`/sessions/${entry.session_id}`} className="button ghost">
                                   Voir la seance

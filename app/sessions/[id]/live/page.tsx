@@ -514,28 +514,7 @@ export default function LiveSessionPage() {
         return;
       }
 
-      if (programSessionId && programId) {
-        const { error: completionError } = await supabase
-          .from('training_program_completions')
-          .upsert(
-            {
-              user_id: user.id,
-              program_id: programId,
-              program_session_id: programSessionId,
-              session_id: session.id,
-              workout_history_id: data.id,
-              completed_at: payload.completed_at,
-            },
-            {
-              onConflict: 'program_session_id',
-            }
-          );
-
-        if (completionError) {
-          console.error('Program completion insert error:', completionError);
-          completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
-        }
-      }
+      let exerciseHistoryMessage: string | null = null;
 
       const exerciseHistoryPayload = blocks
         .filter((block) => block.name.trim().length > 0)
@@ -685,17 +664,38 @@ export default function LiveSessionPage() {
             'Exercise history insert error full:',
             JSON.stringify(exerciseHistoryError, null, 2)
           );
-          setHistoryMessage("L'historique a ete enregistre, mais pas les records d'exercices.");
-          setHistorySaved(true);
-          return;
+          exerciseHistoryMessage = "L'historique a ete enregistre, mais pas les records d'exercices.";
         }
 
         setNewPersonalRecords(detectedNewRecords);
       }
 
+      if (programSessionId && programId) {
+        const { error: completionError } = await supabase
+          .from('training_program_completions')
+          .upsert(
+            {
+              user_id: user.id,
+              program_id: programId,
+              program_session_id: programSessionId,
+              session_id: session.id,
+              workout_history_id: data.id,
+              completed_at: payload.completed_at,
+            },
+            {
+              onConflict: 'program_session_id',
+            }
+          );
+
+        if (completionError) {
+          console.error('Program completion insert error:', completionError);
+          completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
+        }
+      }
+
       console.log('Workout history saved:', data);
       setHistorySaved(true);
-      setHistoryMessage(completionMessage);
+      setHistoryMessage(exerciseHistoryMessage || completionMessage);
     };
 
     saveHistoryEntry();
