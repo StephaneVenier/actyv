@@ -682,22 +682,34 @@ export default function LiveSessionPage() {
 
         console.log('Program completion payload:', programCompletionPayload);
 
-        const { error: completionError } = await supabase
+        const { data: existingCompletion, error: existingCompletionError } = await supabase
           .from('training_program_completions')
-          .upsert(
-            programCompletionPayload,
-            {
-              onConflict: 'program_session_id',
-            }
-          );
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('program_id', programId)
+          .eq('program_session_id', programSessionId)
+          .maybeSingle();
 
-        if (completionError) {
-          console.error('Program completion insert error:', completionError);
+        if (existingCompletionError) {
+          console.error('Program completion insert error:', existingCompletionError);
           console.error(
             'Program completion insert error full:',
-            JSON.stringify(completionError, null, 2)
+            JSON.stringify(existingCompletionError, null, 2)
           );
           completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
+        } else if (!existingCompletion) {
+          const { error: completionInsertError } = await supabase
+            .from('training_program_completions')
+            .insert(programCompletionPayload);
+
+          if (completionInsertError) {
+            console.error('Program completion insert error:', completionInsertError);
+            console.error(
+              'Program completion insert error full:',
+              JSON.stringify(completionInsertError, null, 2)
+            );
+            completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
+          }
         }
       }
 
