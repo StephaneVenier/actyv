@@ -2159,6 +2159,24 @@ img {
   gap: 10px;
 }
 
+.program-card__facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.program-card__facts span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(226, 232, 240, 0.64);
+  color: #334155;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .program-progress-track {
   width: 100%;
   height: 10px;

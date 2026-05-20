@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { supabase } from '@/lib/supabase';
 import {
@@ -34,12 +35,14 @@ function formatRelativeCompletionDate(dateString: string | null | undefined) {
 
 export default function ProgramDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params?.id as string;
 
   const [program, setProgram] = useState<TrainingProgram | null>(null);
   const [programSessions, setProgramSessions] = useState<TrainingProgramSession[]>([]);
   const [programCompletions, setProgramCompletions] = useState<TrainingProgramCompletion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -142,6 +145,54 @@ export default function ProgramDetailPage() {
     return [...grouped.entries()].sort((left, right) => left[0] - right[0]);
   }, [programSessions]);
 
+  const handleDeleteProgram = async () => {
+    if (!program || deleting) return;
+
+    const confirmed = window.confirm(
+      'Supprimer ce programme ? Ses seances planifiees et sa progression seront supprimees, mais pas tes seances originales.'
+    );
+
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setMessage(null);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (userError) {
+          console.error('Erreur chargement user suppression programme :', userError);
+        }
+        setMessage('Connecte-toi pour supprimer ce programme.');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('training_programs')
+        .delete()
+        .eq('id', program.id)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Erreur suppression programme :', error);
+        setMessage('Impossible de supprimer le programme pour le moment.');
+        return;
+      }
+
+      queuePendingToast({ message: 'Programme supprime', tone: 'info' });
+      router.push('/programs');
+    } catch (error) {
+      console.error('Erreur inattendue suppression programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <AppShell>
       <section className="sessions-page">
@@ -180,6 +231,15 @@ export default function ProgramDetailPage() {
                 <Link href="/sessions" className="button ghost">
                   Voir mes seances
                 </Link>
+                <button
+                  type="button"
+                  className="button ghost session-delete-button"
+                  onClick={handleDeleteProgram}
+                  disabled={deleting}
+                  aria-busy={deleting}
+                >
+                  {deleting ? 'Suppression...' : 'Supprimer le programme'}
+                </button>
               </div>
             </article>
 
@@ -197,6 +257,10 @@ export default function ProgramDetailPage() {
               </div>
 
               <div className="session-detail-meta">
+                <div className="session-meta-card">
+                  <span>Sport</span>
+                  <strong>{formatSportBadgeLabel(program.sport, 'Sport')}</strong>
+                </div>
                 <div className="session-meta-card">
                   <span>Progression</span>
                   <strong>

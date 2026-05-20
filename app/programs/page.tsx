@@ -200,6 +200,14 @@ export default function ProgramsPage() {
                     <p>{program.description || 'Programme sans description pour le moment.'}</p>
                   </div>
 
+                  <div className="program-card__facts">
+                    <span>{program.sport || 'Sport libre'}</span>
+                    <span>
+                      {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
+                    </span>
+                    <span>Debut {formatProgramDate(program.start_date)}</span>
+                  </div>
+
                   <div className="program-card__summary">
                     <div className="program-progress-track" aria-hidden="true">
                       <span className="program-progress-track__fill" style={{ width: `${progress}%` }} />
@@ -238,7 +246,7 @@ export default function ProgramsPage() {
                   ) : null}
 
                   <Link href={`/programs/${program.id}`} className="button ghost">
-                    Voir le detail
+                    Voir le programme
                   </Link>
                 </article>
               );
