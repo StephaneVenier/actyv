@@ -671,17 +671,21 @@ export default function LiveSessionPage() {
       }
 
       if (programSessionId && programId) {
+        const programCompletionPayload = {
+          user_id: user.id,
+          program_id: programId,
+          program_session_id: programSessionId,
+          session_id: session.id,
+          workout_history_id: data.id,
+          completed_at: payload.completed_at,
+        };
+
+        console.log('Program completion payload:', programCompletionPayload);
+
         const { error: completionError } = await supabase
           .from('training_program_completions')
           .upsert(
-            {
-              user_id: user.id,
-              program_id: programId,
-              program_session_id: programSessionId,
-              session_id: session.id,
-              workout_history_id: data.id,
-              completed_at: payload.completed_at,
-            },
+            programCompletionPayload,
             {
               onConflict: 'program_session_id',
             }
@@ -689,6 +693,10 @@ export default function LiveSessionPage() {
 
         if (completionError) {
           console.error('Program completion insert error:', completionError);
+          console.error(
+            'Program completion insert error full:',
+            JSON.stringify(completionError, null, 2)
+          );
           completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
         }
       }
