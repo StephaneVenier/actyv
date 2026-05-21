@@ -915,6 +915,80 @@ export default function SessionDetailPage() {
             <article className="card session-form-card stack">
               <div className="session-blocks-header">
                 <div>
+                  <span className="section-kicker">Blocs</span>
+                  <h2>Plan de la seance</h2>
+                </div>
+                {blocks.length > 0 && (
+                  <span className="session-progress-pill">
+                    {completedBlocksCount} / {blocks.length} blocs realises
+                  </span>
+                )}
+              </div>
+
+              {message && <p className="form-feedback form-feedback--error">{message}</p>}
+
+              {allBlocksCompleted && (
+                <p className="form-feedback form-feedback--success">Seance terminee âœ…</p>
+              )}
+
+              {blocks.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Aucun bloc ajoute pour le moment.</p>
+                </div>
+              ) : (
+                <div className="session-block-list session-block-list--compact">
+                  {blocks.map((block, index) => {
+                    const isCompleted = completedBlockIds.includes(block.id);
+                    const isCurrent = !isCompleted && index === (firstPendingBlockIndex === -1 ? 0 : firstPendingBlockIndex);
+                    const blockVolume = getSessionBlockVolumeKg(
+                      block.block_type,
+                      block.target_value,
+                      block.sets_count,
+                      block.charge_kg
+                    );
+
+                    return (
+                      <CompactExerciseCard
+                        key={block.id}
+                        index={block.position}
+                        block={block}
+                        isCompleted={isCompleted}
+                        isCurrent={isCurrent}
+                        completedSets={isCompleted ? Number(block.sets_count || 1) : 0}
+                        actionLabel={isCompleted ? 'Termine' : isCurrent ? 'Continuer' : 'Demarrer'}
+                        onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}
+                        actionDisabled={isCompleted}
+                        subtitle={`Bloc ${index + 1} â€¢ ${getSessionBlockTypeLabel(block.block_type)}`}
+                        details={
+                          <div className="compact-exercise-card__details-grid">
+                            <div>
+                              <span>Objectif</span>
+                              <strong>{formatBlockMainValue(block)}</strong>
+                            </div>
+                            <div>
+                              <span>Repos</span>
+                              <strong>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</strong>
+                            </div>
+                            <div>
+                              <span>Etat</span>
+                              <strong>{isCompleted ? 'Termine' : isCurrent ? 'En cours' : 'A faire'}</strong>
+                            </div>
+                            <div>
+                              <span>Volume</span>
+                              <strong>{formatSessionVolumeKg(blockVolume) || '-'}</strong>
+                            </div>
+                          </div>
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
                   <span className="section-kicker">Stats</span>
                   <h2>Stats de la seance</h2>
                 </div>
@@ -1254,79 +1328,6 @@ export default function SessionDetailPage() {
               )}
             </article>
 
-            <article className="card session-form-card stack">
-              <div className="session-blocks-header">
-                <div>
-                  <span className="section-kicker">Blocs</span>
-                  <h2>Plan de la seance</h2>
-                </div>
-                {blocks.length > 0 && (
-                  <span className="session-progress-pill">
-                    {completedBlocksCount} / {blocks.length} blocs realises
-                  </span>
-                )}
-              </div>
-
-              {message && <p className="form-feedback form-feedback--error">{message}</p>}
-
-              {allBlocksCompleted && (
-                <p className="form-feedback form-feedback--success">Seance terminee ✅</p>
-              )}
-
-              {blocks.length === 0 ? (
-                <div className="challenge-state challenge-state--compact">
-                  <p>Aucun bloc ajoute pour le moment.</p>
-                </div>
-              ) : (
-                <div className="session-block-list session-block-list--compact">
-                  {blocks.map((block, index) => {
-                    const isCompleted = completedBlockIds.includes(block.id);
-                    const isCurrent = !isCompleted && index === (firstPendingBlockIndex === -1 ? 0 : firstPendingBlockIndex);
-                    const blockVolume = getSessionBlockVolumeKg(
-                      block.block_type,
-                      block.target_value,
-                      block.sets_count,
-                      block.charge_kg
-                    );
-
-                    return (
-                      <CompactExerciseCard
-                        key={block.id}
-                        index={block.position}
-                        block={block}
-                        isCompleted={isCompleted}
-                        isCurrent={isCurrent}
-                        completedSets={isCompleted ? Number(block.sets_count || 1) : 0}
-                        actionLabel={isCompleted ? 'Termine' : isCurrent ? 'Continuer' : 'Demarrer'}
-                        onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}
-                        actionDisabled={isCompleted}
-                        subtitle={`Bloc ${index + 1} • ${getSessionBlockTypeLabel(block.block_type)}`}
-                        details={
-                          <div className="compact-exercise-card__details-grid">
-                            <div>
-                              <span>Objectif</span>
-                              <strong>{formatBlockMainValue(block)}</strong>
-                            </div>
-                            <div>
-                              <span>Repos</span>
-                              <strong>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</strong>
-                            </div>
-                            <div>
-                              <span>Etat</span>
-                              <strong>{isCompleted ? 'Termine' : isCurrent ? 'En cours' : 'A faire'}</strong>
-                            </div>
-                            <div>
-                              <span>Volume</span>
-                              <strong>{formatSessionVolumeKg(blockVolume) || '-'}</strong>
-                            </div>
-                          </div>
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </article>
           </>
         )}
       </section>
