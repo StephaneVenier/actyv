@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { CompactExerciseCard, SessionSummaryHeader } from '@/components/session-compact-ui';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
@@ -1136,9 +1137,16 @@ export default function SessionDetailPage() {
                   {personalExerciseRecords.map((record) => (
                     <article key={record.exerciseName} className="session-block-card session-record-card">
                       <div className="session-block-card__top">
-                        <div className="session-block-check__label">
-                          <strong>{record.exerciseName}</strong>
-                          <small>Record personnel</small>
+                        <div className="session-record-card__header">
+                          <SessionExerciseIcon
+                            exerciseName={record.exerciseName}
+                            sport={session.sport}
+                            size="md"
+                          />
+                          <div className="session-block-check__label">
+                            <strong>{record.exerciseName}</strong>
+                            <small>Record personnel</small>
+                          </div>
                         </div>
                       </div>
 
@@ -1195,9 +1203,16 @@ export default function SessionDetailPage() {
                         onClick={() => setSelectedExerciseName(entry.exerciseName)}
                       >
                         <div className="session-block-card__top">
-                          <div className="session-block-check__label">
-                            <strong>{entry.exerciseName}</strong>
-                            <small>{entry.completedCount} fois realise</small>
+                          <div className="session-record-card__header">
+                            <SessionExerciseIcon
+                              exerciseName={entry.exerciseName}
+                              sport={session.sport}
+                              size="md"
+                            />
+                            <div className="session-block-check__label">
+                              <strong>{entry.exerciseName}</strong>
+                              <small>{entry.completedCount} fois realise</small>
+                            </div>
                           </div>
                         </div>
 
@@ -1234,9 +1249,16 @@ export default function SessionDetailPage() {
                   {selectedExerciseStats ? (
                     <article className="session-block-card session-exercise-stat-detail">
                       <div className="session-block-card__top">
-                        <div className="session-block-check__label">
-                          <strong>{selectedExerciseStats.exerciseName}</strong>
-                          <small>Detail et progression</small>
+                        <div className="session-record-card__header">
+                          <SessionExerciseIcon
+                            exerciseName={selectedExerciseStats.exerciseName}
+                            sport={session.sport}
+                            size="md"
+                          />
+                          <div className="session-block-check__label">
+                            <strong>{selectedExerciseStats.exerciseName}</strong>
+                            <small>Detail et progression</small>
+                          </div>
                         </div>
                         <span className="session-block-chip">
                           {selectedExerciseStats.progressionMetricLabel || 'Stats'}

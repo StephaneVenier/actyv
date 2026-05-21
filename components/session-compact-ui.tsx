@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useMemo, useState } from 'react';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import {
   formatBlockMainValue,
   formatSessionRestSeconds,
@@ -125,9 +126,16 @@ export function CompactExerciseCard({
 
       <div className="compact-exercise-card__content">
         <div className="compact-exercise-card__identity">
-          <div>
-            <strong>{block.name || `Bloc ${index + 1}`}</strong>
-            <small>{subtitle || getSessionBlockTypeLabel(block.block_type)}</small>
+          <div className="compact-exercise-card__identity-main">
+            <SessionExerciseIcon
+              exerciseName={block.name}
+              blockType={block.block_type}
+              size="md"
+            />
+            <div>
+              <strong>{block.name || `Bloc ${index + 1}`}</strong>
+              <small>{subtitle || getSessionBlockTypeLabel(block.block_type)}</small>
+            </div>
           </div>
           <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
         </div>
