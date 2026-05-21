@@ -16,6 +16,7 @@ import {
   formatEstimatedWorkoutCalories,
   formatSessionVolumeKg,
   getEstimatedWorkoutCalories,
+  getSessionBlockTypeLabel,
   getSessionBlockVolumeKg,
   getSessionEstimatedDuration,
   normalizeSessionSetsCount,
@@ -98,7 +99,7 @@ function formatPersonalRecordValue(metric: NewPersonalRecord['metric'], value: n
 export default function LiveSessionPage() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const id = params?.id as string;
+  const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string | undefined) || '';
   const programSessionId = searchParams.get('programSessionId');
   const programId = searchParams.get('programId');
 
@@ -121,6 +122,14 @@ export default function LiveSessionPage() {
   const liveStorageKey = `actyv.session.live.${id}`;
 
   useEffect(() => {
+    if (!id) {
+      setLoading(false);
+      setSession(null);
+      setBlocks([]);
+      setMessage('Impossible de charger cette seance.');
+      return;
+    }
+
     const loadSession = async () => {
       setLoading(true);
       setMessage(null);
@@ -305,6 +314,7 @@ export default function LiveSessionPage() {
         ? `${currentBlockSetsTotal} series prevues`
         : 'Bloc unique'
     : '-';
+  const currentBlockName = currentBlock?.name?.trim() || (currentBlock ? `Bloc ${currentIndex + 1}` : 'Bloc');
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -916,7 +926,7 @@ export default function LiveSessionPage() {
               </article>
             ) : isResting && currentBlock ? (
               <RestTimerOverlay
-                blockLabel={currentBlock.name}
+                blockLabel={currentBlockName}
                 secondsLeft={restSecondsLeft}
                 totalSeconds={currentBlockRestSeconds}
                 onSkip={() => setRestSecondsLeft(0)}
@@ -980,7 +990,7 @@ export default function LiveSessionPage() {
                   <LiveBlockPreviewRail
                     blocks={blocks.map((block) => ({
                       id: block.id,
-                      name: block.name || `Bloc ${block.position + 1}`,
+                      name: block.name?.trim() || `Bloc ${block.position + 1}`,
                       block_type: block.block_type,
                     }))}
                     currentIndex={currentIndex}
