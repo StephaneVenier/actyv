@@ -2913,6 +2913,86 @@ img {
   color: #96aab0;
 }
 
+.sessions-page--dark .section-kicker,
+.sessions-page--dark .session-card__meta,
+.sessions-page--dark .session-progress-chart__label,
+.sessions-page--dark .session-record-lines p,
+.sessions-page--dark .session-record-card .session-block-check__label small,
+.sessions-page--dark .session-block-card .session-block-check__label small,
+.sessions-page--dark .session-progress-chart__label-item span,
+.sessions-page--dark .session-meta-card span,
+.sessions-page--dark .session-summary-header__stat span {
+  color: #a9c7c4;
+}
+
+.sessions-page--dark .session-meta-card,
+.sessions-page--dark .session-record-card,
+.sessions-page--dark .session-progress-chart,
+.sessions-page--dark .session-summary-header__stat {
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sessions-page--dark .session-record-card,
+.sessions-page--dark .session-meta-card,
+.sessions-page--dark .session-summary-header__stat {
+  background:
+    linear-gradient(180deg, rgba(16, 34, 35, 0.92) 0%, rgba(11, 23, 24, 0.92) 100%);
+}
+
+.sessions-page--dark .session-form-card h2,
+.sessions-page--dark .session-progress-chart__header strong,
+.sessions-page--dark .session-progress-chart__label-item strong,
+.sessions-page--dark .session-record-card .session-block-check__label strong,
+.sessions-page--dark .session-block-card .session-block-check__label strong,
+.sessions-page--dark .session-record-lines p strong,
+.sessions-page--dark .session-meta-card strong,
+.sessions-page--dark .session-summary-header__stat strong,
+.sessions-page--dark .session-progress-chart__value,
+.sessions-page--dark .session-value,
+.sessions-page--dark .session-record-value,
+.sessions-page--dark .session-block-volume {
+  color: #f4f7f6;
+}
+
+.sessions-page--dark .session-progress-chart__header,
+.sessions-page--dark .session-progress-chart__label-item,
+.sessions-page--dark .session-progress-chart__label,
+.sessions-page--dark .session-record-lines p,
+.sessions-page--dark .session-block-check__label,
+.sessions-page--dark .session-meta-card span {
+  color: #9fb5b3;
+}
+
+.sessions-page--dark .session-progress-chart__svg-wrap {
+  background: rgba(6, 16, 17, 0.42);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 18px;
+  padding: 14px;
+}
+
+.sessions-page--dark .session-progress-chart__track {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.sessions-page--dark .session-progress-chart__axis {
+  stroke: rgba(169, 199, 196, 0.24);
+}
+
+.sessions-page--dark .session-progress-chart__line {
+  stroke: #20b7a6;
+}
+
+.sessions-page--dark .session-progress-chart__point {
+  fill: #35e66b;
+  stroke: #f4f7f6;
+}
+
+.sessions-page--dark .session-exercise-stat-card.is-active,
+.sessions-page--dark .session-record-card.is-active {
+  border-color: rgba(53, 230, 107, 0.32);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(53, 230, 107, 0.12);
+}
+
 .sessions-page--dark .detail-back-link {
   color: #b9d6d9;
 }
