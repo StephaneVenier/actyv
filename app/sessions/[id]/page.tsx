@@ -850,7 +850,7 @@ export default function SessionDetailPage() {
     <AppShell>
       <section className="sessions-page sessions-page--dark">
         <Link href="/sessions" className="detail-back-link">
-          ← Retour aux seances
+          &larr; Retour aux seances
         </Link>
 
         {loading ? (
@@ -876,7 +876,7 @@ export default function SessionDetailPage() {
               }
               title={session.name}
               description={session.description || 'Aucune description pour le moment.'}
-              progressLabel={`${completedBlocksCount} / ${blocks.length || 0} blocs • ${globalProgressPercent}%`}
+              progressLabel={`${completedBlocksCount} / ${blocks.length || 0} blocs - ${globalProgressPercent}%`}
               actions={
                 <>
                   <Link href={`/sessions/${session.id}/live`} className="button primary">
@@ -928,7 +928,7 @@ export default function SessionDetailPage() {
               {message && <p className="form-feedback form-feedback--error">{message}</p>}
 
               {allBlocksCompleted && (
-                <p className="form-feedback form-feedback--success">Seance terminee âœ…</p>
+                <p className="form-feedback form-feedback--success">Seance terminee</p>
               )}
 
               {blocks.length === 0 ? (
@@ -958,7 +958,7 @@ export default function SessionDetailPage() {
                         actionLabel={isCompleted ? 'Termine' : isCurrent ? 'Continuer' : 'Demarrer'}
                         onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}
                         actionDisabled={isCompleted}
-                        subtitle={`Bloc ${index + 1} â€¢ ${getSessionBlockTypeLabel(block.block_type)}`}
+                        subtitle={`Bloc ${index + 1} - ${getSessionBlockTypeLabel(block.block_type)}`}
                         details={
                           <div className="compact-exercise-card__details-grid">
                             <div>
@@ -1123,7 +1123,7 @@ export default function SessionDetailPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Records</span>
-                  <h2>Records personnels 🏆</h2>
+                  <h2>Records personnels</h2>
                 </div>
               </div>
 

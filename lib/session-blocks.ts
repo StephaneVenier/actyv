@@ -19,9 +19,9 @@ export const SESSION_BLOCK_TYPES: SessionBlockType[] = [
 export function getSessionBlockTypeLabel(blockType: SessionBlockType) {
   switch (blockType) {
     case 'reps':
-      return 'Repetitions';
+      return 'R\u00E9p\u00E9titions';
     case 'duration':
-      return 'Duree';
+      return 'Dur\u00E9e';
     case 'distance':
       return 'Distance';
     case 'free':
@@ -105,10 +105,10 @@ export function formatSessionBlockSummary(
     chargeKg === null || chargeKg === undefined || Number.isNaN(Number(chargeKg))
       ? null
       : Number(chargeKg);
-  const chargeLabel = normalizedCharge && normalizedCharge > 0 ? ` • ${normalizedCharge} kg` : '';
+  const chargeLabel = normalizedCharge && normalizedCharge > 0 ? ` - ${normalizedCharge} kg` : '';
 
   if (blockType === 'free') {
-    return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} · ${targetLabel}${chargeLabel}`;
+    return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} - ${targetLabel}${chargeLabel}`;
   }
 
   return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}${chargeLabel}`;
@@ -196,7 +196,7 @@ export function formatBlockSecondaryValues(block: SessionBlockDisplayLike) {
   if (block.block_type === 'reps' && normalizedTarget !== null) {
     values.push(`Series x reps : ${normalizedSets} x ${normalizedTarget}`);
   } else if (block.block_type === 'duration' && normalizedTarget !== null) {
-    values.push(`Duree : ${formatCompactDurationValue(normalizedTarget)}`);
+    values.push(`Dur\u00E9e : ${formatCompactDurationValue(normalizedTarget)}`);
   } else if (block.block_type === 'distance' && normalizedTarget !== null) {
     values.push(`Distance : ${formatCompactDistanceValue(normalizedTarget)}`);
   } else if (block.block_type === 'free') {

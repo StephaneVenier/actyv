@@ -182,7 +182,7 @@ export function CompactExerciseCard({
               onClick={() => setExpanded((current) => !current)}
               aria-expanded={expanded}
             >
-              {expanded ? 'Masquer ▴' : 'Details ▾'}
+              {expanded ? 'Masquer ▴' : 'DÃ©tails â–¾'}
             </button>
           ) : null}
         </div>
