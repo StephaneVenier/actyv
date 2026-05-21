@@ -115,7 +115,7 @@ export default function NewSessionPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page">
+      <section className="sessions-page sessions-page--dark">
         <article className="card session-hero-card">
           <div className="session-hero-copy">
             <span className="section-kicker">Seances</span>

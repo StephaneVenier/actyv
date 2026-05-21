@@ -1,5 +1,14 @@
 export type SessionBlockType = 'reps' | 'duration' | 'distance' | 'free';
 
+export type SessionBlockDisplayLike = {
+  name: string;
+  block_type: SessionBlockType;
+  target_value: number | null | undefined;
+  sets_count: number | null | undefined;
+  charge_kg: number | null | undefined;
+  rest_seconds?: number | null | undefined;
+};
+
 export const SESSION_BLOCK_TYPES: SessionBlockType[] = [
   'reps',
   'duration',
@@ -97,6 +106,119 @@ export function formatSessionBlockSummary(
   }
 
   return `${normalizedSets} serie${normalizedSets > 1 ? 's' : ''} x ${targetLabel}${chargeLabel}`;
+}
+
+function formatCompactDurationValue(seconds: number) {
+  const normalizedSeconds = Math.max(0, Math.trunc(seconds));
+
+  if (normalizedSeconds >= 60) {
+    const minutes = Math.floor(normalizedSeconds / 60);
+    const remainingSeconds = normalizedSeconds % 60;
+    return remainingSeconds > 0 ? `${minutes} min ${remainingSeconds} s` : `${minutes} min`;
+  }
+
+  return `${normalizedSeconds} s`;
+}
+
+function formatCompactDistanceValue(distanceMeters: number) {
+  if (distanceMeters >= 1000) {
+    const km = distanceMeters / 1000;
+    const hasDecimals = Math.abs(km % 1) > 0.001;
+    return `${km.toLocaleString('fr-FR', {
+      minimumFractionDigits: hasDecimals ? 1 : 0,
+      maximumFractionDigits: hasDecimals ? 1 : 1,
+    })} km`;
+  }
+
+  return `${distanceMeters.toLocaleString('fr-FR')} m`;
+}
+
+export function formatBlockMainValue(block: SessionBlockDisplayLike) {
+  const normalizedSets = normalizeSessionSetsCount(block.sets_count);
+  const normalizedTarget =
+    Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
+      ? Number(block.target_value)
+      : null;
+
+  if (block.block_type === 'free') {
+    return normalizedSets > 1 ? `${normalizedSets} series libres` : 'Bloc libre';
+  }
+
+  if (normalizedTarget === null) {
+    return normalizedSets > 1 ? `${normalizedSets} series` : 'Sans cible';
+  }
+
+  if (block.block_type === 'reps') {
+    return `${normalizedSets} x ${normalizedTarget} reps`;
+  }
+
+  if (block.block_type === 'duration') {
+    return normalizedSets > 1
+      ? `${normalizedSets} x ${formatCompactDurationValue(normalizedTarget)}`
+      : formatCompactDurationValue(normalizedTarget);
+  }
+
+  if (block.block_type === 'distance') {
+    return normalizedSets > 1
+      ? `${normalizedSets} x ${formatCompactDistanceValue(normalizedTarget)}`
+      : formatCompactDistanceValue(normalizedTarget);
+  }
+
+  return formatSessionBlockSummary(
+    block.block_type,
+    block.target_value,
+    block.sets_count,
+    block.charge_kg
+  );
+}
+
+export function getBlockAccentColor(block: Pick<SessionBlockDisplayLike, 'block_type' | 'charge_kg'>) {
+  if (block.block_type === 'reps') {
+    return Number(block.charge_kg || 0) > 0 ? 'emerald' : 'teal';
+  }
+
+  if (block.block_type === 'duration') {
+    return 'cyan';
+  }
+
+  if (block.block_type === 'distance') {
+    return 'blue';
+  }
+
+  return 'slate';
+}
+
+export function getBlockProgress(
+  block: Pick<SessionBlockDisplayLike, 'sets_count'>,
+  completedSets = 0,
+  isCompleted = false
+) {
+  const total = normalizeSessionSetsCount(block.sets_count);
+  const current = isCompleted ? total : Math.min(Math.max(Math.trunc(completedSets), 0), total);
+
+  return {
+    current,
+    total,
+    label: `${current} / ${total}`,
+  };
+}
+
+export function getBlockStatus({
+  isCompleted,
+  isCurrent,
+}: {
+  isCompleted: boolean;
+  isCurrent?: boolean;
+}) {
+  if (isCompleted) {
+    return 'done' as const;
+  }
+
+  if (isCurrent) {
+    return 'current' as const;
+  }
+
+  return 'todo' as const;
 }
 
 export function formatSessionRestSeconds(restSeconds: number | null | undefined) {

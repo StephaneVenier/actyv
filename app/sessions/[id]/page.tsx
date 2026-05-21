@@ -4,11 +4,14 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { CompactExerciseCard, SessionSummaryHeader } from '@/components/session-compact-ui';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
+  formatBlockMainValue,
   formatEstimatedWorkoutCalories,
   formatSessionBlockSummary,
+  formatSessionRestSeconds,
   formatSessionVolumeKg,
   getEstimatedWorkoutCalories,
   getSessionBlockTypeLabel,
@@ -764,6 +767,12 @@ export default function SessionDetailPage() {
     });
   }, [chartMaxValue, chartMetricEntries]);
   const chartPath = useMemo(() => buildChartPath(chartPoints), [chartPoints]);
+  const firstPendingBlockIndex = useMemo(
+    () => blocks.findIndex((block) => !completedBlockIds.includes(block.id)),
+    [blocks, completedBlockIds]
+  );
+  const globalProgressPercent =
+    blocks.length > 0 ? Math.round((completedBlocksCount / blocks.length) * 100) : 0;
   const selectedExerciseChartEntries = selectedExerciseStats?.progressionEntries || [];
   const selectedExerciseSingleEntry =
     selectedExerciseChartEntries.length === 1 ? selectedExerciseChartEntries[0] : null;
@@ -839,7 +848,7 @@ export default function SessionDetailPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page">
+      <section className="sessions-page sessions-page--dark">
         <Link href="/sessions" className="detail-back-link">
           ← Retour aux seances
         </Link>
@@ -859,59 +868,49 @@ export default function SessionDetailPage() {
           </div>
         ) : (
           <>
-            <article className="card session-hero-card">
-              <div className="session-hero-copy">
+            <SessionSummaryHeader
+              sportBadge={
                 <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                   {formatSportBadgeLabel(session.sport, 'Sport')}
                 </div>
-                <h1>{session.name}</h1>
-                <p className="muted">{session.description || 'Aucune description pour le moment.'}</p>
-              </div>
-
-              <div className="session-hero-actions">
-                <Link href={`/sessions/${session.id}/live`} className="button primary">
-                  Lancer la seance
-                </Link>
-                <Link href={`/sessions/${session.id}/edit`} className="button ghost">
-                  Modifier la seance
-                </Link>
-                <Link href="/sessions/new" className="button ghost">
-                  Creer une autre seance
-                </Link>
-                <button
-                  type="button"
-                  className="button ghost session-delete-button"
-                  onClick={handleDeleteSession}
-                  disabled={deleting}
-                  aria-busy={deleting}
-                >
-                  {deleting ? 'Suppression...' : 'Supprimer la seance'}
-                </button>
-              </div>
-
-              <div className="session-detail-meta">
-                <div className="session-meta-card">
-                  <span>Creee</span>
-                  <strong>{formatRelativeDate(session.created_at)}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Blocs</span>
-                  <strong>{blocks.length}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Blocs structures</span>
-                  <strong>{totalStructuredBlocks}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Volume total</span>
-                  <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Calories estimees</span>
-                  <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '-'}</strong>
-                </div>
-              </div>
-            </article>
+              }
+              title={session.name}
+              description={session.description || 'Aucune description pour le moment.'}
+              progressLabel={`${completedBlocksCount} / ${blocks.length || 0} blocs • ${globalProgressPercent}%`}
+              actions={
+                <>
+                  <Link href={`/sessions/${session.id}/live`} className="button primary">
+                    Demarrer la seance
+                  </Link>
+                  <Link href={`/sessions/${session.id}/edit`} className="button ghost">
+                    Modifier
+                  </Link>
+                  <Link href="/sessions/new" className="button ghost">
+                    Nouvelle seance
+                  </Link>
+                  <button
+                    type="button"
+                    className="button ghost session-delete-button"
+                    onClick={handleDeleteSession}
+                    disabled={deleting}
+                    aria-busy={deleting}
+                  >
+                    {deleting ? 'Suppression...' : 'Supprimer'}
+                  </button>
+                </>
+              }
+              stats={[
+                { label: 'Sport', value: formatSportBadgeLabel(session.sport, 'Sport') },
+                {
+                  label: 'Duree estimee',
+                  value: formatDurationLabel(averageDurationSeconds) || '-',
+                },
+                { label: 'Blocs', value: blocks.length },
+                { label: 'Struct.', value: totalStructuredBlocks },
+                { label: 'Volume total', value: formatSessionVolumeKg(sessionTotalVolume) || '-' },
+                { label: 'Creee', value: formatRelativeDate(session.created_at) },
+              ]}
+            />
 
             <article className="card session-form-card stack">
               <div className="session-blocks-header">
@@ -1279,60 +1278,52 @@ export default function SessionDetailPage() {
                   <p>Aucun bloc ajoute pour le moment.</p>
                 </div>
               ) : (
-                <div className="session-block-list">
-                  {blocks.map((block) => (
-                    (() => {
-                      const blockVolume = getSessionBlockVolumeKg(
-                        block.block_type,
-                        block.target_value,
-                        block.sets_count,
-                        block.charge_kg
-                      );
+                <div className="session-block-list session-block-list--compact">
+                  {blocks.map((block, index) => {
+                    const isCompleted = completedBlockIds.includes(block.id);
+                    const isCurrent = !isCompleted && index === (firstPendingBlockIndex === -1 ? 0 : firstPendingBlockIndex);
+                    const blockVolume = getSessionBlockVolumeKg(
+                      block.block_type,
+                      block.target_value,
+                      block.sets_count,
+                      block.charge_kg
+                    );
 
-                      return (
-                        <article
-                          key={block.id}
-                          className={`session-block-card${
-                            completedBlockIds.includes(block.id) ? ' session-block-card--completed' : ''
-                          }`}
-                        >
-                          <div className="session-block-card__top">
-                            <label className="session-block-check">
-                              <input
-                                type="checkbox"
-                                checked={completedBlockIds.includes(block.id)}
-                                onChange={() => toggleBlockCompleted(block.id)}
-                                aria-label={`Marquer ${block.name} comme realise`}
-                              />
-                              <span className="session-block-check__label">
-                                <strong>
-                                  {block.position + 1}. {block.name}
-                                </strong>
-                                <small>
-                                  {completedBlockIds.includes(block.id) ? 'Bloc realise' : 'A realiser'}
-                                </small>
-                              </span>
-                            </label>
-                            <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
+                    return (
+                      <CompactExerciseCard
+                        key={block.id}
+                        index={block.position}
+                        block={block}
+                        isCompleted={isCompleted}
+                        isCurrent={isCurrent}
+                        completedSets={isCompleted ? Number(block.sets_count || 1) : 0}
+                        actionLabel={isCompleted ? 'Termine' : isCurrent ? 'Continuer' : 'Demarrer'}
+                        onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}
+                        actionDisabled={isCompleted}
+                        subtitle={`Bloc ${index + 1} • ${getSessionBlockTypeLabel(block.block_type)}`}
+                        details={
+                          <div className="compact-exercise-card__details-grid">
+                            <div>
+                              <span>Objectif</span>
+                              <strong>{formatBlockMainValue(block)}</strong>
+                            </div>
+                            <div>
+                              <span>Repos</span>
+                              <strong>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</strong>
+                            </div>
+                            <div>
+                              <span>Etat</span>
+                              <strong>{isCompleted ? 'Termine' : isCurrent ? 'En cours' : 'A faire'}</strong>
+                            </div>
+                            <div>
+                              <span>Volume</span>
+                              <strong>{formatSessionVolumeKg(blockVolume) || '-'}</strong>
+                            </div>
                           </div>
-                          <p className="session-block-preview">
-                            Objectif :{' '}
-                            <strong>
-                              {formatSessionBlockSummary(
-                                block.block_type,
-                                block.target_value,
-                                block.sets_count,
-                                block.charge_kg
-                              )}
-                            </strong>
-                          </p>
-                          {blockVolume ? (
-                            <p className="session-block-volume">Volume : {formatSessionVolumeKg(blockVolume)}</p>
-                          ) : null}
-                        </article>
-                      );
-                    })()
-                  ))}
+                        }
+                      />
+                    );
+                  })}
                 </div>
               )}
             </article>

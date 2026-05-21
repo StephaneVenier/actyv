@@ -167,7 +167,7 @@ export default function SessionsPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page">
+      <section className="sessions-page sessions-page--dark">
         <article className="card session-hero-card">
           <div className="session-hero-copy">
             <span className="section-kicker">Seances</span>
@@ -206,7 +206,7 @@ export default function SessionsPage() {
               const firstBlock = sessionBlocks[0];
 
               return (
-                <article key={session.id} className="session-card">
+                <article key={session.id} className="session-card session-card--compact">
                   <div className="session-card__top">
                     <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                       {formatSportBadgeLabel(session.sport, 'Sport')}
@@ -233,9 +233,14 @@ export default function SessionsPage() {
                     </span>
                   </div>
 
-                  <Link href={`/sessions/${session.id}`} className="button ghost">
-                    Voir le detail
-                  </Link>
+                  <div className="session-card__actions">
+                    <Link href={`/sessions/${session.id}/live`} className="button primary">
+                      Lancer
+                    </Link>
+                    <Link href={`/sessions/${session.id}`} className="button ghost">
+                      Voir le detail
+                    </Link>
+                  </div>
                 </article>
               );
             })}
