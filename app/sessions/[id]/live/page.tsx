@@ -4,17 +4,20 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { CompactExerciseCard, SessionSummaryHeader } from '@/components/session-compact-ui';
+import {
+  LiveBlockCard,
+  LiveBlockPreviewRail,
+  LiveControls,
+  RestTimerOverlay,
+  SessionLiveHeader,
+} from '@/components/session-live-ui';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
-  formatBlockMainValue,
   formatEstimatedWorkoutCalories,
-  formatSessionBlockSummary,
-  formatSessionRestSeconds,
   formatSessionVolumeKg,
   getEstimatedWorkoutCalories,
-  getSessionBlockTypeLabel,
   getSessionBlockVolumeKg,
+  getSessionEstimatedDuration,
   normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
@@ -64,6 +67,12 @@ function createLiveRunKey() {
   }
 
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function triggerHaptic(pattern: number | number[]) {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    navigator.vibrate(pattern);
+  }
 }
 
 function formatPersonalRecordValue(metric: NewPersonalRecord['metric'], value: number) {
@@ -252,11 +261,14 @@ export default function LiveSessionPage() {
       }, 0),
     [blocks]
   );
+  const estimatedDurationSeconds = useMemo(() => getSessionEstimatedDuration(blocks), [blocks]);
   const estimatedCalories = useMemo(
     () => getEstimatedWorkoutCalories(elapsedSeconds, session?.sport),
     [elapsedSeconds, session?.sport]
   );
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+  const globalProgressPercent =
+    blocks.length > 0 ? Math.min(100, Math.max(0, Math.round((completedBlocksCount / blocks.length) * 100))) : 0;
   const currentBlock = blocks[currentIndex] || null;
   const currentBlockSetsTotal = currentBlock ? normalizeSessionSetsCount(currentBlock.sets_count) : 1;
   const currentBlockRestSeconds =
@@ -286,6 +298,13 @@ export default function LiveSessionPage() {
     ? Math.min(currentCompletedSets + (completedBlockIds.includes(currentBlock.id) ? 0 : 1), currentBlockSetsTotal)
     : 1;
   const isResting = Boolean(restAfterBlockId) && !allBlocksCompleted;
+  const currentSeriesLabel = currentBlock
+    ? usesSetBySetValidation
+      ? `Serie ${Math.max(displayedSeriesStep, 1)} / ${currentBlockSetsTotal}`
+      : currentBlockSetsTotal > 1
+        ? `${currentBlockSetsTotal} series prevues`
+        : 'Bloc unique'
+    : '-';
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -403,6 +422,15 @@ export default function LiveSessionPage() {
     setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
+  const goToBlockIndex = (index: number) => {
+    clearRestState();
+    setCurrentIndex(Math.min(Math.max(index, 0), Math.max(blocks.length - 1, 0)));
+  };
+
+  const adjustRestSeconds = (delta: number) => {
+    setRestSecondsLeft((current) => Math.max(0, current + delta));
+  };
+
   const resetLiveProgress = () => {
     setCompletedBlockIds([]);
     setCompletedSetsByBlockId({});
@@ -434,6 +462,8 @@ export default function LiveSessionPage() {
 
   const handleValidateCurrent = () => {
     if (!currentBlock) return;
+
+    triggerHaptic(18);
 
     if (usesSetBySetValidation) {
       const nextCompletedSets = Math.min(currentCompletedSets + 1, currentBlockSetsTotal);
@@ -737,12 +767,11 @@ export default function LiveSessionPage() {
     session,
     sessionTotalVolume,
   ]);
-
   return (
     <AppShell>
       <section className="sessions-page sessions-page--dark session-live-page">
         <Link href={`/sessions/${id}`} className="detail-back-link">
-          ← Retour a la seance
+          &larr; Retour a la seance
         </Link>
 
         {loading ? (
@@ -769,50 +798,58 @@ export default function LiveSessionPage() {
           </div>
         ) : (
           <>
-            <SessionSummaryHeader
+            <SessionLiveHeader
               sportBadge={
                 <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                   {formatSportBadgeLabel(session.sport, 'Sport')}
                 </div>
               }
               title={session.name}
-              description={session.description || 'Mode live simple pour suivre tes blocs.'}
-              progressLabel={`${completedBlocksCount} / ${blocks.length} exercices • ${allBlocksCompleted ? 'Termine' : 'En cours'}`}
-              actions={
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={() => setIsTimerPaused((current) => !current)}
-                  disabled={allBlocksCompleted}
-                >
-                  {isTimerPaused ? 'Reprendre' : 'Pause'}
-                </button>
-              }
-              stats={[
-                { label: 'Temps', value: formatElapsedDuration(elapsedSeconds) },
-                { label: 'Calories', value: formatEstimatedWorkoutCalories(estimatedCalories) || '-' },
-                { label: 'Exercice', value: `${Math.min(currentIndex + 1, blocks.length)} / ${blocks.length}` },
-                { label: 'Serie', value: currentBlock && currentBlockSetsTotal > 1 ? `${Math.max(displayedSeriesStep, 1)} / ${currentBlockSetsTotal}` : '-' },
-                { label: 'Volume', value: formatSessionVolumeKg(sessionTotalVolume) || '-' },
-                { label: 'Statut', value: allBlocksCompleted ? 'Termine' : isResting ? 'Repos' : 'Actif' },
-              ]}
+              elapsedLabel={`Temps : ${formatElapsedDuration(elapsedSeconds)}`}
+              currentBlockLabel={`Bloc ${Math.min(currentIndex + 1, blocks.length)} / ${blocks.length}`}
+              progressLabel={`${completedBlocksCount} / ${blocks.length} blocs termines - ${globalProgressPercent}%`}
+              progressPercent={globalProgressPercent}
+              onTogglePause={() => setIsTimerPaused((current) => !current)}
+              isPaused={isTimerPaused || allBlocksCompleted}
+              quitHref={`/sessions/${id}`}
             />
 
-            {allBlocksCompleted && (
-              <article className="card session-live-finished">
-                <strong>Seance terminee ✅</strong>
-                <p className="session-live-total-time">Duree totale : {formatElapsedDuration(elapsedSeconds)}</p>
-                {estimatedCalories ? (
+            {allBlocksCompleted ? (
+              <article className="card session-live-finished session-live-finished--v1">
+                <div className="session-live-finished__hero">
+                  <span className="section-kicker">Fin de seance</span>
+                  <strong>Seance terminee</strong>
+                </div>
+
+                <div className="session-live-finished__stats">
+                  <div className="session-live-fact">
+                    <span>Duree</span>
+                    <strong>{formatElapsedDuration(elapsedSeconds)}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Blocs</span>
+                    <strong>{`${completedBlocksCount} / ${blocks.length}`}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Calories</span>
+                    <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '-'}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Volume</span>
+                    <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
+                  </div>
+                </div>
+
+                {estimatedDurationSeconds ? (
                   <p className="session-live-total-time">
-                    Calories estimees : {formatEstimatedWorkoutCalories(estimatedCalories)}
+                    Duree estimee : {formatElapsedDuration(estimatedDurationSeconds)}
                   </p>
                 ) : null}
-                {sessionTotalVolume > 0 ? (
-                  <p className="session-live-total-time">Volume total : {formatSessionVolumeKg(sessionTotalVolume)}</p>
-                ) : null}
+
                 {historyMessage ? (
                   <p className="form-feedback form-feedback--error">{historyMessage}</p>
                 ) : null}
+
                 {newPersonalRecords.length > 0 ? (
                   <div className="session-live-records">
                     <div className="session-live-records__header">
@@ -821,23 +858,37 @@ export default function LiveSessionPage() {
                     </div>
                     <div className="session-records-list">
                       {newPersonalRecords.map((record, index) => (
-                        <article key={`${record.exerciseName}-${record.metric}-${index}`} className="session-block-card session-record-card session-live-record-card">
+                        <article
+                          key={`${record.exerciseName}-${record.metric}-${index}`}
+                          className="session-block-card session-record-card session-live-record-card"
+                        >
                           <div className="session-block-card__top">
                             <div className="session-block-check__label">
-                              <strong>🏆 {record.exerciseName}</strong>
+                              <strong>{record.exerciseName}</strong>
                               <small>Nouveau record personnel</small>
                             </div>
                             <span className="session-block-chip">NEW PR</span>
                           </div>
                           <div className="session-record-lines">
                             <p>
-                              Type : <strong>{record.metric === 'reps' ? 'Reps' : record.metric === 'charge' ? 'Charge' : record.metric === 'volume' ? 'Volume' : 'Duree'}</strong>
+                              Type :{' '}
+                              <strong>
+                                {record.metric === 'reps'
+                                  ? 'Reps'
+                                  : record.metric === 'charge'
+                                    ? 'Charge'
+                                    : record.metric === 'volume'
+                                      ? 'Volume'
+                                      : 'Duree'}
+                              </strong>
                             </p>
                             <p>
-                              Ancien : <strong>{formatPersonalRecordValue(record.metric, record.previousValue)}</strong>
+                              Ancien :{' '}
+                              <strong>{formatPersonalRecordValue(record.metric, record.previousValue)}</strong>
                             </p>
                             <p>
-                              Nouveau : <strong>{formatPersonalRecordValue(record.metric, record.value)}</strong>
+                              Nouveau :{' '}
+                              <strong>{formatPersonalRecordValue(record.metric, record.value)}</strong>
                             </p>
                           </div>
                         </article>
@@ -845,126 +896,99 @@ export default function LiveSessionPage() {
                     </div>
                   </div>
                 ) : null}
-                <p>Tous les exercices ont ete valides. Tu peux revenir au detail ou relancer la seance.</p>
-                <div className="session-live-actions">
+
+                <p className="session-live-finished__copy">
+                  Tous les blocs ont ete valides. Tu peux revenir au detail, relancer la seance
+                  ou terminer ici.
+                </p>
+
+                <div className="session-live-actions session-live-actions--end">
                   <button type="button" className="button primary" onClick={resetLiveProgress}>
-                    Relancer la seance
+                    Refaire
                   </button>
                   <Link href={`/sessions/${id}`} className="button ghost">
-                    Retour au detail
+                    Retour seance
+                  </Link>
+                  <Link href="/sessions" className="button ghost">
+                    Terminer
                   </Link>
                 </div>
               </article>
-            )}
-
-            {isResting && currentBlock ? (
-              <article className="card session-live-rest">
-                <div className="session-live-stage__top">
-                  <div>
-                    <span className="section-kicker">Repos</span>
-                    <h2>Recuperation</h2>
-                  </div>
-                  <span className="session-block-chip">60 sec</span>
-                </div>
-
-                <p className="muted">
-                  Exercice valide. Prends une minute avant de passer au suivant, ou avance
-                  directement si tu es pret.
-                </p>
-
-                <div className="session-live-rest__timer">
-                  <strong>{restSecondsLeft}s</strong>
-                  <span>{restSecondsLeft > 0 ? 'de repos restant' : 'Repos termine'}</span>
-                </div>
-
-                <div className="session-live-actions">
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={goToPrevious}
-                    disabled={currentIndex === 0}
-                  >
-                    Precedent
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={() => setRestSecondsLeft(0)}
-                    disabled={restSecondsLeft === 0}
-                  >
-                    Passer le repos
-                  </button>
-                  <button type="button" className="button primary" onClick={goToNextExercise}>
-                    Exercice suivant
-                  </button>
-                </div>
-              </article>
+            ) : isResting && currentBlock ? (
+              <RestTimerOverlay
+                blockLabel={currentBlock.name}
+                secondsLeft={restSecondsLeft}
+                totalSeconds={currentBlockRestSeconds}
+                onSkip={() => setRestSecondsLeft(0)}
+                onAdd15={() => adjustRestSeconds(15)}
+                onSubtract15={() => adjustRestSeconds(-15)}
+                onNext={goToNextExercise}
+                onPrevious={goToPrevious}
+                canGoPrevious={currentIndex > 0}
+              />
             ) : currentBlock ? (
-              <article className="card session-live-stage">
-                <div className="session-blocks-header">
-                  <div>
-                    <span className="section-kicker">Exercice courant</span>
-                    <h2>Suivi compact</h2>
-                  </div>
-                </div>
-
-                <CompactExerciseCard
-                  index={currentIndex}
+              <>
+                <LiveBlockCard
                   block={currentBlock}
+                  blockIndex={currentIndex}
+                  totalBlocks={blocks.length}
+                  currentSeriesLabel={currentSeriesLabel}
                   isCompleted={completedBlockIds.includes(currentBlock.id)}
-                  isCurrent={!completedBlockIds.includes(currentBlock.id)}
-                  completedSets={currentCompletedSets}
-                  actionLabel={
-                    completedBlockIds.includes(currentBlock.id)
-                      ? 'Termine'
-                      : usesSetBySetValidation
-                        ? `Valider serie ${Math.max(displayedSeriesStep, 1)}`
-                        : 'Valider'
-                  }
-                  onAction={completedBlockIds.includes(currentBlock.id) ? undefined : handleValidateCurrent}
+                  blockVolumeLabel={formatSessionVolumeKg(currentBlockVolume)}
+                  actionLabel={usesSetBySetValidation ? 'Serie terminee' : 'Bloc termine'}
+                  onValidate={handleValidateCurrent}
                   actionDisabled={completedBlockIds.includes(currentBlock.id)}
-                  subtitle={`Bloc ${currentIndex + 1} • ${getSessionBlockTypeLabel(currentBlock.block_type)}`}
-                  details={
-                    <div className="compact-exercise-card__details-grid">
-                      <div>
-                        <span>Format</span>
-                        <strong>{formatBlockMainValue(currentBlock)}</strong>
-                      </div>
-                      <div>
-                        <span>Repos</span>
-                        <strong>{formatSessionRestSeconds(currentBlockRestSeconds) || 'Sans repos'}</strong>
-                      </div>
-                      <div>
-                        <span>Serie en cours</span>
-                        <strong>{usesSetBySetValidation ? `${Math.max(displayedSeriesStep, 1)} / ${currentBlockSetsTotal}` : 'Bloc unique'}</strong>
-                      </div>
-                      <div>
-                        <span>Volume</span>
-                        <strong>{formatSessionVolumeKg(currentBlockVolume) || '-'}</strong>
-                      </div>
-                    </div>
-                  }
                 />
 
-                <div className="session-live-actions">
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={goToPrevious}
-                    disabled={currentIndex === 0}
-                  >
-                    Precedent
-                  </button>
-                  <button
-                    type="button"
-                    className="button ghost"
-                    onClick={goToNext}
-                    disabled={currentIndex >= blocks.length - 1}
-                  >
-                    Suivant
-                  </button>
+                <div className="session-live-quick-stats">
+                  <article className="card session-live-quick-stat">
+                    <span>Bloc courant</span>
+                    <strong>{getSessionBlockTypeLabel(currentBlock.block_type)}</strong>
+                  </article>
+                  <article className="card session-live-quick-stat">
+                    <span>Progression bloc</span>
+                    <strong>{currentSeriesLabel}</strong>
+                  </article>
+                  <article className="card session-live-quick-stat">
+                    <span>Duree estimee</span>
+                    <strong>{estimatedDurationSeconds ? formatElapsedDuration(estimatedDurationSeconds) : '-'}</strong>
+                  </article>
+                  <article className="card session-live-quick-stat">
+                    <span>Calories live</span>
+                    <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '-'}</strong>
+                  </article>
                 </div>
-              </article>
+
+                <LiveControls
+                  onPrevious={goToPrevious}
+                  onNext={goToNext}
+                  previousDisabled={currentIndex === 0}
+                  nextDisabled={currentIndex >= blocks.length - 1}
+                />
+
+                <article className="card session-live-rail-card">
+                  <div className="session-live-rail-card__top">
+                    <div>
+                      <span className="section-kicker">Apercu rapide</span>
+                      <h2>Plan de seance</h2>
+                    </div>
+                    <span className="session-block-chip">
+                      {allBlocksCompleted ? 'Termine' : isTimerPaused ? 'Pause' : 'En cours'}
+                    </span>
+                  </div>
+
+                  <LiveBlockPreviewRail
+                    blocks={blocks.map((block) => ({
+                      id: block.id,
+                      name: block.name || `Bloc ${block.position + 1}`,
+                      block_type: block.block_type,
+                    }))}
+                    currentIndex={currentIndex}
+                    completedBlockIds={completedBlockIds}
+                    onSelect={goToBlockIndex}
+                  />
+                </article>
+              </>
             ) : null}
           </>
         )}

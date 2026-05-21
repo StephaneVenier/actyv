@@ -1,0 +1,311 @@
+'use client';
+
+import Link from 'next/link';
+import type { ReactNode } from 'react';
+import {
+  formatBlockMainValue,
+  formatSessionRestSeconds,
+  formatSessionVolumeKg,
+  getSessionBlockTypeLabel,
+  type SessionBlockDisplayLike,
+} from '@/lib/session-blocks';
+
+type SessionProgressBarProps = {
+  value: number;
+  label?: string;
+};
+
+type SessionLiveHeaderProps = {
+  title: string;
+  sportBadge?: ReactNode;
+  elapsedLabel: string;
+  currentBlockLabel: string;
+  progressLabel: string;
+  progressPercent: number;
+  onTogglePause: () => void;
+  isPaused: boolean;
+  quitHref: string;
+};
+
+type LiveBlockCardProps = {
+  block: SessionBlockDisplayLike;
+  blockIndex: number;
+  totalBlocks: number;
+  currentSeriesLabel: string;
+  isCompleted: boolean;
+  blockVolumeLabel?: string | null;
+  actionLabel: string;
+  onValidate?: () => void;
+  actionDisabled?: boolean;
+};
+
+type RestTimerOverlayProps = {
+  blockLabel: string;
+  secondsLeft: number;
+  totalSeconds: number;
+  onSkip: () => void;
+  onAdd15: () => void;
+  onSubtract15: () => void;
+  onNext: () => void;
+  onPrevious: () => void;
+  canGoPrevious: boolean;
+};
+
+type LiveControlsProps = {
+  onPrevious: () => void;
+  onNext: () => void;
+  onOpenPreview?: () => void;
+  previousDisabled?: boolean;
+  nextDisabled?: boolean;
+};
+
+type LiveBlockPreviewRailProps = {
+  blocks: Array<{ id: string; name: string; block_type: SessionBlockDisplayLike['block_type'] }>;
+  currentIndex: number;
+  completedBlockIds: string[];
+  onSelect: (index: number) => void;
+};
+
+export function SessionProgressBar({ value, label }: SessionProgressBarProps) {
+  const normalizedValue = Math.min(Math.max(Math.round(value), 0), 100);
+
+  return (
+    <div className="session-live-progress">
+      <div className="session-live-progress__bar" aria-hidden="true">
+        <span style={{ width: `${normalizedValue}%` }} />
+      </div>
+      {label ? <small>{label}</small> : null}
+    </div>
+  );
+}
+
+export function SessionLiveHeader({
+  title,
+  sportBadge,
+  elapsedLabel,
+  currentBlockLabel,
+  progressLabel,
+  progressPercent,
+  onTogglePause,
+  isPaused,
+  quitHref,
+}: SessionLiveHeaderProps) {
+  return (
+    <article className="card session-live-shell">
+      <div className="session-live-shell__top">
+        <div className="session-live-shell__copy">
+          <span className="section-kicker">Mode live</span>
+          <h1>{title}</h1>
+          <div className="session-live-shell__meta">
+            {sportBadge ? sportBadge : null}
+            <span className="session-block-chip">{currentBlockLabel}</span>
+            <span className="session-block-chip">{elapsedLabel}</span>
+          </div>
+        </div>
+
+        <div className="session-live-shell__actions">
+          <button type="button" className="button ghost" onClick={onTogglePause}>
+            {isPaused ? 'Reprendre' : 'Pause'}
+          </button>
+          <Link href={quitHref} className="button ghost">
+            Quitter
+          </Link>
+        </div>
+      </div>
+
+      <SessionProgressBar value={progressPercent} label={progressLabel} />
+    </article>
+  );
+}
+
+function getLivePrimaryValue(block: SessionBlockDisplayLike) {
+  if (block.block_type === 'free') {
+    return 'Bloc libre';
+  }
+
+  return formatBlockMainValue(block);
+}
+
+export function LiveBlockCard({
+  block,
+  blockIndex,
+  totalBlocks,
+  currentSeriesLabel,
+  isCompleted,
+  blockVolumeLabel,
+  actionLabel,
+  onValidate,
+  actionDisabled = false,
+}: LiveBlockCardProps) {
+  const typeLabel = getSessionBlockTypeLabel(block.block_type);
+  const restLabel = formatSessionRestSeconds(block.rest_seconds) || 'Sans repos';
+
+  return (
+    <article className="card session-live-focus-card">
+      <div className="session-live-focus-card__eyebrow">
+        <span className="section-kicker">{`Bloc ${blockIndex + 1} / ${totalBlocks}`}</span>
+        <span className={`session-block-chip${isCompleted ? ' is-done' : ''}`}>{typeLabel}</span>
+      </div>
+
+      <div className="session-live-focus-card__hero">
+        <h2>{block.name || `Bloc ${blockIndex + 1}`}</h2>
+        <p>{typeLabel}</p>
+      </div>
+
+      <div className="session-live-focus-card__value">
+        <strong>{getLivePrimaryValue(block)}</strong>
+        <span>{currentSeriesLabel}</span>
+      </div>
+
+      <div className="session-live-focus-card__facts">
+        <div className="session-live-fact">
+          <span>Format</span>
+          <strong>{typeLabel}</strong>
+        </div>
+
+        {Number(block.charge_kg || 0) > 0 ? (
+          <div className="session-live-fact">
+            <span>Charge</span>
+            <strong>{block.charge_kg} kg</strong>
+          </div>
+        ) : null}
+
+        <div className="session-live-fact">
+          <span>Repos</span>
+          <strong>{restLabel}</strong>
+        </div>
+
+        {blockVolumeLabel ? (
+          <div className="session-live-fact">
+            <span>Volume</span>
+            <strong>{blockVolumeLabel}</strong>
+          </div>
+        ) : null}
+      </div>
+
+      {block.block_type === 'free' ? (
+        <p className="session-live-focus-card__note">
+          Bloc libre sans objectif chiffre. Utilise-le pour une consigne simple, une technique
+          ou une phase de mobilite.
+        </p>
+      ) : null}
+
+      <div className="session-live-focus-card__footer">
+        <button
+          type="button"
+          className="button primary session-live-focus-card__validate"
+          onClick={onValidate}
+          disabled={actionDisabled || !onValidate}
+        >
+          {actionLabel}
+        </button>
+      </div>
+    </article>
+  );
+}
+
+export function RestTimerOverlay({
+  blockLabel,
+  secondsLeft,
+  totalSeconds,
+  onSkip,
+  onAdd15,
+  onSubtract15,
+  onNext,
+  onPrevious,
+  canGoPrevious,
+}: RestTimerOverlayProps) {
+  const progressPercent =
+    totalSeconds > 0 ? Math.min(Math.max(((totalSeconds - secondsLeft) / totalSeconds) * 100, 0), 100) : 100;
+  const ringStyle = {
+    background: `conic-gradient(#35e66b ${progressPercent}%, rgba(255,255,255,0.08) ${progressPercent}% 100%)`,
+  };
+
+  return (
+    <article className="card session-live-rest-overlay">
+      <span className="section-kicker">Repos</span>
+      <h2>Recuperation</h2>
+      <p>{`Bloc valide : ${blockLabel}`}</p>
+
+      <div className="session-live-rest-overlay__ring" style={ringStyle}>
+        <div className="session-live-rest-overlay__ring-inner">
+          <strong>{Math.max(secondsLeft, 0)}</strong>
+          <span>sec</span>
+        </div>
+      </div>
+
+      <div className="session-live-rest-overlay__adjust">
+        <button type="button" className="button ghost" onClick={onSubtract15}>
+          -15 sec
+        </button>
+        <button type="button" className="button ghost" onClick={onAdd15}>
+          +15 sec
+        </button>
+      </div>
+
+      <div className="session-live-rest-overlay__actions">
+        <button type="button" className="button ghost" onClick={onPrevious} disabled={!canGoPrevious}>
+          Precedent
+        </button>
+        <button type="button" className="button ghost" onClick={onSkip}>
+          Passer
+        </button>
+        <button type="button" className="button primary" onClick={onNext}>
+          Bloc suivant
+        </button>
+      </div>
+    </article>
+  );
+}
+
+export function LiveControls({
+  onPrevious,
+  onNext,
+  onOpenPreview,
+  previousDisabled = false,
+  nextDisabled = false,
+}: LiveControlsProps) {
+  return (
+    <div className="session-live-controls">
+      <button type="button" className="button ghost" onClick={onPrevious} disabled={previousDisabled}>
+        Precedent
+      </button>
+      {onOpenPreview ? (
+        <button type="button" className="button ghost" onClick={onOpenPreview}>
+          Apercu rapide
+        </button>
+      ) : null}
+      <button type="button" className="button ghost" onClick={onNext} disabled={nextDisabled}>
+        Suivant
+      </button>
+    </div>
+  );
+}
+
+export function LiveBlockPreviewRail({
+  blocks,
+  currentIndex,
+  completedBlockIds,
+  onSelect,
+}: LiveBlockPreviewRailProps) {
+  return (
+    <div className="session-live-preview">
+      {blocks.map((block, index) => {
+        const isCompleted = completedBlockIds.includes(block.id);
+        const isCurrent = index === currentIndex;
+
+        return (
+          <button
+            key={block.id}
+            type="button"
+            className={`session-live-preview__item${isCurrent ? ' is-current' : ''}${isCompleted ? ' is-done' : ''}`}
+            onClick={() => onSelect(index)}
+          >
+            <strong>{index + 1}</strong>
+            <span>{block.name}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}
