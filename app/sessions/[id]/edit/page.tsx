@@ -14,11 +14,15 @@ import {
   normalizeDraftSessionBlocks,
   SessionBlockDraft,
 } from '@/lib/session-draft-blocks';
-import { supabase } from '@/lib/supabase';
 import {
-  fetchTrainingSessionBlocks,
-  insertTrainingSessionBlocks,
-} from '@/lib/training-session-blocks-db';
+  formatEstimatedWorkoutCalories,
+  formatSessionVolumeKg,
+  getEstimatedWorkoutCalories,
+  getSessionEstimatedDuration,
+  getSessionEstimatedVolume,
+} from '@/lib/session-blocks';
+import { supabase } from '@/lib/supabase';
+import { fetchTrainingSessionBlocks, insertTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
 
 type TrainingSession = {
   id: string;
@@ -27,6 +31,19 @@ type TrainingSession = {
   sport: string | null;
   description: string | null;
 };
+
+function formatDurationLabel(durationSeconds: number | null) {
+  if (!durationSeconds || durationSeconds <= 0) return '—';
+
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds} sec`;
+  }
+
+  return `${minutes} min${seconds > 0 ? ` ${seconds.toString().padStart(2, '0')}` : ''}`;
+}
 
 export default function EditSessionPage() {
   const params = useParams();
@@ -105,6 +122,19 @@ export default function EditSessionPage() {
   }, [id]);
 
   const validBlocksCount = useMemo(() => blocks.filter((block) => block.name.trim()).length, [blocks]);
+  const normalizedBlocks = useMemo(() => normalizeDraftSessionBlocks(blocks), [blocks]);
+  const estimatedDurationSeconds = useMemo(
+    () => getSessionEstimatedDuration(normalizedBlocks),
+    [normalizedBlocks]
+  );
+  const estimatedVolume = useMemo(
+    () => getSessionEstimatedVolume(normalizedBlocks),
+    [normalizedBlocks]
+  );
+  const estimatedCalories = useMemo(
+    () => getEstimatedWorkoutCalories(estimatedDurationSeconds, sport),
+    [estimatedDurationSeconds, sport]
+  );
 
   const updateBlock = (blockId: string, updates: Partial<SessionBlockDraft>) => {
     setBlocks((current) => current.map((block) => (block.id === blockId ? { ...block, ...updates } : block)));
@@ -128,8 +158,6 @@ export default function EditSessionPage() {
       setMessage('Renseigne le nom de la seance et le sport associe.');
       return;
     }
-
-    const normalizedBlocks = normalizeDraftSessionBlocks(blocks);
 
     if (normalizedBlocks.length === 0) {
       setMessage('Ajoute au moins un bloc simple pour enregistrer la seance.');
@@ -211,7 +239,7 @@ export default function EditSessionPage() {
             <span className="section-kicker">Seances</span>
             <h1>Modifier la seance</h1>
             <p className="muted">
-              Mets a jour les informations de ta seance et ajuste ses blocs sans recréer une nouvelle fiche.
+              Ajuste la structure, les blocs et les details sans recreer une nouvelle fiche.
             </p>
           </div>
 
@@ -222,57 +250,91 @@ export default function EditSessionPage() {
           </div>
         </article>
 
+        <article className="card session-creation-overview">
+          <div className="session-creation-overview__stat">
+            <span>Duree estimee</span>
+            <strong>{formatDurationLabel(estimatedDurationSeconds)}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Blocs</span>
+            <strong>{blocks.length || '—'}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Volume estime</span>
+            <strong>{formatSessionVolumeKg(estimatedVolume) || '—'}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Calories estimees</span>
+            <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '—'}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Progression</span>
+            <strong>{blocks.length > 0 ? `${validBlocksCount} / ${blocks.length}` : '—'}</strong>
+          </div>
+        </article>
+
         {loading ? (
           <div className="challenge-state">
             <p>Chargement de la seance...</p>
           </div>
         ) : (
           <form className="sessions-layout" onSubmit={handleSubmit}>
-            <article className="card session-form-card stack">
-              <div className="session-form-grid">
-                <div className="field">
-                  <label htmlFor="session-name">Nom de la seance</label>
-                  <input
-                    id="session-name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    placeholder="Ex : VMA courte, Circuit cardio, Sortie recup"
-                    disabled={saving}
-                  />
+            <div className="session-general-grid">
+              <article className="card session-form-card stack session-general-card">
+                <div className="session-form-grid">
+                  <div className="field">
+                    <label htmlFor="session-name">Nom de la seance</label>
+                    <input
+                      id="session-name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      placeholder="Ex : VMA courte, Circuit cardio, Sortie recup"
+                      disabled={saving}
+                    />
+                  </div>
+
+                  <div className="field">
+                    <label htmlFor="session-sport">Sport</label>
+                    <select
+                      id="session-sport"
+                      value={sport}
+                      onChange={(event) => setSport(event.target.value)}
+                      disabled={saving}
+                    >
+                      <option value="">Choisir un sport</option>
+                      {sports.map((sportItem) => (
+                        <option key={sportItem} value={sportItem}>
+                          {sportItem}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="field full">
+                    <label htmlFor="session-description">Description</label>
+                    <textarea
+                      id="session-description"
+                      rows={4}
+                      value={description}
+                      onChange={(event) => setDescription(event.target.value)}
+                      placeholder="Objectif de la seance, intensite, consigne generale..."
+                      disabled={saving}
+                    />
+                  </div>
                 </div>
 
-                <div className="field">
-                  <label htmlFor="session-sport">Sport</label>
-                  <select
-                    id="session-sport"
-                    value={sport}
-                    onChange={(event) => setSport(event.target.value)}
-                    disabled={saving}
-                  >
-                    <option value="">Choisir un sport</option>
-                    {sports.map((sportItem) => (
-                      <option key={sportItem} value={sportItem}>
-                        {sportItem}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
+              </article>
 
-                <div className="field full">
-                  <label htmlFor="session-description">Description</label>
-                  <textarea
-                    id="session-description"
-                    rows={4}
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder="Objectif de la seance, intensite, consigne generale..."
-                    disabled={saving}
-                  />
-                </div>
-              </div>
-
-              {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
-            </article>
+              <aside className="card session-advice-card">
+                <span className="section-kicker">Conseil</span>
+                <h2>Ajustement rapide</h2>
+                <p>
+                  Modifie le format des blocs, la charge et le repos sans perdre la structure
+                  generale. Les changements restent compatibles avec le mode live et les programmes.
+                </p>
+              </aside>
+            </div>
 
             <SessionBlocksEditor
               blocks={blocks}
@@ -282,21 +344,23 @@ export default function EditSessionPage() {
               onUpdateBlock={updateBlock}
             />
 
-            <article className="card session-summary-card">
-              <span className="section-kicker">Resume</span>
-              <h2>Seance V1</h2>
-              <p className="muted">
-                {validBlocksCount} bloc{validBlocksCount > 1 ? 's' : ''} pret
-                {validBlocksCount > 1 ? 's' : ''} a etre mis a jour.
-              </p>
+            <article className="card session-summary-card session-editor-footer">
+              <div>
+                <span className="section-kicker">Resume</span>
+                <h2>Prete a etre mise a jour</h2>
+                <p className="muted">
+                  {validBlocksCount} bloc{validBlocksCount > 1 ? 's' : ''} pret
+                  {validBlocksCount > 1 ? 's' : ''} a etre mis a jour.
+                </p>
+              </div>
 
               <div className="session-summary-actions">
-                <button type="submit" className="button primary" disabled={saving} aria-busy={saving}>
-                  {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
-                </button>
                 <Link href={`/sessions/${id}`} className="button ghost">
                   Annuler
                 </Link>
+                <button type="submit" className="button primary" disabled={saving} aria-busy={saving}>
+                  {saving ? 'Enregistrement...' : 'Enregistrer les modifications'}
+                </button>
               </div>
             </article>
           </form>

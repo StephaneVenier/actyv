@@ -2907,7 +2907,267 @@ img {
   color: #d2f7ea;
 }
 
+.session-creation-overview {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+  padding: 16px 18px;
+}
+
+.session-creation-overview__stat {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.session-creation-overview__stat span {
+  color: #90a6aa;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.session-creation-overview__stat strong {
+  color: #f4f7f6;
+  font-size: 1rem;
+}
+
+.session-general-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(280px, 0.9fr);
+  gap: 18px;
+}
+
+.session-general-card,
+.session-advice-card,
+.session-editor-card {
+  align-content: start;
+}
+
+.session-advice-card {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+}
+
+.session-advice-card h2,
+.session-editor-footer h2 {
+  margin: 0;
+}
+
+.session-advice-card p {
+  margin: 0;
+  color: #9fb5b3;
+  line-height: 1.6;
+}
+
+.sessions-page--dark .field label {
+  color: #cde0de;
+}
+
+.sessions-page--dark .field input,
+.sessions-page--dark .field select,
+.sessions-page--dark .field textarea {
+  background: rgba(255, 255, 255, 0.04);
+  color: #f4f7f6;
+  border-color: rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+}
+
+.sessions-page--dark .field input::placeholder,
+.sessions-page--dark .field textarea::placeholder {
+  color: rgba(159, 181, 179, 0.7);
+}
+
+.sessions-page--dark .field input:focus,
+.sessions-page--dark .field select:focus,
+.sessions-page--dark .field textarea:focus {
+  border-color: rgba(32, 183, 166, 0.45);
+  box-shadow: 0 0 0 4px rgba(32, 183, 166, 0.12);
+}
+
+.session-block-list--editor {
+  gap: 12px;
+}
+
+.session-editor-block {
+  display: grid;
+  gap: 0;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 22px;
+  overflow: hidden;
+  background: linear-gradient(180deg, #0b1718 0%, #071111 100%);
+}
+
+.session-editor-block__compact {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+}
+
+.session-editor-block__lead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.session-editor-block__index {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  min-width: 36px;
+}
+
+.session-editor-block__grip {
+  color: #6e878d;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.session-editor-block__index strong {
+  color: #c9ddda;
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+}
+
+.session-editor-block__accent {
+  width: 6px;
+  align-self: stretch;
+  min-height: 52px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #20b7a6 0%, #0f766e 100%);
+}
+
+.session-editor-block--accent-emerald .session-editor-block__accent {
+  background: linear-gradient(180deg, #35e66b 0%, #159a74 100%);
+}
+
+.session-editor-block--accent-teal .session-editor-block__accent {
+  background: linear-gradient(180deg, #20b7a6 0%, #0f766e 100%);
+}
+
+.session-editor-block--accent-cyan .session-editor-block__accent {
+  background: linear-gradient(180deg, #46d8e9 0%, #138ca0 100%);
+}
+
+.session-editor-block--accent-blue .session-editor-block__accent {
+  background: linear-gradient(180deg, #3c86ea 0%, #1e6bd6 100%);
+}
+
+.session-editor-block--accent-slate .session-editor-block__accent {
+  background: linear-gradient(180deg, #8aa1a7 0%, #52656a 100%);
+}
+
+.session-editor-block__identity {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.session-editor-block__identity strong {
+  color: #f4f7f6;
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.session-editor-block__identity small {
+  color: #8ea4a8;
+}
+
+.session-editor-block__summary {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.session-editor-block__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.session-editor-block__main span {
+  color: #f4f7f6;
+  font-weight: 700;
+}
+
+.session-editor-block__main strong {
+  color: #8ee7d0;
+  font-size: 0.9rem;
+}
+
+.session-editor-block__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.session-editor-block__chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: #a8c0c2;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.session-editor-block__controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.session-editor-block__details {
+  display: grid;
+  gap: 14px;
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.session-editor-footer {
+  position: sticky;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 18px 20px;
+}
+
 @media (max-width: 1024px) {
+  .session-creation-overview {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .session-general-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-editor-block__compact {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .session-editor-block__controls {
+    justify-content: flex-start;
+  }
+
   .session-summary-header__stats,
   .compact-exercise-card__metrics,
   .compact-exercise-card__details-grid {
@@ -2919,6 +3179,7 @@ img {
   .sessions-grid,
   .session-detail-meta,
   .session-live-meta,
+  .session-creation-overview,
   .session-summary-header__stats,
   .compact-exercise-card__metrics,
   .compact-exercise-card__details-grid {
@@ -2938,15 +3199,24 @@ img {
     align-items: stretch;
   }
 
+  .session-editor-footer {
+    position: static;
+    align-items: stretch;
+  }
+
   .session-summary-header__actions,
   .session-card__actions,
-  .compact-exercise-card__actions {
+  .compact-exercise-card__actions,
+  .session-summary-actions,
+  .session-editor-block__controls {
     width: 100%;
   }
 
   .compact-exercise-card__actions .button,
   .session-summary-header__actions .button,
-  .session-card__actions .button {
+  .session-card__actions .button,
+  .session-summary-actions .button,
+  .session-editor-block__controls .button {
     flex: 1 1 0;
     justify-content: center;
   }

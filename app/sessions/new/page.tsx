@@ -13,8 +13,28 @@ import {
   normalizeDraftSessionBlocks,
   SessionBlockDraft,
 } from '@/lib/session-draft-blocks';
+import {
+  formatEstimatedWorkoutCalories,
+  formatSessionVolumeKg,
+  getEstimatedWorkoutCalories,
+  getSessionEstimatedDuration,
+  getSessionEstimatedVolume,
+} from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import { insertTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
+
+function formatDurationLabel(durationSeconds: number | null) {
+  if (!durationSeconds || durationSeconds <= 0) return '—';
+
+  const minutes = Math.floor(durationSeconds / 60);
+  const seconds = durationSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds} sec`;
+  }
+
+  return `${minutes} min${seconds > 0 ? ` ${seconds.toString().padStart(2, '0')}` : ''}`;
+}
 
 export default function NewSessionPage() {
   const router = useRouter();
@@ -26,6 +46,21 @@ export default function NewSessionPage() {
   const [loading, setLoading] = useState(false);
 
   const validBlocksCount = useMemo(() => blocks.filter((block) => block.name.trim()).length, [blocks]);
+  const normalizedBlocks = useMemo(() => normalizeDraftSessionBlocks(blocks), [blocks]);
+  const estimatedDurationSeconds = useMemo(
+    () => getSessionEstimatedDuration(normalizedBlocks),
+    [normalizedBlocks]
+  );
+  const estimatedVolume = useMemo(
+    () => getSessionEstimatedVolume(normalizedBlocks),
+    [normalizedBlocks]
+  );
+  const estimatedCalories = useMemo(
+    () => getEstimatedWorkoutCalories(estimatedDurationSeconds, sport),
+    [estimatedDurationSeconds, sport]
+  );
+  const progressLabel =
+    blocks.length > 0 ? `${validBlocksCount} / ${blocks.length}` : '—';
 
   const updateBlock = (blockId: string, updates: Partial<SessionBlockDraft>) => {
     setBlocks((current) => current.map((block) => (block.id === blockId ? { ...block, ...updates } : block)));
@@ -49,8 +84,6 @@ export default function NewSessionPage() {
       setMessage('Renseigne le nom de la seance et le sport associe.');
       return;
     }
-
-    const normalizedBlocks = normalizeDraftSessionBlocks(blocks);
 
     if (normalizedBlocks.length === 0) {
       setMessage('Ajoute au moins un bloc simple pour enregistrer la seance.');
@@ -121,8 +154,7 @@ export default function NewSessionPage() {
             <span className="section-kicker">Seances</span>
             <h1>Creer une seance</h1>
             <p className="muted">
-              Construis une seance simple, quel que soit le sport : blocs en repetitions, duree,
-              distance ou libre.
+              Construis une seance simple et efficace : blocs en repetitions, duree, distance ou libre.
             </p>
           </div>
 
@@ -133,52 +165,86 @@ export default function NewSessionPage() {
           </div>
         </article>
 
+        <article className="card session-creation-overview">
+          <div className="session-creation-overview__stat">
+            <span>Duree estimee</span>
+            <strong>{formatDurationLabel(estimatedDurationSeconds)}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Blocs</span>
+            <strong>{blocks.length || '—'}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Volume estime</span>
+            <strong>{formatSessionVolumeKg(estimatedVolume) || '—'}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Calories estimees</span>
+            <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '—'}</strong>
+          </div>
+          <div className="session-creation-overview__stat">
+            <span>Progression</span>
+            <strong>{progressLabel}</strong>
+          </div>
+        </article>
+
         <form className="sessions-layout" onSubmit={handleSubmit}>
-          <article className="card session-form-card stack">
-            <div className="session-form-grid">
-              <div className="field">
-                <label htmlFor="session-name">Nom de la seance</label>
-                <input
-                  id="session-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Ex : VMA courte, Circuit cardio, Sortie recup"
-                  disabled={loading}
-                />
+          <div className="session-general-grid">
+            <article className="card session-form-card stack session-general-card">
+              <div className="session-form-grid">
+                <div className="field">
+                  <label htmlFor="session-name">Nom de la seance</label>
+                  <input
+                    id="session-name"
+                    value={name}
+                    onChange={(event) => setName(event.target.value)}
+                    placeholder="Ex : VMA courte, Circuit cardio, Sortie recup"
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="session-sport">Sport</label>
+                  <select
+                    id="session-sport"
+                    value={sport}
+                    onChange={(event) => setSport(event.target.value)}
+                    disabled={loading}
+                  >
+                    <option value="">Choisir un sport</option>
+                    {sports.map((sportItem) => (
+                      <option key={sportItem} value={sportItem}>
+                        {sportItem}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field full">
+                  <label htmlFor="session-description">Description</label>
+                  <textarea
+                    id="session-description"
+                    rows={4}
+                    value={description}
+                    onChange={(event) => setDescription(event.target.value)}
+                    placeholder="Objectif de la seance, intensite, consigne generale..."
+                    disabled={loading}
+                  />
+                </div>
               </div>
 
-              <div className="field">
-                <label htmlFor="session-sport">Sport</label>
-                <select
-                  id="session-sport"
-                  value={sport}
-                  onChange={(event) => setSport(event.target.value)}
-                  disabled={loading}
-                >
-                  <option value="">Choisir un sport</option>
-                  {sports.map((sportItem) => (
-                    <option key={sportItem} value={sportItem}>
-                      {sportItem}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
+            </article>
 
-              <div className="field full">
-                <label htmlFor="session-description">Description</label>
-                <textarea
-                  id="session-description"
-                  rows={4}
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Objectif de la seance, intensite, consigne generale..."
-                  disabled={loading}
-                />
-              </div>
-            </div>
-
-            {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
-          </article>
+            <aside className="card session-advice-card">
+              <span className="section-kicker">Conseil</span>
+              <h2>Structure utile</h2>
+              <p>
+                Structure ta seance avec des blocs adaptes a ton objectif. Tu pourras les
+                reordonner et les ajuster ensuite sans recreer la base.
+              </p>
+            </aside>
+          </div>
 
           <SessionBlocksEditor
             blocks={blocks}
@@ -188,21 +254,23 @@ export default function NewSessionPage() {
             onUpdateBlock={updateBlock}
           />
 
-          <article className="card session-summary-card">
-            <span className="section-kicker">Resume</span>
-            <h2>Seance V1</h2>
-            <p className="muted">
-              {validBlocksCount} bloc{validBlocksCount > 1 ? 's' : ''} pret
-              {validBlocksCount > 1 ? 's' : ''} a etre enregistres.
-            </p>
+          <article className="card session-summary-card session-editor-footer">
+            <div>
+              <span className="section-kicker">Resume</span>
+              <h2>Prete a etre creee</h2>
+              <p className="muted">
+                {validBlocksCount} bloc{validBlocksCount > 1 ? 's' : ''} pret
+                {validBlocksCount > 1 ? 's' : ''} a etre enregistres.
+              </p>
+            </div>
 
             <div className="session-summary-actions">
-              <button type="submit" className="button primary" disabled={loading} aria-busy={loading}>
-                {loading ? 'Creation...' : 'Enregistrer la seance'}
-              </button>
               <Link href="/sessions" className="button ghost">
                 Annuler
               </Link>
+              <button type="submit" className="button primary" disabled={loading} aria-busy={loading}>
+                {loading ? 'Creation...' : 'Creer la seance'}
+              </button>
             </div>
           </article>
         </form>

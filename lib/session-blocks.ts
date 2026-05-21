@@ -31,6 +31,12 @@ export function getSessionBlockTypeLabel(blockType: SessionBlockType) {
   }
 }
 
+export function formatBlockTypeLabel(
+  block: Pick<SessionBlockDisplayLike, 'block_type'>
+) {
+  return getSessionBlockTypeLabel(block.block_type);
+}
+
 export function getSessionBlockInputLabel(blockType: SessionBlockType) {
   switch (blockType) {
     case 'reps':
@@ -172,6 +178,42 @@ export function formatBlockMainValue(block: SessionBlockDisplayLike) {
   );
 }
 
+export function formatBlockSecondaryValues(block: SessionBlockDisplayLike) {
+  const values: string[] = [];
+  const normalizedSets = normalizeSessionSetsCount(block.sets_count);
+  const normalizedTarget =
+    Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
+      ? Number(block.target_value)
+      : null;
+  const normalizedCharge =
+    Number.isFinite(Number(block.charge_kg)) && Number(block.charge_kg) > 0
+      ? Number(block.charge_kg)
+      : null;
+  const normalizedRest = formatSessionRestSeconds(block.rest_seconds);
+
+  values.push(`Type : ${formatBlockTypeLabel(block)}`);
+
+  if (block.block_type === 'reps' && normalizedTarget !== null) {
+    values.push(`Series x reps : ${normalizedSets} x ${normalizedTarget}`);
+  } else if (block.block_type === 'duration' && normalizedTarget !== null) {
+    values.push(`Duree : ${formatCompactDurationValue(normalizedTarget)}`);
+  } else if (block.block_type === 'distance' && normalizedTarget !== null) {
+    values.push(`Distance : ${formatCompactDistanceValue(normalizedTarget)}`);
+  } else if (block.block_type === 'free') {
+    values.push('Bloc libre');
+  }
+
+  if (normalizedCharge !== null) {
+    values.push(`Charge : ${normalizedCharge} kg`);
+  }
+
+  if (normalizedRest) {
+    values.push(`Repos : ${normalizedRest}`);
+  }
+
+  return values;
+}
+
 export function getBlockAccentColor(block: Pick<SessionBlockDisplayLike, 'block_type' | 'charge_kg'>) {
   if (block.block_type === 'reps') {
     return Number(block.charge_kg || 0) > 0 ? 'emerald' : 'teal';
@@ -306,6 +348,61 @@ export function getWorkoutCaloriesPerMinute(sport: string | null | undefined) {
   }
 
   return 7;
+}
+
+export function getSessionEstimatedDuration(blocks: SessionBlockDisplayLike[]) {
+  const totals = blocks.reduce(
+    (accumulator, block) => {
+      const sets = normalizeSessionSetsCount(block.sets_count);
+      const target =
+        Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
+          ? Number(block.target_value)
+          : 0;
+      const rest =
+        Number.isFinite(Number(block.rest_seconds)) && Number(block.rest_seconds) >= 0
+          ? Number(block.rest_seconds)
+          : 0;
+
+      if (block.block_type === 'duration' && target > 0) {
+        accumulator.known = true;
+        accumulator.seconds += target * sets;
+      } else if (block.block_type === 'reps' && target > 0) {
+        accumulator.seconds += sets * Math.max(target * 2.5, 20);
+      } else if (block.block_type === 'distance' && target > 0) {
+        accumulator.seconds += Math.max(target / 3, 60);
+      } else if (block.block_type === 'free') {
+        accumulator.seconds += sets * 45;
+      }
+
+      if (sets > 1 && rest > 0) {
+        accumulator.seconds += rest * (sets - 1);
+      }
+
+      return accumulator;
+    },
+    { seconds: 0, known: false }
+  );
+
+  if (!totals.known && totals.seconds <= 0) {
+    return null;
+  }
+
+  return Math.max(0, Math.round(totals.seconds));
+}
+
+export function getSessionEstimatedVolume(blocks: SessionBlockDisplayLike[]) {
+  const totalVolume = blocks.reduce((total, block) => {
+    const volume = getSessionBlockVolumeKg(
+      block.block_type,
+      block.target_value,
+      block.sets_count,
+      block.charge_kg
+    );
+
+    return total + (volume ?? 0);
+  }, 0);
+
+  return totalVolume > 0 ? totalVolume : null;
 }
 
 export function getEstimatedWorkoutCalories(
