@@ -68,6 +68,12 @@ type ExercisePersonalRecord = {
 type ExerciseStatsCard = ExercisePersonalRecord & {
   completedCount: number;
   lastCompletedAt: string | null;
+  totalReps: number;
+  cumulativeVolumeKg: number;
+  latestMetricValue: number | null;
+  previousMetricValue: number | null;
+  trendDirection: 'up' | 'down' | 'flat' | null;
+  trendLabel: string | null;
   progressionEntries: Array<{
     id: string;
     label: string;
@@ -571,6 +577,18 @@ export default function SessionDetailPage() {
               : 0;
           return Math.max(best, value);
         }, 0);
+        const totalReps = sortedEntries.reduce((total, entry) => {
+          const repsValue =
+            entry.block_type === 'reps' && Number.isFinite(Number(entry.reps)) && Number(entry.reps) > 0
+              ? Number(entry.reps)
+              : 0;
+          const setsValue =
+            Number.isFinite(Number(entry.sets_count)) && Number(entry.sets_count) > 0
+              ? Number(entry.sets_count)
+              : 1;
+
+          return total + repsValue * setsValue;
+        }, 0);
         const bestDurationSeconds = sortedEntries.reduce((best, entry) => {
           const value =
             entry.block_type === 'duration' &&
@@ -579,6 +597,11 @@ export default function SessionDetailPage() {
               ? Number(entry.duration_seconds)
               : 0;
           return Math.max(best, value);
+        }, 0);
+        const cumulativeVolumeKg = sortedEntries.reduce((total, entry) => {
+          const value =
+            Number.isFinite(Number(entry.volume)) && Number(entry.volume) > 0 ? Number(entry.volume) : 0;
+          return total + value;
         }, 0);
 
         const progressionCandidates = sortedEntries.slice(-10).map((entry) => ({
@@ -631,6 +654,27 @@ export default function SessionDetailPage() {
                 };
               });
 
+        const latestProgressionEntry =
+          progressionEntries.length > 0 ? progressionEntries[progressionEntries.length - 1] : null;
+        const previousProgressionEntry =
+          progressionEntries.length > 1 ? progressionEntries[progressionEntries.length - 2] : null;
+        const trendDirection =
+          latestProgressionEntry && previousProgressionEntry
+            ? latestProgressionEntry.rawValue > previousProgressionEntry.rawValue
+              ? 'up'
+              : latestProgressionEntry.rawValue < previousProgressionEntry.rawValue
+                ? 'down'
+                : 'flat'
+            : null;
+        const trendLabel =
+          trendDirection === 'up'
+            ? '↗ progression'
+            : trendDirection === 'down'
+              ? '↘ baisse'
+              : trendDirection === 'flat'
+                ? '→ stable'
+                : null;
+
         return {
           exerciseName,
           completedCount: sortedEntries.length,
@@ -639,6 +683,12 @@ export default function SessionDetailPage() {
           bestVolumeKg: bestVolumeKg > 0 ? bestVolumeKg : null,
           maxReps: maxReps > 0 ? maxReps : null,
           bestDurationSeconds: bestDurationSeconds > 0 ? bestDurationSeconds : null,
+          totalReps,
+          cumulativeVolumeKg,
+          latestMetricValue: latestProgressionEntry?.rawValue ?? null,
+          previousMetricValue: previousProgressionEntry?.rawValue ?? null,
+          trendDirection,
+          trendLabel,
           progressionEntries,
           progressionMetricLabel:
             metricKey === 'volume'
@@ -1286,13 +1336,13 @@ export default function SessionDetailPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Exercices</span>
-                  <h2>Stats par exercice</h2>
+                  <h2>Progression par exercice</h2>
                 </div>
               </div>
 
               {exerciseStatsCards.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">
-                  <p>Pas encore assez de donnees par exercice.</p>
+                  <p>Realise cet exercice pour debloquer les statistiques.</p>
                 </div>
               ) : (
                 <div className="stack">
@@ -1322,15 +1372,18 @@ export default function SessionDetailPage() {
 
                         <div className="session-record-lines">
                           <p>
+                            Realisations : <strong>{entry.completedCount}</strong>
+                          </p>
+                          <p>
                             Derniere fois : <strong>{entry.lastCompletedAt ? formatRelativeDate(entry.lastCompletedAt) : '-'}</strong>
                           </p>
-                          {entry.bestVolumeKg ? (
+                          {entry.maxChargeKg ? (
+                            <p>
+                              Max : <strong>{entry.maxChargeKg} kg</strong>
+                            </p>
+                          ) : entry.bestVolumeKg ? (
                             <p>
                               Volume max : <strong>{formatSessionVolumeKg(entry.bestVolumeKg)}</strong>
-                            </p>
-                          ) : entry.maxChargeKg ? (
-                            <p>
-                              Charge max : <strong>{entry.maxChargeKg} kg</strong>
                             </p>
                           ) : entry.maxReps ? (
                             <p>
@@ -1345,6 +1398,14 @@ export default function SessionDetailPage() {
                               Progression : <strong>Aucune valeur chiffree</strong>
                             </p>
                           )}
+                          <p>
+                            Volume total : <strong>{formatSessionVolumeKg(entry.cumulativeVolumeKg) || '-'}</strong>
+                          </p>
+                          {entry.trendLabel ? (
+                            <p>
+                              Tendance : <strong>{entry.trendLabel}</strong>
+                            </p>
+                          ) : null}
                         </div>
                       </button>
                     ))}
@@ -1379,6 +1440,14 @@ export default function SessionDetailPage() {
                           <strong>{selectedExerciseStats.lastCompletedAt ? formatRelativeDate(selectedExerciseStats.lastCompletedAt) : '-'}</strong>
                         </div>
                         <div className="session-meta-card">
+                          <span>Volume total</span>
+                          <strong>{formatSessionVolumeKg(selectedExerciseStats.cumulativeVolumeKg) || '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Reps totales</span>
+                          <strong>{selectedExerciseStats.totalReps > 0 ? `${selectedExerciseStats.totalReps} reps` : '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
                           <span>Charge max</span>
                           <strong>{selectedExerciseStats.maxChargeKg ? `${selectedExerciseStats.maxChargeKg} kg` : '-'}</strong>
                         </div>
@@ -1393,6 +1462,10 @@ export default function SessionDetailPage() {
                         <div className="session-meta-card">
                           <span>Duree max</span>
                           <strong>{selectedExerciseStats.bestDurationSeconds ? formatDurationLabel(selectedExerciseStats.bestDurationSeconds) : '-'}</strong>
+                        </div>
+                        <div className="session-meta-card">
+                          <span>Tendance</span>
+                          <strong>{selectedExerciseStats.trendLabel || '-'}</strong>
                         </div>
                       </div>
 
