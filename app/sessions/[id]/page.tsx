@@ -807,6 +807,8 @@ export default function SessionDetailPage() {
     () => buildChartPath(selectedExerciseChartPoints),
     [selectedExerciseChartPoints]
   );
+  const recentSessionHistoryEntries = useMemo(() => historyEntries.slice(-5).reverse(), [historyEntries]);
+  const remainingSessionHistoryCount = Math.max(historyEntries.length - recentSessionHistoryEntries.length, 0);
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -1346,6 +1348,56 @@ export default function SessionDetailPage() {
                       )}
                     </article>
                   ) : null}
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Historique</span>
+                  <h2>Historique des realisations</h2>
+                </div>
+                {remainingSessionHistoryCount > 0 ? (
+                  <span className="session-progress-pill">+ {remainingSessionHistoryCount} autres realisations</span>
+                ) : null}
+              </div>
+
+              {historyEntries.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Aucune seance realisee pour le moment.</p>
+                </div>
+              ) : (
+                <div className="session-block-list">
+                  {recentSessionHistoryEntries.map((entry) => (
+                    <article key={entry.id} className="session-block-card session-record-card">
+                      <div className="session-block-card__top">
+                        <div className="session-record-card__header">
+                          <SessionExerciseIcon
+                            exerciseName={entry.workout_name}
+                            sport={session.sport}
+                            size="md"
+                          />
+                          <div className="session-block-check__label">
+                            <strong>{new Date(entry.completed_at).toLocaleDateString('fr-FR')}</strong>
+                            <small>{formatRelativeDate(entry.completed_at)}</small>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="session-record-lines">
+                        <p>
+                          Duree : <strong>{formatDurationLabel(entry.duration_seconds) || '-'}</strong>
+                        </p>
+                        <p>
+                          Blocs : <strong>{entry.completed_exercises || 0} / {blocks.length || 0}</strong>
+                        </p>
+                        <p>
+                          Volume : <strong>{formatSessionVolumeKg(entry.total_volume) || '-'}</strong>
+                        </p>
+                      </div>
+                    </article>
+                  ))}
                 </div>
               )}
             </article>

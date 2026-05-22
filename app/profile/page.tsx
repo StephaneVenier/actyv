@@ -56,6 +56,16 @@ type UserBadge = {
   badge_code: string;
 };
 
+type WorkoutHistoryEntry = {
+  id: string;
+  workout_id: string | null;
+  workout_name: string;
+  completed_at: string;
+  duration_seconds: number | null;
+  total_volume: number | null;
+  completed_exercises: number | null;
+};
+
 type UserChallengeSummary = {
   challenge: Challenge;
   goalType: GoalType | null;
@@ -76,6 +86,45 @@ function formatDuration(value: number) {
 
 function formatReps(value: number) {
   return `${value} repetition${value > 1 ? 's' : ''}`;
+}
+
+function formatWorkoutDuration(durationSeconds: number | null | undefined) {
+  const normalizedSeconds = Number(durationSeconds);
+
+  if (!Number.isFinite(normalizedSeconds) || normalizedSeconds <= 0) {
+    return '-';
+  }
+
+  const totalSeconds = Math.floor(normalizedSeconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes <= 0) {
+    return `${seconds} sec`;
+  }
+
+  return `${minutes} min${seconds > 0 ? ` ${seconds.toString().padStart(2, '0')}` : ''}`;
+}
+
+function formatSessionVolumeLabel(volumeKg: number | null | undefined) {
+  if (!volumeKg || volumeKg <= 0) return '-';
+  return `${Number(volumeKg).toLocaleString('fr-FR')} kg`;
+}
+
+function formatProfileRelativeDate(dateString: string | null) {
+  if (!dateString) return 'recentement';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'recentement';
+
+  const diffHours = Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60));
+  const formatter = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
+
+  if (Math.abs(diffHours) < 24) {
+    return formatter.format(diffHours, 'hour');
+  }
+
+  return formatter.format(Math.round(diffHours / 24), 'day');
 }
 
 function getGoalType(challenge: Challenge): GoalType | null {
@@ -123,6 +172,7 @@ export default function ProfilePage() {
   const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [badges, setBadges] = useState<UserBadge[]>([]);
+  const [recentWorkoutHistory, setRecentWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
@@ -160,7 +210,7 @@ export default function ProfilePage() {
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
 
-      const [activitiesResponse, membersResponse, participantsResponse, badgesResponse] =
+      const [activitiesResponse, membersResponse, participantsResponse, badgesResponse, workoutHistoryResponse] =
         await Promise.all([
           supabase
             .from('activities')
@@ -174,6 +224,14 @@ export default function ProfilePage() {
             : Promise.resolve({ data: [], error: null }),
           supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
           supabase.from('user_badges').select('badge_code').eq('user_id', user.id),
+          supabase
+            .from('workout_sessions_history')
+            .select(
+              'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises'
+            )
+            .eq('user_id', user.id)
+            .order('completed_at', { ascending: false })
+            .limit(5),
         ]);
 
       const loadedActivities = (activitiesResponse.data as Activity[] | null) || [];
@@ -198,6 +256,13 @@ export default function ProfilePage() {
         setBadges([]);
       } else {
         setBadges((badgesResponse.data as UserBadge[] | null) || []);
+      }
+
+      if (workoutHistoryResponse.error) {
+        console.error('Erreur chargement historique seances profil :', workoutHistoryResponse.error);
+        setRecentWorkoutHistory([]);
+      } else {
+        setRecentWorkoutHistory((workoutHistoryResponse.data as WorkoutHistoryEntry[] | null) || []);
       }
 
       const memberIds = ((membersResponse.data as ChallengeMember[] | null) || []).map(
@@ -574,6 +639,35 @@ export default function ProfilePage() {
                 </div>
                 <span>{stats.totalReps}</span>
               </div>
+            </div>
+          </article>
+
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Seances</span>
+                <h2>Dernieres seances realisees</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              {recentWorkoutHistory.length === 0 ? (
+                <div className="profile-history-item">
+                  <span>Aucune seance realisee pour le moment.</span>
+                </div>
+              ) : (
+                recentWorkoutHistory.map((entry) => (
+                  <div key={entry.id} className="profile-history-item">
+                    <div className="profile-history-item__top">
+                      <strong>{entry.workout_name}</strong>
+                      <span className="profile-history-item__date">{formatProfileRelativeDate(entry.completed_at)}</span>
+                    </div>
+                    <span>
+                      {formatWorkoutDuration(entry.duration_seconds)} • {formatSessionVolumeLabel(entry.total_volume)}
+                    </span>
+                  </div>
+                ))
+              )}
             </div>
           </article>
         </section>
