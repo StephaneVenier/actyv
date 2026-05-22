@@ -127,11 +127,7 @@ export function CompactExerciseCard({
       <div className="compact-exercise-card__content">
         <div className="compact-exercise-card__identity">
           <div className="compact-exercise-card__identity-main">
-            <SessionExerciseIcon
-              exerciseName={block.name}
-              blockType={block.block_type}
-              size="md"
-            />
+            <SessionExerciseIcon exerciseName={block.name} blockType={block.block_type} size="md" />
             <div>
               <strong>{block.name || `Bloc ${index + 1}`}</strong>
               <small>{subtitle || getSessionBlockTypeLabel(block.block_type)}</small>
@@ -190,7 +186,7 @@ export function CompactExerciseCard({
               onClick={() => setExpanded((current) => !current)}
               aria-expanded={expanded}
             >
-              {expanded ? 'Masquer ▴' : 'DÃ©tails â–¾'}
+              {expanded ? 'Masquer ▲' : 'Détails ▼'}
             </button>
           ) : null}
         </div>

@@ -12,7 +12,11 @@ type SessionExerciseIconProps = {
 };
 
 function normalize(value?: string | null) {
-  return (value || '').trim().toLowerCase();
+  return (value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
 }
 
 function IconShell({
@@ -107,7 +111,25 @@ function ActivitySvg() {
   );
 }
 
-function selectIcon({
+function HeartPulseSvg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M3 12h3.8l1.8-3.8 3 8 2.5-5.2H21" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12 21c-4.6-2.8-7-5.7-7-9a4 4 0 0 1 7-2.6A4 4 0 0 1 19 12c0 3.3-2.4 6.2-7 9Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function WavesSvg() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none">
+      <path d="M3 9c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1" stroke="currentColor" strokeLinecap="round" />
+      <path d="M3 15c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1" stroke="currentColor" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function getExerciseIcon({
   exerciseName,
   sport,
   blockType,
@@ -117,55 +139,60 @@ function selectIcon({
 
   const matches = (...keywords: string[]) => keywords.some((keyword) => normalizedExercise.includes(keyword));
 
-  if (matches('velo', 'bike', 'cycling', 'cyclisme')) {
-    return BikeSvg;
-  }
-
-  if (matches('course', 'running', 'run', 'marche', 'randonnee', 'trail', 'jog')) {
-    return FootprintsSvg;
-  }
-
   if (matches('repos', 'rest')) {
     return TimerSvg;
   }
 
-  if (matches('gainage', 'cardio', 'burpee', 'hiit')) {
-    return ActivitySvg;
+  if (matches('libre', 'note', 'consigne')) {
+    return PencilSvg;
+  }
+
+  if (matches('developpe couche', 'bench', 'chest press', 'chest', 'pec', 'pecto', 'presse inclinee', 'presse', 'dips', 'pompe', 'push up', 'push-up')) {
+    return DumbbellSvg;
+  }
+
+  if (matches('squat', 'fente', 'lunge', 'leg press', 'leg extension', 'leg curl', 'bulgare', 'mollet', 'calf', 'jamb')) {
+    return DumbbellSvg;
+  }
+
+  if (matches('rowing', 'tirage', 'traction', 'curl', 'extension', 'shoulder press', 'military press', 'overhead press', 'dos', 'bras', 'epaule')) {
+    return DumbbellSvg;
+  }
+
+  if (matches('velo', 'bike', 'cycling', 'cyclisme')) {
+    return BikeSvg;
+  }
+
+  if (matches('course', 'running', 'run', 'marche', 'randonnee', 'trail', 'jog', 'walk', 'footing')) {
+    return FootprintsSvg;
+  }
+
+  if (matches('etirement', 'stretch', 'mobilite', 'mobility', 'yoga', 'pilates', 'souplesse')) {
+    return WavesSvg;
+  }
+
+  if (matches('cardio', 'hiit', 'burpee', 'air bike', 'jumping jack', 'mountain climber')) {
+    return HeartPulseSvg;
   }
 
   if (matches('distance', 'sprint', 'intervalle')) {
     return RouteSvg;
   }
 
-  if (matches('libre', 'note', 'mobilite', 'mobility')) {
-    return PencilSvg;
-  }
-
-  if (
-    matches(
-      'developpe',
-      'bench',
-      'presse',
-      'squat',
-      'fente',
-      'rowing',
-      'tirage',
-      'dips',
-      'pompe',
-      'mollet',
-      'curl',
-      'extension'
-    )
-  ) {
-    return DumbbellSvg;
-  }
-
   if (normalizedSport.includes('velo') || normalizedSport.includes('bike') || normalizedSport.includes('cycl')) {
     return BikeSvg;
   }
 
-  if (normalizedSport.includes('run') || normalizedSport.includes('course') || normalizedSport.includes('marche')) {
+  if (normalizedSport.includes('run') || normalizedSport.includes('course') || normalizedSport.includes('marche') || normalizedSport.includes('trail') || normalizedSport.includes('rando')) {
     return FootprintsSvg;
+  }
+
+  if (normalizedSport.includes('yoga') || normalizedSport.includes('mobilite') || normalizedSport.includes('mobility') || normalizedSport.includes('stretch')) {
+    return WavesSvg;
+  }
+
+  if (normalizedSport.includes('cardio') || normalizedSport.includes('hiit')) {
+    return HeartPulseSvg;
   }
 
   if (blockType === 'duration') {
@@ -194,7 +221,7 @@ export function SessionExerciseIcon({
   size = 'md',
   className,
 }: SessionExerciseIconProps) {
-  const Icon = selectIcon({ exerciseName, sport, blockType });
+  const Icon = getExerciseIcon({ exerciseName, sport, blockType });
   return (
     <IconShell size={size} className={className}>
       <Icon />
