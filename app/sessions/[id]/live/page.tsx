@@ -38,6 +38,7 @@ type LiveState = {
   completedBlockIds: string[];
   completedSetsByBlockId: Record<string, number>;
   restAfterBlockId: string | null;
+  restResumeIndex: number | null;
   restSecondsLeft: number;
   elapsedSeconds: number;
   isTimerPaused: boolean;
@@ -112,6 +113,7 @@ export default function LiveSessionPage() {
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
   const [completedSetsByBlockId, setCompletedSetsByBlockId] = useState<Record<string, number>>({});
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
+  const [restResumeIndex, setRestResumeIndex] = useState<number | null>(null);
   const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
@@ -222,6 +224,12 @@ export default function LiveSessionPage() {
         setRestAfterBlockId(parsedValue.restAfterBlockId ?? null);
       }
       if (
+        typeof parsedValue.restResumeIndex === 'number' &&
+        Number.isFinite(parsedValue.restResumeIndex)
+      ) {
+        setRestResumeIndex(Math.max(0, Math.floor(parsedValue.restResumeIndex)));
+      }
+      if (
         typeof parsedValue.restSecondsLeft === 'number' &&
         Number.isFinite(parsedValue.restSecondsLeft)
       ) {
@@ -279,11 +287,19 @@ export default function LiveSessionPage() {
   const globalProgressPercent =
     blocks.length > 0 ? Math.min(100, Math.max(0, Math.round((completedBlocksCount / blocks.length) * 100))) : 0;
   const currentBlock = blocks[currentIndex] || null;
+  const restSourceBlock = useMemo(
+    () => blocks.find((block) => block.id === restAfterBlockId) || null,
+    [blocks, restAfterBlockId]
+  );
   const currentBlockSetsTotal = currentBlock ? normalizeSessionSetsCount(currentBlock.sets_count) : 1;
   const currentBlockRestSeconds =
     currentBlock && Number.isFinite(Number(currentBlock.rest_seconds))
       ? Math.max(0, Math.trunc(Number(currentBlock.rest_seconds)))
       : DEFAULT_REST_SECONDS;
+  const restSourceBlockRestSeconds =
+    restSourceBlock && Number.isFinite(Number(restSourceBlock.rest_seconds))
+      ? Math.max(0, Math.trunc(Number(restSourceBlock.rest_seconds)))
+      : currentBlockRestSeconds;
   const currentBlockVolume = currentBlock
     ? getSessionBlockVolumeKg(
         currentBlock.block_type,
@@ -315,6 +331,9 @@ export default function LiveSessionPage() {
         : 'Bloc unique'
     : '-';
   const currentBlockName = currentBlock?.name?.trim() || (currentBlock ? `Bloc ${currentIndex + 1}` : 'Bloc');
+  const restingBlockName =
+    restSourceBlock?.name?.trim() ||
+    (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -352,6 +371,16 @@ export default function LiveSessionPage() {
       return;
     }
 
+    const nextResumeIndex =
+      typeof restResumeIndex === 'number' && Number.isFinite(restResumeIndex)
+        ? Math.min(Math.max(restResumeIndex, 0), Math.max(blocks.length - 1, 0))
+        : null;
+
+    if (nextResumeIndex !== restResumeIndex) {
+      setRestResumeIndex(nextResumeIndex);
+      return;
+    }
+
     const nextIndex = Math.min(Math.max(currentIndex, 0), Math.max(blocks.length - 1, 0));
     if (nextIndex !== currentIndex) {
       setCurrentIndex(nextIndex);
@@ -364,6 +393,7 @@ export default function LiveSessionPage() {
         completedBlockIds: sanitizedIds,
         completedSetsByBlockId: sanitizedCompletedSetsByBlockId,
         restAfterBlockId: sanitizedRestAfterBlockId,
+        restResumeIndex: nextResumeIndex,
         restSecondsLeft,
         elapsedSeconds,
         isTimerPaused,
@@ -381,6 +411,7 @@ export default function LiveSessionPage() {
     currentIndex,
     liveStorageKey,
     restAfterBlockId,
+    restResumeIndex,
     restSecondsLeft,
     elapsedSeconds,
     isTimerPaused,
@@ -401,6 +432,21 @@ export default function LiveSessionPage() {
   }, [isResting, restSecondsLeft]);
 
   useEffect(() => {
+    if (!isResting || restSecondsLeft > 0) return;
+
+    triggerHaptic([20, 35, 20]);
+    const nextIndex =
+      typeof restResumeIndex === 'number' && Number.isFinite(restResumeIndex)
+        ? Math.min(Math.max(restResumeIndex, 0), Math.max(blocks.length - 1, 0))
+        : currentIndex;
+
+    setCurrentIndex(nextIndex);
+    setRestAfterBlockId(null);
+    setRestResumeIndex(null);
+    setRestSecondsLeft(DEFAULT_REST_SECONDS);
+  }, [blocks.length, currentIndex, isResting, restResumeIndex, restSecondsLeft]);
+
+  useEffect(() => {
     if (loading || !session || blocks.length === 0 || allBlocksCompleted || isTimerPaused) return;
 
     const timeoutId = window.setTimeout(() => {
@@ -414,6 +460,7 @@ export default function LiveSessionPage() {
 
   const clearRestState = () => {
     setRestAfterBlockId(null);
+    setRestResumeIndex(null);
     setRestSecondsLeft(DEFAULT_REST_SECONDS);
   };
 
@@ -441,17 +488,31 @@ export default function LiveSessionPage() {
     setRestSecondsLeft((current) => Math.max(0, current + delta));
   };
 
+  const beginRest = (sourceBlockId: string, nextIndex: number, restSeconds: number) => {
+    const normalizedRest = Number.isFinite(Number(restSeconds)) ? Math.max(0, Math.trunc(Number(restSeconds))) : 0;
+
+    if (normalizedRest <= 0) {
+      clearRestState();
+      setCurrentIndex(Math.min(Math.max(nextIndex, 0), Math.max(blocks.length - 1, 0)));
+      return;
+    }
+
+    setRestAfterBlockId(sourceBlockId);
+    setRestResumeIndex(Math.min(Math.max(nextIndex, 0), Math.max(blocks.length - 1, 0)));
+    setRestSecondsLeft(normalizedRest);
+  };
+
   const resetLiveProgress = () => {
     setCompletedBlockIds([]);
     setCompletedSetsByBlockId({});
     setCurrentIndex(0);
     setElapsedSeconds(0);
-      setIsTimerPaused(false);
-      setHistorySaved(false);
-      setHistoryMessage(null);
-      setNewPersonalRecords([]);
-      setRunKey(createLiveRunKey());
-      clearRestState();
+    setIsTimerPaused(false);
+    setHistorySaved(false);
+    setHistoryMessage(null);
+    setNewPersonalRecords([]);
+    setRunKey(createLiveRunKey());
+    clearRestState();
   };
 
   const completeCurrentExercise = () => {
@@ -466,8 +527,7 @@ export default function LiveSessionPage() {
       return;
     }
 
-    setRestAfterBlockId(currentBlock.id);
-    setRestSecondsLeft(currentBlockRestSeconds);
+    beginRest(currentBlock.id, currentIndex + 1, currentBlockRestSeconds);
   };
 
   const handleValidateCurrent = () => {
@@ -485,6 +545,8 @@ export default function LiveSessionPage() {
 
       if (nextCompletedSets >= currentBlockSetsTotal) {
         completeCurrentExercise();
+      } else {
+        beginRest(currentBlock.id, currentIndex, currentBlockRestSeconds);
       }
 
       return;
@@ -799,10 +861,22 @@ export default function LiveSessionPage() {
           </div>
         ) : blocks.length === 0 ? (
           <div className="challenge-state">
-            <p>Aucun bloc ajoute pour cette seance.</p>
+            <p>Cette seance ne contient aucun bloc.</p>
             <div className="session-empty-actions">
               <Link href={`/sessions/${id}`} className="button ghost">
                 Revenir au detail
+              </Link>
+            </div>
+          </div>
+        ) : !currentBlock && !allBlocksCompleted ? (
+          <div className="challenge-state">
+            <p>Impossible d'afficher le bloc courant de cette seance.</p>
+            <div className="session-empty-actions">
+              <button type="button" className="button primary" onClick={resetLiveProgress}>
+                Reinitialiser la progression
+              </button>
+              <Link href={`/sessions/${id}`} className="button ghost">
+                Retour a la seance
               </Link>
             </div>
           </div>
@@ -926,13 +1000,13 @@ export default function LiveSessionPage() {
               </article>
             ) : isResting && currentBlock ? (
               <RestTimerOverlay
-                blockLabel={currentBlockName}
+                blockLabel={restingBlockName}
                 secondsLeft={restSecondsLeft}
-                totalSeconds={currentBlockRestSeconds}
+                totalSeconds={restSourceBlockRestSeconds}
                 onSkip={() => setRestSecondsLeft(0)}
                 onAdd15={() => adjustRestSeconds(15)}
                 onSubtract15={() => adjustRestSeconds(-15)}
-                onNext={goToNextExercise}
+                onNext={() => setRestSecondsLeft(0)}
                 onPrevious={goToPrevious}
                 canGoPrevious={currentIndex > 0}
               />
