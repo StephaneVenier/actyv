@@ -142,6 +142,21 @@ function formatChartDayLabel(dateString: string) {
   });
 }
 
+function formatFullDateTimeLabel(dateString: string | null) {
+  if (!dateString) return '-';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 function buildChartPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return '';
 
@@ -167,6 +182,7 @@ export default function SessionDetailPage() {
   const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
   const [historyDebug, setHistoryDebug] = useState<WorkoutHistoryDebug | null>(null);
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
+  const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | null>(null);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -870,8 +886,11 @@ export default function SessionDetailPage() {
     () => buildChartPath(selectedExerciseChartPoints),
     [selectedExerciseChartPoints]
   );
-  const recentSessionHistoryEntries = useMemo(() => historyEntries.slice(-5).reverse(), [historyEntries]);
-  const remainingSessionHistoryCount = Math.max(historyEntries.length - recentSessionHistoryEntries.length, 0);
+  const recentSessionHistoryEntries = useMemo(
+    () => normalizedHistoryEntries.slice(-5).reverse(),
+    [normalizedHistoryEntries]
+  );
+  const remainingSessionHistoryCount = Math.max(normalizedHistoryEntries.length - recentSessionHistoryEntries.length, 0);
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -1452,35 +1471,86 @@ export default function SessionDetailPage() {
                 </div>
               ) : (
                 <div className="session-block-list">
-                  {recentSessionHistoryEntries.map((entry) => (
-                    <article key={entry.id} className="session-block-card session-record-card">
-                      <div className="session-block-card__top">
-                        <div className="session-record-card__header">
-                          <SessionExerciseIcon
-                            exerciseName={entry.workout_name}
-                            sport={session.sport}
-                            size="md"
-                          />
-                          <div className="session-block-check__label">
-                            <strong>{new Date(entry.completed_at).toLocaleDateString('fr-FR')}</strong>
-                            <small>{formatRelativeDate(entry.completed_at)}</small>
-                          </div>
-                        </div>
-                      </div>
+                  {recentSessionHistoryEntries.map((entry) => {
+                    const isExpanded = expandedHistoryEntryId === entry.id;
 
-                      <div className="session-record-lines">
-                        <p>
-                          Duree : <strong>{formatDurationLabel(entry.duration_seconds) || '-'}</strong>
-                        </p>
-                        <p>
-                          Blocs : <strong>{entry.completed_exercises || 0} / {blocks.length || 0}</strong>
-                        </p>
-                        <p>
-                          Volume : <strong>{formatSessionVolumeKg(entry.total_volume) || '-'}</strong>
-                        </p>
-                      </div>
-                    </article>
-                  ))}
+                    return (
+                      <article key={entry.id} className="session-block-card session-record-card">
+                        <div className="session-block-card__top">
+                          <div className="session-record-card__header">
+                            <SessionExerciseIcon
+                              exerciseName={entry.workout_name}
+                              sport={session.sport}
+                              size="md"
+                            />
+                            <div className="session-block-check__label">
+                              <strong>{new Date(entry.completed_at).toLocaleDateString('fr-FR')}</strong>
+                              <small>{formatRelativeDate(entry.completed_at)}</small>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            className="session-link-button"
+                            onClick={() =>
+                              setExpandedHistoryEntryId((currentId) => (currentId === entry.id ? null : entry.id))
+                            }
+                          >
+                            {isExpanded ? 'Masquer le detail' : 'Voir le detail'}
+                          </button>
+                        </div>
+
+                        <div className="session-record-lines">
+                          <p>
+                            Duree : <strong>{formatDurationLabel(entry.duration_seconds) || '-'}</strong>
+                          </p>
+                          <p>
+                            Blocs : <strong>{entry.completedExercises} / {entry.totalBlocks}</strong>
+                          </p>
+                          <p>
+                            Volume : <strong>{formatSessionVolumeKg(entry.total_volume) || '-'}</strong>
+                          </p>
+                          <p>
+                            Taux de completion : <strong>{entry.completionRate}%</strong>
+                          </p>
+                        </div>
+
+                        {isExpanded ? (
+                          <div className="stack">
+                            <div className="session-detail-meta">
+                              <div className="session-meta-card">
+                                <span>Date complete</span>
+                                <strong>{formatFullDateTimeLabel(entry.completed_at)}</strong>
+                              </div>
+                              <div className="session-meta-card">
+                                <span>Duree reelle</span>
+                                <strong>{formatDurationLabel(entry.duration_seconds) || '-'}</strong>
+                              </div>
+                              <div className="session-meta-card">
+                                <span>Volume total</span>
+                                <strong>{formatSessionVolumeKg(entry.total_volume) || '-'}</strong>
+                              </div>
+                              <div className="session-meta-card">
+                                <span>Blocs completes</span>
+                                <strong>{entry.completedExercises} / {entry.totalBlocks}</strong>
+                              </div>
+                              <div className="session-meta-card">
+                                <span>Seance associee</span>
+                                <strong>{entry.workout_name || session.name}</strong>
+                              </div>
+                              <div className="session-meta-card">
+                                <span>Statut</span>
+                                <strong>Terminee</strong>
+                              </div>
+                            </div>
+
+                            <div className="challenge-state challenge-state--compact">
+                              <p>Le detail par exercice sera disponible dans une prochaine version.</p>
+                            </div>
+                          </div>
+                        ) : null}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </article>

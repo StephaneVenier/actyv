@@ -1387,6 +1387,21 @@ img {
   line-height: 1.5;
 }
 
+.session-link-button {
+  border: 0;
+  background: transparent;
+  color: #20b7a6;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.session-link-button:hover {
+  color: #35e66b;
+}
+
 .session-live-records {
   display: grid;
   gap: 14px;
@@ -3040,6 +3055,14 @@ img {
 
 .sessions-page--dark .detail-back-link {
   color: #b9d6d9;
+}
+
+.sessions-page--dark .session-link-button {
+  color: #35e66b;
+}
+
+.sessions-page--dark .session-link-button:hover {
+  color: #7cf0a1;
 }
 
 .sessions-page--dark .session-progress-pill {
