@@ -77,6 +77,14 @@ type ExerciseStatsCard = ExercisePersonalRecord & {
   progressionMetricLabel: string | null;
 };
 
+type SessionRecordSummary = {
+  bestVolumeKg: number | null;
+  longestDurationSeconds: number | null;
+  bestCompletionRate: number | null;
+  bestCompletionLabel: string | null;
+  topExerciseName: string | null;
+};
+
 type WorkoutHistoryDebug = {
   currentWorkoutId: string;
   currentUserId: string;
@@ -653,6 +661,26 @@ export default function SessionDetailPage() {
     [blocks]
   );
   const totalRealizations = historyEntries.length;
+  const normalizedHistoryEntries = useMemo(
+    () =>
+      historyEntries.map((entry) => {
+        const completedExercises =
+          Number.isFinite(Number(entry.completed_exercises)) && Number(entry.completed_exercises) > 0
+            ? Number(entry.completed_exercises)
+            : 0;
+        const totalBlocks = Math.max(blocks.length, completedExercises, 0);
+        const completionRate =
+          totalBlocks > 0 ? Math.min(100, Math.max(0, Math.round((completedExercises / totalBlocks) * 100))) : 0;
+
+        return {
+          ...entry,
+          completedExercises,
+          totalBlocks,
+          completionRate,
+        };
+      }),
+    [blocks.length, historyEntries]
+  );
   const completedDurationEntries = historyEntries.filter(
     (entry) => Number.isFinite(Number(entry.duration_seconds)) && Number(entry.duration_seconds) > 0
   );
@@ -681,8 +709,56 @@ export default function SessionDetailPage() {
       ? historyEntries.reduce((best, entry) => Math.max(best, Number(entry.total_volume || 0)), 0)
       : 0;
   const lastCompletedAt = historyEntries[0]?.completed_at || null;
+  const totalCumulativeVolume = useMemo(
+    () =>
+      normalizedHistoryEntries.reduce(
+        (total, entry) => total + (Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0),
+        0
+      ),
+    [normalizedHistoryEntries]
+  );
+  const sessionRecordSummary = useMemo<SessionRecordSummary>(() => {
+    const longestDurationSeconds =
+      normalizedHistoryEntries.length > 0
+        ? normalizedHistoryEntries.reduce(
+            (best, entry) =>
+              Math.max(
+                best,
+                Number.isFinite(Number(entry.duration_seconds)) ? Number(entry.duration_seconds) : 0
+              ),
+            0
+          )
+        : 0;
+
+    const bestCompletionEntry =
+      normalizedHistoryEntries.length > 0
+        ? normalizedHistoryEntries.reduce((best, entry) =>
+            entry.completionRate > best.completionRate ? entry : best
+          )
+        : null;
+
+    const topExerciseName =
+      exerciseStatsCards.length > 0
+        ? [...exerciseStatsCards].sort((left, right) => {
+            if (right.completedCount !== left.completedCount) {
+              return right.completedCount - left.completedCount;
+            }
+            return left.exerciseName.localeCompare(right.exerciseName, 'fr');
+          })[0]?.exerciseName || null
+        : null;
+
+    return {
+      bestVolumeKg: bestVolume > 0 ? bestVolume : null,
+      longestDurationSeconds: longestDurationSeconds > 0 ? longestDurationSeconds : null,
+      bestCompletionRate: bestCompletionEntry ? bestCompletionEntry.completionRate : null,
+      bestCompletionLabel: bestCompletionEntry
+        ? `${bestCompletionEntry.completedExercises} / ${bestCompletionEntry.totalBlocks}`
+        : null,
+      topExerciseName,
+    };
+  }, [bestVolume, exerciseStatsCards, normalizedHistoryEntries]);
   const progressionData = useMemo(() => {
-    const sortedEntries = [...historyEntries]
+    const sortedEntries = [...normalizedHistoryEntries]
       .sort(
         (left, right) =>
           new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime()
@@ -695,14 +771,14 @@ export default function SessionDetailPage() {
       completedAt: entry.completed_at,
       volume: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
       duration: Number.isFinite(Number(entry.duration_seconds)) ? Number(entry.duration_seconds) : 0,
-      calories: getEstimatedWorkoutCalories(entry.duration_seconds, session?.sport) || 0,
+      completionRate: entry.completionRate,
     }));
 
     const hasVolume = metricCandidates.some((entry) => entry.volume > 0);
     const hasDuration = metricCandidates.some((entry) => entry.duration > 0);
-    const hasCalories = metricCandidates.some((entry) => entry.calories > 0);
+    const hasCompletionRate = metricCandidates.some((entry) => entry.completionRate > 0);
 
-    const metricKey = hasVolume ? 'volume' : hasDuration ? 'duration' : hasCalories ? 'calories' : null;
+    const metricKey = hasVolume ? 'volume' : hasDuration ? 'duration' : hasCompletionRate ? 'completion' : null;
 
     if (!metricKey) {
       return {
@@ -717,7 +793,12 @@ export default function SessionDetailPage() {
     }
 
     const entries = metricCandidates.map((entry) => {
-      const rawValue = metricKey === 'volume' ? entry.volume : metricKey === 'duration' ? entry.duration : entry.calories;
+      const rawValue =
+        metricKey === 'volume'
+          ? entry.volume
+          : metricKey === 'duration'
+            ? entry.duration
+            : entry.completionRate;
       return {
         id: entry.id,
         label: entry.label,
@@ -727,7 +808,7 @@ export default function SessionDetailPage() {
             ? formatSessionVolumeKg(rawValue)
             : metricKey === 'duration'
               ? formatDurationLabel(rawValue)
-              : formatEstimatedWorkoutCalories(rawValue),
+              : `${rawValue}%`,
       };
     });
 
@@ -738,9 +819,9 @@ export default function SessionDetailPage() {
           ? 'Volume total'
           : metricKey === 'duration'
             ? 'Duree totale'
-            : 'Calories estimees',
+            : 'Taux de completion',
     };
-  }, [historyEntries, id, session?.sport]);
+  }, [normalizedHistoryEntries]);
   const chartMetricEntries = progressionData.entries;
   const chartMetricLabel = progressionData.metricLabel;
   const chartMaxValue = useMemo(
@@ -999,36 +1080,20 @@ export default function SessionDetailPage() {
 
               <div className="session-detail-meta">
                 <div className="session-meta-card">
-                  <span>Exercices</span>
-                  <strong>{blocks.length}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Series totales</span>
-                  <strong>{totalSets}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Volume prevu</span>
-                  <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
-                </div>
-                <div className="session-meta-card">
                   <span>Seances realisees</span>
                   <strong>{totalRealizations}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Derniere realisation</span>
+                  <strong>{lastCompletedAt ? formatRelativeDate(lastCompletedAt) : '-'}</strong>
                 </div>
                 <div className="session-meta-card">
                   <span>Duree moyenne</span>
                   <strong>{formatDurationLabel(averageDurationSeconds) || '-'}</strong>
                 </div>
                 <div className="session-meta-card">
-                  <span>Calories moyennes</span>
-                  <strong>{formatEstimatedWorkoutCalories(averageCalories) || '-'}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Meilleur volume</span>
-                  <strong>{bestVolume > 0 ? formatSessionVolumeKg(bestVolume) : '-'}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Dernier entrainement</span>
-                  <strong>{lastCompletedAt ? formatRelativeDate(lastCompletedAt) : '-'}</strong>
+                  <span>Volume total cumule</span>
+                  <strong>{formatSessionVolumeKg(totalCumulativeVolume) || '-'}</strong>
                 </div>
               </div>
 
@@ -1067,25 +1132,9 @@ export default function SessionDetailPage() {
                 </div>
               </div>
 
-              {chartMetricEntries.length === 0 || chartMaxValue <= 0 ? (
+              {chartMetricEntries.length < 2 || chartMaxValue <= 0 ? (
                 <div className="challenge-state challenge-state--compact">
-                  <p>Pas encore assez de donnees.</p>
-                </div>
-              ) : singleProgressEntry ? (
-                <div className="session-progress-chart session-progress-chart--single">
-                  <div className="session-progress-chart__header">
-                    <span>{chartMetricLabel}</span>
-                    <strong>1 seance</strong>
-                  </div>
-
-                  <article className="session-block-card">
-                    <div className="session-block-card__top">
-                      <div className="session-block-check__label">
-                        <strong>{singleProgressEntry.formattedValue || '-'}</strong>
-                        <small>{singleProgressEntry.label}</small>
-                      </div>
-                    </div>
-                  </article>
+                  <p>Termine plusieurs fois cette seance pour suivre ta progression.</p>
                 </div>
               ) : (
                 <div className="session-progress-chart">
@@ -1136,46 +1185,98 @@ export default function SessionDetailPage() {
                 </div>
               ) : (
                 <div className="session-block-list session-records-list">
-                  {personalExerciseRecords.map((record) => (
-                    <article key={record.exerciseName} className="session-block-card session-record-card">
-                      <div className="session-block-card__top">
-                        <div className="session-record-card__header">
-                          <SessionExerciseIcon
-                            exerciseName={record.exerciseName}
-                            sport={session.sport}
-                            size="md"
-                          />
-                          <div className="session-block-check__label">
-                            <strong>{record.exerciseName}</strong>
-                            <small>Record personnel</small>
-                          </div>
+                  <article className="session-block-card session-record-card">
+                    <div className="session-block-card__top">
+                      <div className="session-record-card__header">
+                        <SessionExerciseIcon
+                          exerciseName={session.name}
+                          sport={session.sport}
+                          size="md"
+                        />
+                        <div className="session-block-check__label">
+                          <strong>Meilleur volume</strong>
+                          <small>Sur les realisations enregistrees</small>
                         </div>
                       </div>
+                    </div>
 
-                      <div className="session-record-lines">
-                        {record.maxChargeKg ? (
-                          <p>
-                            Charge max : <strong>{record.maxChargeKg} kg</strong>
-                          </p>
-                        ) : null}
-                        {record.bestVolumeKg ? (
-                          <p>
-                            Meilleur volume : <strong>{formatSessionVolumeKg(record.bestVolumeKg)}</strong>
-                          </p>
-                        ) : null}
-                        {record.maxReps ? (
-                          <p>
-                            Meilleur reps : <strong>{record.maxReps} reps</strong>
-                          </p>
-                        ) : null}
-                        {record.bestDurationSeconds ? (
-                          <p>
-                            Meilleur temps : <strong>{formatDurationLabel(record.bestDurationSeconds)}</strong>
-                          </p>
-                        ) : null}
+                    <div className="session-record-lines">
+                      <p>
+                        Volume max : <strong>{formatSessionVolumeKg(sessionRecordSummary.bestVolumeKg) || '-'}</strong>
+                      </p>
+                    </div>
+                  </article>
+
+                  <article className="session-block-card session-record-card">
+                    <div className="session-block-card__top">
+                      <div className="session-record-card__header">
+                        <SessionExerciseIcon
+                          exerciseName="Duree"
+                          sport={session.sport}
+                          blockType="duration"
+                          size="md"
+                        />
+                        <div className="session-block-check__label">
+                          <strong>Seance la plus longue</strong>
+                          <small>Temps record</small>
+                        </div>
                       </div>
-                    </article>
-                  ))}
+                    </div>
+
+                    <div className="session-record-lines">
+                      <p>
+                        Duree max : <strong>{formatDurationLabel(sessionRecordSummary.longestDurationSeconds) || '-'}</strong>
+                      </p>
+                    </div>
+                  </article>
+
+                  <article className="session-block-card session-record-card">
+                    <div className="session-block-card__top">
+                      <div className="session-record-card__header">
+                        <SessionExerciseIcon
+                          exerciseName="Progression"
+                          sport={session.sport}
+                          blockType="free"
+                          size="md"
+                        />
+                        <div className="session-block-check__label">
+                          <strong>Meilleur taux de completion</strong>
+                          <small>Blocs termines / total</small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="session-record-lines">
+                      <p>
+                        Completion : <strong>{sessionRecordSummary.bestCompletionRate !== null ? `${sessionRecordSummary.bestCompletionRate}%` : '-'}</strong>
+                      </p>
+                      <p>
+                        Ratio : <strong>{sessionRecordSummary.bestCompletionLabel || '-'}</strong>
+                      </p>
+                    </div>
+                  </article>
+
+                  <article className="session-block-card session-record-card">
+                    <div className="session-block-card__top">
+                      <div className="session-record-card__header">
+                        <SessionExerciseIcon
+                          exerciseName={sessionRecordSummary.topExerciseName || session.name}
+                          sport={session.sport}
+                          size="md"
+                        />
+                        <div className="session-block-check__label">
+                          <strong>Meilleur exercice</strong>
+                          <small>Le plus present dans tes realisations</small>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="session-record-lines">
+                      <p>
+                        Exercice : <strong>{sessionRecordSummary.topExerciseName || '-'}</strong>
+                      </p>
+                    </div>
+                  </article>
                 </div>
               )}
             </article>
