@@ -1269,6 +1269,7 @@ img {
 .profile-history-item {
   display: grid;
   gap: 8px;
+  min-width: 0;
   padding: 16px;
   border-radius: 18px;
   background: rgba(15, 23, 42, 0.03);
@@ -1292,6 +1293,7 @@ img {
   margin: 0;
   color: #64748b;
   line-height: 1.5;
+  overflow-wrap: anywhere;
 }
 
 .profile-history-item__top {
@@ -1388,6 +1390,10 @@ img {
 }
 
 .session-link-button {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 32px;
   border: 0;
   background: transparent;
   color: #20b7a6;
@@ -2560,6 +2566,7 @@ img {
 .session-live-page {
   display: grid;
   gap: 20px;
+  overflow-x: clip;
 }
 
 .session-live-header,
@@ -2665,6 +2672,8 @@ img {
 .session-live-shell__copy h1 {
   margin: 0;
   font-size: clamp(1.9rem, 4vw, 2.6rem);
+  line-height: 1.08;
+  text-wrap: balance;
 }
 
 .session-live-shell__meta,
@@ -2741,6 +2750,8 @@ img {
 .session-live-rest-overlay h2 {
   margin: 0;
   font-size: clamp(1.8rem, 4vw, 2.5rem);
+  line-height: 1.08;
+  text-wrap: balance;
 }
 
 .session-live-focus-card__hero p,
@@ -2807,6 +2818,7 @@ img {
 .session-live-quick-stat strong {
   color: #f4f7f6;
   font-size: 1rem;
+  overflow-wrap: anywhere;
 }
 
 .session-live-focus-card__note {
@@ -2853,6 +2865,14 @@ img {
   flex-wrap: wrap;
 }
 
+.session-live-shell__actions .button,
+.session-live-controls .button,
+.session-live-rest-overlay__adjust .button,
+.session-live-rest-overlay__actions .button,
+.session-live-actions--end .button {
+  min-height: 48px;
+}
+
 .session-live-preview {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
@@ -2862,6 +2882,7 @@ img {
 .session-live-preview__item {
   display: grid;
   gap: 6px;
+  min-width: 0;
   min-height: 84px;
   padding: 14px;
   border-radius: 18px;
@@ -3159,6 +3180,27 @@ img {
   background: rgba(23, 201, 166, 0.12);
   border-color: rgba(23, 201, 166, 0.24);
   color: #9ef3e6;
+}
+
+.sessions-page--dark .challenge-state {
+  background: linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(7, 17, 17, 0.98));
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #9fb5b3;
+}
+
+.sessions-page--dark .button.ghost {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #f4f7f6;
+}
+
+.sessions-page--dark .button.ghost:hover {
+  border-color: rgba(53, 230, 107, 0.24);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+}
+
+.sessions-page--dark .button.primary {
+  box-shadow: 0 14px 30px rgba(32, 183, 166, 0.24);
 }
 
 .sessions-page--dark .session-block-chip {
@@ -3905,6 +3947,29 @@ img {
   .session-live-focus-card__validate {
     width: 100%;
     min-width: 0;
+  }
+
+  .profile-history-item,
+  .session-meta-card,
+  .session-record-card,
+  .session-progress-chart,
+  .session-summary-header__stat {
+    padding: 14px;
+    border-radius: 16px;
+  }
+
+  .session-live-shell__copy h1,
+  .session-live-focus-card__hero h2,
+  .session-live-rest-overlay h2 {
+    font-size: clamp(1.6rem, 7vw, 2rem);
+  }
+
+  .session-live-shell__meta {
+    gap: 8px;
+  }
+
+  .session-link-button {
+    min-height: 36px;
   }
 
   .exercise-icon-badge {

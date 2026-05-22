@@ -815,7 +815,7 @@ export default function ProfilePage() {
                 <div className="profile-history-item__top">
                   <strong>Mes seances</strong>
                 </div>
-                <span>Retrouve tes templates, ton live et l’historique de tes seances.</span>
+                <span>Retrouve tes templates, ton live et l'historique de tes seances.</span>
               </Link>
 
               <Link href="/stats" className="profile-history-item">
@@ -997,5 +997,6 @@ export default function ProfilePage() {
     </AppShell>
   );
 }
+
 
 
