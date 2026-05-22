@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'next/navigation';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import {
   LiveBlockCard,
@@ -11,6 +11,7 @@ import {
   RestTimerOverlay,
   SessionLiveHeader,
 } from '@/components/session-live-ui';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
   formatEstimatedWorkoutCalories,
@@ -99,6 +100,7 @@ function formatPersonalRecordValue(metric: NewPersonalRecord['metric'], value: n
 
 export default function LiveSessionPage() {
   const params = useParams();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string | undefined) || '';
   const programSessionId = searchParams.get('programSessionId');
@@ -120,6 +122,7 @@ export default function LiveSessionPage() {
   const [runKey, setRunKey] = useState('');
   const [historySaved, setHistorySaved] = useState(false);
   const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -511,6 +514,7 @@ export default function LiveSessionPage() {
     setHistorySaved(false);
     setHistoryMessage(null);
     setNewPersonalRecords([]);
+    setSaveState('idle');
     setRunKey(createLiveRunKey());
     clearRestState();
   };
@@ -560,10 +564,15 @@ export default function LiveSessionPage() {
     completeCurrentExercise();
   };
 
-  useEffect(() => {
-    if (!allBlocksCompleted || historySaved || !session || !runKey) return;
+  const saveCompletedSession = useCallback(async () => {
+    if (!allBlocksCompleted || historySaved || !session || !runKey || saveState === 'saving') {
+      return false;
+    }
 
-    const saveHistoryEntry = async () => {
+    setSaveState('saving');
+    setHistoryMessage(null);
+
+    try {
       const {
         data: { user },
         error: userError,
@@ -572,7 +581,8 @@ export default function LiveSessionPage() {
       if (userError || !user) {
         console.error('Workout history insert error:', userError || new Error('No authenticated user'));
         setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
-        return;
+        setSaveState('error');
+        return false;
       }
 
       const normalizedDurationSeconds = Number.isFinite(Number(elapsedSeconds))
@@ -611,15 +621,10 @@ export default function LiveSessionPage() {
         .single();
 
       if (error) {
-        if (error.code === '23505') {
-          setHistorySaved(true);
-          setHistoryMessage(null);
-          return;
-        }
-
         console.error('Workout history insert error:', error);
         setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
-        return;
+        setSaveState('error');
+        return false;
       }
 
       let exerciseHistoryMessage: string | null = null;
@@ -823,22 +828,43 @@ export default function LiveSessionPage() {
 
       console.log('Workout history saved:', data);
       setHistorySaved(true);
-      setHistoryMessage(exerciseHistoryMessage || completionMessage);
-    };
-
-    saveHistoryEntry();
+      setHistoryMessage(exerciseHistoryMessage || completionMessage || 'Seance enregistree.');
+      setSaveState('success');
+      return true;
+    } catch (error) {
+      console.error('Workout history unexpected save error:', error);
+      setHistoryMessage("Une erreur inattendue s'est produite pendant l'enregistrement.");
+      setSaveState('error');
+      return false;
+    }
   }, [
     allBlocksCompleted,
-    blocks.length,
+    blocks,
     elapsedSeconds,
     estimatedCalories,
     historySaved,
     programId,
     programSessionId,
     runKey,
+    saveState,
     session,
     sessionTotalVolume,
   ]);
+
+  const handleFinishSession = async () => {
+    if (historySaved) {
+      queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
+      router.push(`/sessions/${id}`);
+      return;
+    }
+
+    const didSave = await saveCompletedSession();
+    if (!didSave) return;
+
+    queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
+    router.push(`/sessions/${id}`);
+  };
+
   return (
     <AppShell>
       <section className="sessions-page sessions-page--dark session-live-page">
@@ -931,7 +957,13 @@ export default function LiveSessionPage() {
                 ) : null}
 
                 {historyMessage ? (
-                  <p className="form-feedback form-feedback--error">{historyMessage}</p>
+                  <p
+                    className={`form-feedback ${
+                      saveState === 'success' ? 'form-feedback--success' : 'form-feedback--error'
+                    }`}
+                  >
+                    {historyMessage}
+                  </p>
                 ) : null}
 
                 {newPersonalRecords.length > 0 ? (
@@ -993,9 +1025,19 @@ export default function LiveSessionPage() {
                   <Link href={`/sessions/${id}`} className="button ghost">
                     Retour seance
                   </Link>
-                  <Link href="/sessions" className="button ghost">
-                    Terminer
-                  </Link>
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={handleFinishSession}
+                    disabled={saveState === 'saving'}
+                    aria-busy={saveState === 'saving'}
+                  >
+                    {saveState === 'saving'
+                      ? 'Enregistrement...'
+                      : historySaved || saveState === 'success'
+                        ? 'Seance enregistree'
+                        : 'Terminer'}
+                  </button>
                 </div>
               </article>
             ) : isResting && currentBlock ? (
