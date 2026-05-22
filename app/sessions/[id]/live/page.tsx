@@ -215,6 +215,24 @@ export default function LiveSessionPage() {
       if (!savedValue) return;
 
       const parsedValue = JSON.parse(savedValue) as Partial<LiveState>;
+      if (parsedValue.historySaved === true) {
+        clearPersistedLiveState();
+        setCurrentIndex(0);
+        setCompletedBlockIds([]);
+        setCompletedSetsByBlockId({});
+        setRestAfterBlockId(null);
+        setRestResumeIndex(null);
+        setRestSecondsLeft(DEFAULT_REST_SECONDS);
+        setElapsedSeconds(0);
+        setIsTimerPaused(false);
+        setHistorySaved(false);
+        setHistoryMessage(null);
+        setSaveState('idle');
+        setNewPersonalRecords([]);
+        setRunKey(createLiveRunKey());
+        return;
+      }
+
       if (typeof parsedValue.currentIndex === 'number') {
         setCurrentIndex(parsedValue.currentIndex);
       }
@@ -266,7 +284,7 @@ export default function LiveSessionPage() {
     } catch (error) {
       console.error('Erreur lecture etat live seance :', error);
     }
-  }, [liveStorageKey]);
+  }, [clearPersistedLiveState, liveStorageKey]);
 
   useEffect(() => {
     if (!runKey) {
