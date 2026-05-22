@@ -82,7 +82,7 @@ type SessionRecordSummary = {
   longestDurationSeconds: number | null;
   bestCompletionRate: number | null;
   bestCompletionLabel: string | null;
-  topExerciseName: string | null;
+  maxCompletedBlocks: number | null;
 };
 
 type WorkoutHistoryDebug = {
@@ -691,19 +691,6 @@ export default function SessionDetailPage() {
             completedDurationEntries.length
         )
       : null;
-  const averageCalories =
-    completedDurationEntries.length > 0
-      ? Math.round(
-          completedDurationEntries.reduce(
-            (total, entry) =>
-              total +
-                (Number.isFinite(Number(entry.estimated_calories))
-                  ? Number(entry.estimated_calories)
-                  : getEstimatedWorkoutCalories(entry.duration_seconds, session?.sport) || 0),
-            0
-          ) / completedDurationEntries.length
-        )
-      : null;
   const bestVolume =
     historyEntries.length > 0
       ? historyEntries.reduce((best, entry) => Math.max(best, Number(entry.total_volume || 0)), 0)
@@ -737,16 +724,6 @@ export default function SessionDetailPage() {
           )
         : null;
 
-    const topExerciseName =
-      exerciseStatsCards.length > 0
-        ? [...exerciseStatsCards].sort((left, right) => {
-            if (right.completedCount !== left.completedCount) {
-              return right.completedCount - left.completedCount;
-            }
-            return left.exerciseName.localeCompare(right.exerciseName, 'fr');
-          })[0]?.exerciseName || null
-        : null;
-
     return {
       bestVolumeKg: bestVolume > 0 ? bestVolume : null,
       longestDurationSeconds: longestDurationSeconds > 0 ? longestDurationSeconds : null,
@@ -754,9 +731,15 @@ export default function SessionDetailPage() {
       bestCompletionLabel: bestCompletionEntry
         ? `${bestCompletionEntry.completedExercises} / ${bestCompletionEntry.totalBlocks}`
         : null,
-      topExerciseName,
+      maxCompletedBlocks:
+        normalizedHistoryEntries.length > 0
+          ? normalizedHistoryEntries.reduce(
+              (best, entry) => Math.max(best, entry.completedExercises),
+              0
+            )
+          : null,
     };
-  }, [bestVolume, exerciseStatsCards, normalizedHistoryEntries]);
+  }, [bestVolume, normalizedHistoryEntries]);
   const progressionData = useMemo(() => {
     const sortedEntries = [...normalizedHistoryEntries]
       .sort(
@@ -828,7 +811,6 @@ export default function SessionDetailPage() {
     () => Math.max(...chartMetricEntries.map((entry) => entry.rawValue), 0),
     [chartMetricEntries]
   );
-  const singleProgressEntry = chartMetricEntries.length === 1 ? chartMetricEntries[0] : null;
   const chartPoints = useMemo(() => {
     if (chartMetricEntries.length < 2 || chartMaxValue <= 0) {
       return [] as Array<{ x: number; y: number; label: string; formattedValue: string | null }>;
@@ -1179,7 +1161,7 @@ export default function SessionDetailPage() {
                 </div>
               </div>
 
-              {personalExerciseRecords.length === 0 ? (
+              {historyEntries.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">
                   <p>Aucun record personnel pour le moment.</p>
                 </div>
@@ -1260,20 +1242,20 @@ export default function SessionDetailPage() {
                     <div className="session-block-card__top">
                       <div className="session-record-card__header">
                         <SessionExerciseIcon
-                          exerciseName={sessionRecordSummary.topExerciseName || session.name}
+                          exerciseName="Blocs"
                           sport={session.sport}
                           size="md"
                         />
                         <div className="session-block-check__label">
-                          <strong>Meilleur exercice</strong>
-                          <small>Le plus present dans tes realisations</small>
+                          <strong>Plus grand nombre de blocs termines</strong>
+                          <small>Sur une seule realisation</small>
                         </div>
                       </div>
                     </div>
 
                     <div className="session-record-lines">
                       <p>
-                        Exercice : <strong>{sessionRecordSummary.topExerciseName || '-'}</strong>
+                        Blocs : <strong>{sessionRecordSummary.maxCompletedBlocks ?? '-'}</strong>
                       </p>
                     </div>
                   </article>
