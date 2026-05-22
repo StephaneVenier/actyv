@@ -2704,6 +2704,13 @@ img {
   font-weight: 700;
 }
 
+.session-live-shell__progress-note {
+  margin: -2px 0 0;
+  color: #a8c1c4;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
 .session-live-focus-card,
 .session-live-rest-overlay,
 .session-live-rail-card,
@@ -2765,6 +2772,10 @@ img {
   font-weight: 700;
 }
 
+.session-live-focus-card.is-validated {
+  animation: session-live-validated-flash 520ms ease;
+}
+
 .session-live-focus-card__facts,
 .session-live-finished__stats,
 .session-live-quick-stats {
@@ -2805,12 +2816,35 @@ img {
 }
 
 .session-live-focus-card__footer {
-  display: flex;
-  justify-content: flex-start;
+  display: grid;
+  gap: 10px;
+  justify-items: stretch;
 }
 
 .session-live-focus-card__validate {
   min-width: 220px;
+  min-height: 56px;
+  font-size: 1rem;
+}
+
+.session-live-focus-card__action-hint,
+.session-live-focus-card__feedback,
+.session-live-rest-overlay__hint {
+  margin: 0;
+  text-align: center;
+  line-height: 1.55;
+}
+
+.session-live-focus-card__action-hint,
+.session-live-rest-overlay__hint {
+  color: #9fb5b3;
+  font-size: 0.94rem;
+}
+
+.session-live-focus-card__feedback {
+  color: #8cf1df;
+  font-size: 0.96rem;
+  font-weight: 800;
 }
 
 .session-live-controls {
@@ -2892,8 +2926,9 @@ img {
 
 .session-live-rest-overlay__ring-inner strong {
   color: #f4f7f6;
-  font-size: clamp(2.8rem, 9vw, 4.5rem);
+  font-size: clamp(2.3rem, 8vw, 4.2rem);
   line-height: 1;
+  letter-spacing: 0.02em;
 }
 
 .session-live-rest-overlay__ring-inner span {
@@ -2916,6 +2951,61 @@ img {
 
 .session-live-total-time {
   font-weight: 700;
+}
+
+.session-live-save-banner {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(53, 230, 107, 0.18);
+  background: rgba(53, 230, 107, 0.08);
+}
+
+.session-live-save-banner strong {
+  color: #f4f7f6;
+  font-size: 1rem;
+}
+
+.session-live-save-banner span {
+  color: #9fb5b3;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.session-live-save-banner--saving {
+  border-color: rgba(32, 183, 166, 0.34);
+  background: rgba(32, 183, 166, 0.12);
+}
+
+.session-live-save-banner--success {
+  border-color: rgba(53, 230, 107, 0.34);
+  background: rgba(53, 230, 107, 0.12);
+}
+
+.session-live-save-banner--error {
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.1);
+}
+
+.session-live-finish-button {
+  min-width: 220px;
+  min-height: 52px;
+}
+
+@keyframes session-live-validated-flash {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(53, 230, 107, 0);
+  }
+  45% {
+    transform: scale(1.01);
+    box-shadow: 0 0 0 4px rgba(53, 230, 107, 0.12);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 rgba(53, 230, 107, 0);
+  }
 }
 
 .sessions-page--dark {

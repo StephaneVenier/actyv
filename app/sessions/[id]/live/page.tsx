@@ -123,6 +123,7 @@ export default function LiveSessionPage() {
   const [historySaved, setHistorySaved] = useState(false);
   const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -292,6 +293,16 @@ export default function LiveSessionPage() {
     }
   }, [runKey]);
 
+  useEffect(() => {
+    if (!validationFeedback) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setValidationFeedback(null);
+    }, 900);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [validationFeedback]);
+
   const completedBlocksCount = useMemo(
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
     [blocks, completedBlockIds]
@@ -365,6 +376,14 @@ export default function LiveSessionPage() {
   const restingBlockName =
     restSourceBlock?.name?.trim() ||
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
+  const finishStateLabel =
+    saveState === 'saving'
+      ? 'Enregistrement...'
+      : saveState === 'success'
+        ? 'Seance enregistree'
+        : saveState === 'error'
+          ? "Erreur d'enregistrement"
+          : 'Clique sur Terminer pour enregistrer ta seance.';
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -567,6 +586,7 @@ export default function LiveSessionPage() {
     if (!currentBlock) return;
 
     triggerHaptic(18);
+    setValidationFeedback(usesSetBySetValidation ? 'Serie validee' : 'Bloc valide');
 
     if (usesSetBySetValidation) {
       const nextCompletedSets = Math.min(currentCompletedSets + 1, currentBlockSetsTotal);
@@ -949,6 +969,13 @@ export default function LiveSessionPage() {
               elapsedLabel={`Temps : ${formatElapsedDuration(elapsedSeconds)}`}
               currentBlockLabel={`Bloc ${Math.min(currentIndex + 1, blocks.length)} / ${blocks.length}`}
               progressLabel={`${completedBlocksCount} / ${blocks.length} blocs termines - ${globalProgressPercent}%`}
+              progressMetaLabel={
+                allBlocksCompleted
+                  ? 'Tous les blocs sont termines.'
+                  : usesSetBySetValidation
+                    ? `${currentSeriesLabel} - progression de la seance en direct`
+                    : 'Un seul bloc a la fois, sans distraction.'
+              }
               progressPercent={globalProgressPercent}
               onTogglePause={() => setIsTimerPaused((current) => !current)}
               isPaused={isTimerPaused || allBlocksCompleted}
@@ -986,6 +1013,15 @@ export default function LiveSessionPage() {
                     Duree estimee : {formatElapsedDuration(estimatedDurationSeconds)}
                   </p>
                 ) : null}
+
+                <div className={`session-live-save-banner session-live-save-banner--${saveState}`}>
+                  <strong>{finishStateLabel}</strong>
+                  <span>
+                    {historySaved || saveState === 'success'
+                      ? 'Ta realisation est bien prise en compte.'
+                      : "Une fois la seance terminee, pense a confirmer l'enregistrement."}
+                  </span>
+                </div>
 
                 {historyMessage ? (
                   <p
@@ -1045,8 +1081,7 @@ export default function LiveSessionPage() {
                 ) : null}
 
                 <p className="session-live-finished__copy">
-                  Tous les blocs ont ete valides. Tu peux revenir au detail, relancer la seance
-                  ou terminer ici.
+                  Tous les blocs ont ete valides. Clique sur Terminer pour enregistrer ta seance.
                 </p>
 
                 <div className="session-live-actions session-live-actions--end">
@@ -1058,7 +1093,7 @@ export default function LiveSessionPage() {
                   </Link>
                   <button
                     type="button"
-                    className="button ghost"
+                    className="button primary session-live-finish-button"
                     onClick={handleFinishSession}
                     disabled={saveState === 'saving'}
                     aria-busy={saveState === 'saving'}
@@ -1086,6 +1121,7 @@ export default function LiveSessionPage() {
             ) : currentBlock ? (
               <>
                 <LiveBlockCard
+                  key={`${currentBlock.id}-${currentCompletedSets}`}
                   block={currentBlock}
                   blockIndex={currentIndex}
                   totalBlocks={blocks.length}
@@ -1093,6 +1129,12 @@ export default function LiveSessionPage() {
                   isCompleted={completedBlockIds.includes(currentBlock.id)}
                   blockVolumeLabel={formatSessionVolumeKg(currentBlockVolume)}
                   actionLabel={usesSetBySetValidation ? 'Serie terminee' : 'Bloc termine'}
+                  actionHint={
+                    usesSetBySetValidation
+                      ? 'Valide chaque serie pour avancer automatiquement.'
+                      : 'Valide ce bloc quand tu as fini l effort.'
+                  }
+                  validationFeedback={validationFeedback}
                   onValidate={handleValidateCurrent}
                   actionDisabled={completedBlockIds.includes(currentBlock.id)}
                 />

@@ -22,6 +22,7 @@ type SessionLiveHeaderProps = {
   currentBlockLabel: string;
   progressLabel: string;
   progressPercent: number;
+  progressMetaLabel?: string;
   onTogglePause: () => void;
   isPaused: boolean;
   quitHref: string;
@@ -35,6 +36,8 @@ type LiveBlockCardProps = {
   isCompleted: boolean;
   blockVolumeLabel?: string | null;
   actionLabel: string;
+  actionHint?: string | null;
+  validationFeedback?: string | null;
   onValidate?: () => void;
   actionDisabled?: boolean;
 };
@@ -79,6 +82,14 @@ export function SessionProgressBar({ value, label }: SessionProgressBarProps) {
   );
 }
 
+function formatRestCountdown(seconds: number) {
+  const normalizedSeconds = Math.max(0, Math.trunc(seconds));
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const remainingSeconds = normalizedSeconds % 60;
+
+  return `${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+}
+
 export function SessionLiveHeader({
   title,
   sportBadge,
@@ -86,6 +97,7 @@ export function SessionLiveHeader({
   currentBlockLabel,
   progressLabel,
   progressPercent,
+  progressMetaLabel,
   onTogglePause,
   isPaused,
   quitHref,
@@ -114,6 +126,7 @@ export function SessionLiveHeader({
       </div>
 
       <SessionProgressBar value={progressPercent} label={progressLabel} />
+      {progressMetaLabel ? <p className="session-live-shell__progress-note">{progressMetaLabel}</p> : null}
     </article>
   );
 }
@@ -134,6 +147,8 @@ export function LiveBlockCard({
   isCompleted,
   blockVolumeLabel,
   actionLabel,
+  actionHint,
+  validationFeedback,
   onValidate,
   actionDisabled = false,
 }: LiveBlockCardProps) {
@@ -141,7 +156,7 @@ export function LiveBlockCard({
   const restLabel = formatSessionRestSeconds(block.rest_seconds) || 'Sans repos';
 
   return (
-    <article className="card session-live-focus-card">
+    <article className={`card session-live-focus-card${validationFeedback ? ' is-validated' : ''}`}>
       <div className="session-live-focus-card__eyebrow">
         <span className="section-kicker">{`Bloc ${blockIndex + 1} / ${totalBlocks}`}</span>
         <span className={`session-block-chip${isCompleted ? ' is-done' : ''}`}>{typeLabel}</span>
@@ -199,6 +214,12 @@ export function LiveBlockCard({
         >
           {actionLabel}
         </button>
+        {actionHint ? <p className="session-live-focus-card__action-hint">{actionHint}</p> : null}
+        {validationFeedback ? (
+          <p className="session-live-focus-card__feedback" aria-live="polite">
+            {validationFeedback}
+          </p>
+        ) : null}
       </div>
     </article>
   );
@@ -229,10 +250,14 @@ export function RestTimerOverlay({
 
       <div className="session-live-rest-overlay__ring" style={ringStyle}>
         <div className="session-live-rest-overlay__ring-inner">
-          <strong>{Math.max(secondsLeft, 0)}</strong>
-          <span>sec</span>
+          <strong>{formatRestCountdown(secondsLeft)}</strong>
+          <span>restant</span>
         </div>
       </div>
+
+      <p className="session-live-rest-overlay__hint">
+        Prends ton souffle. La prochaine etape repart automatiquement a la fin du repos.
+      </p>
 
       <div className="session-live-rest-overlay__adjust">
         <button type="button" className="button ghost" onClick={onSubtract15}>
