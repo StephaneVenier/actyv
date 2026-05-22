@@ -66,6 +66,13 @@ type WorkoutHistoryEntry = {
   completed_exercises: number | null;
 };
 
+type WorkoutExerciseHistoryEntry = {
+  exercise_name: string;
+  volume: number | null;
+  charge_kg: number | null;
+  completed_at: string;
+};
+
 type UserChallengeSummary = {
   challenge: Challenge;
   goalType: GoalType | null;
@@ -173,6 +180,9 @@ export default function ProfilePage() {
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [badges, setBadges] = useState<UserBadge[]>([]);
   const [recentWorkoutHistory, setRecentWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
+  const [allWorkoutHistory, setAllWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
+  const [workoutExerciseHistory, setWorkoutExerciseHistory] = useState<WorkoutExerciseHistoryEntry[]>([]);
+  const [workoutSportsById, setWorkoutSportsById] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [editMode, setEditMode] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
@@ -210,7 +220,15 @@ export default function ProfilePage() {
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
 
-      const [activitiesResponse, membersResponse, participantsResponse, badgesResponse, workoutHistoryResponse] =
+      const [
+        activitiesResponse,
+        membersResponse,
+        participantsResponse,
+        badgesResponse,
+        workoutHistoryResponse,
+        recentWorkoutHistoryResponse,
+        workoutExerciseHistoryResponse,
+      ] =
         await Promise.all([
           supabase
             .from('activities')
@@ -230,8 +248,20 @@ export default function ProfilePage() {
               'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises'
             )
             .eq('user_id', user.id)
+            .order('completed_at', { ascending: false }),
+          supabase
+            .from('workout_sessions_history')
+            .select(
+              'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises'
+            )
+            .eq('user_id', user.id)
             .order('completed_at', { ascending: false })
             .limit(5),
+          supabase
+            .from('workout_exercise_history')
+            .select('exercise_name, volume, charge_kg, completed_at')
+            .eq('user_id', user.id)
+            .order('completed_at', { ascending: false }),
         ]);
 
       const loadedActivities = (activitiesResponse.data as Activity[] | null) || [];
@@ -260,9 +290,55 @@ export default function ProfilePage() {
 
       if (workoutHistoryResponse.error) {
         console.error('Erreur chargement historique seances profil :', workoutHistoryResponse.error);
+        setAllWorkoutHistory([]);
+      } else {
+        setAllWorkoutHistory((workoutHistoryResponse.data as WorkoutHistoryEntry[] | null) || []);
+      }
+
+      if (recentWorkoutHistoryResponse.error) {
+        console.error('Erreur chargement historique recent profil :', recentWorkoutHistoryResponse.error);
         setRecentWorkoutHistory([]);
       } else {
-        setRecentWorkoutHistory((workoutHistoryResponse.data as WorkoutHistoryEntry[] | null) || []);
+        setRecentWorkoutHistory((recentWorkoutHistoryResponse.data as WorkoutHistoryEntry[] | null) || []);
+      }
+
+      if (workoutExerciseHistoryResponse.error) {
+        console.error('Erreur chargement historique exercices profil :', workoutExerciseHistoryResponse.error);
+        setWorkoutExerciseHistory([]);
+      } else {
+        setWorkoutExerciseHistory(
+          (workoutExerciseHistoryResponse.data as WorkoutExerciseHistoryEntry[] | null) || []
+        );
+      }
+
+      const workoutIds = Array.from(
+        new Set(
+          (((workoutHistoryResponse.data as WorkoutHistoryEntry[] | null) || []) ?? [])
+            .map((entry) => entry.workout_id)
+            .filter((workoutId): workoutId is string => Boolean(workoutId))
+        )
+      );
+
+      if (workoutIds.length > 0) {
+        const { data: workoutSportsRows, error: workoutSportsError } = await supabase
+          .from('training_sessions')
+          .select('id, sport')
+          .in('id', workoutIds);
+
+        if (workoutSportsError) {
+          console.error('Erreur chargement sports seances profil :', workoutSportsError);
+          setWorkoutSportsById({});
+        } else {
+          const nextSportsById = Object.fromEntries(
+            (((workoutSportsRows as Array<{ id: string; sport: string | null }> | null) || [])).map((row) => [
+              row.id,
+              row.sport,
+            ])
+          );
+          setWorkoutSportsById(nextSportsById);
+        }
+      } else {
+        setWorkoutSportsById({});
       }
 
       const memberIds = ((membersResponse.data as ChallengeMember[] | null) || []).map(
@@ -358,6 +434,86 @@ export default function ProfilePage() {
       totalBoosts,
     };
   }, [activities, challenges, interactions, joinedChallengeIds, profile?.id]);
+
+  const workoutProfileSummary = useMemo(() => {
+    const totalCompletedWorkouts = allWorkoutHistory.length;
+    const totalDurationSeconds = allWorkoutHistory.reduce((total, entry) => {
+      const durationSeconds =
+        Number.isFinite(Number(entry.duration_seconds)) && Number(entry.duration_seconds) > 0
+          ? Number(entry.duration_seconds)
+          : 0;
+      return total + durationSeconds;
+    }, 0);
+    const totalVolumeKg = allWorkoutHistory.reduce((total, entry) => {
+      const volumeKg =
+        Number.isFinite(Number(entry.total_volume)) && Number(entry.total_volume) > 0
+          ? Number(entry.total_volume)
+          : 0;
+      return total + volumeKg;
+    }, 0);
+    const lastWorkout = allWorkoutHistory[0] || null;
+
+    const sportCounts = allWorkoutHistory.reduce<Record<string, number>>((accumulator, entry) => {
+      const sport = (entry.workout_id ? workoutSportsById[entry.workout_id] : null) || null;
+      if (!sport) return accumulator;
+      accumulator[sport] = (accumulator[sport] || 0) + 1;
+      return accumulator;
+    }, {});
+
+    const mostPracticedSport =
+      Object.entries(sportCounts).sort((left, right) => right[1] - left[1])[0]?.[0] || null;
+
+    const bestWorkoutVolumeKg = allWorkoutHistory.reduce((best, entry) => {
+      const volumeKg =
+        Number.isFinite(Number(entry.total_volume)) && Number(entry.total_volume) > 0
+          ? Number(entry.total_volume)
+          : 0;
+      return Math.max(best, volumeKg);
+    }, 0);
+
+    const longestWorkoutSeconds = allWorkoutHistory.reduce((best, entry) => {
+      const durationSeconds =
+        Number.isFinite(Number(entry.duration_seconds)) && Number(entry.duration_seconds) > 0
+          ? Number(entry.duration_seconds)
+          : 0;
+      return Math.max(best, durationSeconds);
+    }, 0);
+
+    const topExerciseRecord =
+      workoutExerciseHistory.length > 0
+        ? [...workoutExerciseHistory]
+            .sort((left, right) => {
+              const rightVolume =
+                Number.isFinite(Number(right.volume)) && Number(right.volume) > 0 ? Number(right.volume) : 0;
+              const leftVolume =
+                Number.isFinite(Number(left.volume)) && Number(left.volume) > 0 ? Number(left.volume) : 0;
+
+              if (rightVolume !== leftVolume) return rightVolume - leftVolume;
+
+              const rightCharge =
+                Number.isFinite(Number(right.charge_kg)) && Number(right.charge_kg) > 0
+                  ? Number(right.charge_kg)
+                  : 0;
+              const leftCharge =
+                Number.isFinite(Number(left.charge_kg)) && Number(left.charge_kg) > 0
+                  ? Number(left.charge_kg)
+                  : 0;
+
+              return rightCharge - leftCharge;
+            })[0] || null
+        : null;
+
+    return {
+      totalCompletedWorkouts,
+      totalDurationSeconds,
+      totalVolumeKg,
+      lastWorkout,
+      mostPracticedSport,
+      bestWorkoutVolumeKg: bestWorkoutVolumeKg > 0 ? bestWorkoutVolumeKg : null,
+      longestWorkoutSeconds: longestWorkoutSeconds > 0 ? longestWorkoutSeconds : null,
+      topExerciseRecord,
+    };
+  }, [allWorkoutHistory, workoutExerciseHistory, workoutSportsById]);
 
   const groupedChallenges = useMemo<UserChallengeSummary[]>(() => {
     return challenges.map((challenge) => {
@@ -588,6 +744,67 @@ export default function ProfilePage() {
           <article className="card profile-history-card">
             <div className="profile-section-heading">
               <div>
+                <span className="section-kicker">Profil sportif</span>
+                <h2>Resume sportif</h2>
+              </div>
+            </div>
+
+            {workoutProfileSummary.totalCompletedWorkouts === 0 ? (
+              <div className="profile-history-item">
+                <span>Lance ta premiere seance pour construire ton profil sportif.</span>
+              </div>
+            ) : (
+              <div className="profile-history-list">
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Seances realisees</strong>
+                  </div>
+                  <span>{workoutProfileSummary.totalCompletedWorkouts}</span>
+                </div>
+
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Duree totale d'entrainement</strong>
+                  </div>
+                  <span>{formatWorkoutDuration(workoutProfileSummary.totalDurationSeconds)}</span>
+                </div>
+
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Volume total souleve</strong>
+                  </div>
+                  <span>{formatSessionVolumeLabel(workoutProfileSummary.totalVolumeKg)}</span>
+                </div>
+
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Derniere seance</strong>
+                  </div>
+                  <span>
+                    {workoutProfileSummary.lastWorkout
+                      ? `${workoutProfileSummary.lastWorkout.workout_name} - ${formatProfileRelativeDate(
+                          workoutProfileSummary.lastWorkout.completed_at
+                        )}`
+                      : '-'}
+                  </span>
+                </div>
+
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Sport le plus pratique</strong>
+                  </div>
+                  <span>
+                    {workoutProfileSummary.mostPracticedSport
+                      ? formatSportBadgeLabel(workoutProfileSummary.mostPracticedSport, 'Sport')
+                      : '-'}
+                  </span>
+                </div>
+              </div>
+            )}
+          </article>
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
                 <span className="section-kicker">Raccourcis</span>
                 <h2>Mon espace training</h2>
               </div>
@@ -613,33 +830,49 @@ export default function ProfilePage() {
           <article className="card profile-history-card">
             <div className="profile-section-heading">
               <div>
-                <span className="section-kicker">Resume</span>
-                <h2>Vue rapide</h2>
+                <span className="section-kicker">Records</span>
+                <h2>Records recents</h2>
               </div>
             </div>
 
-            <div className="profile-history-list">
+            {workoutProfileSummary.totalCompletedWorkouts === 0 ? (
               <div className="profile-history-item">
-                <div className="profile-history-item__top">
-                  <strong>Distance totale</strong>
-                </div>
-                <span>{formatDistance(stats.totalDistance)}</span>
+                <span>Lance ta premiere seance pour construire ton profil sportif.</span>
               </div>
+            ) : (
+              <div className="profile-history-list">
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Meilleur volume</strong>
+                  </div>
+                  <span>{formatSessionVolumeLabel(workoutProfileSummary.bestWorkoutVolumeKg)}</span>
+                </div>
 
-              <div className="profile-history-item">
-                <div className="profile-history-item__top">
-                  <strong>Duree totale</strong>
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Seance la plus longue</strong>
+                  </div>
+                  <span>{formatWorkoutDuration(workoutProfileSummary.longestWorkoutSeconds)}</span>
                 </div>
-                <span>{formatDuration(stats.totalDuration)}</span>
-              </div>
 
-              <div className="profile-history-item">
-                <div className="profile-history-item__top">
-                  <strong>Repetitions</strong>
+                <div className="profile-history-item">
+                  <div className="profile-history-item__top">
+                    <strong>Exercice record</strong>
+                  </div>
+                  <span>
+                    {workoutProfileSummary.topExerciseRecord
+                      ? `${workoutProfileSummary.topExerciseRecord.exercise_name} - ${
+                          formatSessionVolumeLabel(workoutProfileSummary.topExerciseRecord.volume) !== '-'
+                            ? formatSessionVolumeLabel(workoutProfileSummary.topExerciseRecord.volume)
+                            : workoutProfileSummary.topExerciseRecord.charge_kg
+                              ? `${workoutProfileSummary.topExerciseRecord.charge_kg} kg`
+                              : '-'
+                        }`
+                      : '-'}
+                  </span>
                 </div>
-                <span>{stats.totalReps}</span>
               </div>
-            </div>
+            )}
           </article>
 
           <article className="card profile-history-card">
@@ -653,7 +886,7 @@ export default function ProfilePage() {
             <div className="profile-history-list">
               {recentWorkoutHistory.length === 0 ? (
                 <div className="profile-history-item">
-                  <span>Aucune seance realisee pour le moment.</span>
+                  <span>Lance ta premiere seance pour construire ton profil sportif.</span>
                 </div>
               ) : (
                 recentWorkoutHistory.map((entry) => (
@@ -663,8 +896,13 @@ export default function ProfilePage() {
                       <span className="profile-history-item__date">{formatProfileRelativeDate(entry.completed_at)}</span>
                     </div>
                     <span>
-                      {formatWorkoutDuration(entry.duration_seconds)} • {formatSessionVolumeLabel(entry.total_volume)}
+                      {formatWorkoutDuration(entry.duration_seconds)} - {formatSessionVolumeLabel(entry.total_volume)}
                     </span>
+                    {entry.workout_id ? (
+                      <Link href={`/sessions/${entry.workout_id}`} className="session-link-button">
+                        Voir la seance
+                      </Link>
+                    ) : null}
                   </div>
                 ))
               )}
@@ -759,3 +997,5 @@ export default function ProfilePage() {
     </AppShell>
   );
 }
+
+
