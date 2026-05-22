@@ -126,6 +126,16 @@ export default function LiveSessionPage() {
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
+  const clearPersistedLiveState = useCallback(() => {
+    if (typeof window === 'undefined') return;
+
+    try {
+      window.localStorage.removeItem(liveStorageKey);
+    } catch (error) {
+      console.error('Erreur suppression etat live seance :', error);
+    }
+  }, [liveStorageKey]);
+
   useEffect(() => {
     if (!id) {
       setLoading(false);
@@ -517,6 +527,7 @@ export default function LiveSessionPage() {
     setSaveState('idle');
     setRunKey(createLiveRunKey());
     clearRestState();
+    clearPersistedLiveState();
   };
 
   const completeCurrentExercise = () => {
@@ -853,6 +864,7 @@ export default function LiveSessionPage() {
 
   const handleFinishSession = async () => {
     if (historySaved) {
+      clearPersistedLiveState();
       queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
       router.push(`/sessions/${id}`);
       return;
@@ -861,6 +873,7 @@ export default function LiveSessionPage() {
     const didSave = await saveCompletedSession();
     if (!didSave) return;
 
+    clearPersistedLiveState();
     queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
     router.push(`/sessions/${id}`);
   };
