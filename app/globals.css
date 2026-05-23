@@ -2398,6 +2398,11 @@ img {
   gap: 14px;
 }
 
+.program-plan-days--calendar {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  align-items: start;
+}
+
 .program-plan-week {
   display: grid;
   gap: 16px;
@@ -2417,6 +2422,11 @@ img {
   border-radius: 20px;
   background: rgba(248, 250, 252, 0.96);
   border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-plan-day--calendar {
+  min-height: 220px;
+  align-content: start;
 }
 
 .program-plan-day__header,
@@ -2462,6 +2472,12 @@ img {
 .program-planner-session-card p {
   margin: 6px 0 0;
   color: #64748b;
+}
+
+.program-session-card--calendar {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
 }
 
 .program-status {
@@ -4172,6 +4188,16 @@ img {
   .program-planner-panel,
   .program-planner-session-card {
     padding: 14px;
+  }
+
+  .program-plan-days--calendar {
+    grid-template-columns: repeat(7, minmax(220px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 4px;
+  }
+
+  .program-plan-day--calendar {
+    min-height: 0;
   }
 
   .program-session-controls,
