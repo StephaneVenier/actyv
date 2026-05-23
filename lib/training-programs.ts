@@ -33,6 +33,22 @@ export type TrainingProgramCompletion = {
   created_at: string | null;
 };
 
+export type ProgramCalendarDay = {
+  key: string;
+  date: Date;
+  programWeekNumber: number;
+  programDayNumber: number;
+  dayLabel: string;
+  dayShortLabel: string;
+  shortDateLabel: string;
+};
+
+export type ProgramCalendarWeek = {
+  key: string;
+  title: string;
+  days: ProgramCalendarDay[];
+};
+
 export const PROGRAM_DAY_OPTIONS = [
   { value: 1, label: 'Lundi' },
   { value: 2, label: 'Mardi' },
@@ -58,6 +74,13 @@ export function addDays(baseDate: Date, days: number) {
   const nextDate = new Date(baseDate);
   nextDate.setDate(nextDate.getDate() + days);
   return nextDate;
+}
+
+export function startOfCalendarWeekMonday(date: Date) {
+  const normalizedDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const dayOfWeek = normalizedDate.getDay();
+  const daysFromMonday = (dayOfWeek + 6) % 7;
+  return addDays(normalizedDate, -daysFromMonday);
 }
 
 export function clampProgramWeek(weekNumber: number, maxWeeks: number) {
@@ -101,7 +124,7 @@ export function formatProgramDate(dateString: string | null | undefined) {
   });
 }
 
-export function getProgramSessionPlannedDate(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
+export function getProgramDateFromWeekDay(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
   if (!startDate) return null;
 
   const baseDate = parseLocalDate(startDate);
@@ -114,8 +137,12 @@ export function getProgramSessionPlannedDate(startDate: string | null | undefine
   return plannedDate;
 }
 
+export function getProgramSessionPlannedDate(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
+  return getProgramDateFromWeekDay(startDate, weekNumber, dayOfWeek);
+}
+
 export function formatProgramDayLabel(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
-  const plannedDate = getProgramSessionPlannedDate(startDate, weekNumber, dayOfWeek);
+  const plannedDate = getProgramDateFromWeekDay(startDate, weekNumber, dayOfWeek);
   if (!plannedDate) {
     return getProgramDayLabel(dayOfWeek);
   }
@@ -126,7 +153,7 @@ export function formatProgramDayLabel(startDate: string | null | undefined, week
 }
 
 export function formatProgramPlannedDateLabel(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
-  const plannedDate = getProgramSessionPlannedDate(startDate, weekNumber, dayOfWeek);
+  const plannedDate = getProgramDateFromWeekDay(startDate, weekNumber, dayOfWeek);
 
   if (!plannedDate) {
     return 'Date a venir';
@@ -143,7 +170,7 @@ export function formatProgramPlannedShortDateLabel(
   weekNumber: number,
   dayOfWeek: number
 ) {
-  const plannedDate = getProgramSessionPlannedDate(startDate, weekNumber, dayOfWeek);
+  const plannedDate = getProgramDateFromWeekDay(startDate, weekNumber, dayOfWeek);
 
   if (!plannedDate) {
     return null;
@@ -153,6 +180,52 @@ export function formatProgramPlannedShortDateLabel(
     day: '2-digit',
     month: 'short',
   });
+}
+
+export function groupProgramDaysByCalendarWeek(startDate: string | null | undefined, weeksCount: number) {
+  const baseDate = parseLocalDate(startDate);
+  const normalizedWeeksCount = Math.max(Math.trunc(weeksCount), 1);
+
+  if (!baseDate || Number.isNaN(baseDate.getTime())) {
+    return [] as ProgramCalendarWeek[];
+  }
+
+  const totalProgramDays = normalizedWeeksCount * 7;
+  const weeks = new Map<string, ProgramCalendarWeek>();
+
+  for (let dayOffset = 0; dayOffset < totalProgramDays; dayOffset += 1) {
+    const currentDate = addDays(baseDate, dayOffset);
+    const calendarWeekStart = startOfCalendarWeekMonday(currentDate);
+    const weekKey = `${calendarWeekStart.getFullYear()}-${calendarWeekStart.getMonth()}-${calendarWeekStart.getDate()}`;
+    const programWeekNumber = Math.floor(dayOffset / 7) + 1;
+    const programDayNumber = (dayOffset % 7) + 1;
+
+    if (!weeks.has(weekKey)) {
+      weeks.set(weekKey, {
+        key: weekKey,
+        title: `Semaine du ${calendarWeekStart.toLocaleDateString('fr-FR', {
+          day: '2-digit',
+          month: 'short',
+        })}`,
+        days: [],
+      });
+    }
+
+    weeks.get(weekKey)?.days.push({
+      key: `${programWeekNumber}-${programDayNumber}`,
+      date: currentDate,
+      programWeekNumber,
+      programDayNumber,
+      dayLabel: currentDate.toLocaleDateString('fr-FR', { weekday: 'long' }),
+      dayShortLabel: currentDate.toLocaleDateString('fr-FR', { weekday: 'short' }),
+      shortDateLabel: currentDate.toLocaleDateString('fr-FR', {
+        day: '2-digit',
+        month: 'short',
+      }),
+    });
+  }
+
+  return [...weeks.values()];
 }
 
 export function getProgramEndDate(startDate: string | null | undefined, durationWeeks: number) {
@@ -195,7 +268,7 @@ export function getTrainingProgramSessionStatus(
     return 'completed' as const;
   }
 
-  const plannedDate = getProgramSessionPlannedDate(startDate, weekNumber, dayOfWeek);
+  const plannedDate = getProgramDateFromWeekDay(startDate, weekNumber, dayOfWeek);
   if (!plannedDate) {
     return 'todo' as const;
   }

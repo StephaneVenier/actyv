@@ -11,9 +11,10 @@ import {
   formatProgramDate,
   formatProgramDayLabel,
   formatProgramEndDate,
-  formatProgramPlannedDateLabel,
   formatProgramPlannedShortDateLabel,
   formatProgramVisibilityLabel,
+  groupProgramDaysByCalendarWeek,
+  parseLocalDate,
   getProgramWeekLabel,
   getTrainingProgramProgress,
   PROGRAM_DAY_OPTIONS,
@@ -53,6 +54,11 @@ function formatRelativeCompletionDate(dateString: string | null | undefined) {
     day: '2-digit',
     month: 'short',
   });
+}
+
+function capitalizeLabel(value: string | null | undefined) {
+  if (!value) return '';
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 function sortProgramSessions(entries: TrainingProgramSession[]) {
@@ -315,8 +321,8 @@ export default function ProgramDetailPage() {
   const currentWeek = useMemo(() => {
     if (!program?.start_date) return 1;
 
-    const start = new Date(`${program.start_date}T12:00:00`);
-    if (Number.isNaN(start.getTime())) return 1;
+    const start = parseLocalDate(program.start_date);
+    if (!start || Number.isNaN(start.getTime())) return 1;
 
     const now = new Date();
     const diffMs = now.getTime() - start.getTime();
@@ -329,21 +335,48 @@ export default function ProgramDetailPage() {
     [completedSessionIds, programSessions]
   );
 
-  const activeSlotDay = activeSlot
-    ? PROGRAM_DAY_OPTIONS.find((option) => option.value === activeSlot.dayOfWeek)
-    : null;
+  const displayWeeks = useMemo(() => {
+    if (program?.start_date) {
+      return groupProgramDaysByCalendarWeek(program.start_date, program.duration_weeks).map((week) => ({
+        key: week.key,
+        title: week.title,
+        days: week.days.map((day) => ({
+          key: day.key,
+          weekNumber: day.programWeekNumber,
+          dayOfWeek: day.programDayNumber,
+          dayLabel: capitalizeLabel(day.dayLabel),
+          shortDateLabel: day.shortDateLabel,
+        })),
+      }));
+    }
 
-  const programSessionsByWeek = useMemo(() => {
-    const grouped = new Map<number, TrainingProgramSession[]>();
-    weekNumbers.forEach((weekNumber) => grouped.set(weekNumber, []));
-    programSessions.forEach((entry) => {
-      const current = grouped.get(entry.week_number) || [];
-      current.push(entry);
-      grouped.set(entry.week_number, current);
-    });
+    return weekNumbers.map((weekNumber) => ({
+      key: `week-${weekNumber}`,
+      title: getProgramWeekLabel(weekNumber),
+      days: PROGRAM_DAY_OPTIONS.map((dayOption) => ({
+        key: `${weekNumber}-${dayOption.value}`,
+        weekNumber,
+        dayOfWeek: dayOption.value,
+        dayLabel: dayOption.label,
+        shortDateLabel: null,
+      })),
+    }));
+  }, [program?.duration_weeks, program?.start_date, weekNumbers]);
 
-    return grouped;
-  }, [programSessions, weekNumbers]);
+  const activeSlotSubtitle = useMemo(() => {
+    if (!activeSlot) return null;
+
+    const dayLabel = capitalizeLabel(
+      formatProgramDayLabel(program?.start_date, activeSlot.weekNumber, activeSlot.dayOfWeek)
+    );
+    const shortDate = formatProgramPlannedShortDateLabel(
+      program?.start_date,
+      activeSlot.weekNumber,
+      activeSlot.dayOfWeek
+    );
+
+    return shortDate ? `${dayLabel} ${shortDate}` : `${getProgramWeekLabel(activeSlot.weekNumber)} - ${dayLabel}`;
+  }, [activeSlot, program?.start_date]);
 
   const togglePlannerSlot = (weekNumber: number, dayOfWeek: number) => {
     setActiveSlot((current) =>
@@ -844,42 +877,48 @@ export default function ProgramDetailPage() {
               ) : null}
 
               <div className="program-plan-list">
-                {weekNumbers.map((weekNumber) => {
-                  const weekEntries = sortProgramSessions(programSessionsByWeek.get(weekNumber) || []);
+                {displayWeeks.map((displayWeek) => {
+                  const displayWeekEntries = displayWeek.days.flatMap((day) =>
+                    sortProgramSessions(plannedSessionsBySlot.get(`${day.weekNumber}-${day.dayOfWeek}`) || []).map((entry) => ({
+                      entry,
+                      day,
+                    }))
+                  );
+                  const firstDisplayDay = displayWeek.days[0] || null;
 
                   return (
-                    <section key={weekNumber} className="program-plan-week">
+                    <section key={displayWeek.key} className="program-plan-week">
                       <div className="program-plan-week__header">
                         <div>
                           <span className="section-kicker">Semaine</span>
-                          <h3>{getProgramWeekLabel(weekNumber)}</h3>
+                          <h3>{displayWeek.title}</h3>
                         </div>
                       </div>
 
                       {planView === 'calendar' ? (
-                        <div className="program-plan-days program-plan-days--calendar">
-                          {PROGRAM_DAY_OPTIONS.map((dayOption) => {
-                            const slotKey = `${weekNumber}-${dayOption.value}`;
+                        <div
+                          className="program-plan-days program-plan-days--calendar"
+                          style={
+                            program.start_date
+                              ? { gridTemplateColumns: `repeat(${Math.max(displayWeek.days.length, 1)}, minmax(0, 1fr))` }
+                              : undefined
+                          }
+                        >
+                          {displayWeek.days.map((day) => {
+                            const slotKey = `${day.weekNumber}-${day.dayOfWeek}`;
                             const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
-                            const plannedShortDate = formatProgramPlannedShortDateLabel(
-                              program.start_date,
-                              weekNumber,
-                              dayOption.value
-                            );
                             return (
                               <article key={slotKey} className="program-plan-day program-plan-day--calendar">
                                 <div className="program-plan-day__header">
                                   <div className="program-plan-day__label">
-                                    <strong>
-                                      {formatProgramDayLabel(program.start_date, weekNumber, dayOption.value)}
-                                    </strong>
-                                    <small>{plannedShortDate || `Jour ${dayOption.value}`}</small>
+                                    <strong>{day.dayLabel}</strong>
+                                    <small>{day.shortDateLabel || `Jour ${day.dayOfWeek}`}</small>
                                   </div>
 
                                   <button
                                     type="button"
                                     className="button ghost"
-                                    onClick={() => togglePlannerSlot(weekNumber, dayOption.value)}
+                                    onClick={() => togglePlannerSlot(day.weekNumber, day.dayOfWeek)}
                                     disabled={plannerBusy}
                                   >
                                     Ajouter
@@ -968,7 +1007,13 @@ export default function ProgramDetailPage() {
                                                 >
                                                   {PROGRAM_DAY_OPTIONS.map((option) => (
                                                     <option key={option.value} value={option.value}>
-                                                      {option.label.slice(0, 3)}
+                                                      {capitalizeLabel(
+                                                        formatProgramDayLabel(
+                                                          program.start_date,
+                                                          entry.week_number,
+                                                          option.value
+                                                        )
+                                                      ).slice(0, 3)}
                                                     </option>
                                                   ))}
                                                 </select>
@@ -1045,29 +1090,26 @@ export default function ProgramDetailPage() {
                         </div>
                       ) : (
                         <div className="program-list-view">
-                          {weekEntries.length === 0 ? (
+                          {displayWeekEntries.length === 0 ? (
                             <div className="program-list-empty">
                               <p className="muted">Aucune seance prevue cette semaine.</p>
-                              <button
-                                type="button"
-                                className="button ghost"
-                                onClick={() => togglePlannerSlot(weekNumber, 1)}
-                                disabled={plannerBusy}
-                              >
-                                Ajouter une seance
-                              </button>
+                              {firstDisplayDay ? (
+                                <button
+                                  type="button"
+                                  className="button ghost"
+                                  onClick={() => togglePlannerSlot(firstDisplayDay.weekNumber, firstDisplayDay.dayOfWeek)}
+                                  disabled={plannerBusy}
+                                >
+                                  Ajouter une seance
+                                </button>
+                              ) : null}
                             </div>
                           ) : (
-                            weekEntries.map((entry) => {
+                            displayWeekEntries.map(({ entry, day }) => {
                               const completed = Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
                               const completion = entry.session_id
                                 ? latestCompletionBySessionId.get(entry.session_id)
                                 : null;
-                              const plannedShortDate = formatProgramPlannedShortDateLabel(
-                                program.start_date,
-                                entry.week_number,
-                                entry.day_of_week
-                              );
 
                               return (
                                 <article
@@ -1077,12 +1119,8 @@ export default function ProgramDetailPage() {
                                   <div className="program-list-item__main">
                                     <div className="program-list-item__heading">
                                       <strong>
-                                        {formatProgramDayLabel(
-                                          program.start_date,
-                                          entry.week_number,
-                                          entry.day_of_week
-                                        )}
-                                        {plannedShortDate ? ` ${plannedShortDate}` : ''}
+                                        {day.dayLabel}
+                                        {day.shortDateLabel ? ` ${day.shortDateLabel}` : ''}
                                       </strong>
                                       <span aria-hidden="true">•</span>
                                       <span className="program-list-item__title">{entry.session_name}</span>
@@ -1159,7 +1197,7 @@ export default function ProgramDetailPage() {
                     <div className="program-modal__copy">
                       <strong id="program-session-modal-title">Ajouter une seance</strong>
                       <small>
-                        {getProgramWeekLabel(activeSlot.weekNumber)} - {activeSlotDay?.label || `Jour ${activeSlot.dayOfWeek}`}
+                        {activeSlotSubtitle || `${getProgramWeekLabel(activeSlot.weekNumber)} - Jour ${activeSlot.dayOfWeek}`}
                       </small>
                     </div>
                     <button
