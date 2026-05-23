@@ -385,7 +385,7 @@ export default function ProgramDetailPage() {
     if (!program || deleting) return;
 
     const confirmed = window.confirm(
-      'Supprimer ce programme ? Ses seances planifiees et sa progression seront supprimees, mais pas tes seances originales.'
+      'Supprimer ce programme ? Les seances associees resteront disponibles dans tes seances.'
     );
 
     if (!confirmed) return;
