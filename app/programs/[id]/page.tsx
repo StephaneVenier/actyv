@@ -515,15 +515,8 @@ export default function ProgramDetailPage() {
   };
 
   const persistProgramSessionOrdering = async (nextEntries: TrainingProgramSession[]) => {
-    const payload = nextEntries.map((entry) => ({
-      id: entry.id,
-      week_number: entry.week_number,
-      day_of_week: entry.day_of_week,
-      order_index: entry.order_index,
-    }));
-
     const updates = await Promise.all(
-      payload.map((entry) =>
+      nextEntries.map((entry) =>
         supabase
           .from('training_program_sessions')
           .update({
@@ -608,7 +601,9 @@ export default function ProgramDetailPage() {
     if (!currentEntry) return;
 
     const nextWeekNumber =
-      field === 'week' ? Math.min(Math.max(Math.trunc(rawValue), 1), Math.max(program?.duration_weeks || 1, 1)) : currentEntry.week_number;
+      field === 'week'
+        ? Math.min(Math.max(Math.trunc(rawValue), 1), Math.max(program?.duration_weeks || 1, 1))
+        : currentEntry.week_number;
     const nextDayOfWeek =
       field === 'day' ? Math.min(Math.max(Math.trunc(rawValue), 1), 7) : currentEntry.day_of_week;
 
@@ -764,256 +759,263 @@ export default function ProgramDetailPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Plan du programme</span>
-                  <h2>Organisation par semaine</h2>
+                  <h2>Calendrier des semaines</h2>
                 </div>
               </div>
 
               {programSessions.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">
-                  <p>Ajoute des seances pour suivre ta progression.</p>
+                  <p>Ajoute des seances pour construire ton calendrier.</p>
                 </div>
-              ) : (
-                <div className="program-plan-list">
-                  {weekNumbers.map((weekNumber) => (
-                    <section key={weekNumber} className="program-plan-week">
-                      <div className="program-plan-week__header">
-                        <div>
-                          <span className="section-kicker">Semaine</span>
-                          <h3>{getProgramWeekLabel(weekNumber)}</h3>
-                        </div>
+              ) : null}
+
+              <div className="program-plan-list">
+                {weekNumbers.map((weekNumber) => (
+                  <section key={weekNumber} className="program-plan-week">
+                    <div className="program-plan-week__header">
+                      <div>
+                        <span className="section-kicker">Semaine</span>
+                        <h3>{getProgramWeekLabel(weekNumber)}</h3>
                       </div>
+                    </div>
 
-                      <div className="program-plan-days">
-                        {PROGRAM_DAY_OPTIONS.map((dayOption) => {
-                          const slotKey = `${weekNumber}-${dayOption.value}`;
-                          const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
-                          const slotIsActive =
-                            activeSlot?.weekNumber === weekNumber && activeSlot?.dayOfWeek === dayOption.value;
+                    <div className="program-plan-days program-plan-days--calendar">
+                      {PROGRAM_DAY_OPTIONS.map((dayOption) => {
+                        const slotKey = `${weekNumber}-${dayOption.value}`;
+                        const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
+                        const slotIsActive =
+                          activeSlot?.weekNumber === weekNumber && activeSlot?.dayOfWeek === dayOption.value;
 
-                          return (
-                            <article key={slotKey} className="program-plan-day">
-                              <div className="program-plan-day__header">
-                                <div className="program-plan-day__label">
-                                  <strong>Jour {dayOption.value}</strong>
-                                  <small>{getProgramDayLabel(dayOption.value)}</small>
-                                </div>
-
-                                <button
-                                  type="button"
-                                  className="button ghost"
-                                  onClick={() => togglePlannerSlot(weekNumber, dayOption.value)}
-                                  disabled={plannerBusy}
-                                >
-                                  Ajouter une seance
-                                </button>
+                        return (
+                          <article key={slotKey} className="program-plan-day program-plan-day--calendar">
+                            <div className="program-plan-day__header">
+                              <div className="program-plan-day__label">
+                                <strong>{dayOption.label}</strong>
+                                <small>Jour {dayOption.value}</small>
                               </div>
 
-                              {dayEntries.length === 0 ? (
-                                <p className="muted">Aucune seance planifiee pour ce jour.</p>
-                              ) : (
-                                <div className="program-plan-day__entries">
-                                  {dayEntries.map((entry) => {
-                                    const completed =
-                                      Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
-                                    const completion = entry.session_id
-                                      ? latestCompletionBySessionId.get(entry.session_id)
-                                      : null;
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() => togglePlannerSlot(weekNumber, dayOption.value)}
+                                disabled={plannerBusy}
+                              >
+                                Ajouter
+                              </button>
+                            </div>
 
-                                    return (
-                                      <article key={entry.id} className="session-block-card program-session-card">
-                                        <div className="session-block-card__top">
-                                          <div className="session-block-check__label">
-                                            <strong>{entry.session_name}</strong>
-                                            <small>
-                                              {getProgramDayLabel(entry.day_of_week)} ·{' '}
-                                              {formatProgramPlannedDateLabel(
-                                                program.start_date,
-                                                entry.week_number,
-                                                entry.day_of_week
-                                              )}
-                                            </small>
-                                          </div>
-                                          <span
-                                            className={`program-status ${
-                                              completed ? 'program-status--completed' : 'program-status--todo'
-                                            }`}
-                                          >
-                                            {completed ? '✓ Realisee' : 'A faire'}
-                                          </span>
+                            {dayEntries.length === 0 ? (
+                              <p className="muted">Repos</p>
+                            ) : (
+                              <div className="program-plan-day__entries">
+                                {dayEntries.map((entry) => {
+                                  const completed =
+                                    Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
+                                  const completion = entry.session_id
+                                    ? latestCompletionBySessionId.get(entry.session_id)
+                                    : null;
+
+                                  return (
+                                    <article
+                                      key={entry.id}
+                                      className={`session-block-card program-session-card program-session-card--calendar${
+                                        completed ? ' session-block-card--completed' : ''
+                                      }`}
+                                    >
+                                      <div className="session-block-card__top">
+                                        <div className="session-block-check__label">
+                                          <strong>{entry.session_name}</strong>
+                                          <small>
+                                            {getProgramDayLabel(entry.day_of_week)} ·{' '}
+                                            {formatProgramPlannedDateLabel(
+                                              program.start_date,
+                                              entry.week_number,
+                                              entry.day_of_week
+                                            )}
+                                          </small>
                                         </div>
+                                        <span
+                                          className={`program-status ${
+                                            completed ? 'program-status--completed' : 'program-status--todo'
+                                          }`}
+                                        >
+                                          {completed ? '✓ Realisee' : 'A faire'}
+                                        </span>
+                                      </div>
 
-                                        <div className="session-card__meta">
-                                          <span>Ordre {entry.order_index}</span>
-                                          <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
-                                          {completion?.completed_at ? (
-                                            <span>Realisee {formatRelativeCompletionDate(completion.completed_at)}</span>
-                                          ) : null}
-                                        </div>
+                                      <div className="session-card__meta">
+                                        <span>Ordre {entry.order_index}</span>
+                                        <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
+                                        {completion?.completed_at ? (
+                                          <span>Realisee {formatRelativeCompletionDate(completion.completed_at)}</span>
+                                        ) : null}
+                                      </div>
 
-                                        <div className="program-session-controls">
-                                          <div className="program-session-controls__group">
-                                            <label>
-                                              <span>Semaine</span>
-                                              <select
-                                                value={entry.week_number}
-                                                onChange={(event) =>
-                                                  handleChangeProgramSessionSlot(
-                                                    entry.id,
-                                                    'week',
-                                                    Number(event.target.value)
-                                                  )
-                                                }
-                                                disabled={plannerBusy}
-                                              >
-                                                {weekNumbers.map((weekNumberOption) => (
-                                                  <option key={weekNumberOption} value={weekNumberOption}>
-                                                    {weekNumberOption}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            </label>
-                                            <label>
-                                              <span>Jour</span>
-                                              <select
-                                                value={entry.day_of_week}
-                                                onChange={(event) =>
-                                                  handleChangeProgramSessionSlot(
-                                                    entry.id,
-                                                    'day',
-                                                    Number(event.target.value)
-                                                  )
-                                                }
-                                                disabled={plannerBusy}
-                                              >
-                                                {PROGRAM_DAY_OPTIONS.map((option) => (
-                                                  <option key={option.value} value={option.value}>
-                                                    {option.value}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            </label>
-                                          </div>
-
-                                          <div className="program-session-controls__group">
-                                            <button
-                                              type="button"
-                                              className="button ghost"
-                                              onClick={() => handleMoveProgramSession(entry.id, 'up')}
-                                              disabled={plannerBusy || entry.order_index <= 1}
+                                      <div className="program-session-controls">
+                                        <div className="program-session-controls__group">
+                                          <label>
+                                            <span>Semaine</span>
+                                            <select
+                                              value={entry.week_number}
+                                              onChange={(event) =>
+                                                handleChangeProgramSessionSlot(
+                                                  entry.id,
+                                                  'week',
+                                                  Number(event.target.value)
+                                                )
+                                              }
+                                              disabled={plannerBusy}
                                             >
-                                              Monter
-                                            </button>
-                                            <button
-                                              type="button"
-                                              className="button ghost"
-                                              onClick={() => handleMoveProgramSession(entry.id, 'down')}
-                                              disabled={plannerBusy || entry.order_index >= dayEntries.length}
+                                              {weekNumbers.map((weekNumberOption) => (
+                                                <option key={weekNumberOption} value={weekNumberOption}>
+                                                  {weekNumberOption}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </label>
+
+                                          <label>
+                                            <span>Jour</span>
+                                            <select
+                                              value={entry.day_of_week}
+                                              onChange={(event) =>
+                                                handleChangeProgramSessionSlot(
+                                                  entry.id,
+                                                  'day',
+                                                  Number(event.target.value)
+                                                )
+                                              }
+                                              disabled={plannerBusy}
                                             >
-                                              Descendre
-                                            </button>
-                                          </div>
+                                              {PROGRAM_DAY_OPTIONS.map((option) => (
+                                                <option key={option.value} value={option.value}>
+                                                  {option.value}
+                                                </option>
+                                              ))}
+                                            </select>
+                                          </label>
                                         </div>
 
-                                        <div className="session-hero-actions">
-                                          {entry.session_id ? (
-                                            <>
-                                              <Link
-                                                href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
-                                                className="button primary"
-                                              >
-                                                Lancer
-                                              </Link>
-                                              <Link href={`/sessions/${entry.session_id}`} className="button ghost">
-                                                Ouvrir la seance
-                                              </Link>
-                                            </>
-                                          ) : (
-                                            <span className="muted">Seance non liee pour le moment.</span>
-                                          )}
+                                        <div className="program-session-controls__group">
                                           <button
                                             type="button"
                                             className="button ghost"
-                                            onClick={() => handleRemoveProgramSession(entry.id)}
-                                            disabled={plannerBusy}
+                                            onClick={() => handleMoveProgramSession(entry.id, 'up')}
+                                            disabled={plannerBusy || entry.order_index <= 1}
                                           >
-                                            Retirer du programme
+                                            Monter
                                           </button>
-                                        </div>
-                                      </article>
-                                    );
-                                  })}
-                                </div>
-                              )}
-
-                              {slotIsActive ? (
-                                <div className="program-planner-panel">
-                                  <div className="program-planner-panel__header">
-                                    <div>
-                                      <strong>Ajouter une seance</strong>
-                                      <small>
-                                        {getProgramWeekLabel(weekNumber)} · Jour {dayOption.value}
-                                      </small>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      className="button ghost"
-                                      onClick={() => setActiveSlot(null)}
-                                      disabled={plannerBusy}
-                                    >
-                                      Fermer
-                                    </button>
-                                  </div>
-
-                                  {loadingAvailableSessions ? (
-                                    <p className="muted">Chargement de tes seances...</p>
-                                  ) : availableSessions.length === 0 ? (
-                                    <div className="challenge-state challenge-state--compact">
-                                      <p>Cree une seance avant de l'ajouter a ton programme.</p>
-                                      <div className="session-empty-actions">
-                                        <Link href="/sessions/new" className="button primary">
-                                          Creer une seance
-                                        </Link>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div className="program-planner-session-list">
-                                      {availableSessions.map((sessionOption) => (
-                                        <article key={sessionOption.id} className="program-planner-session-card">
-                                          <div>
-                                            <strong>{sessionOption.name}</strong>
-                                            <p>{sessionOption.description || 'Seance prete a etre planifiee.'}</p>
-                                            <div className="program-card__facts">
-                                              <span>{sessionOption.sport || 'Sport libre'}</span>
-                                              <span>
-                                                {sessionOption.blockCount} bloc
-                                                {sessionOption.blockCount > 1 ? 's' : ''}
-                                              </span>
-                                            </div>
-                                          </div>
                                           <button
                                             type="button"
-                                            className="button primary"
-                                            onClick={() =>
-                                              handleAddSessionToSlot(weekNumber, dayOption.value, sessionOption)
-                                            }
-                                            disabled={plannerBusy}
+                                            className="button ghost"
+                                            onClick={() => handleMoveProgramSession(entry.id, 'down')}
+                                            disabled={plannerBusy || entry.order_index >= dayEntries.length}
                                           >
-                                            Ajouter
+                                            Descendre
                                           </button>
-                                        </article>
-                                      ))}
-                                    </div>
-                                  )}
+                                        </div>
+                                      </div>
+
+                                      <div className="session-hero-actions">
+                                        {entry.session_id ? (
+                                          <>
+                                            <Link
+                                              href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
+                                              className="button primary"
+                                            >
+                                              Lancer
+                                            </Link>
+                                            <Link href={`/sessions/${entry.session_id}`} className="button ghost">
+                                              Ouvrir la seance
+                                            </Link>
+                                          </>
+                                        ) : (
+                                          <span className="muted">Seance non liee pour le moment.</span>
+                                        )}
+
+                                        <button
+                                          type="button"
+                                          className="button ghost"
+                                          onClick={() => handleRemoveProgramSession(entry.id)}
+                                          disabled={plannerBusy}
+                                        >
+                                          Retirer du programme
+                                        </button>
+                                      </div>
+                                    </article>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {slotIsActive ? (
+                              <div className="program-planner-panel">
+                                <div className="program-planner-panel__header">
+                                  <div>
+                                    <strong>Ajouter une seance</strong>
+                                    <small>
+                                      {getProgramWeekLabel(weekNumber)} · Jour {dayOption.value}
+                                    </small>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="button ghost"
+                                    onClick={() => setActiveSlot(null)}
+                                    disabled={plannerBusy}
+                                  >
+                                    Fermer
+                                  </button>
                                 </div>
-                              ) : null}
-                            </article>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
-                </div>
-              )}
+
+                                {loadingAvailableSessions ? (
+                                  <p className="muted">Chargement de tes seances...</p>
+                                ) : availableSessions.length === 0 ? (
+                                  <div className="challenge-state challenge-state--compact">
+                                    <p>Cree une seance avant de l'ajouter a ton programme.</p>
+                                    <div className="session-empty-actions">
+                                      <Link href="/sessions/new" className="button primary">
+                                        Creer une seance
+                                      </Link>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="program-planner-session-list">
+                                    {availableSessions.map((sessionOption) => (
+                                      <article key={sessionOption.id} className="program-planner-session-card">
+                                        <div>
+                                          <strong>{sessionOption.name}</strong>
+                                          <p>{sessionOption.description || 'Seance prete a etre planifiee.'}</p>
+                                          <div className="program-card__facts">
+                                            <span>{sessionOption.sport || 'Sport libre'}</span>
+                                            <span>
+                                              {sessionOption.blockCount} bloc
+                                              {sessionOption.blockCount > 1 ? 's' : ''}
+                                            </span>
+                                          </div>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          className="button primary"
+                                          onClick={() =>
+                                            handleAddSessionToSlot(weekNumber, dayOption.value, sessionOption)
+                                          }
+                                          disabled={plannerBusy}
+                                        >
+                                          Ajouter
+                                        </button>
+                                      </article>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ) : null}
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
             </article>
           </>
         )}
