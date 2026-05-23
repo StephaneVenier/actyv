@@ -821,17 +821,13 @@ export default function ProgramDetailPage() {
                                       className={`session-block-card program-session-card program-session-card--calendar${
                                         completed ? ' session-block-card--completed' : ''
                                       }`}
+                                      title={entry.session_name}
                                     >
                                       <div className="session-block-card__top">
                                         <div className="session-block-check__label">
-                                          <strong>{entry.session_name}</strong>
+                                          <strong className="program-session-card__title">{entry.session_name}</strong>
                                           <small>
-                                            {getProgramDayLabel(entry.day_of_week)} ·{' '}
-                                            {formatProgramPlannedDateLabel(
-                                              program.start_date,
-                                              entry.week_number,
-                                              entry.day_of_week
-                                            )}
+                                            {entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}
                                           </small>
                                         </div>
                                         <span
@@ -843,18 +839,15 @@ export default function ProgramDetailPage() {
                                         </span>
                                       </div>
 
-                                      <div className="session-card__meta">
-                                        <span>Ordre {entry.order_index}</span>
-                                        <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
-                                        {completion?.completed_at ? (
-                                          <span>Realisee {formatRelativeCompletionDate(completion.completed_at)}</span>
-                                        ) : null}
+                                      <div className="session-card__meta program-session-card__meta--calendar">
+                                        {completion?.completed_at ? <span>{formatRelativeCompletionDate(completion.completed_at)}</span> : <span>A faire</span>}
+                                        <span>#{entry.order_index}</span>
                                       </div>
 
                                       <div className="program-session-controls">
                                         <div className="program-session-controls__group">
                                           <label>
-                                            <span>Semaine</span>
+                                            <span>Sem.</span>
                                             <select
                                               value={entry.week_number}
                                               onChange={(event) =>
@@ -868,7 +861,7 @@ export default function ProgramDetailPage() {
                                             >
                                               {weekNumbers.map((weekNumberOption) => (
                                                 <option key={weekNumberOption} value={weekNumberOption}>
-                                                  {weekNumberOption}
+                                                  S{weekNumberOption}
                                                 </option>
                                               ))}
                                             </select>
@@ -889,44 +882,51 @@ export default function ProgramDetailPage() {
                                             >
                                               {PROGRAM_DAY_OPTIONS.map((option) => (
                                                 <option key={option.value} value={option.value}>
-                                                  {option.value}
+                                                  {option.label.slice(0, 3)}
                                                 </option>
                                               ))}
                                             </select>
                                           </label>
                                         </div>
 
-                                        <div className="program-session-controls__group">
+                                        <div className="program-session-controls__group program-session-controls__group--actions">
                                           <button
                                             type="button"
-                                            className="button ghost"
+                                            className="button ghost program-action-button"
                                             onClick={() => handleMoveProgramSession(entry.id, 'up')}
                                             disabled={plannerBusy || entry.order_index <= 1}
+                                            title="Monter"
                                           >
-                                            Monter
+                                            ↑
                                           </button>
                                           <button
                                             type="button"
-                                            className="button ghost"
+                                            className="button ghost program-action-button"
                                             onClick={() => handleMoveProgramSession(entry.id, 'down')}
                                             disabled={plannerBusy || entry.order_index >= dayEntries.length}
+                                            title="Descendre"
                                           >
-                                            Descendre
+                                            ↓
                                           </button>
                                         </div>
                                       </div>
 
-                                      <div className="session-hero-actions">
+                                      <div className="session-hero-actions program-session-actions--calendar">
                                         {entry.session_id ? (
                                           <>
                                             <Link
                                               href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
-                                              className="button primary"
+                                              className="button primary program-action-button"
+                                              title="Lancer la seance"
                                             >
-                                              Lancer
+                                              ▶
                                             </Link>
-                                            <Link href={`/sessions/${entry.session_id}`} className="button ghost">
-                                              Ouvrir la seance
+                                            <Link
+                                              href={`/sessions/${entry.session_id}`}
+                                              className="button ghost program-action-button"
+                                              title="Ouvrir la seance"
+                                            >
+                                              ↗
                                             </Link>
                                           </>
                                         ) : (
@@ -935,11 +935,12 @@ export default function ProgramDetailPage() {
 
                                         <button
                                           type="button"
-                                          className="button ghost"
+                                          className="button ghost program-action-button"
                                           onClick={() => handleRemoveProgramSession(entry.id)}
                                           disabled={plannerBusy}
+                                          title="Retirer du programme"
                                         >
-                                          Retirer du programme
+                                          ×
                                         </button>
                                       </div>
                                     </article>
