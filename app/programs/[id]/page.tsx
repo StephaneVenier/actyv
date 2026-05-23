@@ -59,6 +59,30 @@ function sortProgramSessions(entries: TrainingProgramSession[]) {
   });
 }
 
+function buildNormalizedProgramSessions(entries: TrainingProgramSession[]) {
+  const grouped = new Map<string, TrainingProgramSession[]>();
+
+  entries.forEach((entry) => {
+    const key = `${entry.week_number}-${entry.day_of_week}`;
+    const current = grouped.get(key) || [];
+    current.push(entry);
+    grouped.set(key, current);
+  });
+
+  const normalized: TrainingProgramSession[] = [];
+
+  [...grouped.values()].forEach((groupEntries) => {
+    sortProgramSessions(groupEntries).forEach((entry, index) => {
+      normalized.push({
+        ...entry,
+        order_index: index + 1,
+      });
+    });
+  });
+
+  return sortProgramSessions(normalized);
+}
+
 export default function ProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -414,6 +438,140 @@ export default function ProgramDetailPage() {
     }
   };
 
+  const persistProgramSessionOrdering = async (nextEntries: TrainingProgramSession[]) => {
+    const payload = nextEntries.map((entry) => ({
+      id: entry.id,
+      week_number: entry.week_number,
+      day_of_week: entry.day_of_week,
+      order_index: entry.order_index,
+    }));
+
+    const updates = await Promise.all(
+      payload.map((entry) =>
+        supabase
+          .from('training_program_sessions')
+          .update({
+            week_number: entry.week_number,
+            day_of_week: entry.day_of_week,
+            order_index: entry.order_index,
+          })
+          .eq('id', entry.id)
+      )
+    );
+
+    const failedUpdate = updates.find((result) => result.error);
+    if (failedUpdate?.error) {
+      console.error('Erreur reorganisation seances programme :', failedUpdate.error);
+      return failedUpdate.error;
+    }
+
+    return null;
+  };
+
+  const handleMoveProgramSession = async (programSessionId: string, direction: 'up' | 'down') => {
+    if (plannerBusy) return;
+
+    const currentEntry = programSessions.find((entry) => entry.id === programSessionId);
+    if (!currentEntry) return;
+
+    const slotEntries = sortProgramSessions(
+      programSessions.filter(
+        (entry) =>
+          entry.week_number === currentEntry.week_number && entry.day_of_week === currentEntry.day_of_week
+      )
+    );
+    const currentIndex = slotEntries.findIndex((entry) => entry.id === programSessionId);
+    const swapIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (currentIndex < 0 || swapIndex < 0 || swapIndex >= slotEntries.length) {
+      return;
+    }
+
+    const reorderedSlotEntries = [...slotEntries];
+    const [movedEntry] = reorderedSlotEntries.splice(currentIndex, 1);
+    reorderedSlotEntries.splice(swapIndex, 0, movedEntry);
+
+    const normalizedSlotEntries = reorderedSlotEntries.map((entry, index) => ({
+      ...entry,
+      order_index: index + 1,
+    }));
+
+    const otherEntries = programSessions.filter(
+      (entry) =>
+        !(entry.week_number === currentEntry.week_number && entry.day_of_week === currentEntry.day_of_week)
+    );
+    const nextEntries = sortProgramSessions([...otherEntries, ...normalizedSlotEntries]);
+
+    setPlannerBusy(true);
+    setMessage(null);
+
+    try {
+      const error = await persistProgramSessionOrdering(nextEntries);
+      if (error) {
+        setMessage("Impossible de reorganiser les seances du programme pour le moment.");
+        return;
+      }
+
+      setProgramSessions(nextEntries);
+    } catch (error) {
+      console.error('Erreur inattendue reorganisation seances programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setPlannerBusy(false);
+    }
+  };
+
+  const handleChangeProgramSessionSlot = async (
+    programSessionId: string,
+    field: 'week' | 'day',
+    rawValue: number
+  ) => {
+    if (plannerBusy) return;
+
+    const currentEntry = programSessions.find((entry) => entry.id === programSessionId);
+    if (!currentEntry) return;
+
+    const nextWeekNumber =
+      field === 'week' ? Math.min(Math.max(Math.trunc(rawValue), 1), Math.max(program?.duration_weeks || 1, 1)) : currentEntry.week_number;
+    const nextDayOfWeek =
+      field === 'day' ? Math.min(Math.max(Math.trunc(rawValue), 1), 7) : currentEntry.day_of_week;
+
+    if (nextWeekNumber === currentEntry.week_number && nextDayOfWeek === currentEntry.day_of_week) {
+      return;
+    }
+
+    const nextEntries = buildNormalizedProgramSessions(
+      programSessions.map((entry) =>
+        entry.id === programSessionId
+          ? {
+              ...entry,
+              week_number: nextWeekNumber,
+              day_of_week: nextDayOfWeek,
+              order_index: 999,
+            }
+          : entry
+      )
+    );
+
+    setPlannerBusy(true);
+    setMessage(null);
+
+    try {
+      const error = await persistProgramSessionOrdering(nextEntries);
+      if (error) {
+        setMessage("Impossible de deplacer cette seance dans le programme pour le moment.");
+        return;
+      }
+
+      setProgramSessions(nextEntries);
+    } catch (error) {
+      console.error('Erreur inattendue deplacement seance programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setPlannerBusy(false);
+    }
+  };
+
   return (
     <AppShell>
       <section className="sessions-page">
@@ -605,6 +763,70 @@ export default function ProgramDetailPage() {
                                           {completion?.completed_at ? (
                                             <span>Realisee {formatRelativeCompletionDate(completion.completed_at)}</span>
                                           ) : null}
+                                        </div>
+
+                                        <div className="program-session-controls">
+                                          <div className="program-session-controls__group">
+                                            <label>
+                                              <span>Semaine</span>
+                                              <select
+                                                value={entry.week_number}
+                                                onChange={(event) =>
+                                                  handleChangeProgramSessionSlot(
+                                                    entry.id,
+                                                    'week',
+                                                    Number(event.target.value)
+                                                  )
+                                                }
+                                                disabled={plannerBusy}
+                                              >
+                                                {weekNumbers.map((weekNumberOption) => (
+                                                  <option key={weekNumberOption} value={weekNumberOption}>
+                                                    {weekNumberOption}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </label>
+                                            <label>
+                                              <span>Jour</span>
+                                              <select
+                                                value={entry.day_of_week}
+                                                onChange={(event) =>
+                                                  handleChangeProgramSessionSlot(
+                                                    entry.id,
+                                                    'day',
+                                                    Number(event.target.value)
+                                                  )
+                                                }
+                                                disabled={plannerBusy}
+                                              >
+                                                {PROGRAM_DAY_OPTIONS.map((option) => (
+                                                  <option key={option.value} value={option.value}>
+                                                    {option.value}
+                                                  </option>
+                                                ))}
+                                              </select>
+                                            </label>
+                                          </div>
+
+                                          <div className="program-session-controls__group">
+                                            <button
+                                              type="button"
+                                              className="button ghost"
+                                              onClick={() => handleMoveProgramSession(entry.id, 'up')}
+                                              disabled={plannerBusy || entry.order_index <= 1}
+                                            >
+                                              Monter
+                                            </button>
+                                            <button
+                                              type="button"
+                                              className="button ghost"
+                                              onClick={() => handleMoveProgramSession(entry.id, 'down')}
+                                              disabled={plannerBusy || entry.order_index >= dayEntries.length}
+                                            >
+                                              Descendre
+                                            </button>
+                                          </div>
                                         </div>
 
                                         <div className="session-hero-actions">

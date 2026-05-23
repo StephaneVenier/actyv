@@ -2358,6 +2358,38 @@ img {
   gap: 12px;
 }
 
+.program-session-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.program-session-controls__group {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.program-session-controls label {
+  display: grid;
+  gap: 6px;
+  min-width: 88px;
+}
+
+.program-session-controls label span {
+  color: #64748b;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.program-session-controls select {
+  min-height: 40px;
+}
+
 .program-plan-list,
 .program-plan-days,
 .program-plan-day__entries,
@@ -3848,6 +3880,10 @@ img {
   color: #9fb5b3;
 }
 
+.sessions-page--dark .program-session-controls label span {
+  color: #9fb5b3;
+}
+
 .sessions-page--dark .program-plan-day__label strong,
 .sessions-page--dark .program-planner-panel__header strong,
 .sessions-page--dark .program-planner-session-card strong,
@@ -4136,6 +4172,20 @@ img {
   .program-planner-panel,
   .program-planner-session-card {
     padding: 14px;
+  }
+
+  .program-session-controls,
+  .program-session-controls__group {
+    width: 100%;
+  }
+
+  .program-session-controls__group .button {
+    flex: 1 1 0;
+  }
+
+  .program-session-controls label {
+    flex: 1 1 0;
+    min-width: 0;
   }
 
   .program-planner-session-card {
