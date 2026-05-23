@@ -95,6 +95,7 @@ export default function ProgramDetailPage() {
   const [loading, setLoading] = useState(true);
   const [loadingAvailableSessions, setLoadingAvailableSessions] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [plannerBusy, setPlannerBusy] = useState(false);
   const [activeSlot, setActiveSlot] = useState<PlannerSlot | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -303,6 +304,81 @@ export default function ProgramDetailPage() {
     setActiveSlot((current) =>
       current?.weekNumber === weekNumber && current?.dayOfWeek === dayOfWeek ? null : { weekNumber, dayOfWeek }
     );
+  };
+
+  const handleDuplicateProgram = async () => {
+    if (!program || duplicating) return;
+
+    setDuplicating(true);
+    setMessage(null);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (userError) {
+          console.error('Erreur chargement user duplication programme :', userError);
+        }
+        setMessage('Connecte-toi pour dupliquer ce programme.');
+        return;
+      }
+
+      const programPayload = {
+        user_id: user.id,
+        name: `Copie de ${program.name}`,
+        description: program.description,
+        sport: program.sport,
+        duration_weeks: program.duration_weeks,
+        visibility: 'private' as const,
+        start_date: program.start_date,
+      };
+
+      const { data: duplicatedProgram, error: duplicatedProgramError } = await supabase
+        .from('training_programs')
+        .insert(programPayload)
+        .select('id')
+        .single();
+
+      if (duplicatedProgramError || !duplicatedProgram) {
+        console.error('Erreur duplication programme :', duplicatedProgramError);
+        setMessage("Impossible de dupliquer le programme pour le moment.");
+        return;
+      }
+
+      if (programSessions.length > 0) {
+        const duplicatedSessionsPayload = programSessions.map((entry) => ({
+          program_id: duplicatedProgram.id,
+          session_id: entry.session_id,
+          session_name: entry.session_name,
+          sport: entry.sport,
+          week_number: entry.week_number,
+          day_of_week: entry.day_of_week,
+          order_index: entry.order_index,
+        }));
+
+        const { error: duplicatedSessionsError } = await supabase
+          .from('training_program_sessions')
+          .insert(duplicatedSessionsPayload);
+
+        if (duplicatedSessionsError) {
+          console.error('Erreur duplication seances programme :', duplicatedSessionsError);
+          setMessage("Le programme a ete copie, mais pas ses seances planifiees.");
+          router.push(`/programs/${duplicatedProgram.id}`);
+          return;
+        }
+      }
+
+      queuePendingToast({ message: 'Programme duplique', tone: 'success' });
+      router.push(`/programs/${duplicatedProgram.id}`);
+    } catch (error) {
+      console.error('Erreur inattendue duplication programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setDuplicating(false);
+    }
   };
 
   const handleDeleteProgram = async () => {
@@ -607,6 +683,15 @@ export default function ProgramDetailPage() {
                 <Link href={`/programs/${program.id}/edit`} className="button primary">
                   Modifier le programme
                 </Link>
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={handleDuplicateProgram}
+                  disabled={duplicating}
+                  aria-busy={duplicating}
+                >
+                  {duplicating ? 'Duplication...' : 'Dupliquer le programme'}
+                </button>
                 <Link href="/programs/new" className="button ghost">
                   Creer un autre programme
                 </Link>
