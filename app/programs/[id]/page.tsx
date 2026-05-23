@@ -40,32 +40,6 @@ type WorkoutHistoryCompletion = {
   completed_at: string;
 };
 
-const PROGRAM_SESSION_SELECT_BASE =
-  'id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, created_at';
-const PROGRAM_SESSION_SELECT_WITH_MANUAL = `${PROGRAM_SESSION_SELECT_BASE}, manual_status, manual_completed_at`;
-
-function isMissingManualStatusColumnError(error: { code?: string; message?: string } | null | undefined) {
-  if (!error) return false;
-  const message = `${error.message || ''}`.toLowerCase();
-  return error.code === 'PGRST204' && (message.includes('manual_status') || message.includes('manual_completed_at'));
-}
-
-function normalizeProgramSessionRow(entry: Partial<TrainingProgramSession> & Record<string, unknown>): TrainingProgramSession {
-  return {
-    id: String(entry.id || ''),
-    program_id: String(entry.program_id || ''),
-    session_id: typeof entry.session_id === 'string' ? entry.session_id : null,
-    session_name: typeof entry.session_name === 'string' ? entry.session_name : 'Seance planifiee',
-    sport: typeof entry.sport === 'string' ? entry.sport : null,
-    week_number: Number(entry.week_number || 1),
-    day_of_week: Number(entry.day_of_week || 1),
-    order_index: Number(entry.order_index || 1),
-    manual_status: entry.manual_status === 'completed' || entry.manual_status === 'todo' ? entry.manual_status : null,
-    manual_completed_at: typeof entry.manual_completed_at === 'string' ? entry.manual_completed_at : null,
-    created_at: typeof entry.created_at === 'string' ? entry.created_at : null,
-  };
-}
-
 function formatRelativeCompletionDate(dateString: string | null | undefined) {
   if (!dateString) return '-';
 
@@ -119,33 +93,6 @@ function isProgramSessionCompleted(
   return Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
 }
 
-async function fetchProgramSessionsForProgram(programId: string) {
-  const orderedQuery = (selectClause: string) =>
-    supabase
-      .from('training_program_sessions')
-      .select(selectClause)
-      .eq('program_id', programId)
-      .order('week_number', { ascending: true })
-      .order('day_of_week', { ascending: true })
-      .order('order_index', { ascending: true });
-
-  const extendedResponse = await orderedQuery(PROGRAM_SESSION_SELECT_WITH_MANUAL);
-  if (!isMissingManualStatusColumnError(extendedResponse.error)) {
-    return {
-      data: ((extendedResponse.data as Array<Partial<TrainingProgramSession>>) || []).map(normalizeProgramSessionRow),
-      error: extendedResponse.error,
-      supportsManualStatus: true,
-    };
-  }
-
-  const fallbackResponse = await orderedQuery(PROGRAM_SESSION_SELECT_BASE);
-  return {
-    data: ((fallbackResponse.data as Array<Partial<TrainingProgramSession>>) || []).map(normalizeProgramSessionRow),
-    error: fallbackResponse.error,
-    supportsManualStatus: false,
-  };
-}
-
 export default function ProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -161,7 +108,6 @@ export default function ProgramDetailPage() {
   const [duplicating, setDuplicating] = useState(false);
   const [plannerBusy, setPlannerBusy] = useState(false);
   const [activeSlot, setActiveSlot] = useState<PlannerSlot | null>(null);
-  const [supportsManualProgramStatus, setSupportsManualProgramStatus] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -229,7 +175,15 @@ export default function ProgramDetailPage() {
         setProgram(programRow as TrainingProgram);
 
         const [sessionsResponse, availableSessionsResponse] = await Promise.all([
-          fetchProgramSessionsForProgram(id),
+          supabase
+            .from('training_program_sessions')
+            .select(
+              'id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, manual_status, manual_completed_at, created_at'
+            )
+            .eq('program_id', id)
+            .order('week_number', { ascending: true })
+            .order('day_of_week', { ascending: true })
+            .order('order_index', { ascending: true }),
           supabase
             .from('training_sessions')
             .select('id, name, sport, description')
@@ -237,8 +191,9 @@ export default function ProgramDetailPage() {
             .order('created_at', { ascending: false }),
         ]);
 
-        const nextProgramSessions = sessionsResponse.error ? [] : sortProgramSessions(sessionsResponse.data || []);
-        setSupportsManualProgramStatus(sessionsResponse.supportsManualStatus);
+        const nextProgramSessions = sessionsResponse.error
+          ? []
+          : sortProgramSessions((sessionsResponse.data as TrainingProgramSession[]) || []);
 
         if (sessionsResponse.error) {
           console.error('Erreur chargement seances detail programme :', sessionsResponse.error);
@@ -431,12 +386,8 @@ export default function ProgramDetailPage() {
           week_number: entry.week_number,
           day_of_week: entry.day_of_week,
           order_index: entry.order_index,
-          ...(supportsManualProgramStatus
-            ? {
-                manual_status: null,
-                manual_completed_at: null,
-              }
-            : {}),
+          manual_status: null,
+          manual_completed_at: null,
         }));
 
         const { error: duplicatedSessionsError } = await supabase
@@ -546,23 +497,21 @@ export default function ProgramDetailPage() {
         order_index: nextOrderIndex,
       };
 
-      const { data: createdSessionRow, error } = await supabase
+      const { data: createdSession, error } = await supabase
         .from('training_program_sessions')
         .insert(payload)
-        .select(supportsManualProgramStatus ? PROGRAM_SESSION_SELECT_WITH_MANUAL : PROGRAM_SESSION_SELECT_BASE)
+        .select(
+          'id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, manual_status, manual_completed_at, created_at'
+        )
         .single();
 
-      if (error || !createdSessionRow) {
+      if (error || !createdSession) {
         console.error('Erreur ajout seance programme :', error);
         setMessage("Impossible d'ajouter cette seance au programme pour le moment.");
         return;
       }
 
-      const createdSession = normalizeProgramSessionRow(
-        createdSessionRow as Partial<TrainingProgramSession> & Record<string, unknown>
-      );
-
-      setProgramSessions((current) => sortProgramSessions([...current, createdSession]));
+      setProgramSessions((current) => sortProgramSessions([...current, createdSession as TrainingProgramSession]));
       setActiveSlot(null);
       queuePendingToast({ message: 'Seance ajoutee au programme', tone: 'success' });
     } catch (error) {
@@ -600,10 +549,6 @@ export default function ProgramDetailPage() {
 
   const handleToggleProgramSessionStatus = async (programSessionId: string) => {
     if (plannerBusy) return;
-    if (!supportsManualProgramStatus) {
-      setMessage("Le statut manuel sera disponible une fois la migration programmes appliquee.");
-      return;
-    }
 
     const currentEntry = programSessions.find((entry) => entry.id === programSessionId);
     if (!currentEntry) return;
