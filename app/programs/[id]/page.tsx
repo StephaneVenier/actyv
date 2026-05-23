@@ -835,7 +835,7 @@ export default function ProgramDetailPage() {
                                             completed ? 'program-status--completed' : 'program-status--todo'
                                           }`}
                                         >
-                                          {completed ? '✓ Realisee' : 'A faire'}
+                                          {completed ? `\u2713 Realisee` : 'A faire'}
                                         </span>
                                       </div>
 
@@ -896,8 +896,9 @@ export default function ProgramDetailPage() {
                                             onClick={() => handleMoveProgramSession(entry.id, 'up')}
                                             disabled={plannerBusy || entry.order_index <= 1}
                                             title="Monter"
+                                            aria-label="Monter"
                                           >
-                                            ↑
+                                            {'\u2191'}
                                           </button>
                                           <button
                                             type="button"
@@ -905,8 +906,9 @@ export default function ProgramDetailPage() {
                                             onClick={() => handleMoveProgramSession(entry.id, 'down')}
                                             disabled={plannerBusy || entry.order_index >= dayEntries.length}
                                             title="Descendre"
+                                            aria-label="Descendre"
                                           >
-                                            ↓
+                                            {'\u2193'}
                                           </button>
                                         </div>
                                       </div>
@@ -918,15 +920,17 @@ export default function ProgramDetailPage() {
                                               href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
                                               className="button primary program-action-button"
                                               title="Lancer la seance"
+                                              aria-label="Lancer la seance"
                                             >
-                                              ▶
+                                              {'\u25B6'}
                                             </Link>
                                             <Link
                                               href={`/sessions/${entry.session_id}`}
                                               className="button ghost program-action-button"
                                               title="Ouvrir la seance"
+                                              aria-label="Ouvrir la seance"
                                             >
-                                              ↗
+                                              {'\u2197'}
                                             </Link>
                                           </>
                                         ) : (
@@ -939,8 +943,9 @@ export default function ProgramDetailPage() {
                                           onClick={() => handleRemoveProgramSession(entry.id)}
                                           disabled={plannerBusy}
                                           title="Retirer du programme"
+                                          aria-label="Retirer du programme"
                                         >
-                                          ×
+                                          {'\u00D7'}
                                         </button>
                                       </div>
                                     </article>
