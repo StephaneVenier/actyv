@@ -2340,6 +2340,80 @@ img {
   gap: 12px;
 }
 
+.program-plan-list,
+.program-plan-days,
+.program-plan-day__entries,
+.program-planner-session-list {
+  display: grid;
+  gap: 14px;
+}
+
+.program-plan-week {
+  display: grid;
+  gap: 16px;
+}
+
+.program-plan-week__header h3,
+.program-plan-day__label strong,
+.program-planner-panel__header strong,
+.program-planner-session-card strong {
+  margin: 0;
+}
+
+.program-plan-day {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 20px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-plan-day__header,
+.program-planner-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.program-plan-day__label,
+.program-planner-panel__header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.program-plan-day__label small,
+.program-planner-panel__header small {
+  color: #64748b;
+}
+
+.program-planner-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-planner-session-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-planner-session-card p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
 .program-status {
   display: inline-flex;
   align-items: center;
@@ -3742,6 +3816,29 @@ img {
   color: #f4f7f6;
 }
 
+.sessions-page--dark .program-plan-day,
+.sessions-page--dark .program-planner-session-card {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sessions-page--dark .program-plan-day__label small,
+.sessions-page--dark .program-planner-panel__header small,
+.sessions-page--dark .program-planner-session-card p {
+  color: #9fb5b3;
+}
+
+.sessions-page--dark .program-plan-day__label strong,
+.sessions-page--dark .program-planner-panel__header strong,
+.sessions-page--dark .program-planner-session-card strong {
+  color: #f4f7f6;
+}
+
+.sessions-page--dark .program-planner-panel {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
 .session-block-list--editor {
   gap: 12px;
 }
@@ -4012,6 +4109,17 @@ img {
 
   .program-placeholder-form {
     grid-template-columns: 1fr;
+  }
+
+  .program-plan-day,
+  .program-planner-panel,
+  .program-planner-session-card {
+    padding: 14px;
+  }
+
+  .program-planner-session-card {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .profile-history-item,
