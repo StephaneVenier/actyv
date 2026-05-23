@@ -43,6 +43,23 @@ export const PROGRAM_DAY_OPTIONS = [
   { value: 7, label: 'Dimanche' },
 ] as const;
 
+export function parseLocalDate(dateString: string | null | undefined) {
+  if (!dateString) return null;
+
+  const [year, month, day] = dateString.split('-').map(Number);
+  if (!year || !month || !day) return null;
+
+  const parsedDate = new Date(year, month - 1, day);
+  if (Number.isNaN(parsedDate.getTime())) return null;
+  return parsedDate;
+}
+
+export function addDays(baseDate: Date, days: number) {
+  const nextDate = new Date(baseDate);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
 export function clampProgramWeek(weekNumber: number, maxWeeks: number) {
   if (!Number.isFinite(weekNumber)) {
     return 1;
@@ -74,9 +91,8 @@ export function getProgramWeekLabel(weekNumber: number) {
 export function formatProgramDate(dateString: string | null | undefined) {
   if (!dateString) return '-';
 
-  const normalizedInput = dateString.includes('T') ? dateString : `${dateString}T00:00:00`;
-  const date = new Date(normalizedInput);
-  if (Number.isNaN(date.getTime())) return '-';
+  const date = dateString.includes('T') ? new Date(dateString) : parseLocalDate(dateString);
+  if (!date || Number.isNaN(date.getTime())) return '-';
 
   return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
@@ -88,15 +104,25 @@ export function formatProgramDate(dateString: string | null | undefined) {
 export function getProgramSessionPlannedDate(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
   if (!startDate) return null;
 
-  const baseDate = new Date(`${startDate}T12:00:00`);
-  if (Number.isNaN(baseDate.getTime())) return null;
+  const baseDate = parseLocalDate(startDate);
+  if (!baseDate || Number.isNaN(baseDate.getTime())) return null;
 
   const normalizedWeek = Math.max(Math.trunc(weekNumber), 1);
   const normalizedDay = clampProgramDay(dayOfWeek);
-  const plannedDate = new Date(baseDate);
-  plannedDate.setDate(plannedDate.getDate() + (normalizedWeek - 1) * 7 + (normalizedDay - 1));
+  const plannedDate = addDays(baseDate, (normalizedWeek - 1) * 7 + (normalizedDay - 1));
 
   return plannedDate;
+}
+
+export function formatProgramDayLabel(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
+  const plannedDate = getProgramSessionPlannedDate(startDate, weekNumber, dayOfWeek);
+  if (!plannedDate) {
+    return getProgramDayLabel(dayOfWeek);
+  }
+
+  return plannedDate.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+  });
 }
 
 export function formatProgramPlannedDateLabel(startDate: string | null | undefined, weekNumber: number, dayOfWeek: number) {
@@ -132,12 +158,11 @@ export function formatProgramPlannedShortDateLabel(
 export function getProgramEndDate(startDate: string | null | undefined, durationWeeks: number) {
   if (!startDate) return null;
 
-  const baseDate = new Date(`${startDate}T12:00:00`);
-  if (Number.isNaN(baseDate.getTime())) return null;
+  const baseDate = parseLocalDate(startDate);
+  if (!baseDate || Number.isNaN(baseDate.getTime())) return null;
 
   const normalizedWeeks = Math.max(Math.trunc(durationWeeks), 1);
-  const endDate = new Date(baseDate);
-  endDate.setDate(endDate.getDate() + normalizedWeeks * 7 - 1);
+  const endDate = addDays(baseDate, normalizedWeeks * 7 - 1);
   return endDate;
 }
 

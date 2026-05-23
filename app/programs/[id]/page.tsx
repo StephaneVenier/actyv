@@ -9,11 +9,11 @@ import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/spor
 import { supabase } from '@/lib/supabase';
 import {
   formatProgramDate,
+  formatProgramDayLabel,
   formatProgramEndDate,
   formatProgramPlannedDateLabel,
   formatProgramPlannedShortDateLabel,
   formatProgramVisibilityLabel,
-  getProgramDayLabel,
   getProgramWeekLabel,
   getTrainingProgramProgress,
   PROGRAM_DAY_OPTIONS,
@@ -870,7 +870,9 @@ export default function ProgramDetailPage() {
                               <article key={slotKey} className="program-plan-day program-plan-day--calendar">
                                 <div className="program-plan-day__header">
                                   <div className="program-plan-day__label">
-                                    <strong>{dayOption.label}</strong>
+                                    <strong>
+                                      {formatProgramDayLabel(program.start_date, weekNumber, dayOption.value)}
+                                    </strong>
                                     <small>{plannedShortDate || `Jour ${dayOption.value}`}</small>
                                   </div>
 
@@ -1075,7 +1077,11 @@ export default function ProgramDetailPage() {
                                   <div className="program-list-item__main">
                                     <div className="program-list-item__heading">
                                       <strong>
-                                        {getProgramDayLabel(entry.day_of_week)}
+                                        {formatProgramDayLabel(
+                                          program.start_date,
+                                          entry.week_number,
+                                          entry.day_of_week
+                                        )}
                                         {plannedShortDate ? ` ${plannedShortDate}` : ''}
                                       </strong>
                                       <span aria-hidden="true">•</span>
