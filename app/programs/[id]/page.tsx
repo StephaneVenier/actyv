@@ -9,7 +9,9 @@ import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/spor
 import { supabase } from '@/lib/supabase';
 import {
   formatProgramDate,
+  formatProgramEndDate,
   formatProgramPlannedDateLabel,
+  formatProgramPlannedShortDateLabel,
   formatProgramVisibilityLabel,
   getProgramDayLabel,
   getProgramWeekLabel,
@@ -786,6 +788,14 @@ export default function ProgramDetailPage() {
                   <span>Prochaine seance</span>
                   <strong>{nextSessionToDo?.session_name || 'Toutes les seances sont realisees'}</strong>
                 </div>
+                <div className="session-meta-card">
+                  <span>Date de debut</span>
+                  <strong>{formatProgramDate(program.start_date)}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Fin estimee</span>
+                  <strong>{formatProgramEndDate(program.start_date, program.duration_weeks)}</strong>
+                </div>
               </div>
 
               <div className="program-summary-note">
@@ -795,6 +805,9 @@ export default function ProgramDetailPage() {
                     ? 'Ajoute des seances pour suivre ta progression.'
                     : `${completedCount} seance${completedCount > 1 ? 's' : ''} realisee${completedCount > 1 ? 's' : ''} sur ${totalSessions}.`}
                 </p>
+                {!program.start_date ? (
+                  <p>Ajoute une date de debut pour afficher les dates dans le calendrier.</p>
+                ) : null}
               </div>
             </article>
 
@@ -848,12 +861,17 @@ export default function ProgramDetailPage() {
                           {PROGRAM_DAY_OPTIONS.map((dayOption) => {
                             const slotKey = `${weekNumber}-${dayOption.value}`;
                             const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
+                            const plannedShortDate = formatProgramPlannedShortDateLabel(
+                              program.start_date,
+                              weekNumber,
+                              dayOption.value
+                            );
                             return (
                               <article key={slotKey} className="program-plan-day program-plan-day--calendar">
                                 <div className="program-plan-day__header">
                                   <div className="program-plan-day__label">
                                     <strong>{dayOption.label}</strong>
-                                    <small>Jour {dayOption.value}</small>
+                                    <small>{plannedShortDate || `Jour ${dayOption.value}`}</small>
                                   </div>
 
                                   <button
@@ -1043,6 +1061,11 @@ export default function ProgramDetailPage() {
                               const completion = entry.session_id
                                 ? latestCompletionBySessionId.get(entry.session_id)
                                 : null;
+                              const plannedShortDate = formatProgramPlannedShortDateLabel(
+                                program.start_date,
+                                entry.week_number,
+                                entry.day_of_week
+                              );
 
                               return (
                                 <article
@@ -1051,7 +1074,10 @@ export default function ProgramDetailPage() {
                                 >
                                   <div className="program-list-item__main">
                                     <div className="program-list-item__heading">
-                                      <strong>{getProgramDayLabel(entry.day_of_week)}</strong>
+                                      <strong>
+                                        {getProgramDayLabel(entry.day_of_week)}
+                                        {plannedShortDate ? ` ${plannedShortDate}` : ''}
+                                      </strong>
                                       <span aria-hidden="true">•</span>
                                       <span className="program-list-item__title">{entry.session_name}</span>
                                     </div>

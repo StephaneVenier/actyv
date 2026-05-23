@@ -112,6 +112,46 @@ export function formatProgramPlannedDateLabel(startDate: string | null | undefin
   });
 }
 
+export function formatProgramPlannedShortDateLabel(
+  startDate: string | null | undefined,
+  weekNumber: number,
+  dayOfWeek: number
+) {
+  const plannedDate = getProgramSessionPlannedDate(startDate, weekNumber, dayOfWeek);
+
+  if (!plannedDate) {
+    return null;
+  }
+
+  return plannedDate.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+  });
+}
+
+export function getProgramEndDate(startDate: string | null | undefined, durationWeeks: number) {
+  if (!startDate) return null;
+
+  const baseDate = new Date(`${startDate}T12:00:00`);
+  if (Number.isNaN(baseDate.getTime())) return null;
+
+  const normalizedWeeks = Math.max(Math.trunc(durationWeeks), 1);
+  const endDate = new Date(baseDate);
+  endDate.setDate(endDate.getDate() + normalizedWeeks * 7 - 1);
+  return endDate;
+}
+
+export function formatProgramEndDate(startDate: string | null | undefined, durationWeeks: number) {
+  const endDate = getProgramEndDate(startDate, durationWeeks);
+  if (!endDate) return '-';
+
+  return endDate.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  });
+}
+
 export function getTrainingProgramProgress(completedSessions: number, totalSessions: number) {
   if (totalSessions <= 0) {
     return 0;
