@@ -74,7 +74,8 @@ export function getProgramWeekLabel(weekNumber: number) {
 export function formatProgramDate(dateString: string | null | undefined) {
   if (!dateString) return '-';
 
-  const date = new Date(`${dateString}T00:00:00`);
+  const normalizedInput = dateString.includes('T') ? dateString : `${dateString}T00:00:00`;
+  const date = new Date(normalizedInput);
   if (Number.isNaN(date.getTime())) return '-';
 
   return date.toLocaleDateString('fr-FR', {

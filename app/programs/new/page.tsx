@@ -30,7 +30,8 @@ export default function NewProgramPage() {
             <h2>Cadre du programme</h2>
             <p className="muted">
               Commence par definir le nom du programme, le sport principal, la duree en
-              semaines et une description. La creation de programmes continue d'evoluer.
+              semaines et une description. Le formulaire ci-dessous enregistre deja ton
+              programme, et la planification detaillee continue d'evoluer.
             </p>
           </div>
 
@@ -53,11 +54,7 @@ export default function NewProgramPage() {
             </div>
           </div>
 
-          <div className="session-empty-actions">
-            <button type="button" className="button ghost" disabled>
-              Creation bientot disponible
-            </button>
-          </div>
+          <p className="muted">Creation connectee a ton compte. Tu pourras enrichir la planification ensuite.</p>
         </article>
 
         <ProgramEditorForm mode="create" submitLabel="Enregistrer le programme" />

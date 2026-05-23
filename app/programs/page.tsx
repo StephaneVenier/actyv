@@ -133,9 +133,7 @@ export default function ProgramsPage() {
           <div className="session-hero-copy">
             <span className="section-kicker">Programmes</span>
             <h1>Mes programmes</h1>
-            <p className="muted">
-              Construis, planifie et partage tes seances sur plusieurs semaines.
-            </p>
+            <p className="muted">Construis, planifie et partage tes seances sur plusieurs semaines.</p>
           </div>
 
           <div className="session-hero-actions">
@@ -153,8 +151,8 @@ export default function ProgramsPage() {
             <span className="section-kicker">Apercu</span>
             <h2>Programmes</h2>
             <p className="muted">
-              Structure tes prochaines semaines avec un cadre simple : sport principal,
-              duree, seances planifiees et suivi de progression.
+              Structure tes prochaines semaines avec un cadre simple : sport principal, duree, seances planifiees
+              et suivi de progression.
             </p>
           </div>
           <div className="program-placeholder-card__chips">
@@ -186,9 +184,7 @@ export default function ProgramsPage() {
               const completedCount = program.completions.length;
               const progress = getTrainingProgramProgress(completedCount, totalSessions);
               const nextPlannedSession = program.sessions.find((sessionEntry) => {
-                const completion = program.completions.find(
-                  (entry) => entry.program_session_id === sessionEntry.id
-                );
+                const completion = program.completions.find((entry) => entry.program_session_id === sessionEntry.id);
                 return (
                   getTrainingProgramSessionStatus(
                     program.start_date,
@@ -222,6 +218,7 @@ export default function ProgramsPage() {
                       {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
                     </span>
                     <span>Debut {formatProgramDate(program.start_date)}</span>
+                    <span>Cree le {formatProgramDate(program.created_at)}</span>
                   </div>
 
                   <div className="program-card__summary">
