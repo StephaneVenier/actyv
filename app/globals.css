@@ -2225,6 +2225,24 @@ img {
   gap: 10px;
 }
 
+.program-summary-note {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-summary-note strong,
+.program-summary-note p {
+  margin: 0;
+}
+
+.program-summary-note p {
+  color: #64748b;
+}
+
 .program-card__facts {
   display: flex;
   flex-wrap: wrap;
@@ -3817,20 +3835,23 @@ img {
 }
 
 .sessions-page--dark .program-plan-day,
-.sessions-page--dark .program-planner-session-card {
+.sessions-page--dark .program-planner-session-card,
+.sessions-page--dark .program-summary-note {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
 
 .sessions-page--dark .program-plan-day__label small,
 .sessions-page--dark .program-planner-panel__header small,
-.sessions-page--dark .program-planner-session-card p {
+.sessions-page--dark .program-planner-session-card p,
+.sessions-page--dark .program-summary-note p {
   color: #9fb5b3;
 }
 
 .sessions-page--dark .program-plan-day__label strong,
 .sessions-page--dark .program-planner-panel__header strong,
-.sessions-page--dark .program-planner-session-card strong {
+.sessions-page--dark .program-planner-session-card strong,
+.sessions-page--dark .program-summary-note strong {
   color: #f4f7f6;
 }
 

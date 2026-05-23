@@ -14,11 +14,8 @@ import {
   getProgramDayLabel,
   getProgramWeekLabel,
   getTrainingProgramProgress,
-  getTrainingProgramSessionStatus,
-  getTrainingProgramSessionStatusLabel,
   PROGRAM_DAY_OPTIONS,
   TrainingProgram,
-  TrainingProgramCompletion,
   TrainingProgramSession,
 } from '@/lib/training-programs';
 import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
@@ -34,6 +31,12 @@ type AvailableProgramSessionOption = {
 type PlannerSlot = {
   weekNumber: number;
   dayOfWeek: number;
+};
+
+type WorkoutHistoryCompletion = {
+  id: string;
+  workout_id: string | null;
+  completed_at: string;
 };
 
 function formatRelativeCompletionDate(dateString: string | null | undefined) {
@@ -63,7 +66,7 @@ export default function ProgramDetailPage() {
 
   const [program, setProgram] = useState<TrainingProgram | null>(null);
   const [programSessions, setProgramSessions] = useState<TrainingProgramSession[]>([]);
-  const [programCompletions, setProgramCompletions] = useState<TrainingProgramCompletion[]>([]);
+  const [sessionCompletions, setSessionCompletions] = useState<WorkoutHistoryCompletion[]>([]);
   const [availableSessions, setAvailableSessions] = useState<AvailableProgramSessionOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingAvailableSessions, setLoadingAvailableSessions] = useState(true);
@@ -90,7 +93,7 @@ export default function ProgramDetailPage() {
           }
           setProgram(null);
           setProgramSessions([]);
-          setProgramCompletions([]);
+          setSessionCompletions([]);
           setAvailableSessions([]);
           setMessage('Connecte-toi pour consulter ce programme.');
           return;
@@ -107,7 +110,7 @@ export default function ProgramDetailPage() {
           console.error('Erreur chargement detail programme :', programError);
           setProgram(null);
           setProgramSessions([]);
-          setProgramCompletions([]);
+          setSessionCompletions([]);
           setAvailableSessions([]);
           setMessage('Impossible de charger ce programme.');
           return;
@@ -116,14 +119,14 @@ export default function ProgramDetailPage() {
         if (!programRow) {
           setProgram(null);
           setProgramSessions([]);
-          setProgramCompletions([]);
+          setSessionCompletions([]);
           setAvailableSessions([]);
           return;
         }
 
         setProgram(programRow as TrainingProgram);
 
-        const [sessionsResponse, completionsResponse, availableSessionsResponse] = await Promise.all([
+        const [sessionsResponse, availableSessionsResponse] = await Promise.all([
           supabase
             .from('training_program_sessions')
             .select('id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, created_at')
@@ -132,30 +135,42 @@ export default function ProgramDetailPage() {
             .order('day_of_week', { ascending: true })
             .order('order_index', { ascending: true }),
           supabase
-            .from('training_program_completions')
-            .select('id, user_id, program_id, program_session_id, session_id, workout_history_id, completed_at, created_at')
-            .eq('user_id', user.id)
-            .eq('program_id', id)
-            .order('completed_at', { ascending: false }),
-          supabase
             .from('training_sessions')
             .select('id, name, sport, description')
             .eq('user_id', user.id)
             .order('created_at', { ascending: false }),
         ]);
 
+        const nextProgramSessions = sessionsResponse.error
+          ? []
+          : sortProgramSessions((sessionsResponse.data as TrainingProgramSession[]) || []);
+
         if (sessionsResponse.error) {
           console.error('Erreur chargement seances detail programme :', sessionsResponse.error);
-          setProgramSessions([]);
-        } else {
-          setProgramSessions(sortProgramSessions((sessionsResponse.data as TrainingProgramSession[]) || []));
         }
 
-        if (completionsResponse.error) {
-          console.error('Erreur chargement progression detail programme :', completionsResponse.error);
-          setProgramCompletions([]);
+        setProgramSessions(nextProgramSessions);
+
+        const linkedSessionIds = nextProgramSessions
+          .map((entry) => entry.session_id)
+          .filter((sessionId): sessionId is string => Boolean(sessionId));
+
+        if (linkedSessionIds.length === 0) {
+          setSessionCompletions([]);
         } else {
-          setProgramCompletions((completionsResponse.data as TrainingProgramCompletion[]) || []);
+          const { data: completionsRows, error: completionsError } = await supabase
+            .from('workout_sessions_history')
+            .select('id, workout_id, completed_at')
+            .eq('user_id', user.id)
+            .in('workout_id', linkedSessionIds)
+            .order('completed_at', { ascending: false });
+
+          if (completionsError) {
+            console.error('Erreur chargement progression programme :', completionsError);
+            setSessionCompletions([]);
+          } else {
+            setSessionCompletions((completionsRows as WorkoutHistoryCompletion[]) || []);
+          }
         }
 
         if (availableSessionsResponse.error) {
@@ -199,7 +214,29 @@ export default function ProgramDetailPage() {
     loadProgram();
   }, [id]);
 
-  const completedCount = programCompletions.length;
+  const completedSessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    sessionCompletions.forEach((entry) => {
+      if (entry.workout_id) ids.add(entry.workout_id);
+    });
+    return ids;
+  }, [sessionCompletions]);
+
+  const latestCompletionBySessionId = useMemo(() => {
+    const entries = new Map<string, WorkoutHistoryCompletion>();
+    sessionCompletions.forEach((entry) => {
+      if (!entry.workout_id) return;
+      if (!entries.has(entry.workout_id)) {
+        entries.set(entry.workout_id, entry);
+      }
+    });
+    return entries;
+  }, [sessionCompletions]);
+
+  const completedCount = useMemo(
+    () => programSessions.filter((entry) => entry.session_id && completedSessionIds.has(entry.session_id)).length,
+    [completedSessionIds, programSessions]
+  );
   const totalSessions = programSessions.length;
   const progress = getTrainingProgramProgress(completedCount, totalSessions);
 
@@ -221,11 +258,26 @@ export default function ProgramDetailPage() {
     return grouped;
   }, [programSessions]);
 
+  const currentWeek = useMemo(() => {
+    if (!program?.start_date) return 1;
+
+    const start = new Date(`${program.start_date}T12:00:00`);
+    if (Number.isNaN(start.getTime())) return 1;
+
+    const now = new Date();
+    const diffMs = now.getTime() - start.getTime();
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+    return Math.min(Math.max(1, Math.floor(diffDays / 7) + 1), Math.max(program.duration_weeks, 1));
+  }, [program?.duration_weeks, program?.start_date]);
+
+  const nextSessionToDo = useMemo(
+    () => programSessions.find((entry) => !entry.session_id || !completedSessionIds.has(entry.session_id)),
+    [completedSessionIds, programSessions]
+  );
+
   const togglePlannerSlot = (weekNumber: number, dayOfWeek: number) => {
     setActiveSlot((current) =>
-      current?.weekNumber === weekNumber && current?.dayOfWeek === dayOfWeek
-        ? null
-        : { weekNumber, dayOfWeek }
+      current?.weekNumber === weekNumber && current?.dayOfWeek === dayOfWeek ? null : { weekNumber, dayOfWeek }
     );
   };
 
@@ -421,7 +473,7 @@ export default function ProgramDetailPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Progression</span>
-                  <h2>Vue d'ensemble</h2>
+                  <h2>Resume du programme</h2>
                 </div>
                 <span className="session-progress-pill">{formatProgramVisibilityLabel(program.visibility)}</span>
               </div>
@@ -432,29 +484,36 @@ export default function ProgramDetailPage() {
 
               <div className="session-detail-meta">
                 <div className="session-meta-card">
-                  <span>Sport</span>
-                  <strong>{formatSportBadgeLabel(program.sport, 'Sport')}</strong>
+                  <span>Seances prevues</span>
+                  <strong>{totalSessions}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Seances realisees</span>
+                  <strong>{completedCount}</strong>
                 </div>
                 <div className="session-meta-card">
                   <span>Progression</span>
-                  <strong>
-                    {completedCount} / {totalSessions}
-                  </strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Pourcentage</span>
                   <strong>{progress}%</strong>
                 </div>
                 <div className="session-meta-card">
-                  <span>Duree</span>
+                  <span>Semaine actuelle</span>
                   <strong>
-                    {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
+                    Semaine {currentWeek} / {program.duration_weeks}
                   </strong>
                 </div>
                 <div className="session-meta-card">
-                  <span>Debut</span>
-                  <strong>{formatProgramDate(program.start_date)}</strong>
+                  <span>Prochaine seance</span>
+                  <strong>{nextSessionToDo?.session_name || 'Toutes les seances sont realisees'}</strong>
                 </div>
+              </div>
+
+              <div className="program-summary-note">
+                <strong>Progression actuelle</strong>
+                <p>
+                  {totalSessions === 0
+                    ? 'Ajoute des seances pour suivre ta progression.'
+                    : `${completedCount} seance${completedCount > 1 ? 's' : ''} realisee${completedCount > 1 ? 's' : ''} sur ${totalSessions}.`}
+                </p>
               </div>
             </article>
 
@@ -466,182 +525,188 @@ export default function ProgramDetailPage() {
                 </div>
               </div>
 
-              <div className="program-plan-list">
-                {weekNumbers.map((weekNumber) => (
-                  <section key={weekNumber} className="program-plan-week">
-                    <div className="program-plan-week__header">
-                      <div>
-                        <span className="section-kicker">Semaine</span>
-                        <h3>{getProgramWeekLabel(weekNumber)}</h3>
+              {programSessions.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Ajoute des seances pour suivre ta progression.</p>
+                </div>
+              ) : (
+                <div className="program-plan-list">
+                  {weekNumbers.map((weekNumber) => (
+                    <section key={weekNumber} className="program-plan-week">
+                      <div className="program-plan-week__header">
+                        <div>
+                          <span className="section-kicker">Semaine</span>
+                          <h3>{getProgramWeekLabel(weekNumber)}</h3>
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="program-plan-days">
-                      {PROGRAM_DAY_OPTIONS.map((dayOption) => {
-                        const slotKey = `${weekNumber}-${dayOption.value}`;
-                        const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
-                        const slotIsActive =
-                          activeSlot?.weekNumber === weekNumber && activeSlot?.dayOfWeek === dayOption.value;
+                      <div className="program-plan-days">
+                        {PROGRAM_DAY_OPTIONS.map((dayOption) => {
+                          const slotKey = `${weekNumber}-${dayOption.value}`;
+                          const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
+                          const slotIsActive =
+                            activeSlot?.weekNumber === weekNumber && activeSlot?.dayOfWeek === dayOption.value;
 
-                        return (
-                          <article key={slotKey} className="program-plan-day">
-                            <div className="program-plan-day__header">
-                              <div className="program-plan-day__label">
-                                <strong>Jour {dayOption.value}</strong>
-                                <small>{getProgramDayLabel(dayOption.value)}</small>
-                              </div>
-
-                              <button
-                                type="button"
-                                className="button ghost"
-                                onClick={() => togglePlannerSlot(weekNumber, dayOption.value)}
-                                disabled={plannerBusy}
-                              >
-                                Ajouter une seance
-                              </button>
-                            </div>
-
-                            {dayEntries.length === 0 ? (
-                              <p className="muted">Aucune seance planifiee pour ce jour.</p>
-                            ) : (
-                              <div className="program-plan-day__entries">
-                                {dayEntries.map((entry) => {
-                                  const completion = programCompletions.find(
-                                    (completionEntry) => completionEntry.program_session_id === entry.id
-                                  );
-                                  const status = getTrainingProgramSessionStatus(
-                                    program.start_date,
-                                    entry.week_number,
-                                    entry.day_of_week,
-                                    completion?.completed_at
-                                  );
-
-                                  return (
-                                    <article key={entry.id} className="session-block-card program-session-card">
-                                      <div className="session-block-card__top">
-                                        <div className="session-block-check__label">
-                                          <strong>{entry.session_name}</strong>
-                                          <small>
-                                            {getProgramDayLabel(entry.day_of_week)} ·{' '}
-                                            {formatProgramPlannedDateLabel(
-                                              program.start_date,
-                                              entry.week_number,
-                                              entry.day_of_week
-                                            )}
-                                          </small>
-                                        </div>
-                                        <span className={`program-status program-status--${status}`}>
-                                          {getTrainingProgramSessionStatusLabel(status)}
-                                        </span>
-                                      </div>
-
-                                      <div className="session-card__meta">
-                                        <span>Ordre {entry.order_index}</span>
-                                        <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
-                                        {completion?.completed_at ? (
-                                          <span>Realisee {formatRelativeCompletionDate(completion.completed_at)}</span>
-                                        ) : null}
-                                      </div>
-
-                                      <div className="session-hero-actions">
-                                        {entry.session_id ? (
-                                          <>
-                                            <Link
-                                              href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
-                                              className="button primary"
-                                            >
-                                              Lancer
-                                            </Link>
-                                            <Link href={`/sessions/${entry.session_id}`} className="button ghost">
-                                              Ouvrir la seance
-                                            </Link>
-                                          </>
-                                        ) : (
-                                          <span className="muted">Seance non liee pour le moment.</span>
-                                        )}
-                                        <button
-                                          type="button"
-                                          className="button ghost"
-                                          onClick={() => handleRemoveProgramSession(entry.id)}
-                                          disabled={plannerBusy}
-                                        >
-                                          Retirer du programme
-                                        </button>
-                                      </div>
-                                    </article>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {slotIsActive ? (
-                              <div className="program-planner-panel">
-                                <div className="program-planner-panel__header">
-                                  <div>
-                                    <strong>Ajouter une seance</strong>
-                                    <small>
-                                      {getProgramWeekLabel(weekNumber)} · Jour {dayOption.value}
-                                    </small>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="button ghost"
-                                    onClick={() => setActiveSlot(null)}
-                                    disabled={plannerBusy}
-                                  >
-                                    Fermer
-                                  </button>
+                          return (
+                            <article key={slotKey} className="program-plan-day">
+                              <div className="program-plan-day__header">
+                                <div className="program-plan-day__label">
+                                  <strong>Jour {dayOption.value}</strong>
+                                  <small>{getProgramDayLabel(dayOption.value)}</small>
                                 </div>
 
-                                {loadingAvailableSessions ? (
-                                  <p className="muted">Chargement de tes seances...</p>
-                                ) : availableSessions.length === 0 ? (
-                                  <div className="challenge-state challenge-state--compact">
-                                    <p>Cree une seance avant de l'ajouter a ton programme.</p>
-                                    <div className="session-empty-actions">
-                                      <Link href="/sessions/new" className="button primary">
-                                        Creer une seance
-                                      </Link>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="program-planner-session-list">
-                                    {availableSessions.map((sessionOption) => (
-                                      <article key={sessionOption.id} className="program-planner-session-card">
-                                        <div>
-                                          <strong>{sessionOption.name}</strong>
-                                          <p>{sessionOption.description || 'Seance prete a etre planifiee.'}</p>
-                                          <div className="program-card__facts">
-                                            <span>{sessionOption.sport || 'Sport libre'}</span>
-                                            <span>
-                                              {sessionOption.blockCount} bloc
-                                              {sessionOption.blockCount > 1 ? 's' : ''}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          className="button primary"
-                                          onClick={() =>
-                                            handleAddSessionToSlot(weekNumber, dayOption.value, sessionOption)
-                                          }
-                                          disabled={plannerBusy}
-                                        >
-                                          Ajouter
-                                        </button>
-                                      </article>
-                                    ))}
-                                  </div>
-                                )}
+                                <button
+                                  type="button"
+                                  className="button ghost"
+                                  onClick={() => togglePlannerSlot(weekNumber, dayOption.value)}
+                                  disabled={plannerBusy}
+                                >
+                                  Ajouter une seance
+                                </button>
                               </div>
-                            ) : null}
-                          </article>
-                        );
-                      })}
-                    </div>
-                  </section>
-                ))}
-              </div>
+
+                              {dayEntries.length === 0 ? (
+                                <p className="muted">Aucune seance planifiee pour ce jour.</p>
+                              ) : (
+                                <div className="program-plan-day__entries">
+                                  {dayEntries.map((entry) => {
+                                    const completed =
+                                      Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
+                                    const completion = entry.session_id
+                                      ? latestCompletionBySessionId.get(entry.session_id)
+                                      : null;
+
+                                    return (
+                                      <article key={entry.id} className="session-block-card program-session-card">
+                                        <div className="session-block-card__top">
+                                          <div className="session-block-check__label">
+                                            <strong>{entry.session_name}</strong>
+                                            <small>
+                                              {getProgramDayLabel(entry.day_of_week)} ·{' '}
+                                              {formatProgramPlannedDateLabel(
+                                                program.start_date,
+                                                entry.week_number,
+                                                entry.day_of_week
+                                              )}
+                                            </small>
+                                          </div>
+                                          <span
+                                            className={`program-status ${
+                                              completed ? 'program-status--completed' : 'program-status--todo'
+                                            }`}
+                                          >
+                                            {completed ? '✓ Realisee' : 'A faire'}
+                                          </span>
+                                        </div>
+
+                                        <div className="session-card__meta">
+                                          <span>Ordre {entry.order_index}</span>
+                                          <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
+                                          {completion?.completed_at ? (
+                                            <span>Realisee {formatRelativeCompletionDate(completion.completed_at)}</span>
+                                          ) : null}
+                                        </div>
+
+                                        <div className="session-hero-actions">
+                                          {entry.session_id ? (
+                                            <>
+                                              <Link
+                                                href={`/sessions/${entry.session_id}/live?programSessionId=${entry.id}&programId=${program.id}`}
+                                                className="button primary"
+                                              >
+                                                Lancer
+                                              </Link>
+                                              <Link href={`/sessions/${entry.session_id}`} className="button ghost">
+                                                Ouvrir la seance
+                                              </Link>
+                                            </>
+                                          ) : (
+                                            <span className="muted">Seance non liee pour le moment.</span>
+                                          )}
+                                          <button
+                                            type="button"
+                                            className="button ghost"
+                                            onClick={() => handleRemoveProgramSession(entry.id)}
+                                            disabled={plannerBusy}
+                                          >
+                                            Retirer du programme
+                                          </button>
+                                        </div>
+                                      </article>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {slotIsActive ? (
+                                <div className="program-planner-panel">
+                                  <div className="program-planner-panel__header">
+                                    <div>
+                                      <strong>Ajouter une seance</strong>
+                                      <small>
+                                        {getProgramWeekLabel(weekNumber)} · Jour {dayOption.value}
+                                      </small>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      className="button ghost"
+                                      onClick={() => setActiveSlot(null)}
+                                      disabled={plannerBusy}
+                                    >
+                                      Fermer
+                                    </button>
+                                  </div>
+
+                                  {loadingAvailableSessions ? (
+                                    <p className="muted">Chargement de tes seances...</p>
+                                  ) : availableSessions.length === 0 ? (
+                                    <div className="challenge-state challenge-state--compact">
+                                      <p>Cree une seance avant de l'ajouter a ton programme.</p>
+                                      <div className="session-empty-actions">
+                                        <Link href="/sessions/new" className="button primary">
+                                          Creer une seance
+                                        </Link>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div className="program-planner-session-list">
+                                      {availableSessions.map((sessionOption) => (
+                                        <article key={sessionOption.id} className="program-planner-session-card">
+                                          <div>
+                                            <strong>{sessionOption.name}</strong>
+                                            <p>{sessionOption.description || 'Seance prete a etre planifiee.'}</p>
+                                            <div className="program-card__facts">
+                                              <span>{sessionOption.sport || 'Sport libre'}</span>
+                                              <span>
+                                                {sessionOption.blockCount} bloc
+                                                {sessionOption.blockCount > 1 ? 's' : ''}
+                                              </span>
+                                            </div>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="button primary"
+                                            onClick={() =>
+                                              handleAddSessionToSlot(weekNumber, dayOption.value, sessionOption)
+                                            }
+                                            disabled={plannerBusy}
+                                          >
+                                            Ajouter
+                                          </button>
+                                        </article>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              ) : null}
+                            </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              )}
             </article>
           </>
         )}
