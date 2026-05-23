@@ -2409,6 +2409,39 @@ img {
   gap: 12px;
 }
 
+.program-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-view-toggle__button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #64748b;
+  font-size: 0.8rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.program-view-toggle__button:hover {
+  transform: translateY(-1px);
+}
+
+.program-view-toggle__button.is-active {
+  background: rgba(255, 255, 255, 0.94);
+  color: #0f172a;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
 .program-plan-week__header h3,
 .program-plan-day__label strong,
 .program-planner-panel__header strong,
@@ -2632,6 +2665,82 @@ img {
 .program-plan-day--calendar > .muted {
   font-size: 0.7rem;
   line-height: 1.1;
+}
+
+.program-list-view {
+  display: grid;
+  gap: 10px;
+}
+
+.program-list-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(248, 250, 252, 0.96);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-list-item--completed {
+  border-color: rgba(34, 197, 94, 0.18);
+  box-shadow: inset 0 0 0 1px rgba(34, 197, 94, 0.08);
+}
+
+.program-list-item__main {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.program-list-item__heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: #0f172a;
+  font-size: 0.92rem;
+  font-weight: 800;
+}
+
+.program-list-item__heading strong {
+  flex-shrink: 0;
+}
+
+.program-list-item__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.program-list-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: #64748b;
+  font-size: 0.78rem;
+}
+
+.program-list-item__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
 }
 
 .program-status {
@@ -4038,7 +4147,9 @@ img {
 
 .sessions-page--dark .program-plan-day,
 .sessions-page--dark .program-planner-session-card,
-.sessions-page--dark .program-summary-note {
+.sessions-page--dark .program-summary-note,
+.sessions-page--dark .program-list-empty,
+.sessions-page--dark .program-list-item {
   background: rgba(255, 255, 255, 0.04);
   border-color: rgba(255, 255, 255, 0.08);
 }
@@ -4057,13 +4168,33 @@ img {
 .sessions-page--dark .program-plan-day__label strong,
 .sessions-page--dark .program-planner-panel__header strong,
 .sessions-page--dark .program-planner-session-card strong,
-.sessions-page--dark .program-summary-note strong {
+.sessions-page--dark .program-summary-note strong,
+.sessions-page--dark .program-list-item__heading {
   color: #f4f7f6;
 }
 
 .sessions-page--dark .program-planner-panel {
   background: rgba(255, 255, 255, 0.03);
   border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sessions-page--dark .program-view-toggle {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sessions-page--dark .program-view-toggle__button {
+  color: #9fb5b3;
+}
+
+.sessions-page--dark .program-view-toggle__button.is-active {
+  background: rgba(255, 255, 255, 0.1);
+  color: #f4f7f6;
+  box-shadow: none;
+}
+
+.sessions-page--dark .program-list-item__meta {
+  color: #9fb5b3;
 }
 
 .sessions-page--dark .program-modal__copy strong {
@@ -4370,6 +4501,15 @@ img {
     padding-bottom: 4px;
   }
 
+  .program-view-toggle {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .program-view-toggle__button {
+    flex: 1 1 0;
+  }
+
   .program-plan-day--calendar {
     min-height: 0;
   }
@@ -4399,6 +4539,21 @@ img {
   .program-planner-session-card {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .program-list-empty,
+  .program-list-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .program-list-item__heading {
+    flex-wrap: wrap;
+  }
+
+  .program-list-item__actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .profile-history-item,
