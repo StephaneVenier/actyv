@@ -2469,6 +2469,63 @@ img {
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.program-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(3, 9, 10, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.program-modal {
+  width: min(900px, 100%);
+  max-height: 80vh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 18px;
+  padding: 22px;
+  border-radius: 24px;
+  background: linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(16, 34, 35, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.36);
+}
+
+.program-modal__header,
+.program-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.program-modal__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.program-modal__copy strong {
+  margin: 0;
+  color: #f4f7f6;
+  font-size: 1.2rem;
+  line-height: 1.1;
+}
+
+.program-modal__copy small {
+  color: #9fb5b3;
+  font-size: 0.86rem;
+}
+
+.program-modal__body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .program-planner-session-card {
   display: flex;
   align-items: flex-start;
@@ -4009,6 +4066,14 @@ img {
   border-color: rgba(255, 255, 255, 0.08);
 }
 
+.sessions-page--dark .program-modal__copy strong {
+  color: #f4f7f6;
+}
+
+.sessions-page--dark .program-modal__copy small {
+  color: #9fb5b3;
+}
+
 .session-block-list--editor {
   gap: 12px;
 }
@@ -4285,6 +4350,18 @@ img {
   .program-planner-panel,
   .program-planner-session-card {
     padding: 14px;
+  }
+
+  .program-modal-backdrop {
+    padding: 12px;
+    align-items: flex-end;
+  }
+
+  .program-modal {
+    width: 100%;
+    max-height: min(88vh, 100%);
+    padding: 18px;
+    border-radius: 22px 22px 0 0;
   }
 
   .program-plan-days--calendar {

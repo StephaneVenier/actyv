@@ -101,6 +101,19 @@ export default function ProgramDetailPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
+    if (!activeSlot) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setActiveSlot(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeSlot]);
+
+  useEffect(() => {
     const loadProgram = async () => {
       setLoading(true);
       setLoadingAvailableSessions(true);
@@ -299,6 +312,10 @@ export default function ProgramDetailPage() {
     () => programSessions.find((entry) => !entry.session_id || !completedSessionIds.has(entry.session_id)),
     [completedSessionIds, programSessions]
   );
+
+  const activeSlotDay = activeSlot
+    ? PROGRAM_DAY_OPTIONS.find((option) => option.value === activeSlot.dayOfWeek)
+    : null;
 
   const togglePlannerSlot = (weekNumber: number, dayOfWeek: number) => {
     setActiveSlot((current) =>
@@ -783,9 +800,6 @@ export default function ProgramDetailPage() {
                       {PROGRAM_DAY_OPTIONS.map((dayOption) => {
                         const slotKey = `${weekNumber}-${dayOption.value}`;
                         const dayEntries = plannedSessionsBySlot.get(slotKey) || [];
-                        const slotIsActive =
-                          activeSlot?.weekNumber === weekNumber && activeSlot?.dayOfWeek === dayOption.value;
-
                         return (
                           <article key={slotKey} className="program-plan-day program-plan-day--calendar">
                             <div className="program-plan-day__header">
@@ -953,68 +967,6 @@ export default function ProgramDetailPage() {
                                 })}
                               </div>
                             )}
-
-                            {slotIsActive ? (
-                              <div className="program-planner-panel">
-                                <div className="program-planner-panel__header">
-                                  <div>
-                                    <strong>Ajouter une seance</strong>
-                                    <small>
-                                      {getProgramWeekLabel(weekNumber)} · Jour {dayOption.value}
-                                    </small>
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="button ghost"
-                                    onClick={() => setActiveSlot(null)}
-                                    disabled={plannerBusy}
-                                  >
-                                    Fermer
-                                  </button>
-                                </div>
-
-                                {loadingAvailableSessions ? (
-                                  <p className="muted">Chargement de tes seances...</p>
-                                ) : availableSessions.length === 0 ? (
-                                  <div className="challenge-state challenge-state--compact">
-                                    <p>Cree une seance avant de l'ajouter a ton programme.</p>
-                                    <div className="session-empty-actions">
-                                      <Link href="/sessions/new" className="button primary">
-                                        Creer une seance
-                                      </Link>
-                                    </div>
-                                  </div>
-                                ) : (
-                                  <div className="program-planner-session-list">
-                                    {availableSessions.map((sessionOption) => (
-                                      <article key={sessionOption.id} className="program-planner-session-card">
-                                        <div>
-                                          <strong>{sessionOption.name}</strong>
-                                          <p>{sessionOption.description || 'Seance prete a etre planifiee.'}</p>
-                                          <div className="program-card__facts">
-                                            <span>{sessionOption.sport || 'Sport libre'}</span>
-                                            <span>
-                                              {sessionOption.blockCount} bloc
-                                              {sessionOption.blockCount > 1 ? 's' : ''}
-                                            </span>
-                                          </div>
-                                        </div>
-                                        <button
-                                          type="button"
-                                          className="button primary"
-                                          onClick={() =>
-                                            handleAddSessionToSlot(weekNumber, dayOption.value, sessionOption)
-                                          }
-                                          disabled={plannerBusy}
-                                        >
-                                          Ajouter
-                                        </button>
-                                      </article>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            ) : null}
                           </article>
                         );
                       })}
@@ -1023,9 +975,94 @@ export default function ProgramDetailPage() {
                 ))}
               </div>
             </article>
+
+            {activeSlot ? (
+              <div className="program-modal-backdrop" onClick={() => setActiveSlot(null)} role="presentation">
+                <div
+                  className="program-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="program-session-modal-title"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="program-modal__header">
+                    <div className="program-modal__copy">
+                      <strong id="program-session-modal-title">Ajouter une seance</strong>
+                      <small>
+                        {getProgramWeekLabel(activeSlot.weekNumber)} - {activeSlotDay?.label || `Jour ${activeSlot.dayOfWeek}`}
+                      </small>
+                    </div>
+                    <button
+                      type="button"
+                      className="button ghost"
+                      onClick={() => setActiveSlot(null)}
+                      disabled={plannerBusy}
+                    >
+                      Fermer
+                    </button>
+                  </div>
+
+                  <div className="program-modal__body">
+                    {loadingAvailableSessions ? (
+                      <p className="muted">Chargement de tes seances...</p>
+                    ) : availableSessions.length === 0 ? (
+                      <div className="challenge-state challenge-state--compact">
+                        <p>Aucune seance disponible.</p>
+                        <div className="session-empty-actions">
+                          <Link
+                            href={`/sessions/new?programId=${program?.id || ''}&week=${activeSlot.weekNumber}&day=${activeSlot.dayOfWeek}`}
+                            className="button primary"
+                          >
+                            Creer une seance
+                          </Link>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="program-planner-session-list">
+                        {availableSessions.map((sessionOption) => (
+                          <article key={sessionOption.id} className="program-planner-session-card">
+                            <div>
+                              <strong>{sessionOption.name}</strong>
+                              <p>{sessionOption.description || 'Seance prete a etre planifiee.'}</p>
+                              <div className="program-card__facts">
+                                <span>{sessionOption.sport || 'Sport libre'}</span>
+                                <span>
+                                  {sessionOption.blockCount} bloc
+                                  {sessionOption.blockCount > 1 ? 's' : ''}
+                                </span>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              className="button primary"
+                              onClick={() =>
+                                handleAddSessionToSlot(activeSlot.weekNumber, activeSlot.dayOfWeek, sessionOption)
+                              }
+                              disabled={plannerBusy}
+                            >
+                              Ajouter
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="program-modal__footer">
+                    <Link
+                      href={`/sessions/new?programId=${program?.id || ''}&week=${activeSlot.weekNumber}&day=${activeSlot.dayOfWeek}`}
+                      className="button ghost"
+                    >
+                      Creer une nouvelle seance
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </>
         )}
       </section>
     </AppShell>
   );
 }
+
