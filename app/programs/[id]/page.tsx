@@ -14,6 +14,7 @@ import {
   getProgramDayLabel,
   getProgramWeekLabel,
   getTrainingProgramProgress,
+  getTrainingProgramSessionManualStatusLabel,
   PROGRAM_DAY_OPTIONS,
   TrainingProgram,
   TrainingProgramSession,
@@ -81,6 +82,15 @@ function buildNormalizedProgramSessions(entries: TrainingProgramSession[]) {
   });
 
   return sortProgramSessions(normalized);
+}
+
+function isProgramSessionCompleted(
+  entry: Pick<TrainingProgramSession, 'manual_status' | 'session_id'>,
+  completedSessionIds: Set<string>
+) {
+  if (entry.manual_status === 'completed') return true;
+  if (entry.manual_status === 'todo') return false;
+  return Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
 }
 
 export default function ProgramDetailPage() {
@@ -167,7 +177,9 @@ export default function ProgramDetailPage() {
         const [sessionsResponse, availableSessionsResponse] = await Promise.all([
           supabase
             .from('training_program_sessions')
-            .select('id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, created_at')
+            .select(
+              'id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, manual_status, manual_completed_at, created_at'
+            )
             .eq('program_id', id)
             .order('week_number', { ascending: true })
             .order('day_of_week', { ascending: true })
@@ -272,7 +284,7 @@ export default function ProgramDetailPage() {
   }, [sessionCompletions]);
 
   const completedCount = useMemo(
-    () => programSessions.filter((entry) => entry.session_id && completedSessionIds.has(entry.session_id)).length,
+    () => programSessions.filter((entry) => isProgramSessionCompleted(entry, completedSessionIds)).length,
     [completedSessionIds, programSessions]
   );
   const totalSessions = programSessions.length;
@@ -309,7 +321,7 @@ export default function ProgramDetailPage() {
   }, [program?.duration_weeks, program?.start_date]);
 
   const nextSessionToDo = useMemo(
-    () => programSessions.find((entry) => !entry.session_id || !completedSessionIds.has(entry.session_id)),
+    () => programSessions.find((entry) => !isProgramSessionCompleted(entry, completedSessionIds)),
     [completedSessionIds, programSessions]
   );
 
@@ -374,6 +386,8 @@ export default function ProgramDetailPage() {
           week_number: entry.week_number,
           day_of_week: entry.day_of_week,
           order_index: entry.order_index,
+          manual_status: null,
+          manual_completed_at: null,
         }));
 
         const { error: duplicatedSessionsError } = await supabase
@@ -486,7 +500,9 @@ export default function ProgramDetailPage() {
       const { data: createdSession, error } = await supabase
         .from('training_program_sessions')
         .insert(payload)
-        .select('id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, created_at')
+        .select(
+          'id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, manual_status, manual_completed_at, created_at'
+        )
         .single();
 
       if (error || !createdSession) {
@@ -525,6 +541,59 @@ export default function ProgramDetailPage() {
       queuePendingToast({ message: 'Seance retiree du programme', tone: 'info' });
     } catch (error) {
       console.error('Erreur inattendue retrait seance programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setPlannerBusy(false);
+    }
+  };
+
+  const handleToggleProgramSessionStatus = async (programSessionId: string) => {
+    if (plannerBusy) return;
+
+    const currentEntry = programSessions.find((entry) => entry.id === programSessionId);
+    if (!currentEntry) return;
+
+    const currentlyCompleted = isProgramSessionCompleted(currentEntry, completedSessionIds);
+    const nextManualStatus = currentlyCompleted ? 'todo' : 'completed';
+    const nextManualCompletedAt = nextManualStatus === 'completed' ? new Date().toISOString() : null;
+    const previousEntries = programSessions;
+    const nextEntries = programSessions.map((entry) =>
+      entry.id === programSessionId
+        ? {
+            ...entry,
+            manual_status: nextManualStatus,
+            manual_completed_at: nextManualCompletedAt,
+          }
+        : entry
+    );
+
+    setProgramSessions(nextEntries);
+    setPlannerBusy(true);
+    setMessage(null);
+
+    try {
+      const { error } = await supabase
+        .from('training_program_sessions')
+        .update({
+          manual_status: nextManualStatus,
+          manual_completed_at: nextManualCompletedAt,
+        })
+        .eq('id', programSessionId);
+
+      if (error) {
+        console.error('Erreur mise a jour statut manuel programme :', error);
+        setProgramSessions(previousEntries);
+        setMessage("Impossible de mettre a jour le statut de cette seance pour le moment.");
+        return;
+      }
+
+      queuePendingToast({
+        message: `Statut programme : ${getTrainingProgramSessionManualStatusLabel(nextManualStatus)}`,
+        tone: nextManualStatus === 'completed' ? 'success' : 'info',
+      });
+    } catch (error) {
+      console.error('Erreur inattendue statut manuel programme :', error);
+      setProgramSessions(previousEntries);
       setMessage("Une erreur inattendue s'est produite.");
     } finally {
       setPlannerBusy(false);
@@ -823,11 +892,19 @@ export default function ProgramDetailPage() {
                             ) : (
                               <div className="program-plan-day__entries">
                                 {dayEntries.map((entry) => {
-                                  const completed =
-                                    Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
+                                  const completed = isProgramSessionCompleted(entry, completedSessionIds);
                                   const completion = entry.session_id
                                     ? latestCompletionBySessionId.get(entry.session_id)
                                     : null;
+                                  const statusLabel = completed ? 'Realisee' : 'A faire';
+                                  const statusMeta =
+                                    entry.manual_status === 'completed'
+                                      ? 'Statut manuel'
+                                      : entry.manual_status === 'todo'
+                                        ? 'Remis a faire'
+                                        : completion?.completed_at
+                                          ? formatRelativeCompletionDate(completion.completed_at)
+                                          : 'A faire';
 
                                   return (
                                     <article
@@ -844,17 +921,22 @@ export default function ProgramDetailPage() {
                                             {entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}
                                           </small>
                                         </div>
-                                        <span
+                                        <button
+                                          type="button"
                                           className={`program-status ${
                                             completed ? 'program-status--completed' : 'program-status--todo'
                                           }`}
+                                          onClick={() => handleToggleProgramSessionStatus(entry.id)}
+                                          disabled={plannerBusy}
+                                          title="Cliquer pour changer le statut"
+                                          aria-label={`Changer le statut de ${entry.session_name}`}
                                         >
-                                          {completed ? `\u2713 Realisee` : 'A faire'}
-                                        </span>
+                                          {completed ? `\u2713 ${statusLabel}` : statusLabel}
+                                        </button>
                                       </div>
 
                                       <div className="session-card__meta program-session-card__meta--calendar">
-                                        {completion?.completed_at ? <span>{formatRelativeCompletionDate(completion.completed_at)}</span> : <span>A faire</span>}
+                                        <span>{statusMeta}</span>
                                         <span>#{entry.order_index}</span>
                                       </div>
 

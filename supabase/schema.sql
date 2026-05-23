@@ -1168,8 +1168,14 @@ create table if not exists public.training_program_sessions (
   week_number integer not null check (week_number > 0),
   day_of_week integer not null check (day_of_week between 1 and 7),
   order_index integer not null default 1,
+  manual_status text check (manual_status in ('todo', 'completed')),
+  manual_completed_at timestamptz,
   created_at timestamptz not null default now()
 );
+
+alter table if exists public.training_program_sessions
+  add column if not exists manual_status text check (manual_status in ('todo', 'completed')),
+  add column if not exists manual_completed_at timestamptz;
 
 create table if not exists public.training_program_completions (
   id uuid primary key default gen_random_uuid(),

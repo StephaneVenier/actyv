@@ -19,6 +19,8 @@ export type TrainingProgramSession = {
   week_number: number;
   day_of_week: number;
   order_index: number;
+  manual_status: 'todo' | 'completed' | null;
+  manual_completed_at: string | null;
   created_at: string | null;
 };
 
@@ -118,6 +120,10 @@ export function getTrainingProgramProgress(completedSessions: number, totalSessi
   }
 
   return Math.max(0, Math.min(100, Math.round((completedSessions / totalSessions) * 100)));
+}
+
+export function getTrainingProgramSessionManualStatusLabel(status: 'todo' | 'completed') {
+  return status === 'completed' ? 'Realisee' : 'A faire';
 }
 
 export function getTrainingProgramSessionStatus(
