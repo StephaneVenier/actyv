@@ -2288,6 +2288,54 @@ img {
   color: #64748b;
 }
 
+.program-placeholder-card {
+  display: grid;
+  gap: 16px;
+}
+
+.program-placeholder-card__copy {
+  display: grid;
+  gap: 8px;
+}
+
+.program-placeholder-card__copy h2 {
+  margin: 0;
+}
+
+.program-placeholder-card__chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.program-placeholder-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.program-placeholder-form__field {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.03);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-placeholder-form__field span {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.program-placeholder-form__field strong {
+  color: #071226;
+  font-size: 0.96rem;
+}
+
 .program-session-card {
   gap: 12px;
 }
@@ -3681,6 +3729,19 @@ img {
   color: #9fb5b3;
 }
 
+.sessions-page--dark .program-placeholder-form__field {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.sessions-page--dark .program-placeholder-form__field span {
+  color: #9fb5b3;
+}
+
+.sessions-page--dark .program-placeholder-form__field strong {
+  color: #f4f7f6;
+}
+
 .session-block-list--editor {
   gap: 12px;
 }
@@ -3947,6 +4008,10 @@ img {
   .session-live-focus-card__validate {
     width: 100%;
     min-width: 0;
+  }
+
+  .program-placeholder-form {
+    grid-template-columns: 1fr;
   }
 
   .profile-history-item,

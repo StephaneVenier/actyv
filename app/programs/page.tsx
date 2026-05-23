@@ -134,7 +134,7 @@ export default function ProgramsPage() {
             <span className="section-kicker">Programmes</span>
             <h1>Mes programmes</h1>
             <p className="muted">
-              Organise tes seances sur plusieurs semaines, puis suis l'avancement simplement.
+              Construis, planifie et partage tes seances sur plusieurs semaines.
             </p>
           </div>
 
@@ -148,6 +148,22 @@ export default function ProgramsPage() {
           </div>
         </article>
 
+        <article className="card session-form-card program-placeholder-card">
+          <div className="program-placeholder-card__copy">
+            <span className="section-kicker">Apercu</span>
+            <h2>Programmes</h2>
+            <p className="muted">
+              Structure tes prochaines semaines avec un cadre simple : sport principal,
+              duree, seances planifiees et suivi de progression.
+            </p>
+          </div>
+          <div className="program-placeholder-card__chips">
+            <span className="session-block-chip">Cycles hebdo</span>
+            <span className="session-block-chip">Seances planifiees</span>
+            <span className="session-block-chip">Partage a venir</span>
+          </div>
+        </article>
+
         {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
 
         {loading ? (
@@ -156,7 +172,7 @@ export default function ProgramsPage() {
           </div>
         ) : programsWithChildren.length === 0 ? (
           <div className="challenge-state">
-            <p>Aucun programme cree pour le moment.</p>
+            <p>Aucun programme pour le moment.</p>
             <div className="session-empty-actions">
               <Link href="/programs/new" className="button primary">
                 Creer un programme
