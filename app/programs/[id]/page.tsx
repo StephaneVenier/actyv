@@ -125,6 +125,32 @@ async function fetchOwnedProgram(programId: string, userId: string) {
   };
 }
 
+function getProgramSharingErrorMessage(error: { code?: string; message?: string; details?: string | null } | null | undefined) {
+  const message = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+
+  if (error?.code === '23505') {
+    return "Le code de partage genere est deja utilise. Reessaie dans un instant.";
+  }
+
+  if (error?.code === '23514' || message.includes('training_programs_visibility_check')) {
+    return "La base de donnees n'autorise pas encore le statut shared. Applique la migration Supabase du partage.";
+  }
+
+  if (message.includes('invite_code') && message.includes('column')) {
+    return "La colonne invite_code n'existe pas encore en base. Applique la migration Supabase du partage.";
+  }
+
+  if (message.includes('visibility') && message.includes('column')) {
+    return "La colonne visibility n'existe pas encore en base. Applique la migration Supabase du partage.";
+  }
+
+  if (message.includes('row-level security') || error?.code === '42501') {
+    return "Supabase refuse la mise a jour du partage. Verifie la policy RLS d'update sur training_programs.";
+  }
+
+  return "Impossible d'activer le partage pour le moment.";
+}
+
 export default function ProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -441,27 +467,33 @@ export default function ProgramDetailPage() {
 
       for (let attempt = 0; attempt < 5; attempt += 1) {
         const inviteCode = existingInviteCode || generateProgramInviteCode();
-        const { data: updatedProgram, error } = await supabase
-          .from('training_programs')
-          .update({
-            visibility: 'shared',
-            invite_code: inviteCode,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', program.id)
-          .eq('user_id', user.id)
-          .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
-          .single();
+        const payload = {
+          visibility: 'shared',
+          invite_code: inviteCode,
+          updated_at: new Date().toISOString(),
+        };
+        console.log('Program sharing payload:', payload);
 
-        if (!error && updatedProgram) {
-          setProgram(updatedProgram as TrainingProgram);
+        const { error } = await supabase
+          .from('training_programs')
+          .update(payload)
+          .eq('id', program.id)
+          .eq('user_id', user.id);
+
+        if (!error) {
+          const refreshedProgram = await fetchOwnedProgram(program.id, user.id);
+          if (refreshedProgram.data) {
+            setProgram(refreshedProgram.data);
+          }
           queuePendingToast({ message: 'Partage active', tone: 'success' });
           return;
         }
 
+        console.error('Program sharing update error:', error);
+        console.error('Program sharing update error full:', JSON.stringify(error, null, 2));
+
         if (error?.code !== '23505' || existingInviteCode) {
-          console.error('Erreur activation partage programme :', error);
-          setMessage("Impossible d'activer le partage pour le moment.");
+          setMessage(getProgramSharingErrorMessage(error));
           return;
         }
       }
@@ -495,7 +527,7 @@ export default function ProgramDetailPage() {
         return;
       }
 
-      const { data: updatedProgram, error } = await supabase
+      const { error } = await supabase
         .from('training_programs')
         .update({
           visibility: 'private',
@@ -503,17 +535,19 @@ export default function ProgramDetailPage() {
           updated_at: new Date().toISOString(),
         })
         .eq('id', program.id)
-        .eq('user_id', user.id)
-        .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
-        .single();
+        .eq('user_id', user.id);
 
-      if (error || !updatedProgram) {
-        console.error('Erreur desactivation partage programme :', error);
+      if (error) {
+        console.error('Program sharing disable error:', error);
+        console.error('Program sharing disable error full:', JSON.stringify(error, null, 2));
         setMessage("Impossible de desactiver le partage pour le moment.");
         return;
       }
 
-      setProgram(updatedProgram as TrainingProgram);
+      const refreshedProgram = await fetchOwnedProgram(program.id, user.id);
+      if (refreshedProgram.data) {
+        setProgram(refreshedProgram.data);
+      }
       queuePendingToast({ message: 'Partage desactive', tone: 'info' });
     } catch (error) {
       console.error('Erreur inattendue desactivation partage programme :', error);
