@@ -94,6 +94,37 @@ function buildNormalizedProgramSessions(entries: TrainingProgramSession[]) {
   return sortProgramSessions(normalized);
 }
 
+async function fetchOwnedProgram(programId: string, userId: string) {
+  const selectWithSharing = 'id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at';
+  const selectWithoutSharing = 'id, user_id, name, description, sport, duration_weeks, visibility, start_date, created_at';
+
+  const primaryResponse = await supabase
+    .from('training_programs')
+    .select(selectWithSharing)
+    .eq('id', programId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!primaryResponse.error) {
+    return {
+      data: primaryResponse.data as TrainingProgram | null,
+      error: null,
+    };
+  }
+
+  const fallbackResponse = await supabase
+    .from('training_programs')
+    .select(selectWithoutSharing)
+    .eq('id', programId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  return {
+    data: fallbackResponse.data ? ({ ...fallbackResponse.data, invite_code: null } as TrainingProgram) : null,
+    error: fallbackResponse.error,
+  };
+}
+
 export default function ProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -161,12 +192,7 @@ export default function ProgramDetailPage() {
           return;
         }
 
-        const { data: programRow, error: programError } = await supabase
-          .from('training_programs')
-          .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
-          .eq('id', id)
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const { data: programRow, error: programError } = await fetchOwnedProgram(id, user.id);
 
         if (programError) {
           console.error('Erreur chargement detail programme :', programError);
