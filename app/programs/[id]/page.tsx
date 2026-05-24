@@ -640,6 +640,33 @@ export default function ProgramDetailPage() {
     }
   };
 
+  const shareProgramLink = async () => {
+    if (!shareUrl || !program) {
+      setMessage("Active le partage pour obtenir un lien.");
+      return;
+    }
+
+    const shareData = {
+      title: `Programme Actyv : ${program.name}`,
+      text: `Je te partage mon programme d'entrainement Actyv : ${program.name}. Tu peux l'ajouter a tes programmes.`,
+      url: shareUrl,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+        queuePendingToast({ message: 'Lien de partage pret', tone: 'success' });
+        return;
+      }
+
+      await navigator.clipboard.writeText(shareUrl);
+      queuePendingToast({ message: 'Lien copie', tone: 'success' });
+    } catch (error) {
+      console.error('Erreur partage natif programme :', error);
+      setMessage("Impossible de partager le lien pour le moment.");
+    }
+  };
+
   const handleDuplicateProgram = async () => {
     if (!program || duplicating) return;
 
@@ -1142,6 +1169,14 @@ export default function ProgramDetailPage() {
                     <button
                       type="button"
                       className="button primary"
+                      onClick={shareProgramLink}
+                      disabled={sharing || !shareUrl}
+                    >
+                      Partager
+                    </button>
+                    <button
+                      type="button"
+                      className="button ghost"
                       onClick={copyProgramShareLink}
                       disabled={sharing || !shareUrl}
                     >
