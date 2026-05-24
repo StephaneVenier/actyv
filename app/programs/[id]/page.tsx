@@ -45,6 +45,13 @@ type WorkoutHistoryCompletion = {
   completed_at: string;
 };
 
+type ProgramShareErrorDetails = {
+  message: string | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+};
+
 function formatRelativeCompletionDate(dateString: string | null | undefined) {
   if (!dateString) return '-';
 
@@ -151,6 +158,20 @@ function getProgramSharingErrorMessage(error: { code?: string; message?: string;
   return "Impossible d'activer le partage pour le moment.";
 }
 
+function getProgramShareErrorDetails(error: {
+  code?: string | null;
+  message?: string | null;
+  details?: string | null;
+  hint?: string | null;
+} | null | undefined): ProgramShareErrorDetails {
+  return {
+    message: error?.message || null,
+    code: error?.code || null,
+    details: error?.details || null,
+    hint: error?.hint || null,
+  };
+}
+
 export default function ProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -169,6 +190,7 @@ export default function ProgramDetailPage() {
   const [activeSlot, setActiveSlot] = useState<PlannerSlot | null>(null);
   const [planView, setPlanView] = useState<ProgramPlanView>('calendar');
   const [message, setMessage] = useState<string | null>(null);
+  const [shareErrorDetails, setShareErrorDetails] = useState<ProgramShareErrorDetails | null>(null);
 
   useEffect(() => {
     const savedView = window.localStorage.getItem('actyv-program-plan-view');
@@ -199,6 +221,7 @@ export default function ProgramDetailPage() {
       setLoading(true);
       setLoadingAvailableSessions(true);
       setMessage(null);
+      setShareErrorDetails(null);
 
       try {
         const {
@@ -448,6 +471,7 @@ export default function ProgramDetailPage() {
 
     setSharing(true);
     setMessage(null);
+    setShareErrorDetails(null);
 
     try {
       const {
@@ -460,6 +484,14 @@ export default function ProgramDetailPage() {
           console.error('Erreur chargement user partage programme :', userError);
         }
         setMessage('Connecte-toi pour partager ce programme.');
+        setShareErrorDetails(
+          getProgramShareErrorDetails({
+            message: userError?.message || 'Utilisateur non connecte',
+            code: userError?.code || null,
+            details: userError?.message || null,
+            hint: null,
+          })
+        );
         return;
       }
 
@@ -489,8 +521,10 @@ export default function ProgramDetailPage() {
           return;
         }
 
+        console.error('Share activation error', error);
         console.error('Program sharing update error:', error);
         console.error('Program sharing update error full:', JSON.stringify(error, null, 2));
+        setShareErrorDetails(getProgramShareErrorDetails(error));
 
         if (error?.code !== '23505' || existingInviteCode) {
           setMessage(getProgramSharingErrorMessage(error));
@@ -499,9 +533,25 @@ export default function ProgramDetailPage() {
       }
 
       setMessage("Impossible de generer un lien de partage unique pour le moment.");
+      setShareErrorDetails(
+        getProgramShareErrorDetails({
+          message: 'Aucun invite_code unique n a pu etre genere apres plusieurs essais.',
+          code: 'invite_code_generation_failed',
+          details: 'Le programme n a pas pu passer en shared apres 5 tentatives.',
+          hint: 'Verifie la contrainte unique de training_programs.invite_code.',
+        })
+      );
     } catch (error) {
       console.error('Erreur inattendue partage programme :', error);
       setMessage("Une erreur inattendue s'est produite.");
+      setShareErrorDetails(
+        getProgramShareErrorDetails({
+          message: error instanceof Error ? error.message : 'Erreur inattendue',
+          code: null,
+          details: null,
+          hint: null,
+        })
+      );
     } finally {
       setSharing(false);
     }
@@ -512,6 +562,7 @@ export default function ProgramDetailPage() {
 
     setSharing(true);
     setMessage(null);
+    setShareErrorDetails(null);
 
     try {
       const {
@@ -524,6 +575,14 @@ export default function ProgramDetailPage() {
           console.error('Erreur chargement user fin partage programme :', userError);
         }
         setMessage('Connecte-toi pour modifier le partage de ce programme.');
+        setShareErrorDetails(
+          getProgramShareErrorDetails({
+            message: userError?.message || 'Utilisateur non connecte',
+            code: userError?.code || null,
+            details: userError?.message || null,
+            hint: null,
+          })
+        );
         return;
       }
 
@@ -541,6 +600,7 @@ export default function ProgramDetailPage() {
         console.error('Program sharing disable error:', error);
         console.error('Program sharing disable error full:', JSON.stringify(error, null, 2));
         setMessage("Impossible de desactiver le partage pour le moment.");
+        setShareErrorDetails(getProgramShareErrorDetails(error));
         return;
       }
 
@@ -552,6 +612,14 @@ export default function ProgramDetailPage() {
     } catch (error) {
       console.error('Erreur inattendue desactivation partage programme :', error);
       setMessage("Une erreur inattendue s'est produite.");
+      setShareErrorDetails(
+        getProgramShareErrorDetails({
+          message: error instanceof Error ? error.message : 'Erreur inattendue',
+          code: null,
+          details: null,
+          hint: null,
+        })
+      );
     } finally {
       setSharing(false);
     }
@@ -1053,6 +1121,18 @@ export default function ProgramDetailPage() {
                 <div className="program-share-link">
                   <strong>Lien de partage</strong>
                   <p>{shareUrl}</p>
+                </div>
+              ) : null}
+
+              {shareErrorDetails ? (
+                <div className="form-feedback form-feedback--error">
+                  <strong>Erreur de partage</strong>
+                  <div className="stack stack--xs">
+                    <span>message: {shareErrorDetails.message || '-'}</span>
+                    <span>code: {shareErrorDetails.code || '-'}</span>
+                    <span>details: {shareErrorDetails.details || '-'}</span>
+                    <span>hint: {shareErrorDetails.hint || '-'}</span>
+                  </div>
                 </div>
               ) : null}
 
