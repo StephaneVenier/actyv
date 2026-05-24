@@ -52,6 +52,13 @@ export default function JoinSharedProgramPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
 
+  const returnToPath = useMemo(
+    () => `/programs/join/${encodeURIComponent(inviteCode)}`,
+    [inviteCode]
+  );
+  const loginHref = useMemo(() => `/login?redirectTo=${encodeURIComponent(returnToPath)}`, [returnToPath]);
+  const signupHref = useMemo(() => `/signup?redirectTo=${encodeURIComponent(returnToPath)}`, [returnToPath]);
+
   useEffect(() => {
     const loadSharedProgram = async () => {
       setLoading(true);
@@ -96,11 +103,7 @@ export default function JoinSharedProgramPage() {
             .order('week_number', { ascending: true })
             .order('day_of_week', { ascending: true })
             .order('order_index', { ascending: true }),
-          supabase
-            .from('profiles')
-            .select('username, email')
-            .eq('id', programRow.user_id)
-            .maybeSingle(),
+          supabase.from('profiles').select('username, email').eq('id', programRow.user_id).maybeSingle(),
         ]);
 
         if (sessionsError) {
@@ -138,6 +141,8 @@ export default function JoinSharedProgramPage() {
     return grouped;
   }, [programSessions]);
 
+  const plannedSessionsCount = programSessions.length;
+
   const handleJoinProgram = async () => {
     if (!program || joining) return;
 
@@ -154,7 +159,7 @@ export default function JoinSharedProgramPage() {
         if (userError) {
           console.error('Erreur chargement user ajout programme partage :', userError);
         }
-        setMessage('Connecte-toi pour ajouter ce programme a tes programmes.');
+        router.push(loginHref);
         return;
       }
 
@@ -190,9 +195,7 @@ export default function JoinSharedProgramPage() {
           order_index: entry.order_index,
         }));
 
-        const { error: sessionsInsertError } = await supabase
-          .from('training_program_sessions')
-          .insert(sessionPayload);
+        const { error: sessionsInsertError } = await supabase.from('training_program_sessions').insert(sessionPayload);
 
         if (sessionsInsertError) {
           console.error('Erreur duplication seances programme partage :', sessionsInsertError);
@@ -214,7 +217,7 @@ export default function JoinSharedProgramPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page">
+      <section className="sessions-page sessions-page--dark">
         <article className="card session-hero-card">
           <div className="session-hero-copy">
             <span className="section-kicker">Programmes</span>
@@ -261,9 +264,31 @@ export default function JoinSharedProgramPage() {
                     {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
                   </span>
                   <span>Debut {formatProgramDate(program.start_date)}</span>
+                  <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''} prevue{plannedSessionsCount > 1 ? 's' : ''}</span>
                   {creatorProfile?.username || creatorProfile?.email ? (
                     <span>Par {creatorProfile.username || creatorProfile.email}</span>
                   ) : null}
+                </div>
+
+                <div className="program-share-stats">
+                  <article className="program-share-stat">
+                    <small>Sport</small>
+                    <strong>{program.sport || 'Sport libre'}</strong>
+                  </article>
+                  <article className="program-share-stat">
+                    <small>Duree</small>
+                    <strong>
+                      {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
+                    </strong>
+                  </article>
+                  <article className="program-share-stat">
+                    <small>Debut</small>
+                    <strong>{formatProgramDate(program.start_date)}</strong>
+                  </article>
+                  <article className="program-share-stat">
+                    <small>Seances</small>
+                    <strong>{plannedSessionsCount}</strong>
+                  </article>
                 </div>
               </div>
 
@@ -272,9 +297,14 @@ export default function JoinSharedProgramPage() {
                   {joining ? 'Ajout en cours...' : 'Ajouter a mes programmes'}
                 </button>
                 {userId ? null : (
-                  <Link href="/login" className="button ghost">
-                    Se connecter
-                  </Link>
+                  <>
+                    <Link href={loginHref} className="button ghost">
+                      Se connecter
+                    </Link>
+                    <Link href={signupHref} className="button ghost">
+                      Creer un compte
+                    </Link>
+                  </>
                 )}
                 <Link href="/programs" className="button ghost">
                   Annuler

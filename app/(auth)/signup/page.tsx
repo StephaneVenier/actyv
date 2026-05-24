@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
@@ -14,6 +14,17 @@ export default function SignupPage() {
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  const redirectTo = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '/login';
+    }
+    const nextValue = new URLSearchParams(window.location.search).get('redirectTo');
+    if (!nextValue || !nextValue.startsWith('/')) {
+      return '/login';
+    }
+    return nextValue;
+  }, []);
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -57,7 +68,7 @@ export default function SignupPage() {
     setMessage('Compte créé avec succès.');
     setLoading(false);
 
-    router.push('/login');
+    router.push(redirectTo);
   };
 
   return (

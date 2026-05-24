@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
@@ -12,6 +12,17 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const redirectTo = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return '/';
+    }
+    const nextValue = new URLSearchParams(window.location.search).get('redirectTo');
+    if (!nextValue || !nextValue.startsWith('/')) {
+      return '/';
+    }
+    return nextValue;
+  }, []);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,7 +40,7 @@ export default function LoginPage() {
         return;
       }
 
-      router.replace('/');
+      router.replace(redirectTo);
       router.refresh();
     } catch (err) {
       console.error('Erreur connexion :', err);

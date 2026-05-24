@@ -2303,6 +2303,40 @@ img {
   margin: 0;
 }
 
+.program-share-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.program-share-stat {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.program-share-stat small,
+.program-share-stat strong {
+  margin: 0;
+}
+
+.program-share-stat small {
+  color: #9fb5b3;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.program-share-stat strong {
+  color: #f4f7f6;
+  font-size: 0.95rem;
+  line-height: 1.25;
+}
+
 .program-join-week-list {
   display: grid;
   gap: 18px;
