@@ -1161,6 +1161,9 @@ create table if not exists public.training_programs (
 );
 
 alter table if exists public.training_programs
+  add column if not exists visibility text not null default 'private';
+
+alter table if exists public.training_programs
   add column if not exists invite_code text;
 
 alter table if exists public.training_programs
