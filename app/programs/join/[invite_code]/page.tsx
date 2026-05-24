@@ -35,7 +35,14 @@ function sortProgramSessions(entries: TrainingProgramSession[]) {
 export default function JoinSharedProgramPage() {
   const params = useParams();
   const router = useRouter();
-  const inviteCode = String(params?.invite_code || '');
+  const rawInviteCode = Array.isArray(params?.invite_code) ? params.invite_code[0] : params?.invite_code;
+  const inviteCode = useMemo(() => {
+    try {
+      return decodeURIComponent(String(rawInviteCode || '')).trim();
+    } catch {
+      return String(rawInviteCode || '').trim();
+    }
+  }, [rawInviteCode]);
 
   const [program, setProgram] = useState<SharedProgramRecord | null>(null);
   const [programSessions, setProgramSessions] = useState<TrainingProgramSession[]>([]);

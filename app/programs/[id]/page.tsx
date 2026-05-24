@@ -189,6 +189,7 @@ export default function ProgramDetailPage() {
   const [plannerBusy, setPlannerBusy] = useState(false);
   const [activeSlot, setActiveSlot] = useState<PlannerSlot | null>(null);
   const [planView, setPlanView] = useState<ProgramPlanView>('calendar');
+  const [isMobileProgramLayout, setIsMobileProgramLayout] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [shareErrorDetails, setShareErrorDetails] = useState<ProgramShareErrorDetails | null>(null);
 
@@ -197,6 +198,16 @@ export default function ProgramDetailPage() {
     if (savedView === 'calendar' || savedView === 'list') {
       setPlanView(savedView);
     }
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateViewport = () => setIsMobileProgramLayout(mediaQuery.matches);
+
+    updateViewport();
+    mediaQuery.addEventListener('change', updateViewport);
+
+    return () => mediaQuery.removeEventListener('change', updateViewport);
   }, []);
 
   useEffect(() => {
@@ -215,6 +226,8 @@ export default function ProgramDetailPage() {
   useEffect(() => {
     window.localStorage.setItem('actyv-program-plan-view', planView);
   }, [planView]);
+
+  const effectivePlanView: ProgramPlanView = isMobileProgramLayout ? 'list' : planView;
 
   useEffect(() => {
     const loadProgram = async () => {
@@ -457,7 +470,7 @@ export default function ProgramDetailPage() {
 
   const shareUrl = useMemo(() => {
     if (!program?.invite_code || typeof window === 'undefined') return null;
-    return `${window.location.origin}/programs/join/${program.invite_code}`;
+    return `${window.location.origin}/programs/join/${encodeURIComponent(program.invite_code.trim())}`;
   }, [program?.invite_code]);
 
   const togglePlannerSlot = (weekNumber: number, dayOfWeek: number) => {
@@ -1208,26 +1221,32 @@ export default function ProgramDetailPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Plan du programme</span>
-                  <h2>{planView === 'calendar' ? 'Calendrier des semaines' : 'Liste des seances'}</h2>
+                  <h2>{effectivePlanView === 'calendar' ? 'Calendrier des semaines' : 'Liste des seances'}</h2>
                 </div>
-                <div className="program-view-toggle" role="tablist" aria-label="Changer la vue du programme">
-                  <button
-                    type="button"
-                    className={`program-view-toggle__button ${planView === 'calendar' ? 'is-active' : ''}`}
-                    onClick={() => setPlanView('calendar')}
-                    aria-pressed={planView === 'calendar'}
-                  >
-                    Vue calendrier
-                  </button>
-                  <button
-                    type="button"
-                    className={`program-view-toggle__button ${planView === 'list' ? 'is-active' : ''}`}
-                    onClick={() => setPlanView('list')}
-                    aria-pressed={planView === 'list'}
-                  >
-                    Vue liste
-                  </button>
-                </div>
+                {isMobileProgramLayout ? (
+                  <div className="program-view-toggle program-view-toggle--mobile-note" aria-live="polite">
+                    <span className="program-view-toggle__mobile-label">Vue liste active sur mobile</span>
+                  </div>
+                ) : (
+                  <div className="program-view-toggle" role="tablist" aria-label="Changer la vue du programme">
+                    <button
+                      type="button"
+                      className={`program-view-toggle__button ${planView === 'calendar' ? 'is-active' : ''}`}
+                      onClick={() => setPlanView('calendar')}
+                      aria-pressed={planView === 'calendar'}
+                    >
+                      Vue calendrier
+                    </button>
+                    <button
+                      type="button"
+                      className={`program-view-toggle__button ${planView === 'list' ? 'is-active' : ''}`}
+                      onClick={() => setPlanView('list')}
+                      aria-pressed={planView === 'list'}
+                    >
+                      Vue liste
+                    </button>
+                  </div>
+                )}
               </div>
 
               {programSessions.length === 0 ? (
@@ -1255,7 +1274,7 @@ export default function ProgramDetailPage() {
                         </div>
                       </div>
 
-                      {planView === 'calendar' ? (
+                      {effectivePlanView === 'calendar' ? (
                         <div
                           className="program-plan-days program-plan-days--calendar"
                           style={

@@ -2489,6 +2489,19 @@ img {
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
+.program-view-toggle--mobile-note {
+  padding-inline: 12px;
+  min-height: 34px;
+  background: rgba(15, 23, 42, 0.04);
+}
+
+.program-view-toggle__mobile-label {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
 .program-plan-week__header h3,
 .program-plan-day__label strong,
 .program-planner-panel__header strong,
@@ -4551,6 +4564,10 @@ img {
   .program-view-toggle {
     width: 100%;
     justify-content: stretch;
+  }
+
+  .program-view-toggle--mobile-note {
+    justify-content: center;
   }
 
   .program-view-toggle__button {
