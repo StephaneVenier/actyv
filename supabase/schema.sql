@@ -1153,11 +1153,25 @@ create table if not exists public.training_programs (
   description text,
   sport text,
   duration_weeks integer not null default 4 check (duration_weeks > 0),
-  visibility text not null default 'private' check (visibility in ('private')),
+  visibility text not null default 'private' check (visibility in ('private', 'shared')),
+  invite_code text,
   start_date date not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.training_programs
+  add column if not exists invite_code text;
+
+alter table if exists public.training_programs
+  alter column visibility set default 'private';
+
+alter table if exists public.training_programs
+  drop constraint if exists training_programs_visibility_check;
+
+alter table if exists public.training_programs
+  add constraint training_programs_visibility_check
+  check (visibility in ('private', 'shared'));
 
 create table if not exists public.training_program_sessions (
   id uuid primary key default gen_random_uuid(),
@@ -1185,6 +1199,10 @@ create table if not exists public.training_program_completions (
 create index if not exists training_programs_user_created_idx
   on public.training_programs (user_id, created_at desc);
 
+create unique index if not exists training_programs_invite_code_uidx
+  on public.training_programs (invite_code)
+  where invite_code is not null;
+
 create index if not exists training_program_sessions_program_schedule_idx
   on public.training_program_sessions (program_id, week_number, day_of_week, order_index);
 
@@ -1201,7 +1219,10 @@ alter table if exists public.training_program_completions enable row level secur
 drop policy if exists "Users can read own training programs" on public.training_programs;
 create policy "Users can read own training programs"
   on public.training_programs for select
-  using (auth.uid() = user_id);
+  using (
+    auth.uid() = user_id
+    or (visibility = 'shared' and invite_code is not null)
+  );
 
 drop policy if exists "Users can insert own training programs" on public.training_programs;
 create policy "Users can insert own training programs"
@@ -1227,7 +1248,10 @@ create policy "Users can read own training program sessions"
       select 1
       from public.training_programs
       where training_programs.id = training_program_sessions.program_id
-        and training_programs.user_id = auth.uid()
+        and (
+          training_programs.user_id = auth.uid()
+          or (training_programs.visibility = 'shared' and training_programs.invite_code is not null)
+        )
     )
   );
 
@@ -1299,3 +1323,5 @@ create policy "Users can delete own training program completions"
 grant select, insert, update, delete on public.training_programs to authenticated;
 grant select, insert, update, delete on public.training_program_sessions to authenticated;
 grant select, insert, update, delete on public.training_program_completions to authenticated;
+grant select on public.training_programs to anon;
+grant select on public.training_program_sessions to anon;

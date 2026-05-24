@@ -8,6 +8,7 @@ import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { supabase } from '@/lib/supabase';
 import {
+  generateProgramInviteCode,
   formatProgramDate,
   formatProgramDayLabel,
   formatProgramEndDate,
@@ -106,6 +107,7 @@ export default function ProgramDetailPage() {
   const [loadingAvailableSessions, setLoadingAvailableSessions] = useState(true);
   const [deleting, setDeleting] = useState(false);
   const [duplicating, setDuplicating] = useState(false);
+  const [sharing, setSharing] = useState(false);
   const [plannerBusy, setPlannerBusy] = useState(false);
   const [activeSlot, setActiveSlot] = useState<PlannerSlot | null>(null);
   const [planView, setPlanView] = useState<ProgramPlanView>('calendar');
@@ -161,7 +163,7 @@ export default function ProgramDetailPage() {
 
         const { data: programRow, error: programError } = await supabase
           .from('training_programs')
-          .select('id, user_id, name, description, sport, duration_weeks, visibility, start_date, created_at')
+          .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
           .eq('id', id)
           .eq('user_id', user.id)
           .maybeSingle();
@@ -378,10 +380,136 @@ export default function ProgramDetailPage() {
     return shortDate ? `${dayLabel} ${shortDate}` : `${getProgramWeekLabel(activeSlot.weekNumber)} - ${dayLabel}`;
   }, [activeSlot, program?.start_date]);
 
+  const shareUrl = useMemo(() => {
+    if (!program?.invite_code || typeof window === 'undefined') return null;
+    return `${window.location.origin}/programs/join/${program.invite_code}`;
+  }, [program?.invite_code]);
+
   const togglePlannerSlot = (weekNumber: number, dayOfWeek: number) => {
     setActiveSlot((current) =>
       current?.weekNumber === weekNumber && current?.dayOfWeek === dayOfWeek ? null : { weekNumber, dayOfWeek }
     );
+  };
+
+  const enableProgramSharing = async () => {
+    if (!program || sharing) return;
+
+    setSharing(true);
+    setMessage(null);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (userError) {
+          console.error('Erreur chargement user partage programme :', userError);
+        }
+        setMessage('Connecte-toi pour partager ce programme.');
+        return;
+      }
+
+      const existingInviteCode = program.invite_code || null;
+
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const inviteCode = existingInviteCode || generateProgramInviteCode();
+        const { data: updatedProgram, error } = await supabase
+          .from('training_programs')
+          .update({
+            visibility: 'shared',
+            invite_code: inviteCode,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', program.id)
+          .eq('user_id', user.id)
+          .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
+          .single();
+
+        if (!error && updatedProgram) {
+          setProgram(updatedProgram as TrainingProgram);
+          queuePendingToast({ message: 'Partage active', tone: 'success' });
+          return;
+        }
+
+        if (error?.code !== '23505' || existingInviteCode) {
+          console.error('Erreur activation partage programme :', error);
+          setMessage("Impossible d'activer le partage pour le moment.");
+          return;
+        }
+      }
+
+      setMessage("Impossible de generer un lien de partage unique pour le moment.");
+    } catch (error) {
+      console.error('Erreur inattendue partage programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const disableProgramSharing = async () => {
+    if (!program || sharing) return;
+
+    setSharing(true);
+    setMessage(null);
+
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        if (userError) {
+          console.error('Erreur chargement user fin partage programme :', userError);
+        }
+        setMessage('Connecte-toi pour modifier le partage de ce programme.');
+        return;
+      }
+
+      const { data: updatedProgram, error } = await supabase
+        .from('training_programs')
+        .update({
+          visibility: 'private',
+          invite_code: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', program.id)
+        .eq('user_id', user.id)
+        .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
+        .single();
+
+      if (error || !updatedProgram) {
+        console.error('Erreur desactivation partage programme :', error);
+        setMessage("Impossible de desactiver le partage pour le moment.");
+        return;
+      }
+
+      setProgram(updatedProgram as TrainingProgram);
+      queuePendingToast({ message: 'Partage desactive', tone: 'info' });
+    } catch (error) {
+      console.error('Erreur inattendue desactivation partage programme :', error);
+      setMessage("Une erreur inattendue s'est produite.");
+    } finally {
+      setSharing(false);
+    }
+  };
+
+  const copyProgramShareLink = async () => {
+    if (!shareUrl) {
+      setMessage("Active le partage pour obtenir un lien.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      queuePendingToast({ message: 'Lien de partage copie', tone: 'success' });
+    } catch (error) {
+      console.error('Erreur copie lien partage programme :', error);
+      setMessage("Impossible de copier le lien pour le moment.");
+    }
   };
 
   const handleDuplicateProgram = async () => {
@@ -841,6 +969,63 @@ export default function ProgramDetailPage() {
                 {!program.start_date ? (
                   <p>Ajoute une date de debut pour afficher les dates dans le calendrier.</p>
                 ) : null}
+              </div>
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Partage</span>
+                  <h2>Partager le programme</h2>
+                </div>
+                <span className={`session-progress-pill ${program.visibility === 'shared' ? 'session-progress-pill--done' : ''}`}>
+                  {program.visibility === 'shared' ? 'Partage actif' : 'Programme prive'}
+                </span>
+              </div>
+
+              <p className="muted">
+                {program.visibility === 'shared'
+                  ? 'Ce programme peut etre consulte puis ajoute comme copie via son lien de partage.'
+                  : 'Active le partage pour generer un lien public et permettre a d autres utilisateurs de copier ce programme.'}
+              </p>
+
+              {program.visibility === 'shared' && shareUrl ? (
+                <div className="program-share-link">
+                  <strong>Lien de partage</strong>
+                  <p>{shareUrl}</p>
+                </div>
+              ) : null}
+
+              <div className="session-summary-actions">
+                {program.visibility === 'shared' ? (
+                  <>
+                    <button
+                      type="button"
+                      className="button primary"
+                      onClick={copyProgramShareLink}
+                      disabled={sharing || !shareUrl}
+                    >
+                      Copier le lien
+                    </button>
+                    <button
+                      type="button"
+                      className="button ghost"
+                      onClick={disableProgramSharing}
+                      disabled={sharing}
+                    >
+                      {sharing ? 'Mise a jour...' : 'Desactiver le partage'}
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={enableProgramSharing}
+                    disabled={sharing}
+                  >
+                    {sharing ? 'Activation...' : 'Activer le partage'}
+                  </button>
+                )}
               </div>
             </article>
 

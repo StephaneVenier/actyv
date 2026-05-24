@@ -5,7 +5,8 @@ export type TrainingProgram = {
   description: string | null;
   sport: string | null;
   duration_weeks: number;
-  visibility: 'private';
+  visibility: 'private' | 'shared';
+  invite_code?: string | null;
   start_date: string;
   created_at: string | null;
 };
@@ -100,7 +101,24 @@ export function clampProgramDay(dayOfWeek: number) {
 }
 
 export function formatProgramVisibilityLabel(visibility: string | null | undefined) {
-  return visibility === 'private' || !visibility ? 'Prive' : visibility;
+  if (visibility === 'shared') return 'Partage';
+  return 'Prive';
+}
+
+export function generateProgramInviteCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const values = new Uint32Array(6);
+
+  if (typeof window !== 'undefined' && window.crypto?.getRandomValues) {
+    window.crypto.getRandomValues(values);
+  } else {
+    for (let index = 0; index < values.length; index += 1) {
+      values[index] = Math.floor(Math.random() * alphabet.length);
+    }
+  }
+
+  const code = Array.from(values, (value) => alphabet[value % alphabet.length]).join('');
+  return `ACTYV-${code}`;
 }
 
 export function getProgramDayLabel(dayOfWeek: number) {
