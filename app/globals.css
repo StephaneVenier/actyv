@@ -2445,8 +2445,10 @@ img {
 
 .program-next-session-card {
   background:
-    linear-gradient(135deg, rgba(53, 230, 107, 0.08), rgba(32, 183, 166, 0.08)),
-    rgba(255, 255, 255, 0.04);
+    linear-gradient(135deg, rgba(53, 230, 107, 0.12), rgba(32, 183, 166, 0.11)),
+    rgba(7, 17, 17, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.24);
 }
 
 .program-next-session-card__grid {
@@ -2476,14 +2478,15 @@ img {
 
 .program-next-session-card__copy strong,
 .program-next-session-card__empty strong {
-  color: #f4f7f6;
+  color: #ffffff;
   font-size: 1.08rem;
   line-height: 1.2;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.18);
 }
 
 .program-next-session-card__copy p,
 .program-next-session-card__empty p {
-  color: #9fb5b3;
+  color: rgba(244, 247, 246, 0.82);
 }
 
 .program-next-session-card__stats {
@@ -2497,12 +2500,13 @@ img {
   gap: 4px;
   padding: 12px 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(3, 9, 10, 0.44);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .program-next-session-card__stats span {
-  color: #9fb5b3;
+  color: rgba(244, 247, 246, 0.78);
   font-size: 0.74rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -2510,7 +2514,7 @@ img {
 }
 
 .program-next-session-card__stats strong {
-  color: #f4f7f6;
+  color: #ffffff;
   font-size: 0.96rem;
   line-height: 1.2;
 }
@@ -2532,10 +2536,11 @@ img {
   min-height: 30px;
   padding: 0 10px;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
-  color: #d5e4e2;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.8rem;
   font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .program-next-session-card__empty {
