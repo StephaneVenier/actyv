@@ -100,10 +100,7 @@ export default function JoinSharedProgramPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [joinErrorDetails, setJoinErrorDetails] = useState<JoinProgramErrorDetails | null>(null);
 
-  const returnToPath = useMemo(
-    () => `/programs/join/${encodeURIComponent(inviteCode)}`,
-    [inviteCode]
-  );
+  const returnToPath = useMemo(() => `/programs/join/${encodeURIComponent(inviteCode)}`, [inviteCode]);
   const loginHref = useMemo(() => `/login?redirectTo=${encodeURIComponent(returnToPath)}`, [returnToPath]);
   const signupHref = useMemo(() => `/signup?redirectTo=${encodeURIComponent(returnToPath)}`, [returnToPath]);
 
@@ -191,6 +188,7 @@ export default function JoinSharedProgramPage() {
   }, [programSessions]);
 
   const plannedSessionsCount = programSessions.length;
+  const previewSessions = useMemo(() => programSessions.slice(0, 5), [programSessions]);
 
   const handleJoinProgram = async () => {
     if (!program || joining) return;
@@ -311,6 +309,11 @@ export default function JoinSharedProgramPage() {
         ) : !program ? (
           <div className="challenge-state">
             <p>{message || 'Ce lien de partage est indisponible.'}</p>
+            <div className="session-empty-actions">
+              <Link href="/programs" className="button primary">
+                Retour aux programmes
+              </Link>
+            </div>
           </div>
         ) : (
           <>
@@ -334,7 +337,7 @@ export default function JoinSharedProgramPage() {
                     {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
                   </span>
                   <span>Debut {formatProgramDate(program.start_date)}</span>
-                  <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''} prevue{plannedSessionsCount > 1 ? 's' : ''}</span>
+                  <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''}</span>
                   {creatorProfile?.username || creatorProfile?.email ? (
                     <span>Par {creatorProfile.username || creatorProfile.email}</span>
                   ) : null}
@@ -342,23 +345,38 @@ export default function JoinSharedProgramPage() {
 
                 <div className="program-share-stats">
                   <article className="program-share-stat">
-                    <small>Sport</small>
-                    <strong>{program.sport || 'Sport libre'}</strong>
-                  </article>
-                  <article className="program-share-stat">
-                    <small>Duree</small>
+                    <small>Semaines</small>
                     <strong>
                       {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
                     </strong>
                   </article>
                   <article className="program-share-stat">
-                    <small>Debut</small>
-                    <strong>{formatProgramDate(program.start_date)}</strong>
-                  </article>
-                  <article className="program-share-stat">
                     <small>Seances</small>
                     <strong>{plannedSessionsCount}</strong>
                   </article>
+                  <article className="program-share-stat">
+                    <small>Sport principal</small>
+                    <strong>{program.sport || 'Sport libre'}</strong>
+                  </article>
+                  <article className="program-share-stat">
+                    <small>Createur</small>
+                    <strong>{creatorProfile?.username || creatorProfile?.email || 'Actyv'}</strong>
+                  </article>
+                </div>
+
+                <div className="program-share-summary">
+                  <div className="program-share-summary__header">
+                    <span className="section-kicker">Resume</span>
+                    <h3>Ce programme contient</h3>
+                  </div>
+                  <div className="program-share-summary__facts">
+                    <span>{program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}</span>
+                    <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''}</span>
+                    <span>{program.sport || 'Sport libre'}</span>
+                    {creatorProfile?.username || creatorProfile?.email ? (
+                      <span>Par {creatorProfile.username || creatorProfile.email}</span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
 
@@ -380,13 +398,18 @@ export default function JoinSharedProgramPage() {
                   Annuler
                 </Link>
               </div>
+
+              <div className="program-share-note">
+                <strong>Ajout prive</strong>
+                <p>Une copie privee sera creee dans ton espace. Ta progression restera personnelle.</p>
+              </div>
             </article>
 
             <article className="card session-form-card stack">
               <div className="session-blocks-header">
                 <div>
-                  <span className="section-kicker">Apercu</span>
-                  <h2>Seances du programme</h2>
+                  <span className="section-kicker">Preview</span>
+                  <h2>Les premieres seances</h2>
                 </div>
               </div>
 
@@ -395,6 +418,49 @@ export default function JoinSharedProgramPage() {
                   <p>Aucune seance n est planifiee pour le moment.</p>
                 </div>
               ) : (
+                <div className="program-list-view">
+                  {previewSessions.map((entry) => (
+                    <article key={entry.id} className="program-list-item">
+                      <div className="program-list-item__main">
+                        <div className="program-list-item__heading">
+                          <strong>Semaine {entry.week_number}</strong>
+                          <span aria-hidden="true">•</span>
+                          <span>{formatProgramDayLabel(program.start_date, entry.week_number, entry.day_of_week)}</span>
+                          <span aria-hidden="true">•</span>
+                          <span className="program-list-item__title">{entry.session_name}</span>
+                        </div>
+                        <div className="program-list-item__meta">
+                          <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
+                          <span>
+                            {formatProgramPlannedDateLabel(program.start_date, entry.week_number, entry.day_of_week)}
+                          </span>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+
+                  {programSessions.length > previewSessions.length ? (
+                    <div className="program-list-empty">
+                      <p className="muted">
+                        + {programSessions.length - previewSessions.length} autre
+                        {programSessions.length - previewSessions.length > 1 ? 's' : ''} seance
+                        {programSessions.length - previewSessions.length > 1 ? 's' : ''}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              )}
+            </article>
+
+            {programSessions.length > 0 ? (
+              <article className="card session-form-card stack">
+                <div className="session-blocks-header">
+                  <div>
+                    <span className="section-kicker">Planning</span>
+                    <h2>Vue compacte du programme</h2>
+                  </div>
+                </div>
+
                 <div className="program-join-week-list">
                   {Array.from(sessionsByWeek.entries())
                     .sort(([leftWeek], [rightWeek]) => leftWeek - rightWeek)
@@ -412,20 +478,14 @@ export default function JoinSharedProgramPage() {
                             <article key={entry.id} className="program-list-item">
                               <div className="program-list-item__main">
                                 <div className="program-list-item__heading">
-                                  <strong>
-                                    {formatProgramDayLabel(program.start_date, entry.week_number, entry.day_of_week)}
-                                  </strong>
+                                  <strong>{formatProgramDayLabel(program.start_date, entry.week_number, entry.day_of_week)}</strong>
                                   <span aria-hidden="true">•</span>
                                   <span className="program-list-item__title">{entry.session_name}</span>
                                 </div>
                                 <div className="program-list-item__meta">
                                   <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
                                   <span>
-                                    {formatProgramPlannedDateLabel(
-                                      program.start_date,
-                                      entry.week_number,
-                                      entry.day_of_week
-                                    )}
+                                    {formatProgramPlannedDateLabel(program.start_date, entry.week_number, entry.day_of_week)}
                                   </span>
                                 </div>
                               </div>
@@ -435,8 +495,8 @@ export default function JoinSharedProgramPage() {
                       </section>
                     ))}
                 </div>
-              )}
-            </article>
+              </article>
+            ) : null}
           </>
         )}
       </section>
