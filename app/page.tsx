@@ -6,6 +6,14 @@ import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
 import { supabase } from '@/lib/supabase';
+import {
+  formatProgramDate,
+  formatProgramDayLabel,
+  getProgramSessionPlannedDate,
+  TrainingProgram,
+  TrainingProgramCompletion,
+  TrainingProgramSession,
+} from '@/lib/training-programs';
 
 type Challenge = {
   id: string;
@@ -52,6 +60,32 @@ type ChallengeParticipant = {
   user_id: string | null;
 };
 
+type ProgramReminderEntry = {
+  key: string;
+  program: TrainingProgram;
+  session: TrainingProgramSession;
+  plannedDate: Date | null;
+  status: 'completed' | 'todo';
+};
+
+function isSameLocalDay(left: Date, right: Date) {
+  return (
+    left.getFullYear() === right.getFullYear() &&
+    left.getMonth() === right.getMonth() &&
+    left.getDate() === right.getDate()
+  );
+}
+
+function compareReminderEntries(left: ProgramReminderEntry, right: ProgramReminderEntry) {
+  const leftTime = left.plannedDate ? left.plannedDate.getTime() : Number.POSITIVE_INFINITY;
+  const rightTime = right.plannedDate ? right.plannedDate.getTime() : Number.POSITIVE_INFINITY;
+
+  if (leftTime !== rightTime) return leftTime - rightTime;
+  if (left.session.week_number !== right.session.week_number) return left.session.week_number - right.session.week_number;
+  if (left.session.day_of_week !== right.session.day_of_week) return left.session.day_of_week - right.session.day_of_week;
+  return left.session.order_index - right.session.order_index;
+}
+
 function formatDate(dateString: string | null) {
   if (!dateString) return 'Date inconnue';
 
@@ -88,6 +122,16 @@ function formatDistance(distance: number | null) {
 function formatDuration(duration: number | null) {
   if (duration === null || duration === undefined) return null;
   return `${duration} min`;
+}
+
+function formatReminderPlannedDate(date: Date | null) {
+  if (!date) return 'Date a definir';
+
+  return date.toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: '2-digit',
+    month: 'short',
+  });
 }
 
 const HOME_ACTIONS = [
@@ -138,15 +182,19 @@ const HOME_ACTIONS = [
 export default function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [todayProgramSessions, setTodayProgramSessions] = useState<ProgramReminderEntry[]>([]);
+  const [nextProgramSession, setNextProgramSession] = useState<ProgramReminderEntry | null>(null);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
   const [profilesMap, setProfilesMap] = useState<Record<string, SocialProfile>>({});
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
+  const [loadingProgramReminders, setLoadingProgramReminders] = useState(true);
 
   useEffect(() => {
     const fetchHomeData = async () => {
       setLoadingChallenges(true);
       setLoadingFeed(true);
+      setLoadingProgramReminders(true);
 
       const {
         data: { user },
@@ -154,6 +202,102 @@ export default function HomePage() {
 
       const userEmail = user?.email || null;
       const userId = user?.id || null;
+
+      if (userId) {
+        const { data: programsRows, error: programsError } = await supabase
+          .from('training_programs')
+          .select('id, user_id, name, description, sport, duration_weeks, visibility, start_date, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+
+        if (programsError) {
+          console.error('Erreur chargement rappels programmes :', programsError);
+          setTodayProgramSessions([]);
+          setNextProgramSession(null);
+        } else {
+          const programs = (programsRows as TrainingProgram[] | null) || [];
+
+          if (programs.length === 0) {
+            setTodayProgramSessions([]);
+            setNextProgramSession(null);
+          } else {
+            const programIds = programs.map((program) => program.id);
+            const [sessionsResponse, completionsResponse] = await Promise.all([
+              supabase
+                .from('training_program_sessions')
+                .select('id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, created_at')
+                .in('program_id', programIds)
+                .order('week_number', { ascending: true })
+                .order('day_of_week', { ascending: true })
+                .order('order_index', { ascending: true }),
+              supabase
+                .from('training_program_completions')
+                .select('id, user_id, program_id, program_session_id, session_id, workout_history_id, completed_at, created_at')
+                .eq('user_id', userId)
+                .in('program_id', programIds)
+                .order('completed_at', { ascending: false }),
+            ]);
+
+            if (sessionsResponse.error) {
+              console.error('Erreur chargement seances programmes accueil :', sessionsResponse.error);
+              setTodayProgramSessions([]);
+              setNextProgramSession(null);
+            } else {
+              if (completionsResponse.error) {
+                console.error('Erreur chargement progression programmes accueil :', completionsResponse.error);
+              }
+
+              const programSessions = (sessionsResponse.data as TrainingProgramSession[] | null) || [];
+              const programCompletions = (completionsResponse.data as TrainingProgramCompletion[] | null) || [];
+              const completedProgramSessionIds = new Set(programCompletions.map((entry) => entry.program_session_id));
+              const programsById = new Map(programs.map((program) => [program.id, program]));
+              const today = new Date();
+              const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+              const reminderEntries = programSessions
+                .map((session) => {
+                  const program = programsById.get(session.program_id);
+                  if (!program) return null;
+
+                  const plannedDate = program.start_date
+                    ? getProgramSessionPlannedDate(program.start_date, session.week_number, session.day_of_week)
+                    : null;
+
+                  return {
+                    key: session.id,
+                    program,
+                    session,
+                    plannedDate,
+                    status: completedProgramSessionIds.has(session.id) ? 'completed' : 'todo',
+                  } satisfies ProgramReminderEntry;
+                })
+                .filter((entry): entry is ProgramReminderEntry => Boolean(entry));
+
+              const remainingEntries = reminderEntries
+                .filter((entry) => entry.status !== 'completed')
+                .sort(compareReminderEntries);
+
+              const todayEntries = remainingEntries.filter(
+                (entry) => entry.plannedDate && isSameLocalDay(entry.plannedDate, todayLocal)
+              );
+
+              const futureEntries = remainingEntries.filter(
+                (entry) => entry.plannedDate && entry.plannedDate.getTime() > todayLocal.getTime()
+              );
+
+              const undatedEntries = remainingEntries.filter((entry) => !entry.plannedDate);
+
+              setTodayProgramSessions(todayEntries);
+              setNextProgramSession(todayEntries[0] || futureEntries[0] || undatedEntries[0] || remainingEntries[0] || null);
+            }
+          }
+        }
+      } else {
+        setTodayProgramSessions([]);
+        setNextProgramSession(null);
+      }
+
+      setLoadingProgramReminders(false);
 
       let visibleChallengeIds: string[] = [];
 
@@ -389,17 +533,115 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="home-placeholder card">
+        <section className="home-placeholder card home-program-reminders">
           <div className="home-challenges__header">
             <div>
-              <span className="section-kicker">Bientot</span>
-              <h2>Seance du jour</h2>
+              <span className="section-kicker">Programmes</span>
+              <h2>A faire aujourd hui</h2>
             </div>
+            <Link href="/programs" className="home-challenges__link">
+              Voir mes programmes
+            </Link>
           </div>
-          <p className="muted">
-            Cet espace accueillera bientot une proposition simple pour t’aider a lancer plus vite ta prochaine seance.
-          </p>
-          {/* Placeholder structure kept intentionally for the future "Séance du jour" module. */}
+
+          {loadingProgramReminders ? (
+            <div className="challenge-state challenge-state--compact">
+              <p>Chargement de tes seances du jour...</p>
+            </div>
+          ) : todayProgramSessions.length > 0 ? (
+            <div className="home-program-reminder-list">
+              {todayProgramSessions.map((entry) => (
+                <article key={entry.key} className="home-program-reminder-card">
+                  <div className="home-program-reminder-card__top">
+                    <div className={getSportBadgeClassName(entry.session.sport || entry.program.sport, 'badge', 'Sport')}>
+                      {formatSportBadgeLabel(entry.session.sport || entry.program.sport, 'Sport')}
+                    </div>
+                    <span className="session-progress-pill">{formatReminderPlannedDate(entry.plannedDate)}</span>
+                  </div>
+
+                  <div className="home-program-reminder-card__copy">
+                    <strong>{entry.session.session_name}</strong>
+                    <p>{entry.program.name}</p>
+                  </div>
+
+                  <div className="program-card__facts">
+                    <span>{entry.program.name}</span>
+                    <span>{formatProgramDayLabel(entry.program.start_date, entry.session.week_number, entry.session.day_of_week)}</span>
+                    <span>Semaine {entry.session.week_number}</span>
+                  </div>
+
+                  <div className="home-program-reminder-card__actions">
+                    {entry.session.session_id ? (
+                      <Link href={`/sessions/${entry.session.session_id}/live`} className="button primary">
+                        Lancer
+                      </Link>
+                    ) : (
+                      <Link href={`/programs/${entry.program.id}`} className="button primary">
+                        Voir le programme
+                      </Link>
+                    )}
+                    <Link href={`/programs/${entry.program.id}`} className="button ghost">
+                      Voir programme
+                    </Link>
+                  </div>
+                </article>
+              ))}
+            </div>
+          ) : (
+            <div className="home-program-reminder-empty stack">
+              <div className="challenge-state challenge-state--compact">
+                <p>Rien de prevu aujourd hui.</p>
+              </div>
+
+              {nextProgramSession ? (
+                <article className="home-program-reminder-card home-program-reminder-card--next">
+                  <div className="home-program-reminder-card__top">
+                    <span className="section-kicker">Prochaine seance</span>
+                    <span className="session-progress-pill">{formatReminderPlannedDate(nextProgramSession.plannedDate)}</span>
+                  </div>
+
+                  <div className="home-program-reminder-card__copy">
+                    <strong>{nextProgramSession.session.session_name}</strong>
+                    <p>{nextProgramSession.program.name}</p>
+                  </div>
+
+                  <div className="program-card__facts">
+                    <span>{nextProgramSession.program.sport || 'Sport libre'}</span>
+                    <span>
+                      Semaine {nextProgramSession.session.week_number} •{' '}
+                      {formatProgramDayLabel(
+                        nextProgramSession.program.start_date,
+                        nextProgramSession.session.week_number,
+                        nextProgramSession.session.day_of_week
+                      )}
+                    </span>
+                    {nextProgramSession.program.start_date ? (
+                      <span>Debut {formatProgramDate(nextProgramSession.program.start_date)}</span>
+                    ) : (
+                      <span>Programme sans date de debut</span>
+                    )}
+                  </div>
+
+                  <div className="home-program-reminder-card__actions">
+                    {nextProgramSession.session.session_id ? (
+                      <Link href={`/sessions/${nextProgramSession.session.session_id}/live`} className="button primary">
+                        Lancer
+                      </Link>
+                    ) : (
+                      <Link href={`/programs/${nextProgramSession.program.id}`} className="button primary">
+                        Voir le programme
+                      </Link>
+                    )}
+                    <Link href={`/programs/${nextProgramSession.program.id}`} className="button ghost">
+                      Voir programme
+                    </Link>
+                  </div>
+                </article>
+              ) : (
+                <p className="muted">Aucune prochaine seance a afficher pour le moment.</p>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="home-challenges">

@@ -1521,6 +1521,67 @@ img {
   box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
 }
 
+.home-program-reminders {
+  display: grid;
+  gap: 18px;
+}
+
+.home-program-reminder-list,
+.home-program-reminder-empty {
+  display: grid;
+  gap: 14px;
+}
+
+.home-program-reminder-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(53, 230, 107, 0.12), rgba(32, 183, 166, 0.08)),
+    rgba(248, 250, 252, 0.94);
+  border: 1px solid rgba(32, 183, 166, 0.16);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.05);
+}
+
+.home-program-reminder-card--next {
+  background:
+    linear-gradient(135deg, rgba(30, 107, 214, 0.08), rgba(53, 230, 107, 0.08)),
+    rgba(248, 250, 252, 0.94);
+}
+
+.home-program-reminder-card__top,
+.home-program-reminder-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.home-program-reminder-card__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.home-program-reminder-card__copy strong {
+  color: #071226;
+  font-size: 1.04rem;
+}
+
+.home-program-reminder-card__copy p {
+  margin: 0;
+  color: #526173;
+}
+
+.home-program-reminder-card .program-card__facts {
+  gap: 10px;
+}
+
+.home-program-reminder-card .button {
+  min-height: 42px;
+}
+
 .feed-item__top {
   display: flex;
   align-items: flex-start;
@@ -5349,6 +5410,19 @@ img {
 
   .feed-item {
     gap: 14px;
+  }
+
+  .home-program-reminder-card {
+    padding: 16px;
+  }
+
+  .home-program-reminder-card__top,
+  .home-program-reminder-card__actions {
+    align-items: stretch;
+  }
+
+  .home-program-reminder-card__actions .button {
+    flex: 1 1 100%;
   }
 
   .challenge-item,
