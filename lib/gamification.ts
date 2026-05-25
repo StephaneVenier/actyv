@@ -149,6 +149,64 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
   return data?.id || null;
 }
 
+export async function getUserTotalXp(userId: string | null | undefined) {
+  if (!userId) {
+    return { totalXp: 0, error: null };
+  }
+
+  const { data, error } = await supabase.from('xp_events').select('xp').eq('user_id', userId);
+
+  if (error) {
+    console.error('XP total query error', error);
+    console.error('XP total query error details', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+    return { totalXp: 0, error };
+  }
+
+  const totalXp = ((data as Array<{ xp: number | null }> | null) || []).reduce((sum, entry) => {
+    return sum + Number(entry.xp || 0);
+  }, 0);
+
+  return { totalXp, error: null };
+}
+
+export async function syncProfileXpTotal(userId: string | null | undefined, explicitTotalXp?: number) {
+  if (!userId) {
+    return { totalXp: 0, error: null };
+  }
+
+  const resolvedTotalXp =
+    typeof explicitTotalXp === 'number'
+      ? explicitTotalXp
+      : (await getUserTotalXp(userId)).totalXp;
+
+  const nextLevel = calculateLevel(resolvedTotalXp);
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({
+      total_xp: resolvedTotalXp,
+      level: nextLevel,
+    })
+    .eq('id', userId);
+
+  if (error) {
+    console.error('Profile XP sync error', error);
+    console.error('Profile XP sync error details', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
+  }
+
+  return { totalXp: resolvedTotalXp, level: nextLevel, error };
+}
+
 export async function awardXp({
   userId,
   userEmail,
@@ -164,6 +222,11 @@ export async function awardXp({
   if (!targetUserId) return { awarded: false };
 
   try {
+    const beforeResult = await getUserTotalXp(targetUserId);
+    if (beforeResult.error) {
+      return { awarded: false, error: beforeResult.error };
+    }
+
     const targetId = metadata?.target_id;
     const { error } = await supabase.rpc('award_xp', {
       p_user_id: targetUserId,
@@ -173,10 +236,33 @@ export async function awardXp({
 
     if (error) {
       console.error('Erreur gamification XP :', error);
+      console.error('XP award error details', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
       return { awarded: false, error };
     }
 
-    return { awarded: true, error: null };
+    const afterResult = await getUserTotalXp(targetUserId);
+    if (afterResult.error) {
+      return { awarded: false, error: afterResult.error };
+    }
+
+    const didIncreaseXp = afterResult.totalXp > beforeResult.totalXp;
+
+    if (!didIncreaseXp) {
+      return {
+        awarded: false,
+        error: null,
+        reason: 'xp_not_persisted',
+      };
+    }
+
+    await syncProfileXpTotal(targetUserId, afterResult.totalXp);
+
+    return { awarded: true, error: null, totalXp: afterResult.totalXp };
   } catch (error) {
     console.error('Erreur gamification :', error);
     return { awarded: false, error };

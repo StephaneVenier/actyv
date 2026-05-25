@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
-import { BADGES, getLevelProgress, normalizeBadgeCode } from '@/lib/gamification';
+import { BADGES, calculateLevel, getLevelProgress, getUserTotalXp, normalizeBadgeCode } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -217,8 +217,18 @@ export default function ProfilePage() {
         level: 1,
       };
 
-      setProfile(nextProfile);
-      setUsernameInput(nextProfile.username || '');
+      const xpTotalResult = await getUserTotalXp(user.id);
+      const resolvedTotalXp = xpTotalResult.error ? Number(nextProfile.total_xp || 0) : xpTotalResult.totalXp;
+      const resolvedLevel = calculateLevel(resolvedTotalXp);
+
+      const normalizedProfile = {
+        ...nextProfile,
+        total_xp: resolvedTotalXp,
+        level: resolvedLevel,
+      };
+
+      setProfile(normalizedProfile);
+      setUsernameInput(normalizedProfile.username || '');
 
       const [
         activitiesResponse,
