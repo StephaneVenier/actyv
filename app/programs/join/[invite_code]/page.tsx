@@ -256,7 +256,7 @@ export default function JoinSharedProgramPage() {
           console.error('Program join sessions duplication error', sessionsInsertError);
           console.error('Erreur duplication seances programme partage :', sessionsInsertError);
           setJoinErrorDetails(getJoinProgramErrorDetails(sessionsInsertError));
-          setMessage("Le programme a ete copie, mais pas ses seances planifiees.");
+          setMessage('Le programme a ete copie, mais pas ses seances planifiees.');
           router.push(`/programs/${createdProgram.id}`);
           return;
         }
@@ -277,9 +277,11 @@ export default function JoinSharedProgramPage() {
       <section className="sessions-page sessions-page--dark">
         <article className="card session-hero-card">
           <div className="session-hero-copy">
-            <span className="section-kicker">Programmes</span>
-            <h1>Rejoindre un programme</h1>
-            <p className="muted">Decouvre ce programme partage puis ajoute-le a tes programmes comme copie privee.</p>
+            <span className="section-kicker">Programme partage</span>
+            <h1>Ajouter ce programme a ton espace</h1>
+            <p className="muted">
+              Consulte le planning, les seances et les informations essentielles avant d'ajouter une copie privee a ton espace Actyv.
+            </p>
           </div>
 
           <div className="session-hero-actions">
@@ -307,8 +309,8 @@ export default function JoinSharedProgramPage() {
             <p>Chargement du programme partage...</p>
           </div>
         ) : !program ? (
-          <div className="challenge-state">
-            <p>{message || 'Ce lien de partage est indisponible.'}</p>
+          <div className="challenge-state challenge-state--compact">
+            <p>{message || 'Ce lien de partage est invalide ou le programme n est plus disponible.'}</p>
             <div className="session-empty-actions">
               <Link href="/programs" className="button primary">
                 Retour aux programmes
@@ -332,12 +334,12 @@ export default function JoinSharedProgramPage() {
                 </div>
 
                 <div className="program-card__facts">
-                  <span>{program.sport || 'Sport libre'}</span>
+                  <span>Sport: {program.sport || 'Sport libre'}</span>
                   <span>
-                    {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
+                    Duree: {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
                   </span>
-                  <span>Debut {formatProgramDate(program.start_date)}</span>
-                  <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''}</span>
+                  <span>Date de debut: {formatProgramDate(program.start_date)}</span>
+                  <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''} prevue{plannedSessionsCount > 1 ? 's' : ''}</span>
                   {creatorProfile?.username || creatorProfile?.email ? (
                     <span>Par {creatorProfile.username || creatorProfile.email}</span>
                   ) : null}
@@ -399,9 +401,9 @@ export default function JoinSharedProgramPage() {
                 </Link>
               </div>
 
-              <div className="program-share-note">
-                <strong>Ajout prive</strong>
-                <p>Une copie privee sera creee dans ton espace. Ta progression restera personnelle.</p>
+              <div className="program-share-note program-share-note--cta">
+                <strong>Une copie privee sera creee</strong>
+                <p>Ta progression restera personnelle, et tu pourras adapter librement le planning dans ton espace.</p>
               </div>
             </article>
 
@@ -409,7 +411,7 @@ export default function JoinSharedProgramPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Preview</span>
-                  <h2>Les premieres seances</h2>
+                  <h2>Les 5 premieres seances</h2>
                 </div>
               </div>
 
@@ -431,9 +433,7 @@ export default function JoinSharedProgramPage() {
                         </div>
                         <div className="program-list-item__meta">
                           <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
-                          <span>
-                            {formatProgramPlannedDateLabel(program.start_date, entry.week_number, entry.day_of_week)}
-                          </span>
+                          <span>{formatProgramPlannedDateLabel(program.start_date, entry.week_number, entry.day_of_week)}</span>
                         </div>
                       </div>
                     </article>
@@ -484,9 +484,7 @@ export default function JoinSharedProgramPage() {
                                 </div>
                                 <div className="program-list-item__meta">
                                   <span>{entry.sport || formatSportBadgeLabel(program.sport, 'Sport')}</span>
-                                  <span>
-                                    {formatProgramPlannedDateLabel(program.start_date, entry.week_number, entry.day_of_week)}
-                                  </span>
+                                  <span>{formatProgramPlannedDateLabel(program.start_date, entry.week_number, entry.day_of_week)}</span>
                                 </div>
                               </div>
                             </article>
