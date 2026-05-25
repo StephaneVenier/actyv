@@ -14,6 +14,7 @@ import {
   formatProgramEndDate,
   formatProgramPlannedShortDateLabel,
   formatProgramVisibilityLabel,
+  getProgramSessionPlannedDate,
   groupProgramDaysByCalendarWeek,
   parseLocalDate,
   getProgramWeekLabel,
@@ -22,7 +23,7 @@ import {
   TrainingProgram,
   TrainingProgramSession,
 } from '@/lib/training-programs';
-import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
+import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
 type AvailableProgramSessionOption = {
   id: string;
@@ -43,6 +44,11 @@ type WorkoutHistoryCompletion = {
   id: string;
   workout_id: string | null;
   completed_at: string;
+};
+
+type ProgramSessionInsight = {
+  blockCount: number;
+  estimatedDurationSeconds: number | null;
 };
 
 type ProgramShareErrorDetails = {
@@ -228,6 +234,52 @@ function getProgramShareErrorDetails(error: {
   };
 }
 
+function formatDurationCompact(totalSeconds: number | null | undefined) {
+  if (!Number.isFinite(Number(totalSeconds)) || Number(totalSeconds) <= 0) {
+    return null;
+  }
+
+  const normalizedSeconds = Math.max(0, Math.round(Number(totalSeconds)));
+  const hours = Math.floor(normalizedSeconds / 3600);
+  const minutes = Math.round((normalizedSeconds % 3600) / 60);
+
+  if (hours > 0) {
+    return `${hours} h ${minutes.toString().padStart(2, '0')}`;
+  }
+
+  return `${Math.max(1, minutes)} min`;
+}
+
+function getProgramSessionInsight(blocks: TrainingSessionBlockRecord[]): ProgramSessionInsight {
+  if (blocks.length === 0) {
+    return { blockCount: 0, estimatedDurationSeconds: null };
+  }
+
+  let estimatedSeconds = 0;
+  let hasEstimate = false;
+
+  blocks.forEach((block) => {
+    const sets = Math.max(1, Number(block.sets_count || 1));
+    const targetValue = Number(block.target_value || 0);
+    const restSeconds = Number(block.rest_seconds || 0);
+
+    if (block.block_type === 'duration' && Number.isFinite(targetValue) && targetValue > 0) {
+      estimatedSeconds += targetValue * sets;
+      hasEstimate = true;
+    }
+
+    if (Number.isFinite(restSeconds) && restSeconds > 0 && sets > 1) {
+      estimatedSeconds += restSeconds * (sets - 1);
+      hasEstimate = true;
+    }
+  });
+
+  return {
+    blockCount: blocks.length,
+    estimatedDurationSeconds: hasEstimate ? estimatedSeconds : null,
+  };
+}
+
 export default function ProgramDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -237,6 +289,7 @@ export default function ProgramDetailPage() {
   const [programSessions, setProgramSessions] = useState<TrainingProgramSession[]>([]);
   const [sessionCompletions, setSessionCompletions] = useState<WorkoutHistoryCompletion[]>([]);
   const [availableSessions, setAvailableSessions] = useState<AvailableProgramSessionOption[]>([]);
+  const [programSessionInsights, setProgramSessionInsights] = useState<Record<string, ProgramSessionInsight>>({});
   const [loading, setLoading] = useState(true);
   const [loadingAvailableSessions, setLoadingAvailableSessions] = useState(true);
   const [deleting, setDeleting] = useState(false);
@@ -306,6 +359,7 @@ export default function ProgramDetailPage() {
           setProgramSessions([]);
           setSessionCompletions([]);
           setAvailableSessions([]);
+          setProgramSessionInsights({});
           setMessage('Connecte-toi pour consulter ce programme.');
           return;
         }
@@ -318,6 +372,7 @@ export default function ProgramDetailPage() {
           setProgramSessions([]);
           setSessionCompletions([]);
           setAvailableSessions([]);
+          setProgramSessionInsights({});
           setMessage('Impossible de charger ce programme.');
           return;
         }
@@ -327,6 +382,7 @@ export default function ProgramDetailPage() {
           setProgramSessions([]);
           setSessionCompletions([]);
           setAvailableSessions([]);
+          setProgramSessionInsights({});
           return;
         }
 
@@ -355,11 +411,30 @@ export default function ProgramDetailPage() {
           console.error('Erreur chargement seances detail programme :', sessionsResponse.error);
         }
 
-        setProgramSessions(nextProgramSessions);
-
         const linkedSessionIds = nextProgramSessions
           .map((entry) => entry.session_id)
           .filter((sessionId): sessionId is string => Boolean(sessionId));
+
+        setProgramSessions(nextProgramSessions);
+
+        if (linkedSessionIds.length === 0) {
+          setProgramSessionInsights({});
+        } else {
+          const { data: linkedSessionBlocks } = await fetchTrainingSessionBlocks(linkedSessionIds);
+          const groupedBlocks = new Map<string, TrainingSessionBlockRecord[]>();
+
+          (linkedSessionBlocks || []).forEach((block) => {
+            const currentBlocks = groupedBlocks.get(block.session_id) || [];
+            currentBlocks.push(block);
+            groupedBlocks.set(block.session_id, currentBlocks);
+          });
+
+          const nextInsights: Record<string, ProgramSessionInsight> = {};
+          linkedSessionIds.forEach((sessionId) => {
+            nextInsights[sessionId] = getProgramSessionInsight(groupedBlocks.get(sessionId) || []);
+          });
+          setProgramSessionInsights(nextInsights);
+        }
 
         if (linkedSessionIds.length === 0) {
           setSessionCompletions([]);
@@ -476,10 +551,62 @@ export default function ProgramDetailPage() {
     return Math.min(Math.max(1, Math.floor(diffDays / 7) + 1), Math.max(program.duration_weeks, 1));
   }, [program?.duration_weeks, program?.start_date]);
 
-  const nextSessionToDo = useMemo(
-    () => programSessions.find((entry) => !entry.session_id || !completedSessionIds.has(entry.session_id)),
-    [completedSessionIds, programSessions]
-  );
+  const remainingSessionsCount = useMemo(() => Math.max(totalSessions - completedCount, 0), [completedCount, totalSessions]);
+
+  const nextProgramSession = useMemo(() => {
+    const unfinishedSessions = programSessions.filter(
+      (entry) => !entry.session_id || !completedSessionIds.has(entry.session_id)
+    );
+
+    if (unfinishedSessions.length === 0) {
+      return null;
+    }
+
+    if (!program?.start_date) {
+      return unfinishedSessions[0] || null;
+    }
+
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    const sessionsWithDates = unfinishedSessions.map((entry) => ({
+      entry,
+      plannedDate: getProgramSessionPlannedDate(program.start_date, entry.week_number, entry.day_of_week),
+    }));
+
+    const upcomingSession = sessionsWithDates.find(({ plannedDate }) => {
+      if (!plannedDate) return false;
+      const plannedDay = new Date(plannedDate.getFullYear(), plannedDate.getMonth(), plannedDate.getDate());
+      return plannedDay.getTime() >= todayStart.getTime();
+    });
+
+    if (upcomingSession) {
+      return upcomingSession.entry;
+    }
+
+    return sessionsWithDates[0]?.entry || null;
+  }, [completedSessionIds, program?.start_date, programSessions]);
+
+  const nextProgramSessionInsight = useMemo(() => {
+    if (!nextProgramSession?.session_id) return null;
+    return programSessionInsights[nextProgramSession.session_id] || null;
+  }, [nextProgramSession, programSessionInsights]);
+
+  const nextProgramSessionDateLabel = useMemo(() => {
+    if (!program?.start_date || !nextProgramSession) return null;
+    const plannedDate = getProgramSessionPlannedDate(
+      program.start_date,
+      nextProgramSession.week_number,
+      nextProgramSession.day_of_week
+    );
+    if (!plannedDate) return null;
+
+    return plannedDate.toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric',
+    });
+  }, [nextProgramSession, program?.start_date]);
 
   const displayWeeks = useMemo(() => {
     if (program?.start_date) {
@@ -1158,6 +1285,112 @@ export default function ProgramDetailPage() {
 
             {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
 
+            <article className="card session-form-card stack program-next-session-card">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Prochaine seance</span>
+                  <h2>
+                    {totalSessions === 0
+                      ? 'Ton programme est pret a etre construit'
+                      : nextProgramSession
+                        ? nextProgramSession.session_name
+                        : 'Programme termine'}
+                  </h2>
+                </div>
+                <span className={`session-progress-pill ${!nextProgramSession && totalSessions > 0 ? 'session-progress-pill--done' : ''}`}>
+                  {totalSessions === 0
+                    ? 'A planifier'
+                    : nextProgramSession
+                      ? 'A faire'
+                      : '100% complete'}
+                </span>
+              </div>
+
+              {totalSessions === 0 ? (
+                <div className="program-next-session-card__empty">
+                  <strong>Ajoute des seances pour commencer ton programme.</strong>
+                  <p>Une fois ton planning rempli, Actyv mettra en avant la prochaine seance a lancer.</p>
+                </div>
+              ) : !nextProgramSession ? (
+                <div className="program-next-session-card__empty">
+                  <strong>Programme termine 🎉</strong>
+                  <p>
+                    {completedCount} seance{completedCount > 1 ? 's' : ''} completee{completedCount > 1 ? 's' : ''} sur {totalSessions}.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="program-next-session-card__grid">
+                    <div className="program-next-session-card__hero">
+                      <div className={getSportBadgeClassName(nextProgramSession.sport || program.sport, 'badge', 'Sport')}>
+                        {formatSportBadgeLabel(nextProgramSession.sport || program.sport, 'Sport')}
+                      </div>
+                      <div className="program-next-session-card__copy">
+                        <strong>{nextProgramSession.session_name}</strong>
+                        <p>
+                          {getProgramWeekLabel(nextProgramSession.week_number)} •{' '}
+                          {capitalizeLabel(
+                            formatProgramDayLabel(
+                              program.start_date,
+                              nextProgramSession.week_number,
+                              nextProgramSession.day_of_week
+                            )
+                          )}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="program-next-session-card__stats">
+                      <div>
+                        <span>Date</span>
+                        <strong>{nextProgramSessionDateLabel || 'Ordre du programme'}</strong>
+                      </div>
+                      <div>
+                        <span>Blocs</span>
+                        <strong>{nextProgramSessionInsight?.blockCount || 0}</strong>
+                      </div>
+                      <div>
+                        <span>Duree estimee</span>
+                        <strong>{formatDurationCompact(nextProgramSessionInsight?.estimatedDurationSeconds) || '—'}</strong>
+                      </div>
+                      <div>
+                        <span>Restantes</span>
+                        <strong>{remainingSessionsCount}</strong>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="program-next-session-card__footer">
+                    <div className="program-next-session-card__meta">
+                      <span>Progression {progress}%</span>
+                      <span>Semaine {currentWeek}</span>
+                      <span>
+                        {remainingSessionsCount} seance{remainingSessionsCount > 1 ? 's' : ''} restante
+                        {remainingSessionsCount > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    <div className="session-summary-actions">
+                      {nextProgramSession.session_id ? (
+                        <>
+                          <Link
+                            href={`/sessions/${nextProgramSession.session_id}/live?programSessionId=${nextProgramSession.id}&programId=${program.id}`}
+                            className="button primary"
+                          >
+                            Lancer
+                          </Link>
+                          <Link href={`/sessions/${nextProgramSession.session_id}`} className="button ghost">
+                            Ouvrir la seance
+                          </Link>
+                        </>
+                      ) : (
+                        <span className="muted">Cette seance n est pas encore liee a une seance Actyv.</span>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </article>
+
             <article className="card session-form-card stack">
               <div className="session-blocks-header">
                 <div>
@@ -1192,7 +1425,7 @@ export default function ProgramDetailPage() {
                 </div>
                 <div className="session-meta-card">
                   <span>Prochaine seance</span>
-                  <strong>{nextSessionToDo?.session_name || 'Toutes les seances sont realisees'}</strong>
+                  <strong>{nextProgramSession?.session_name || 'Toutes les seances sont realisees'}</strong>
                 </div>
                 <div className="session-meta-card">
                   <span>Date de debut</span>

@@ -2383,6 +2383,106 @@ img {
   font-weight: 600;
 }
 
+.program-next-session-card {
+  background:
+    linear-gradient(135deg, rgba(53, 230, 107, 0.08), rgba(32, 183, 166, 0.08)),
+    rgba(255, 255, 255, 0.04);
+}
+
+.program-next-session-card__grid {
+  display: grid;
+  gap: 16px;
+}
+
+.program-next-session-card__hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.program-next-session-card__copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.program-next-session-card__copy strong,
+.program-next-session-card__copy p,
+.program-next-session-card__empty strong,
+.program-next-session-card__empty p {
+  margin: 0;
+}
+
+.program-next-session-card__copy strong,
+.program-next-session-card__empty strong {
+  color: #f4f7f6;
+  font-size: 1.08rem;
+  line-height: 1.2;
+}
+
+.program-next-session-card__copy p,
+.program-next-session-card__empty p {
+  color: #9fb5b3;
+}
+
+.program-next-session-card__stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 10px;
+}
+
+.program-next-session-card__stats div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.program-next-session-card__stats span {
+  color: #9fb5b3;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.program-next-session-card__stats strong {
+  color: #f4f7f6;
+  font-size: 0.96rem;
+  line-height: 1.2;
+}
+
+.program-next-session-card__footer {
+  display: grid;
+  gap: 12px;
+}
+
+.program-next-session-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.program-next-session-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d5e4e2;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.program-next-session-card__empty {
+  display: grid;
+  gap: 8px;
+}
+
 .program-next-card small {
   color: #64748b;
 }
