@@ -104,6 +104,8 @@ function buildNormalizedProgramSessions(entries: TrainingProgramSession[]) {
 async function fetchOwnedProgram(programId: string, userId: string) {
   const selectWithSharing =
     'id, user_id, name, description, sport, duration_weeks, visibility, invite_code, copied_from_program_id, start_date, created_at';
+  const selectWithInviteCode =
+    'id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at';
   const selectWithoutSharing = 'id, user_id, name, description, sport, duration_weeks, visibility, start_date, created_at';
 
   const primaryResponse = await supabase
@@ -116,6 +118,22 @@ async function fetchOwnedProgram(programId: string, userId: string) {
   if (!primaryResponse.error) {
     return {
       data: primaryResponse.data as TrainingProgram | null,
+      error: null,
+    };
+  }
+
+  const inviteCodeFallbackResponse = await supabase
+    .from('training_programs')
+    .select(selectWithInviteCode)
+    .eq('id', programId)
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (!inviteCodeFallbackResponse.error) {
+    return {
+      data: inviteCodeFallbackResponse.data
+        ? ({ ...inviteCodeFallbackResponse.data, copied_from_program_id: null } as TrainingProgram)
+        : null,
       error: null,
     };
   }
@@ -133,6 +151,33 @@ async function fetchOwnedProgram(programId: string, userId: string) {
       : null,
     error: fallbackResponse.error,
   };
+}
+
+async function copyTextWithFallback(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value);
+    return;
+  }
+
+  if (typeof document === 'undefined') {
+    throw new Error('Clipboard indisponible');
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = value;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  textarea.style.pointerEvents = 'none';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  const copied = document.execCommand('copy');
+  document.body.removeChild(textarea);
+
+  if (!copied) {
+    throw new Error('Copie impossible');
+  }
 }
 
 function getProgramSharingErrorMessage(error: { code?: string; message?: string; details?: string | null } | null | undefined) {
@@ -670,7 +715,8 @@ export default function ProgramDetailPage() {
     }
 
     try {
-      await navigator.clipboard.writeText(shareUrl);
+      console.log('copy click', shareUrl);
+      await copyTextWithFallback(shareUrl);
       queuePendingToast({ message: 'Lien de partage copie', tone: 'success' });
     } catch (error) {
       console.error('Erreur copie lien partage programme :', error);
@@ -695,13 +741,14 @@ export default function ProgramDetailPage() {
     };
 
     try {
+      console.log('share click', shareUrl);
       if (navigator.share) {
         await navigator.share(shareData);
         queuePendingToast({ message: 'Lien de partage pret', tone: 'success' });
         return;
       }
 
-      await navigator.clipboard.writeText(shareUrl);
+      await copyTextWithFallback(shareUrl);
       queuePendingToast({ message: 'Lien copie', tone: 'success' });
     } catch (error) {
       console.error('Erreur partage natif programme :', error);
