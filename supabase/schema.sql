@@ -1155,6 +1155,7 @@ create table if not exists public.training_programs (
   duration_weeks integer not null default 4 check (duration_weeks > 0),
   visibility text not null default 'private' check (visibility in ('private', 'shared')),
   invite_code text,
+  copied_from_program_id uuid references public.training_programs(id) on delete set null,
   start_date date not null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -1167,6 +1168,9 @@ alter table if exists public.training_programs
   add column if not exists invite_code text;
 
 alter table if exists public.training_programs
+  add column if not exists copied_from_program_id uuid references public.training_programs(id) on delete set null;
+
+alter table if exists public.training_programs
   alter column visibility set default 'private';
 
 alter table if exists public.training_programs
@@ -1175,6 +1179,13 @@ alter table if exists public.training_programs
 alter table if exists public.training_programs
   add constraint training_programs_visibility_check
   check (visibility in ('private', 'shared'));
+
+alter table if exists public.training_programs
+  drop constraint if exists training_programs_copies_not_shared;
+
+alter table if exists public.training_programs
+  add constraint training_programs_copies_not_shared
+  check (copied_from_program_id is null or visibility <> 'shared');
 
 create table if not exists public.training_program_sessions (
   id uuid primary key default gen_random_uuid(),

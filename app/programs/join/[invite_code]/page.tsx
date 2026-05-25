@@ -173,6 +173,7 @@ export default function JoinSharedProgramPage() {
           duration_weeks: program.duration_weeks,
           visibility: 'private',
           invite_code: null,
+          copied_from_program_id: program.id,
           start_date: program.start_date,
         })
         .select('id')

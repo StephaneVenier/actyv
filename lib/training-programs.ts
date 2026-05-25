@@ -7,6 +7,7 @@ export type TrainingProgram = {
   duration_weeks: number;
   visibility: 'private' | 'shared';
   invite_code?: string | null;
+  copied_from_program_id?: string | null;
   start_date: string;
   created_at: string | null;
 };

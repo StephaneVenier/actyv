@@ -102,7 +102,8 @@ function buildNormalizedProgramSessions(entries: TrainingProgramSession[]) {
 }
 
 async function fetchOwnedProgram(programId: string, userId: string) {
-  const selectWithSharing = 'id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at';
+  const selectWithSharing =
+    'id, user_id, name, description, sport, duration_weeks, visibility, invite_code, copied_from_program_id, start_date, created_at';
   const selectWithoutSharing = 'id, user_id, name, description, sport, duration_weeks, visibility, start_date, created_at';
 
   const primaryResponse = await supabase
@@ -127,7 +128,9 @@ async function fetchOwnedProgram(programId: string, userId: string) {
     .maybeSingle();
 
   return {
-    data: fallbackResponse.data ? ({ ...fallbackResponse.data, invite_code: null } as TrainingProgram) : null,
+    data: fallbackResponse.data
+      ? ({ ...fallbackResponse.data, invite_code: null, copied_from_program_id: null } as TrainingProgram)
+      : null,
     error: fallbackResponse.error,
   };
 }
@@ -139,12 +142,20 @@ function getProgramSharingErrorMessage(error: { code?: string; message?: string;
     return "Le code de partage genere est deja utilise. Reessaie dans un instant.";
   }
 
+  if (error?.code === '23514' && message.includes('copies_not_shared')) {
+    return 'Seul le createur original peut partager ce programme.';
+  }
+
   if (error?.code === '23514' || message.includes('training_programs_visibility_check')) {
     return "La base de donnees n'autorise pas encore le statut shared. Applique la migration Supabase du partage.";
   }
 
   if (message.includes('invite_code') && message.includes('column')) {
     return "La colonne invite_code n'existe pas encore en base. Applique la migration Supabase du partage.";
+  }
+
+  if (message.includes('copied_from_program_id') && message.includes('column')) {
+    return "La colonne copied_from_program_id n'existe pas encore en base. Applique la migration Supabase du partage des copies.";
   }
 
   if (message.includes('visibility') && message.includes('column')) {
@@ -473,6 +484,8 @@ export default function ProgramDetailPage() {
     return `${window.location.origin}/programs/join/${encodeURIComponent(program.invite_code.trim())}`;
   }, [program?.invite_code]);
 
+  const canManageSharing = useMemo(() => !program?.copied_from_program_id, [program?.copied_from_program_id]);
+
   const togglePlannerSlot = (weekNumber: number, dayOfWeek: number) => {
     setActiveSlot((current) =>
       current?.weekNumber === weekNumber && current?.dayOfWeek === dayOfWeek ? null : { weekNumber, dayOfWeek }
@@ -481,6 +494,10 @@ export default function ProgramDetailPage() {
 
   const enableProgramSharing = async () => {
     if (!program || sharing) return;
+    if (program.copied_from_program_id) {
+      setMessage('Seul le createur original peut partager ce programme.');
+      return;
+    }
 
     setSharing(true);
     setMessage(null);
@@ -572,6 +589,10 @@ export default function ProgramDetailPage() {
 
   const disableProgramSharing = async () => {
     if (!program || sharing) return;
+    if (program.copied_from_program_id) {
+      setMessage('Seul le createur original peut partager ce programme.');
+      return;
+    }
 
     setSharing(true);
     setMessage(null);
@@ -639,6 +660,10 @@ export default function ProgramDetailPage() {
   };
 
   const copyProgramShareLink = async () => {
+    if (program?.copied_from_program_id) {
+      setMessage('Seul le createur original peut partager ce programme.');
+      return;
+    }
     if (!shareUrl) {
       setMessage("Active le partage pour obtenir un lien.");
       return;
@@ -654,6 +679,10 @@ export default function ProgramDetailPage() {
   };
 
   const shareProgramLink = async () => {
+    if (program?.copied_from_program_id) {
+      setMessage('Seul le createur original peut partager ce programme.');
+      return;
+    }
     if (!shareUrl || !program) {
       setMessage("Active le partage pour obtenir un lien.");
       return;
@@ -707,6 +736,7 @@ export default function ProgramDetailPage() {
         sport: program.sport,
         duration_weeks: program.duration_weeks,
         visibility: 'private' as const,
+        copied_from_program_id: program.copied_from_program_id || program.id,
         start_date: program.start_date,
       };
 
@@ -1140,82 +1170,97 @@ export default function ProgramDetailPage() {
               </div>
             </article>
 
-            <article className="card session-form-card stack">
-              <div className="session-blocks-header">
-                <div>
-                  <span className="section-kicker">Partage</span>
-                  <h2>Partager le programme</h2>
-                </div>
-                <span className={`session-progress-pill ${program.visibility === 'shared' ? 'session-progress-pill--done' : ''}`}>
-                  {program.visibility === 'shared' ? 'Partage actif' : 'Programme prive'}
-                </span>
-              </div>
-
-              <p className="muted">
-                {program.visibility === 'shared'
-                  ? 'Ce programme peut etre consulte puis ajoute comme copie via son lien de partage.'
-                  : 'Active le partage pour generer un lien public et permettre a d autres utilisateurs de copier ce programme.'}
-              </p>
-
-              {program.visibility === 'shared' && shareUrl ? (
-                <div className="program-share-link">
-                  <strong>Lien de partage</strong>
-                  <p>{shareUrl}</p>
-                </div>
-              ) : null}
-
-              {shareErrorDetails ? (
-                <div className="form-feedback form-feedback--error">
-                  <strong>Erreur de partage</strong>
-                  <div className="stack stack--xs">
-                    <span>message: {shareErrorDetails.message || '-'}</span>
-                    <span>code: {shareErrorDetails.code || '-'}</span>
-                    <span>details: {shareErrorDetails.details || '-'}</span>
-                    <span>hint: {shareErrorDetails.hint || '-'}</span>
+            {canManageSharing ? (
+              <article className="card session-form-card stack">
+                <div className="session-blocks-header">
+                  <div>
+                    <span className="section-kicker">Partage</span>
+                    <h2>Partager le programme</h2>
                   </div>
+                  <span className={`session-progress-pill ${program.visibility === 'shared' ? 'session-progress-pill--done' : ''}`}>
+                    {program.visibility === 'shared' ? 'Partage actif' : 'Programme prive'}
+                  </span>
                 </div>
-              ) : null}
 
-              <div className="session-summary-actions">
-                {program.visibility === 'shared' ? (
-                  <>
+                <p className="muted">
+                  {program.visibility === 'shared'
+                    ? 'Ce programme peut etre consulte puis ajoute comme copie via son lien de partage.'
+                    : 'Active le partage pour generer un lien public et permettre a d autres utilisateurs de copier ce programme.'}
+                </p>
+
+                {program.visibility === 'shared' && shareUrl ? (
+                  <div className="program-share-link">
+                    <strong>Lien de partage</strong>
+                    <p>{shareUrl}</p>
+                  </div>
+                ) : null}
+
+                {shareErrorDetails ? (
+                  <div className="form-feedback form-feedback--error">
+                    <strong>Erreur de partage</strong>
+                    <div className="stack stack--xs">
+                      <span>message: {shareErrorDetails.message || '-'}</span>
+                      <span>code: {shareErrorDetails.code || '-'}</span>
+                      <span>details: {shareErrorDetails.details || '-'}</span>
+                      <span>hint: {shareErrorDetails.hint || '-'}</span>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="session-summary-actions">
+                  {program.visibility === 'shared' ? (
+                    <>
+                      <button
+                        type="button"
+                        className="button primary"
+                        onClick={shareProgramLink}
+                        disabled={sharing || !shareUrl}
+                      >
+                        Partager
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={copyProgramShareLink}
+                        disabled={sharing || !shareUrl}
+                      >
+                        Copier le lien
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={disableProgramSharing}
+                        disabled={sharing}
+                      >
+                        {sharing ? 'Mise a jour...' : 'Desactiver le partage'}
+                      </button>
+                    </>
+                  ) : (
                     <button
                       type="button"
                       className="button primary"
-                      onClick={shareProgramLink}
-                      disabled={sharing || !shareUrl}
-                    >
-                      Partager
-                    </button>
-                    <button
-                      type="button"
-                      className="button ghost"
-                      onClick={copyProgramShareLink}
-                      disabled={sharing || !shareUrl}
-                    >
-                      Copier le lien
-                    </button>
-                    <button
-                      type="button"
-                      className="button ghost"
-                      onClick={disableProgramSharing}
+                      onClick={enableProgramSharing}
                       disabled={sharing}
                     >
-                      {sharing ? 'Mise a jour...' : 'Desactiver le partage'}
+                      {sharing ? 'Activation...' : 'Activer le partage'}
                     </button>
-                  </>
-                ) : (
-                  <button
-                    type="button"
-                    className="button primary"
-                    onClick={enableProgramSharing}
-                    disabled={sharing}
-                  >
-                    {sharing ? 'Activation...' : 'Activer le partage'}
-                  </button>
-                )}
-              </div>
-            </article>
+                  )}
+                </div>
+              </article>
+            ) : (
+              <article className="card session-form-card stack">
+                <div className="session-blocks-header">
+                  <div>
+                    <span className="section-kicker">Partage</span>
+                    <h2>Programme ajoute depuis un partage</h2>
+                  </div>
+                  <span className="session-progress-pill">Copie privee</span>
+                </div>
+                <p className="muted">
+                  Cette copie reste privee. Seul le createur original peut activer ou desactiver le partage.
+                </p>
+              </article>
+            )}
 
             <article className="card session-form-card stack">
               <div className="session-blocks-header">
