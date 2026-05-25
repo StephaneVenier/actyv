@@ -41,6 +41,13 @@ type BadgeRule = {
   description: string;
 };
 
+type SupabaseLikeError = {
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
 const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
   'first-step': 'premier_pas',
   'actyv-regular': 'actyv_regulier',
@@ -149,29 +156,78 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
   return data?.id || null;
 }
 
+function isMissingRelationOrColumn(error: SupabaseLikeError | null | undefined) {
+  const details = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+  return (
+    details.includes('does not exist') ||
+    details.includes('column') ||
+    details.includes('relation') ||
+    error?.code === 'PGRST204' ||
+    error?.code === '42P01' ||
+    error?.code === '42703'
+  );
+}
+
+function getXpSourceType(source: XpSource) {
+  if (source.startsWith('program')) return 'program';
+  if (source === 'workout_completed') return 'session';
+  if (source.startsWith('challenge')) return 'challenge';
+  if (source === 'activity_added') return 'activity';
+  return 'engagement';
+}
+
 export async function getUserTotalXp(userId: string | null | undefined) {
   if (!userId) {
     return { totalXp: 0, error: null };
   }
 
-  const { data, error } = await supabase.from('xp_events').select('xp').eq('user_id', userId);
+  let totalXp = 0;
+  let firstHardError: unknown = null;
 
-  if (error) {
-    console.error('XP total query error', error);
-    console.error('XP total query error details', {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-    return { totalXp: 0, error };
+  const userXpEventsResponse = await supabase
+    .from('user_xp_events')
+    .select('xp_amount')
+    .eq('user_id', userId);
+
+  if (userXpEventsResponse.error) {
+    if (!isMissingRelationOrColumn(userXpEventsResponse.error)) {
+      console.error('XP total query error on user_xp_events', userXpEventsResponse.error);
+      console.error('XP total query error details', {
+        message: userXpEventsResponse.error.message,
+        code: userXpEventsResponse.error.code,
+        details: userXpEventsResponse.error.details,
+        hint: userXpEventsResponse.error.hint,
+      });
+      firstHardError = userXpEventsResponse.error;
+    }
+  } else {
+    totalXp += (((userXpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || []).reduce(
+      (sum, entry) => sum + Number(entry.xp_amount || 0),
+      0
+    ));
   }
 
-  const totalXp = ((data as Array<{ xp: number | null }> | null) || []).reduce((sum, entry) => {
-    return sum + Number(entry.xp || 0);
-  }, 0);
+  const legacyXpEventsResponse = await supabase.from('xp_events').select('xp').eq('user_id', userId);
 
-  return { totalXp, error: null };
+  if (legacyXpEventsResponse.error) {
+    if (!isMissingRelationOrColumn(legacyXpEventsResponse.error)) {
+      console.error('XP total query error on xp_events', legacyXpEventsResponse.error);
+      console.error('XP total query error details', {
+        message: legacyXpEventsResponse.error.message,
+        code: legacyXpEventsResponse.error.code,
+        details: legacyXpEventsResponse.error.details,
+        hint: legacyXpEventsResponse.error.hint,
+      });
+      firstHardError = firstHardError || legacyXpEventsResponse.error;
+    }
+  } else {
+    totalXp += (((legacyXpEventsResponse.data as Array<{ xp: number | null }> | null) || []).reduce(
+      (sum, entry) => sum + Number(entry.xp || 0),
+      0
+    ));
+  }
+
+  return { totalXp, error: firstHardError };
 }
 
 export async function syncProfileXpTotal(userId: string | null | undefined, explicitTotalXp?: number) {
@@ -228,21 +284,100 @@ export async function awardXp({
     }
 
     const targetId = metadata?.target_id;
-    const { error } = await supabase.rpc('award_xp', {
-      p_user_id: targetUserId,
-      p_source: source,
-      p_target_id: typeof targetId === 'string' ? targetId : null,
-    });
+    const normalizedTargetId = typeof targetId === 'string' ? targetId : null;
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
 
-    if (error) {
-      console.error('Erreur gamification XP :', error);
-      console.error('XP award error details', {
-        message: error.message,
-        code: error.code,
-        details: error.details,
-        hint: error.hint,
+    let persistenceError: unknown = null;
+    let didAttemptDirectInsert = false;
+    let shouldFallbackToRpc = true;
+
+    if (authUser?.id === targetUserId) {
+      const directPayload = {
+        user_id: targetUserId,
+        event_type: source,
+        source_type: getXpSourceType(source),
+        source_id: normalizedTargetId,
+        xp_amount: XP_RULES[source].xp,
+      };
+
+      console.log('XP payload', directPayload);
+
+      didAttemptDirectInsert = true;
+
+      if (normalizedTargetId) {
+        const existingEventResponse = await supabase
+          .from('user_xp_events')
+          .select('id')
+          .eq('user_id', targetUserId)
+          .eq('event_type', source)
+          .eq('source_id', normalizedTargetId)
+          .maybeSingle();
+
+        if (existingEventResponse.error && !isMissingRelationOrColumn(existingEventResponse.error)) {
+          console.error('XP dedupe lookup failed', existingEventResponse.error);
+          console.error('XP dedupe lookup details', {
+            message: existingEventResponse.error.message,
+            code: existingEventResponse.error.code,
+            details: existingEventResponse.error.details,
+            hint: existingEventResponse.error.hint,
+          });
+        } else if (existingEventResponse.error && isMissingRelationOrColumn(existingEventResponse.error)) {
+          shouldFallbackToRpc = true;
+        } else if (existingEventResponse.data) {
+          return { awarded: false, error: null, reason: 'xp_event_already_exists' };
+        }
+      }
+
+      const directInsertResponse = await supabase.from('user_xp_events').insert(directPayload).select('id').maybeSingle();
+
+      if (directInsertResponse.error) {
+        console.error('XP insert failed', directInsertResponse.error);
+        console.error('XP insert failed details', {
+          message: directInsertResponse.error.message,
+          code: directInsertResponse.error.code,
+          details: directInsertResponse.error.details,
+          hint: directInsertResponse.error.hint,
+        });
+
+        if (!isMissingRelationOrColumn(directInsertResponse.error)) {
+          persistenceError = directInsertResponse.error;
+        } else {
+          shouldFallbackToRpc = true;
+        }
+      } else {
+        shouldFallbackToRpc = false;
+      }
+    }
+
+    if (!persistenceError && !didAttemptDirectInsert) {
+      console.log('XP payload', {
+        user_id: targetUserId,
+        source,
+        target_id: normalizedTargetId,
       });
-      return { awarded: false, error };
+    }
+
+    if (!persistenceError && shouldFallbackToRpc) {
+      const { error } = await supabase.rpc('award_xp', {
+        p_user_id: targetUserId,
+        p_source: source,
+        p_target_id: normalizedTargetId,
+      });
+
+      if (error) {
+        console.error('XP insert failed', error);
+        console.error('XP award error details', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+        });
+        return { awarded: false, error };
+      }
+    } else if (persistenceError) {
+      return { awarded: false, error: persistenceError };
     }
 
     const afterResult = await getUserTotalXp(targetUserId);
