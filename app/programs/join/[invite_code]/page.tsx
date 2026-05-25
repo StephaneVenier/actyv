@@ -24,12 +24,59 @@ type CreatorProfile = {
   email: string | null;
 };
 
+type JoinProgramErrorDetails = {
+  message: string | null;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+};
+
 function sortProgramSessions(entries: TrainingProgramSession[]) {
   return [...entries].sort((left, right) => {
     if (left.week_number !== right.week_number) return left.week_number - right.week_number;
     if (left.day_of_week !== right.day_of_week) return left.day_of_week - right.day_of_week;
     return left.order_index - right.order_index;
   });
+}
+
+function getJoinProgramErrorDetails(error: {
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+} | null | undefined): JoinProgramErrorDetails {
+  return {
+    message: error?.message || null,
+    code: error?.code || null,
+    details: error?.details || null,
+    hint: error?.hint || null,
+  };
+}
+
+function getJoinProgramErrorMessage(error: {
+  message?: string | null;
+  code?: string | null;
+  details?: string | null;
+} | null | undefined) {
+  const message = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+
+  if (message.includes('copied_from_program_id') && message.includes('column')) {
+    return "La colonne copied_from_program_id n'existe pas encore en base. Applique la migration Supabase des copies de programmes.";
+  }
+
+  if (message.includes('row-level security') || error?.code === '42501') {
+    return "Supabase refuse la copie du programme. Verifie la policy RLS d'insert sur training_programs.";
+  }
+
+  if (error?.code === '23514' && message.includes('copies_not_shared')) {
+    return "La contrainte SQL des copies bloque cet enregistrement. Verifie visibility et copied_from_program_id.";
+  }
+
+  if (message.includes('null value') && message.includes('start_date')) {
+    return "La copie ne peut pas etre creee car start_date est manquant sur le programme partage.";
+  }
+
+  return "Impossible d'ajouter ce programme pour le moment.";
 }
 
 export default function JoinSharedProgramPage() {
@@ -51,6 +98,7 @@ export default function JoinSharedProgramPage() {
   const [joining, setJoining] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [joinErrorDetails, setJoinErrorDetails] = useState<JoinProgramErrorDetails | null>(null);
 
   const returnToPath = useMemo(
     () => `/programs/join/${encodeURIComponent(inviteCode)}`,
@@ -63,6 +111,7 @@ export default function JoinSharedProgramPage() {
     const loadSharedProgram = async () => {
       setLoading(true);
       setMessage(null);
+      setJoinErrorDetails(null);
 
       try {
         const {
@@ -148,6 +197,7 @@ export default function JoinSharedProgramPage() {
 
     setJoining(true);
     setMessage(null);
+    setJoinErrorDetails(null);
 
     try {
       const {
@@ -163,25 +213,31 @@ export default function JoinSharedProgramPage() {
         return;
       }
 
+      const programPayload = {
+        user_id: user.id,
+        name: program.name,
+        description: program.description,
+        sport: program.sport,
+        duration_weeks: program.duration_weeks,
+        visibility: 'private',
+        invite_code: null,
+        copied_from_program_id: program.id,
+        start_date: program.start_date,
+        updated_at: new Date().toISOString(),
+      };
+      console.log('Program join payload:', programPayload);
+
       const { data: createdProgram, error: programInsertError } = await supabase
         .from('training_programs')
-        .insert({
-          user_id: user.id,
-          name: program.name,
-          description: program.description,
-          sport: program.sport,
-          duration_weeks: program.duration_weeks,
-          visibility: 'private',
-          invite_code: null,
-          copied_from_program_id: program.id,
-          start_date: program.start_date,
-        })
+        .insert(programPayload)
         .select('id')
         .single();
 
       if (programInsertError || !createdProgram) {
+        console.error('Program join duplication error', programInsertError);
         console.error('Erreur duplication programme partage :', programInsertError);
-        setMessage("Impossible d'ajouter ce programme pour le moment.");
+        setJoinErrorDetails(getJoinProgramErrorDetails(programInsertError));
+        setMessage(getJoinProgramErrorMessage(programInsertError));
         return;
       }
 
@@ -199,7 +255,9 @@ export default function JoinSharedProgramPage() {
         const { error: sessionsInsertError } = await supabase.from('training_program_sessions').insert(sessionPayload);
 
         if (sessionsInsertError) {
+          console.error('Program join sessions duplication error', sessionsInsertError);
           console.error('Erreur duplication seances programme partage :', sessionsInsertError);
+          setJoinErrorDetails(getJoinProgramErrorDetails(sessionsInsertError));
           setMessage("Le programme a ete copie, mais pas ses seances planifiees.");
           router.push(`/programs/${createdProgram.id}`);
           return;
@@ -234,6 +292,17 @@ export default function JoinSharedProgramPage() {
         </article>
 
         {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
+        {joinErrorDetails ? (
+          <div className="form-feedback form-feedback--error">
+            <strong>Erreur de copie</strong>
+            <div className="stack stack--xs">
+              <span>message: {joinErrorDetails.message || '-'}</span>
+              <span>code: {joinErrorDetails.code || '-'}</span>
+              <span>details: {joinErrorDetails.details || '-'}</span>
+              <span>hint: {joinErrorDetails.hint || '-'}</span>
+            </div>
+          </div>
+        ) : null}
 
         {loading ? (
           <div className="challenge-state">
