@@ -176,13 +176,17 @@ function getXpSourceType(source: XpSource) {
   return 'engagement';
 }
 
-export async function getUserTotalXp(userId: string | null | undefined) {
+export async function getUserTotalXp(
+  userId: string | null | undefined,
+  legacyProfileXp?: number | null | undefined
+) {
   if (!userId) {
-    return { totalXp: 0, error: null };
+    return { totalXp: 0, legacyXp: 0, eventsXp: 0, error: null };
   }
 
-  let totalXp = 0;
+  let eventsXp = 0;
   let firstHardError: unknown = null;
+  const legacyXp = Number(legacyProfileXp || 0);
 
   const userXpEventsResponse = await supabase
     .from('user_xp_events')
@@ -201,66 +205,13 @@ export async function getUserTotalXp(userId: string | null | undefined) {
       firstHardError = userXpEventsResponse.error;
     }
   } else {
-    totalXp += (((userXpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || []).reduce(
+    eventsXp += (((userXpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || []).reduce(
       (sum, entry) => sum + Number(entry.xp_amount || 0),
       0
     ));
   }
 
-  const legacyXpEventsResponse = await supabase.from('xp_events').select('xp').eq('user_id', userId);
-
-  if (legacyXpEventsResponse.error) {
-    if (!isMissingRelationOrColumn(legacyXpEventsResponse.error)) {
-      console.error('XP total query error on xp_events', legacyXpEventsResponse.error);
-      console.error('XP total query error details', {
-        message: legacyXpEventsResponse.error.message,
-        code: legacyXpEventsResponse.error.code,
-        details: legacyXpEventsResponse.error.details,
-        hint: legacyXpEventsResponse.error.hint,
-      });
-      firstHardError = firstHardError || legacyXpEventsResponse.error;
-    }
-  } else {
-    totalXp += (((legacyXpEventsResponse.data as Array<{ xp: number | null }> | null) || []).reduce(
-      (sum, entry) => sum + Number(entry.xp || 0),
-      0
-    ));
-  }
-
-  return { totalXp, error: firstHardError };
-}
-
-export async function syncProfileXpTotal(userId: string | null | undefined, explicitTotalXp?: number) {
-  if (!userId) {
-    return { totalXp: 0, error: null };
-  }
-
-  const resolvedTotalXp =
-    typeof explicitTotalXp === 'number'
-      ? explicitTotalXp
-      : (await getUserTotalXp(userId)).totalXp;
-
-  const nextLevel = calculateLevel(resolvedTotalXp);
-
-  const { error } = await supabase
-    .from('profiles')
-    .update({
-      total_xp: resolvedTotalXp,
-      level: nextLevel,
-    })
-    .eq('id', userId);
-
-  if (error) {
-    console.error('Profile XP sync error', error);
-    console.error('Profile XP sync error details', {
-      message: error.message,
-      code: error.code,
-      details: error.details,
-      hint: error.hint,
-    });
-  }
-
-  return { totalXp: resolvedTotalXp, level: nextLevel, error };
+  return { totalXp: legacyXp + eventsXp, legacyXp, eventsXp, error: firstHardError };
 }
 
 export async function awardXp({
@@ -278,7 +229,13 @@ export async function awardXp({
   if (!targetUserId) return { awarded: false };
 
   try {
-    const beforeResult = await getUserTotalXp(targetUserId);
+    const { data: beforeProfileRow } = await supabase
+      .from('profiles')
+      .select('total_xp')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    const beforeResult = await getUserTotalXp(targetUserId, beforeProfileRow?.total_xp || 0);
     if (beforeResult.error) {
       return { awarded: false, error: beforeResult.error };
     }
@@ -380,7 +337,13 @@ export async function awardXp({
       return { awarded: false, error: persistenceError };
     }
 
-    const afterResult = await getUserTotalXp(targetUserId);
+    const { data: afterProfileRow } = await supabase
+      .from('profiles')
+      .select('total_xp')
+      .eq('id', targetUserId)
+      .maybeSingle();
+
+    const afterResult = await getUserTotalXp(targetUserId, afterProfileRow?.total_xp || 0);
     if (afterResult.error) {
       return { awarded: false, error: afterResult.error };
     }
@@ -394,8 +357,6 @@ export async function awardXp({
         reason: 'xp_not_persisted',
       };
     }
-
-    await syncProfileXpTotal(targetUserId, afterResult.totalXp);
 
     return { awarded: true, error: null, totalXp: afterResult.totalXp };
   } catch (error) {

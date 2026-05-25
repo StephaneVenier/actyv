@@ -174,6 +174,7 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [xpEventsTotal, setXpEventsTotal] = useState(0);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
@@ -217,18 +218,12 @@ export default function ProfilePage() {
         level: 1,
       };
 
-      const xpTotalResult = await getUserTotalXp(user.id);
-      const resolvedTotalXp = xpTotalResult.error ? Number(nextProfile.total_xp || 0) : xpTotalResult.totalXp;
-      const resolvedLevel = calculateLevel(resolvedTotalXp);
+      const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
+      const resolvedEventsXp = xpTotalResult.error ? 0 : xpTotalResult.eventsXp;
 
-      const normalizedProfile = {
-        ...nextProfile,
-        total_xp: resolvedTotalXp,
-        level: resolvedLevel,
-      };
-
-      setProfile(normalizedProfile);
-      setUsernameInput(normalizedProfile.username || '');
+      setXpEventsTotal(resolvedEventsXp);
+      setProfile(nextProfile);
+      setUsernameInput(nextProfile.username || '');
 
       const [
         activitiesResponse,
@@ -553,7 +548,7 @@ export default function ProfilePage() {
   }, [activities, challenges]);
 
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
-  const totalXp = profile?.total_xp || 0;
+  const totalXp = Number(profile?.total_xp || 0) + xpEventsTotal;
   const levelProgress = getLevelProgress(totalXp);
   const unlockedBadgeCodes = new Set(
     badges
@@ -582,7 +577,7 @@ export default function ProfilePage() {
       email: profile.email,
       username: trimmed,
       total_xp: profile.total_xp || 0,
-      level: profile.level || 1,
+      level: calculateLevel(Number(profile.total_xp || 0) + xpEventsTotal),
     });
 
     if (error) {
@@ -629,7 +624,7 @@ export default function ProfilePage() {
               <span className="section-kicker">Profil Actyv</span>
               <div className="profile-hero-heading">
                 <h1>{profile.username || 'Mon profil'}</h1>
-                <UserLevelBadge level={profile.level} />
+                <UserLevelBadge level={levelProgress.level} />
               </div>
               <p className="muted">{profile.email}</p>
               <p className="muted">
@@ -650,7 +645,7 @@ export default function ProfilePage() {
                   ) : (
                     <strong>{profile.username || 'Aucun pseudo defini'}</strong>
                   )}
-                  <UserLevelBadge level={profile.level} />
+                  <UserLevelBadge level={levelProgress.level} />
                 </div>
               </div>
 
