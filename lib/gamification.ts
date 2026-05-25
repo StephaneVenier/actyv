@@ -6,7 +6,12 @@ export type XpSource =
   | 'activity_added'
   | 'like_received'
   | 'boost_received'
-  | 'challenge_completed';
+  | 'challenge_completed'
+  | 'workout_completed'
+  | 'program_session_completed'
+  | 'program_completed'
+  | 'program_created'
+  | 'program_shared';
 
 export type XpRule = {
   xp: number;
@@ -22,7 +27,13 @@ export type BadgeCode =
   | 'collectif'
   | 'distance_10_km'
   | 'distance_50_km'
-  | 'boosteur';
+  | 'boosteur'
+  | 'premiere_seance_terminee'
+  | 'cinq_seances_terminees'
+  | 'dix_seances_terminees'
+  | 'premier_programme_cree'
+  | 'premier_programme_termine'
+  | 'programme_partage';
 
 type BadgeRule = {
   code: BadgeCode;
@@ -55,17 +66,28 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   like_received: { xp: 1, dailyLimit: 20 },
   boost_received: { xp: 3, dailyLimit: 30 },
   challenge_completed: { xp: 50 },
+  workout_completed: { xp: 10 },
+  program_session_completed: { xp: 15 },
+  program_completed: { xp: 100 },
+  program_created: { xp: 5 },
+  program_shared: { xp: 5 },
 };
 
 export const BADGES: BadgeRule[] = [
-  { code: 'premier_pas', label: '👟 Premier pas', description: 'Premiere activite ajoutee.' },
-  { code: 'actyv_regulier', label: '📅 Actyv regulier', description: '5 activites ajoutees.' },
-  { code: 'actyv_motive', label: '🔥 Actyv motivé', description: '10 activites ajoutees.' },
-  { code: 'challenger', label: '🏆 Challenger', description: 'Premier challenge cree.' },
-  { code: 'collectif', label: '🤝 Collectif', description: 'Premier challenge rejoint.' },
-  { code: 'distance_10_km', label: '📍 Distance 10 km', description: '10 km cumules.' },
-  { code: 'distance_50_km', label: '🚀 Distance 50 km', description: '50 km cumules.' },
-  { code: 'boosteur', label: '⚡ Boosteur', description: 'Premier like ou boost donne.' },
+  { code: 'premier_pas', label: 'Premier pas', description: 'Premiere activite ajoutee.' },
+  { code: 'actyv_regulier', label: 'Actyv regulier', description: '5 activites ajoutees.' },
+  { code: 'actyv_motive', label: 'Actyv motive', description: '10 activites ajoutees.' },
+  { code: 'challenger', label: 'Challenger', description: 'Premier challenge cree.' },
+  { code: 'collectif', label: 'Collectif', description: 'Premier challenge rejoint.' },
+  { code: 'distance_10_km', label: 'Distance 10 km', description: '10 km cumules.' },
+  { code: 'distance_50_km', label: 'Distance 50 km', description: '50 km cumules.' },
+  { code: 'boosteur', label: 'Boosteur', description: 'Premier like ou boost donne.' },
+  { code: 'premiere_seance_terminee', label: 'Premiere seance terminee', description: 'Premiere seance d entrainement terminee.' },
+  { code: 'cinq_seances_terminees', label: '5 seances terminees', description: 'Cinq seances d entrainement terminees.' },
+  { code: 'dix_seances_terminees', label: '10 seances terminees', description: 'Dix seances d entrainement terminees.' },
+  { code: 'premier_programme_cree', label: 'Premier programme cree', description: 'Premier programme personnel cree.' },
+  { code: 'premier_programme_termine', label: 'Premier programme termine', description: 'Premier programme mene jusqu au bout.' },
+  { code: 'programme_partage', label: 'Programme partage', description: 'Premier programme partage sur Actyv.' },
 ];
 
 export function getBadgeByCode(code: string | null | undefined) {

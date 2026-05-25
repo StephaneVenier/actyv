@@ -215,6 +215,11 @@ begin
     when 'like_received' then 1
     when 'boost_received' then 3
     when 'challenge_completed' then 50
+    when 'workout_completed' then 10
+    when 'program_session_completed' then 15
+    when 'program_completed' then 100
+    when 'program_created' then 5
+    when 'program_shared' then 5
     else 0
   end;
 
@@ -330,6 +335,11 @@ begin
     when 'like_received' then 1
     when 'boost_received' then 3
     when 'challenge_completed' then 50
+    when 'workout_completed' then 10
+    when 'program_session_completed' then 15
+    when 'program_completed' then 100
+    when 'program_created' then 5
+    when 'program_shared' then 5
     else 0
   end;
 
@@ -508,6 +518,73 @@ begin
       and type in ('like', 'boost')
   ) then
     perform public.grant_user_badge(p_user_id, 'boosteur');
+  end if;
+
+  if exists (
+    select 1
+    from public.workout_sessions_history
+    where user_id = p_user_id
+  ) then
+    perform public.grant_user_badge(p_user_id, 'premiere_seance_terminee');
+  end if;
+
+  if (
+    select count(*)
+    from public.workout_sessions_history
+    where user_id = p_user_id
+  ) >= 5 then
+    perform public.grant_user_badge(p_user_id, 'cinq_seances_terminees');
+  end if;
+
+  if (
+    select count(*)
+    from public.workout_sessions_history
+    where user_id = p_user_id
+  ) >= 10 then
+    perform public.grant_user_badge(p_user_id, 'dix_seances_terminees');
+  end if;
+
+  if exists (
+    select 1
+    from public.training_programs
+    where user_id = p_user_id
+      and copied_from_program_id is null
+  ) then
+    perform public.grant_user_badge(p_user_id, 'premier_programme_cree');
+  end if;
+
+  if exists (
+    select 1
+    from public.training_programs
+    where user_id = p_user_id
+      and visibility = 'shared'
+      and copied_from_program_id is null
+  ) then
+    perform public.grant_user_badge(p_user_id, 'programme_partage');
+  end if;
+
+  if exists (
+    select 1
+    from public.training_programs programs
+    where programs.user_id = p_user_id
+      and exists (
+        select 1
+        from public.training_program_sessions sessions
+        where sessions.program_id = programs.id
+      )
+      and not exists (
+        select 1
+        from public.training_program_sessions sessions
+        where sessions.program_id = programs.id
+          and not exists (
+            select 1
+            from public.training_program_completions completions
+            where completions.program_session_id = sessions.id
+              and completions.user_id = p_user_id
+          )
+      )
+  ) then
+    perform public.grant_user_badge(p_user_id, 'premier_programme_termine');
   end if;
 
   select count(*), coalesce(array_agg(badge_code order by badge_code), '{}')

@@ -22,6 +22,7 @@ import {
   getSessionEstimatedDuration,
   normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
+import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
@@ -676,6 +677,20 @@ export default function LiveSessionPage() {
         return false;
       }
 
+      const awardedXpMessages: string[] = [];
+
+      if (!(programSessionId && programId)) {
+        const workoutXpResult = await awardXp({
+          userId: user.id,
+          source: 'workout_completed',
+          metadata: { target_id: data.id },
+        });
+
+        if (workoutXpResult?.awarded) {
+          awardedXpMessages.push('+10 XP seance');
+        }
+      }
+
       let exerciseHistoryMessage: string | null = null;
 
       const exerciseHistoryPayload = blocks
@@ -871,9 +886,65 @@ export default function LiveSessionPage() {
               JSON.stringify(completionInsertError, null, 2)
             );
             completionMessage = "L'historique a ete enregistre, mais pas la progression du programme.";
+          } else {
+            const programSessionXpResult = await awardXp({
+              userId: user.id,
+              source: 'program_session_completed',
+              metadata: { target_id: programSessionId },
+            });
+
+            if (programSessionXpResult?.awarded) {
+              awardedXpMessages.push('+15 XP programme');
+            }
+
+            const [{ count: totalProgramSessionsCount }, { count: completedProgramSessionsCount }] = await Promise.all([
+              supabase
+                .from('training_program_sessions')
+                .select('*', { count: 'exact', head: true })
+                .eq('program_id', programId),
+              supabase
+                .from('training_program_completions')
+                .select('*', { count: 'exact', head: true })
+                .eq('program_id', programId)
+                .eq('user_id', user.id),
+            ]);
+
+            if (
+              Number.isFinite(Number(totalProgramSessionsCount)) &&
+              Number(totalProgramSessionsCount) > 0 &&
+              Number(completedProgramSessionsCount || 0) >= Number(totalProgramSessionsCount)
+            ) {
+              const programCompletedXpResult = await awardXp({
+                userId: user.id,
+                source: 'program_completed',
+                metadata: { target_id: programId },
+              });
+
+              if (programCompletedXpResult?.awarded) {
+                awardedXpMessages.push('+100 XP programme termine');
+              }
+            }
           }
         }
       }
+
+      const badgeResult = await refreshUserBadges(user.id);
+
+      if (badgeResult.error) {
+        console.error('Erreur refresh badges seance live :', badgeResult.error);
+      }
+
+      awardedXpMessages.forEach((xpMessage) => {
+        queuePendingToast({ message: xpMessage, tone: 'info' });
+      });
+
+      badgeResult.awarded.forEach((badgeCode) => {
+        const badge = getBadgeByCode(badgeCode);
+        queuePendingToast({
+          message: `Badge debloque : ${badge?.label || badgeCode}`,
+          tone: 'celebrate',
+        });
+      });
 
       console.log('Workout history saved:', data);
       setHistorySaved(true);

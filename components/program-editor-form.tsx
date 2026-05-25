@@ -26,6 +26,7 @@ import {
   insertTrainingSessionBlocks,
   TrainingSessionBlockRecord,
 } from '@/lib/training-session-blocks-db';
+import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 
 type TrainingSessionOption = {
   id: string;
@@ -530,6 +531,32 @@ export function ProgramEditorForm({
         console.error('Erreur creation seances programme :', programSessionsError);
         setMessage("Le programme a ete enregistre, mais pas ses seances planifiees.");
         return;
+      }
+
+      if (mode === 'create') {
+        const xpResult = await awardXp({
+          userId: user.id,
+          source: 'program_created',
+          metadata: { target_id: resolvedProgramId },
+        });
+
+        if (xpResult?.awarded) {
+          queuePendingToast({ message: '+5 XP programme cree', tone: 'info' });
+        }
+
+        const badgeResult = await refreshUserBadges(user.id);
+
+        if (badgeResult.error) {
+          console.error('Erreur refresh badges programme :', badgeResult.error);
+        } else {
+          badgeResult.awarded.forEach((badgeCode) => {
+            const badge = getBadgeByCode(badgeCode);
+            queuePendingToast({
+              message: `Badge debloque : ${badge?.label || badgeCode}`,
+              tone: 'celebrate',
+            });
+          });
+        }
       }
 
       queuePendingToast({

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
+import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import {
   generateProgramInviteCode,
@@ -718,6 +719,29 @@ export default function ProgramDetailPage() {
           const refreshedProgram = await fetchOwnedProgram(program.id, user.id);
           if (refreshedProgram.data) {
             setProgram(refreshedProgram.data);
+          }
+          const xpResult = await awardXp({
+            userId: user.id,
+            source: 'program_shared',
+            metadata: { target_id: program.id },
+          });
+
+          if (xpResult?.awarded) {
+            queuePendingToast({ message: '+5 XP programme partage', tone: 'info' });
+          }
+
+          const badgeResult = await refreshUserBadges(user.id);
+
+          if (badgeResult.error) {
+            console.error('Erreur refresh badges partage programme :', badgeResult.error);
+          } else {
+            badgeResult.awarded.forEach((badgeCode) => {
+              const badge = getBadgeByCode(badgeCode);
+              queuePendingToast({
+                message: `Badge debloque : ${badge?.label || badgeCode}`,
+                tone: 'celebrate',
+              });
+            });
           }
           queuePendingToast({ message: 'Partage active', tone: 'success' });
           return;
