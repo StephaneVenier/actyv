@@ -75,14 +75,6 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   program_shared: { xp: 15 },
 };
 
-const DIRECT_XP_EVENT_SOURCES = new Set<XpSource>([
-  'session_created',
-  'session_completed',
-  'program_created',
-  'program_shared',
-  'program_completed',
-]);
-
 export const BADGES: BadgeRule[] = [
   { code: 'premier_pas', label: 'Premier pas', description: 'Premiere activite ajoutee.' },
   { code: 'actyv_regulier', label: 'Actyv regulier', description: '5 activites ajoutees.' },
@@ -234,6 +226,8 @@ export async function awardXp({
       target_id: normalizedTargetId,
     };
 
+    console.log('award xp payload', payload);
+
     if (authUser?.id !== targetUserId) {
       return {
         awarded: false,
@@ -247,73 +241,50 @@ export async function awardXp({
       };
     }
 
-    if (DIRECT_XP_EVENT_SOURCES.has(source)) {
-      const existingEventResponse = normalizedTargetId
-        ? await supabase
-            .from('xp_events')
-            .select('id')
-            .eq('user_id', targetUserId)
-            .eq('event_type', source)
-            .eq('target_id', normalizedTargetId)
-            .maybeSingle()
-        : { data: null, error: null };
+    const existingEventResponse = normalizedTargetId
+      ? await supabase
+          .from('xp_events')
+          .select('id')
+          .eq('user_id', targetUserId)
+          .eq('event_type', source)
+          .eq('target_id', normalizedTargetId)
+          .maybeSingle()
+      : { data: null, error: null };
 
-      if (existingEventResponse.error) {
-        console.error('XP dedupe lookup failed', existingEventResponse.error);
-        console.error('XP dedupe lookup details', {
-          message: existingEventResponse.error.message,
-          code: existingEventResponse.error.code,
-          details: existingEventResponse.error.details,
-          hint: existingEventResponse.error.hint,
-        });
-        return { awarded: false, error: existingEventResponse.error, totalXp: beforeResult.totalXp };
-      }
+    if (existingEventResponse.error) {
+      console.error('XP dedupe lookup failed', existingEventResponse.error);
+      console.error('XP dedupe lookup details', {
+        message: existingEventResponse.error.message,
+        code: existingEventResponse.error.code,
+        details: existingEventResponse.error.details,
+        hint: existingEventResponse.error.hint,
+      });
+      return { awarded: false, error: existingEventResponse.error, totalXp: beforeResult.totalXp };
+    }
 
-      if (existingEventResponse.data) {
+    if (existingEventResponse.data) {
+      return { awarded: false, error: null, totalXp: beforeResult.totalXp, reason: 'xp_event_already_exists' };
+    }
+
+    const { error } = await supabase.from('xp_events').insert(payload);
+
+    if (error) {
+      if (error.code === '23505') {
         return { awarded: false, error: null, totalXp: beforeResult.totalXp, reason: 'xp_event_already_exists' };
       }
 
-      const { error } = await supabase.from('xp_events').insert(payload);
-
-      if (error) {
-        if (error.code === '23505') {
-          return { awarded: false, error: null, totalXp: beforeResult.totalXp, reason: 'xp_event_already_exists' };
-        }
-
-        console.error('XP insert failed', error);
-        console.error('XP award error details', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        });
-        console.error('XP award failed', {
-          payload,
-          error,
-        });
-        return { awarded: false, error, totalXp: beforeResult.totalXp };
-      }
-    } else {
-      const { error } = await supabase.rpc('award_xp', {
-        p_user_id: targetUserId,
-        p_source: source,
-        p_target_id: normalizedTargetId,
+      console.error('award xp insert error', error);
+      console.error('XP award error details', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
       });
-
-      if (error) {
-        console.error('XP insert failed', error);
-        console.error('XP award error details', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        });
-        console.error('XP award failed', {
-          payload,
-          error,
-        });
-        return { awarded: false, error, totalXp: beforeResult.totalXp };
-      }
+      console.error('XP award failed', {
+        payload,
+        error,
+      });
+      return { awarded: false, error, totalXp: beforeResult.totalXp };
     }
 
     const afterResult = await getUserTotalXp(targetUserId, beforeResult.totalXp);
