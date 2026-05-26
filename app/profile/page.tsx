@@ -174,11 +174,9 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [legacyXpTotal, setLegacyXpTotal] = useState(0);
-  const [sessionXpTotal, setSessionXpTotal] = useState(0);
+  const [xpTotalFromEvents, setXpTotalFromEvents] = useState(0);
   const [xpDebug, setXpDebug] = useState({
-    legacyEventsCount: 0,
-    sessionEventsCount: 0,
+    eventsCount: 0,
   });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
@@ -225,11 +223,9 @@ export default function ProfilePage() {
 
       const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
 
-      setLegacyXpTotal(xpTotalResult.legacyXp);
-      setSessionXpTotal(xpTotalResult.eventsXp);
+      setXpTotalFromEvents(xpTotalResult.totalXp);
       setXpDebug({
-        legacyEventsCount: xpTotalResult.legacyEventsCount,
-        sessionEventsCount: xpTotalResult.sessionEventsCount,
+        eventsCount: xpTotalResult.eventsCount,
       });
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
@@ -557,7 +553,7 @@ export default function ProfilePage() {
   }, [activities, challenges]);
 
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
-  const totalXp = legacyXpTotal + sessionXpTotal;
+  const totalXp = xpTotalFromEvents;
   const levelProgress = getLevelProgress(totalXp);
   const unlockedBadgeCodes = new Set(
     badges
@@ -766,17 +762,9 @@ export default function ProfilePage() {
             <div className="profile-summary-grid">
               <article className="profile-summary-card">
                 <span className="stat-card-label">XP xp_events</span>
-                <strong className="stat-card-value">{legacyXpTotal} XP</strong>
+                <strong className="stat-card-value">{xpTotalFromEvents} XP</strong>
                 <p className="muted profile-summary-card__meta">
-                  {xpDebug.legacyEventsCount} event{xpDebug.legacyEventsCount > 1 ? 's' : ''}
-                </p>
-              </article>
-
-              <article className="profile-summary-card">
-                <span className="stat-card-label">XP user_xp_events</span>
-                <strong className="stat-card-value">{sessionXpTotal} XP</strong>
-                <p className="muted profile-summary-card__meta">
-                  {xpDebug.sessionEventsCount} event{xpDebug.sessionEventsCount > 1 ? 's' : ''}
+                  {xpDebug.eventsCount} event{xpDebug.eventsCount > 1 ? 's' : ''}
                 </p>
               </article>
 

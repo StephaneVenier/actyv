@@ -215,11 +215,13 @@ begin
     when 'like_received' then 1
     when 'boost_received' then 3
     when 'challenge_completed' then 50
+    when 'session_created' then 5
+    when 'session_completed' then 10
     when 'workout_completed' then 10
     when 'program_session_completed' then 15
-    when 'program_completed' then 100
-    when 'program_created' then 5
-    when 'program_shared' then 5
+    when 'program_completed' then 50
+    when 'program_created' then 10
+    when 'program_shared' then 15
     else 0
   end;
 
@@ -335,11 +337,13 @@ begin
     when 'like_received' then 1
     when 'boost_received' then 3
     when 'challenge_completed' then 50
+    when 'session_created' then 5
+    when 'session_completed' then 10
     when 'workout_completed' then 10
     when 'program_session_completed' then 15
-    when 'program_completed' then 100
-    when 'program_created' then 5
-    when 'program_shared' then 5
+    when 'program_completed' then 50
+    when 'program_created' then 10
+    when 'program_shared' then 15
     else 0
   end;
 

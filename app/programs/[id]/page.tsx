@@ -727,15 +727,14 @@ export default function ProgramDetailPage() {
           });
 
           if (xpResult?.awarded) {
-            queuePendingToast({ message: '+5 XP programme partage', tone: 'info' });
+            queuePendingToast({ message: '+15 XP programme partage', tone: 'info' });
           } else if (xpResult?.error) {
             console.error('XP award failed', {
               payload: {
                 user_id: user.id,
-                event_type: 'program_shared',
-                source_type: 'training_program',
-                source_id: program.id,
-                xp_amount: 5,
+                source: 'program_shared',
+                xp: 15,
+                metadata: { target_id: program.id },
               },
               error: xpResult.error,
             });

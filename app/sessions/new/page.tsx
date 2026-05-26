@@ -147,10 +147,9 @@ export default function NewSessionPage() {
         console.error('XP award failed', {
           payload: {
             user_id: user.id,
-            event_type: 'session_created',
-            source_type: 'training_session',
-            source_id: session.id,
-            xp_amount: 5,
+            source: 'session_created',
+            xp: 5,
+            metadata: { target_id: session.id },
           },
           error: xpResult.error,
         });

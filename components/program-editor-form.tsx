@@ -541,15 +541,14 @@ export function ProgramEditorForm({
         });
 
         if (xpResult?.awarded) {
-          queuePendingToast({ message: '+5 XP programme cree', tone: 'info' });
+          queuePendingToast({ message: '+10 XP programme cree', tone: 'info' });
         } else if (xpResult?.error) {
           console.error('XP award failed', {
             payload: {
               user_id: user.id,
-              event_type: 'program_created',
-              source_type: 'training_program',
-              source_id: resolvedProgramId,
-              xp_amount: 5,
+              source: 'program_created',
+              xp: 10,
+              metadata: { target_id: resolvedProgramId },
             },
             error: xpResult.error,
           });

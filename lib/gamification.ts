@@ -10,7 +10,6 @@ export type XpSource =
   | 'session_created'
   | 'session_completed'
   | 'workout_completed'
-  | 'program_session_completed'
   | 'program_completed'
   | 'program_created'
   | 'program_shared';
@@ -43,13 +42,6 @@ type BadgeRule = {
   description: string;
 };
 
-type SupabaseLikeError = {
-  message?: string | null;
-  code?: string | null;
-  details?: string | null;
-  hint?: string | null;
-};
-
 const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
   'first-step': 'premier_pas',
   'actyv-regular': 'actyv_regulier',
@@ -78,21 +70,10 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   session_created: { xp: 5 },
   session_completed: { xp: 10 },
   workout_completed: { xp: 10 },
-  program_session_completed: { xp: 15 },
-  program_completed: { xp: 100 },
-  program_created: { xp: 5 },
-  program_shared: { xp: 5 },
+  program_completed: { xp: 50 },
+  program_created: { xp: 10 },
+  program_shared: { xp: 15 },
 };
-
-const MODERN_XP_SOURCES = new Set<XpSource>([
-  'session_created',
-  'session_completed',
-  'workout_completed',
-  'program_session_completed',
-  'program_completed',
-  'program_created',
-  'program_shared',
-]);
 
 export const BADGES: BadgeRule[] = [
   { code: 'premier_pas', label: 'Premier pas', description: 'Premiere activite ajoutee.' },
@@ -170,98 +151,44 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
   return data?.id || null;
 }
 
-function isMissingRelationOrColumn(error: SupabaseLikeError | null | undefined) {
-  const details = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
-  return (
-    details.includes('does not exist') ||
-    details.includes('column') ||
-    details.includes('relation') ||
-    error?.code === 'PGRST204' ||
-    error?.code === '42P01' ||
-    error?.code === '42703'
-  );
-}
-
-function getXpSourceType(source: XpSource) {
-  if (source === 'session_created') return 'training_session';
-  if (source === 'session_completed' || source === 'workout_completed') return 'training_session_completion';
-  if (source === 'program_created' || source === 'program_shared') return 'training_program';
-  if (source === 'program_session_completed' || source === 'program_completed') return 'training_program_completion';
-  if (source.startsWith('challenge')) return 'challenge';
-  if (source === 'activity_added') return 'activity';
-  return 'engagement';
-}
-
 export async function getUserTotalXp(
   userId: string | null | undefined,
   legacyProfileXp?: number | null | undefined
 ) {
   if (!userId) {
-    return { totalXp: 0, legacyXp: 0, eventsXp: 0, legacyEventsCount: 0, sessionEventsCount: 0, error: null };
+    return { totalXp: 0, eventsCount: 0, error: null };
   }
 
-  let legacyXp = Number(legacyProfileXp || 0);
-  let eventsXp = 0;
-  let legacyEventsCount = 0;
-  let sessionEventsCount = 0;
+  let totalXp = Number(legacyProfileXp || 0);
+  let eventsCount = 0;
   let firstHardError: unknown = null;
 
-  const legacyXpEventsResponse = await supabase
+  const xpEventsResponse = await supabase
     .from('xp_events')
     .select('xp')
     .eq('user_id', userId);
 
-  if (legacyXpEventsResponse.error) {
-    console.error('XP total query error on xp_events', legacyXpEventsResponse.error);
+  if (xpEventsResponse.error) {
+    console.error('XP total query error on xp_events', xpEventsResponse.error);
     console.error('XP total query error details', {
-      message: legacyXpEventsResponse.error.message,
-      code: legacyXpEventsResponse.error.code,
-      details: legacyXpEventsResponse.error.details,
-      hint: legacyXpEventsResponse.error.hint,
+      message: xpEventsResponse.error.message,
+      code: xpEventsResponse.error.code,
+      details: xpEventsResponse.error.details,
+      hint: xpEventsResponse.error.hint,
     });
-
-    if (!firstHardError) {
-      firstHardError = legacyXpEventsResponse.error;
-    }
+    firstHardError = xpEventsResponse.error;
   } else {
-    const legacyRows = (legacyXpEventsResponse.data as Array<{ xp: number | null }> | null) || [];
-    legacyXp = legacyRows.reduce((sum, entry) => sum + Number(entry.xp || 0), 0);
-    legacyEventsCount = legacyRows.length;
-  }
-
-  const userXpEventsResponse = await supabase
-    .from('user_xp_events')
-    .select('xp_amount')
-    .eq('user_id', userId);
-
-  if (userXpEventsResponse.error) {
-    if (!isMissingRelationOrColumn(userXpEventsResponse.error)) {
-      console.error('XP total query error on user_xp_events', userXpEventsResponse.error);
-      console.error('XP total query error details', {
-        message: userXpEventsResponse.error.message,
-        code: userXpEventsResponse.error.code,
-        details: userXpEventsResponse.error.details,
-        hint: userXpEventsResponse.error.hint,
-      });
-      if (!firstHardError) {
-        firstHardError = userXpEventsResponse.error;
-      }
-    }
-  } else {
-    const sessionRows = (userXpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || [];
-    sessionEventsCount = sessionRows.length;
-    eventsXp += (sessionRows.reduce(
-      (sum, entry) => sum + Number(entry.xp_amount || 0),
+    const rows = (xpEventsResponse.data as Array<{ xp: number | null }> | null) || [];
+    totalXp = rows.reduce(
+      (sum, entry) => sum + Number(entry.xp || 0),
       0
-    ));
+    );
+    eventsCount = rows.length;
   }
 
   return {
-    totalXp: legacyXp + eventsXp,
-    legacyXp,
-    eventsXp,
-    legacyEventsCount,
-    sessionEventsCount,
+    totalXp,
+    eventsCount,
     error: firstHardError,
   };
 }
@@ -279,18 +206,11 @@ export async function awardXp({
 }) {
   const targetUserId = userId || (await resolveUserIdFromEmail(userEmail));
   if (!targetUserId) return { awarded: false };
-  const requiresModernXpEvent = MODERN_XP_SOURCES.has(source);
 
   try {
-    const { data: beforeProfileRow } = await supabase
-      .from('profiles')
-      .select('total_xp')
-      .eq('id', targetUserId)
-      .maybeSingle();
-
-    const beforeResult = await getUserTotalXp(targetUserId, beforeProfileRow?.total_xp || 0);
+    const beforeResult = await getUserTotalXp(targetUserId, 0);
     if (beforeResult.error) {
-      return { awarded: false, error: beforeResult.error };
+      return { awarded: false, error: beforeResult.error, totalXp: beforeResult.totalXp };
     }
 
     const targetId = metadata?.target_id;
@@ -299,140 +219,52 @@ export async function awardXp({
       data: { user: authUser },
     } = await supabase.auth.getUser();
 
-    let persistenceError: unknown = null;
-    let didAttemptDirectInsert = false;
-    let shouldFallbackToRpc = !requiresModernXpEvent;
-    let lastPayload: Record<string, unknown> | null = null;
+    const payload = {
+      user_id: targetUserId,
+      source,
+      xp: XP_RULES[source].xp,
+      metadata: normalizedTargetId ? { target_id: normalizedTargetId } : {},
+    };
 
-    if (authUser?.id === targetUserId) {
-      const directPayload = {
-        user_id: targetUserId,
-        event_type: source,
-        source_type: getXpSourceType(source),
-        source_id: normalizedTargetId,
-        xp_amount: XP_RULES[source].xp,
-      };
+    console.log('XP payload', payload);
 
-      lastPayload = directPayload;
-      console.log('XP payload', directPayload);
-
-      didAttemptDirectInsert = true;
-
-      if (normalizedTargetId) {
-        const existingEventResponse = await supabase
-          .from('user_xp_events')
-          .select('id')
-          .eq('user_id', targetUserId)
-          .eq('event_type', source)
-          .eq('source_id', normalizedTargetId)
-          .maybeSingle();
-
-        if (existingEventResponse.error && !isMissingRelationOrColumn(existingEventResponse.error)) {
-          console.error('XP dedupe lookup failed', existingEventResponse.error);
-          console.error('XP dedupe lookup details', {
-            message: existingEventResponse.error.message,
-            code: existingEventResponse.error.code,
-            details: existingEventResponse.error.details,
-            hint: existingEventResponse.error.hint,
-          });
-          if (requiresModernXpEvent) {
-            persistenceError = existingEventResponse.error;
-          }
-        } else if (existingEventResponse.error && isMissingRelationOrColumn(existingEventResponse.error)) {
-          if (requiresModernXpEvent) {
-            persistenceError = existingEventResponse.error;
-          } else {
-            shouldFallbackToRpc = true;
-          }
-        } else if (existingEventResponse.data) {
-          return { awarded: false, error: null, reason: 'xp_event_already_exists' };
-        }
-      }
-
-      if (!persistenceError) {
-        const directInsertResponse = await supabase.from('user_xp_events').insert(directPayload).select('id').maybeSingle();
-
-        if (directInsertResponse.error) {
-          console.error('XP insert failed', directInsertResponse.error);
-          console.error('XP insert failed details', {
-            message: directInsertResponse.error.message,
-            code: directInsertResponse.error.code,
-            details: directInsertResponse.error.details,
-            hint: directInsertResponse.error.hint,
-          });
-          console.error('XP award failed', {
-            payload: directPayload,
-            error: directInsertResponse.error,
-          });
-
-          if (!isMissingRelationOrColumn(directInsertResponse.error) || requiresModernXpEvent) {
-            persistenceError = directInsertResponse.error;
-          } else {
-            shouldFallbackToRpc = true;
-          }
-        } else {
-          shouldFallbackToRpc = false;
-        }
-      }
-    }
-
-    if (!persistenceError && !didAttemptDirectInsert) {
-      lastPayload = {
-        user_id: targetUserId,
-        event_type: source,
-        source_type: getXpSourceType(source),
-        source_id: normalizedTargetId,
-        xp_amount: XP_RULES[source].xp,
-      };
-      console.log('XP payload', lastPayload);
-    }
-
-    if (requiresModernXpEvent && authUser?.id !== targetUserId) {
+    if (authUser?.id !== targetUserId) {
       return {
         awarded: false,
         error: {
-          message: 'Utilisateur non connecte ou non autorise pour ecrire dans user_xp_events.',
+          message: 'Utilisateur non connecte ou non autorise pour attribuer cet XP.',
           code: 'XP_AUTH_REQUIRED',
-          details: 'Les XP seances/programmes exigent un utilisateur authentifie cote client.',
+          details: 'La RPC award_xp exige un utilisateur authentifie pour son propre user_id.',
           hint: 'Verifie supabase.auth.getUser() avant awardXp.',
         },
+        totalXp: beforeResult.totalXp,
       };
     }
 
-    if (!persistenceError && shouldFallbackToRpc) {
-      const { error } = await supabase.rpc('award_xp', {
-        p_user_id: targetUserId,
-        p_source: source,
-        p_target_id: normalizedTargetId,
-      });
+    const { error } = await supabase.rpc('award_xp', {
+      p_user_id: targetUserId,
+      p_source: source,
+      p_target_id: normalizedTargetId,
+    });
 
-      if (error) {
-        console.error('XP insert failed', error);
-        console.error('XP award error details', {
-          message: error.message,
-          code: error.code,
-          details: error.details,
-          hint: error.hint,
-        });
-        console.error('XP award failed', {
-          payload: lastPayload,
-          error,
-        });
-        return { awarded: false, error };
-      }
-    } else if (persistenceError) {
-      return { awarded: false, error: persistenceError };
+    if (error) {
+      console.error('XP insert failed', error);
+      console.error('XP award error details', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      });
+      console.error('XP award failed', {
+        payload,
+        error,
+      });
+      return { awarded: false, error, totalXp: beforeResult.totalXp };
     }
 
-    const { data: afterProfileRow } = await supabase
-      .from('profiles')
-      .select('total_xp')
-      .eq('id', targetUserId)
-      .maybeSingle();
-
-    const afterResult = await getUserTotalXp(targetUserId, afterProfileRow?.total_xp || 0);
+    const afterResult = await getUserTotalXp(targetUserId, beforeResult.totalXp);
     if (afterResult.error) {
-      return { awarded: false, error: afterResult.error };
+      return { awarded: false, error: afterResult.error, totalXp: afterResult.totalXp };
     }
 
     const didIncreaseXp = afterResult.totalXp > beforeResult.totalXp;
