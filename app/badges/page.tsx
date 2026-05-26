@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties } from 'react';
+import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
@@ -8,25 +8,123 @@ import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
 import type { BadgeDefinition, UserBadge } from '@/lib/badges';
 import { supabase } from '@/lib/supabase';
 
-function getBadgeIconToken(badge: BadgeDefinition) {
-  const tokens: Record<BadgeDefinition['code'], string> = {
-    premier_pas: 'FP',
-    actyv_regulier: 'A5',
-    actyv_motive: 'A10',
-    challenger: 'CH',
-    collectif: 'CO',
-    distance_10_km: '10',
-    distance_50_km: '50',
-    boosteur: 'UP',
-    premiere_seance_terminee: 'S1',
-    cinq_seances_terminees: 'S5',
-    dix_seances_terminees: 'S10',
-    premier_programme_cree: 'P1',
-    premier_programme_termine: 'PT',
-    programme_partage: 'SH',
+function iconStroke(path: ReactNode) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {path}
+    </svg>
+  );
+}
+
+function renderBadgeIcon(iconName: string) {
+  const icons: Record<string, ReactNode> = {
+    Footprints: iconStroke(
+      <>
+        <path d="M7 15c1.2-2.6.9-5.3-.6-6.2-1.4-.8-3.3.6-4.4 3.1-.9 2.1-.7 4.2.6 5 1.1.6 2.8-.3 4.4-1.9Z" />
+        <path d="M15 20c1.2-2.6.9-5.3-.6-6.2-1.4-.8-3.3.6-4.4 3.1-.9 2.1-.7 4.2.6 5 1.1.6 2.8-.3 4.4-1.9Z" />
+        <path d="M14 4c1 0 2 .9 2 2s-.8 2-1.8 2S12.5 7 12.5 6s.5-2 1.5-2Z" />
+        <path d="M19 8c1 0 2 .9 2 2s-.8 2-1.8 2S17.5 11 17.5 10s.5-2 1.5-2Z" />
+      </>
+    ),
+    TrendingUp: iconStroke(
+      <>
+        <path d="M4 16l6-6 4 4 6-7" />
+        <path d="M14 7h6v6" />
+      </>
+    ),
+    Flame: iconStroke(
+      <>
+        <path d="M12 3c1 2 4 3.5 4 7a4 4 0 1 1-8 0c0-2.4 1.3-4.1 2.6-5.5.8-.8 1.2-1.3 1.4-1.5Z" />
+        <path d="M12 13c.8.8 1.5 1.7 1.5 3a1.5 1.5 0 0 1-3 0c0-1 .5-1.9 1.5-3Z" />
+      </>
+    ),
+    Trophy: iconStroke(
+      <>
+        <path d="M8 4h8v3a4 4 0 0 1-8 0V4Z" />
+        <path d="M6 6H4a2 2 0 0 0 2 4h1" />
+        <path d="M18 6h2a2 2 0 0 1-2 4h-1" />
+        <path d="M12 11v4" />
+        <path d="M9 20h6" />
+        <path d="M10 15h4v3h-4z" />
+      </>
+    ),
+    Users: iconStroke(
+      <>
+        <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
+        <path d="M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+        <path d="M20 21v-2a4 4 0 0 0-3-3.9" />
+        <path d="M16.5 4.1a3.5 3.5 0 0 1 0 6.8" />
+      </>
+    ),
+    Map: iconStroke(
+      <>
+        <path d="M3 6.5 9 4l6 2.5L21 4v13.5L15 20l-6-2.5L3 20V6.5Z" />
+        <path d="M9 4v13.5" />
+        <path d="M15 6.5V20" />
+      </>
+    ),
+    Route: iconStroke(
+      <>
+        <circle cx="6" cy="18" r="2" />
+        <circle cx="18" cy="6" r="2" />
+        <path d="M8 18h4a3 3 0 0 0 3-3V9" />
+        <path d="M12 9h6" />
+      </>
+    ),
+    HeartHandshake: iconStroke(
+      <>
+        <path d="M8.5 12.5 6 10a2.8 2.8 0 0 1 4-4l2 2 2-2a2.8 2.8 0 0 1 4 4l-2.5 2.5" />
+        <path d="M7 14l2.5 2.5a2 2 0 0 0 2.8 0L15 14" />
+        <path d="M9 12h6" />
+      </>
+    ),
+    PlayCircle: iconStroke(
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m10 8 6 4-6 4Z" />
+      </>
+    ),
+    BarChart3: iconStroke(
+      <>
+        <path d="M5 20V10" />
+        <path d="M12 20V4" />
+        <path d="M19 20v-7" />
+      </>
+    ),
+    Gauge: iconStroke(
+      <>
+        <path d="M12 4a9 9 0 1 0 9 9" />
+        <path d="m12 12 5-3" />
+        <path d="M12 12v.01" />
+      </>
+    ),
+    CalendarPlus: iconStroke(
+      <>
+        <path d="M7 3v3" />
+        <path d="M17 3v3" />
+        <rect x="4" y="5" width="16" height="15" rx="2" />
+        <path d="M8 12h8" />
+        <path d="M12 8v8" />
+      </>
+    ),
+    Flag: iconStroke(
+      <>
+        <path d="M5 21V4" />
+        <path d="m5 5 10-2v9L5 10" />
+      </>
+    ),
+    Share2: iconStroke(
+      <>
+        <circle cx="18" cy="5" r="2" />
+        <circle cx="6" cy="12" r="2" />
+        <circle cx="18" cy="19" r="2" />
+        <path d="m8 12 8-6" />
+        <path d="m8 12 8 6" />
+      </>
+    ),
   };
 
-  return tokens[badge.code] || badge.icon.slice(0, 2).toUpperCase();
+  return icons[iconName] || iconStroke(<circle cx="12" cy="12" r="8" />);
 }
 
 function getBadgeCategoryLabel(badge: BadgeDefinition) {
@@ -190,9 +288,6 @@ export default function BadgesPage() {
                 }
               >
                 <div className="badge-collection-card__top">
-                  <span className="badge-collection-card__icon" aria-hidden="true">
-                    {getBadgeIconToken(badge)}
-                  </span>
                   <span className={`badge-collection-card__status${unlocked ? ' badge-collection-card__status--unlocked' : ''}`}>
                     {unlocked ? 'Debloque' : 'Verrouille'}
                   </span>
@@ -205,7 +300,9 @@ export default function BadgesPage() {
 
                 <div className="badge-collection-card__meta">
                   <span>{getBadgeCategoryLabel(badge)}</span>
-                  <span>{badge.icon}</span>
+                  <span className="badge-collection-card__icon badge-collection-card__icon--meta" aria-hidden="true">
+                    {renderBadgeIcon(badge.icon)}
+                  </span>
                 </div>
               </article>
             );
