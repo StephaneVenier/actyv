@@ -726,21 +726,15 @@ export default function ProgramDetailPage() {
             metadata: { target_id: program.id },
           });
 
-          console.log('award xp program_shared', {
-            programId: program.id,
-            awarded: xpResult?.awarded,
-            reason: xpResult?.reason || null,
-          });
-
           if (xpResult?.awarded) {
             queuePendingToast({ message: '+15 XP programme partage', tone: 'info' });
           } else if (xpResult?.error) {
             console.error('XP award failed', {
               payload: {
                 user_id: user.id,
-                source: 'program_shared',
-                xp: 15,
-                metadata: { target_id: program.id },
+                event_type: 'program_shared',
+                xp_amount: 15,
+                target_id: program.id,
               },
               error: xpResult.error,
             });

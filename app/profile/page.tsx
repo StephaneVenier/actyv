@@ -175,9 +175,6 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [xpTotalFromEvents, setXpTotalFromEvents] = useState(0);
-  const [xpDebug, setXpDebug] = useState({
-    eventsCount: 0,
-  });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
@@ -224,9 +221,6 @@ export default function ProfilePage() {
       const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
 
       setXpTotalFromEvents(xpTotalResult.totalXp);
-      setXpDebug({
-        eventsCount: xpTotalResult.eventsCount,
-      });
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
 
@@ -749,33 +743,6 @@ export default function ProfilePage() {
             <strong className="stat-card-value">{stats.totalActivities}</strong>
           </article>
         </section>
-
-        {process.env.NODE_ENV !== 'production' && (
-          <section className="card profile-debug-card">
-            <div className="profile-section-heading">
-              <div>
-                <span className="section-kicker">Debug XP</span>
-                <h2>Verification des sources XP</h2>
-              </div>
-            </div>
-
-            <div className="profile-summary-grid">
-              <article className="profile-summary-card">
-                <span className="stat-card-label">XP xp_events</span>
-                <strong className="stat-card-value">{xpTotalFromEvents} XP</strong>
-                <p className="muted profile-summary-card__meta">
-                  {xpDebug.eventsCount} event{xpDebug.eventsCount > 1 ? 's' : ''}
-                </p>
-              </article>
-
-              <article className="profile-summary-card">
-                <span className="stat-card-label">XP total</span>
-                <strong className="stat-card-value">{totalXp} XP</strong>
-                <p className="muted profile-summary-card__meta">Niveau calcule : {levelProgress.level}</p>
-              </article>
-            </div>
-          </section>
-        )}
 
         <section className="profile-history-grid">
           <article className="card profile-history-card">

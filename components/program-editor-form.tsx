@@ -540,21 +540,15 @@ export function ProgramEditorForm({
           metadata: { target_id: resolvedProgramId },
         });
 
-        console.log('award xp program_created', {
-          programId: resolvedProgramId,
-          awarded: xpResult?.awarded,
-          reason: xpResult?.reason || null,
-        });
-
         if (xpResult?.awarded) {
           queuePendingToast({ message: '+10 XP programme cree', tone: 'info' });
         } else if (xpResult?.error) {
           console.error('XP award failed', {
             payload: {
               user_id: user.id,
-              source: 'program_created',
-              xp: 10,
-              metadata: { target_id: resolvedProgramId },
+              event_type: 'program_created',
+              xp_amount: 10,
+              target_id: resolvedProgramId,
             },
             error: xpResult.error,
           });

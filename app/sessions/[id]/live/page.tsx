@@ -685,21 +685,15 @@ export default function LiveSessionPage() {
         metadata: { target_id: data.id },
       });
 
-      console.log('award xp session_completed', {
-        workoutHistoryId: data.id,
-        awarded: workoutXpResult?.awarded,
-        reason: workoutXpResult?.reason || null,
-      });
-
       if (workoutXpResult?.awarded) {
         awardedXpMessages.push('+10 XP seance');
       } else if (workoutXpResult?.error) {
         console.error('XP award failed', {
           payload: {
             user_id: user.id,
-            source: 'session_completed',
-            xp: 10,
-            metadata: { target_id: data.id },
+            event_type: 'session_completed',
+            xp_amount: 10,
+            target_id: data.id,
           },
           error: workoutXpResult.error,
         });
@@ -930,9 +924,9 @@ export default function LiveSessionPage() {
                 console.error('XP award failed', {
                   payload: {
                     user_id: user.id,
-                    source: 'program_completed',
-                    xp: 50,
-                    metadata: { target_id: programId },
+                    event_type: 'program_completed',
+                    xp_amount: 50,
+                    target_id: programId,
                   },
                   error: programCompletedXpResult.error,
                 });

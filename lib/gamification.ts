@@ -83,10 +83,6 @@ const DIRECT_XP_EVENT_SOURCES = new Set<XpSource>([
   'program_completed',
 ]);
 
-const XP_EVENTS_VALUE_COLUMN_CANDIDATES = ['amount', 'xp', 'points', 'value'] as const;
-
-type XpEventsValueColumn = (typeof XP_EVENTS_VALUE_COLUMN_CANDIDATES)[number];
-
 export const BADGES: BadgeRule[] = [
   { code: 'premier_pas', label: 'Premier pas', description: 'Premiere activite ajoutee.' },
   { code: 'actyv_regulier', label: 'Actyv regulier', description: '5 activites ajoutees.' },
@@ -163,101 +159,6 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
   return data?.id || null;
 }
 
-function isMissingColumnError(error: { code?: string | null; message?: string | null; details?: string | null } | null | undefined) {
-  const content = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
-  return error?.code === '42703' || content.includes('does not exist') || content.includes('column');
-}
-
-function resolveXpValueColumnFromRow(row: Record<string, unknown> | null | undefined) {
-  if (!row) return null;
-
-  const rowKeys = Object.keys(row);
-  console.log('xp_events row keys =', rowKeys);
-
-  for (const candidate of XP_EVENTS_VALUE_COLUMN_CANDIDATES) {
-    if (candidate in row) {
-      console.log('xp total query column =', candidate);
-      return candidate;
-    }
-  }
-
-  return null;
-}
-
-async function queryXpEventsWithResolvedColumn(userId: string) {
-  const response = await supabase
-    .from('xp_events')
-    .select('*')
-    .eq('user_id', userId)
-    .order('created_at', { ascending: false });
-
-  if (response.error) {
-    return { rows: null, columnName: null, error: response.error };
-  }
-
-  const rows = (response.data as Array<Record<string, unknown>> | null) || [];
-  const columnName = resolveXpValueColumnFromRow(rows[0]);
-
-  if (!columnName) {
-    return {
-      rows,
-      columnName: null,
-      error: {
-        message: 'Impossible de trouver la colonne de valeur XP dans xp_events.',
-        code: 'XP_COLUMN_UNKNOWN',
-        details: rows[0] ? `Colonnes detectees: ${Object.keys(rows[0]).join(', ')}` : 'Aucune ligne xp_events visible pour cet utilisateur.',
-        hint: 'Verifier le schema reel de public.xp_events dans Supabase.',
-      },
-    };
-  }
-
-  return {
-    rows,
-    columnName,
-    error: null,
-  };
-}
-
-async function insertXpEventWithResolvedColumn(payload: {
-  user_id: string;
-  source: XpSource;
-  xp: number;
-  metadata: Record<string, unknown>;
-}) {
-  const schemaProbe = await queryXpEventsWithResolvedColumn(payload.user_id);
-
-  if (schemaProbe.error && schemaProbe.columnName === null) {
-    return { error: schemaProbe.error, columnName: null };
-  }
-
-  const resolvedColumnName = schemaProbe.columnName;
-
-  if (!resolvedColumnName) {
-    return {
-      error: {
-        message: 'Impossible de resoudre la colonne XP pour xp_events.',
-        code: 'XP_COLUMN_UNKNOWN',
-        details: 'Aucune colonne xp/amount/points/value detectee.',
-        hint: 'Inspecter public.xp_events dans Supabase.',
-      },
-      columnName: null,
-    };
-  }
-
-  const insertPayload: Record<string, unknown> = {
-    user_id: payload.user_id,
-    source: payload.source,
-    metadata: payload.metadata,
-    [resolvedColumnName]: payload.xp,
-  };
-
-  console.log('xp insert column =', resolvedColumnName);
-
-  const response = await supabase.from('xp_events').insert(insertPayload);
-
-  return { error: response.error, columnName: resolvedColumnName };
-}
-
 export async function getUserTotalXp(
   userId: string | null | undefined,
   legacyProfileXp?: number | null | undefined
@@ -270,22 +171,24 @@ export async function getUserTotalXp(
   let eventsCount = 0;
   let firstHardError: unknown = null;
 
-  const xpEventsResponse = await queryXpEventsWithResolvedColumn(userId);
+  const xpEventsResponse = await supabase
+    .from('xp_events')
+    .select('xp_amount')
+    .eq('user_id', userId);
 
   if (xpEventsResponse.error) {
     console.error('XP total query error on xp_events', xpEventsResponse.error);
     console.error('XP total query error details', {
-      message: (xpEventsResponse.error as { message?: string | null }).message,
-      code: (xpEventsResponse.error as { code?: string | null }).code,
-      details: (xpEventsResponse.error as { details?: string | null }).details,
-      hint: (xpEventsResponse.error as { hint?: string | null }).hint,
+      message: xpEventsResponse.error.message,
+      code: xpEventsResponse.error.code,
+      details: xpEventsResponse.error.details,
+      hint: xpEventsResponse.error.hint,
     });
     firstHardError = xpEventsResponse.error;
   } else {
-    const rows = xpEventsResponse.rows || [];
-    const columnName = xpEventsResponse.columnName as XpEventsValueColumn;
+    const rows = (xpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || [];
     totalXp = rows.reduce(
-      (sum, entry) => sum + Number(entry[columnName] || 0),
+      (sum, entry) => sum + Number(entry.xp_amount || 0),
       0
     );
     eventsCount = rows.length;
@@ -326,13 +229,10 @@ export async function awardXp({
 
     const payload = {
       user_id: targetUserId,
-      source,
-      xp: XP_RULES[source].xp,
-      metadata: normalizedTargetId ? { target_id: normalizedTargetId } : {},
+      event_type: source,
+      xp_amount: XP_RULES[source].xp,
+      target_id: normalizedTargetId,
     };
-
-    console.log('XP payload', payload);
-    console.log(`award xp ${source}`, payload);
 
     if (authUser?.id !== targetUserId) {
       return {
@@ -348,7 +248,32 @@ export async function awardXp({
     }
 
     if (DIRECT_XP_EVENT_SOURCES.has(source)) {
-      const { error, columnName } = await insertXpEventWithResolvedColumn(payload);
+      const existingEventResponse = normalizedTargetId
+        ? await supabase
+            .from('xp_events')
+            .select('id')
+            .eq('user_id', targetUserId)
+            .eq('event_type', source)
+            .eq('target_id', normalizedTargetId)
+            .maybeSingle()
+        : { data: null, error: null };
+
+      if (existingEventResponse.error) {
+        console.error('XP dedupe lookup failed', existingEventResponse.error);
+        console.error('XP dedupe lookup details', {
+          message: existingEventResponse.error.message,
+          code: existingEventResponse.error.code,
+          details: existingEventResponse.error.details,
+          hint: existingEventResponse.error.hint,
+        });
+        return { awarded: false, error: existingEventResponse.error, totalXp: beforeResult.totalXp };
+      }
+
+      if (existingEventResponse.data) {
+        return { awarded: false, error: null, totalXp: beforeResult.totalXp, reason: 'xp_event_already_exists' };
+      }
+
+      const { error } = await supabase.from('xp_events').insert(payload);
 
       if (error) {
         if (error.code === '23505') {
@@ -368,8 +293,6 @@ export async function awardXp({
         });
         return { awarded: false, error, totalXp: beforeResult.totalXp };
       }
-
-      console.log('xp insert succeeded with column =', columnName);
     } else {
       const { error } = await supabase.rpc('award_xp', {
         p_user_id: targetUserId,

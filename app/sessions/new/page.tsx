@@ -143,19 +143,13 @@ export default function NewSessionPage() {
         metadata: { target_id: session.id },
       });
 
-      console.log('award xp session_created', {
-        sessionId: session.id,
-        awarded: xpResult?.awarded,
-        reason: xpResult?.reason || null,
-      });
-
       if (xpResult?.error) {
         console.error('XP award failed', {
           payload: {
             user_id: user.id,
-            source: 'session_created',
-            xp: 5,
-            metadata: { target_id: session.id },
+            event_type: 'session_created',
+            xp_amount: 5,
+            target_id: session.id,
           },
           error: xpResult.error,
         });
