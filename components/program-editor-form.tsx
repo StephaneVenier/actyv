@@ -540,6 +540,12 @@ export function ProgramEditorForm({
           metadata: { target_id: resolvedProgramId },
         });
 
+        console.log('award xp program_created', {
+          programId: resolvedProgramId,
+          awarded: xpResult?.awarded,
+          reason: xpResult?.reason || null,
+        });
+
         if (xpResult?.awarded) {
           queuePendingToast({ message: '+10 XP programme cree', tone: 'info' });
         } else if (xpResult?.error) {

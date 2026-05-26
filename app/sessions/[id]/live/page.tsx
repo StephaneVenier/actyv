@@ -685,6 +685,12 @@ export default function LiveSessionPage() {
         metadata: { target_id: data.id },
       });
 
+      console.log('award xp session_completed', {
+        workoutHistoryId: data.id,
+        awarded: workoutXpResult?.awarded,
+        reason: workoutXpResult?.reason || null,
+      });
+
       if (workoutXpResult?.awarded) {
         awardedXpMessages.push('+10 XP seance');
       } else if (workoutXpResult?.error) {
