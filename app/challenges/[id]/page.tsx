@@ -8,7 +8,7 @@ import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
 import { supabase } from '@/lib/supabase';
-import { awardXp } from '@/lib/gamification';
+import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -799,6 +799,17 @@ const handleLike = async (activityId: string) => {
           metadata: { target_id: createdInteraction.id },
         });
       }
+
+      const badgeResult = await refreshUserBadges(currentUserId);
+      if (!badgeResult.error) {
+        badgeResult.awarded.forEach((badgeCode) => {
+          const badge = getBadgeByCode(badgeCode);
+          queuePendingToast({
+            message: `🏆 Badge débloqué : ${badge?.label || badgeCode}`,
+            tone: 'celebrate',
+          });
+        });
+      }
     }
 
     await fetchChallengeAndActivities(false);
@@ -865,6 +876,17 @@ const handleBoost = async (activityId: string) => {
           userEmail: activity.user_email,
           source: 'boost_received',
           metadata: { target_id: createdInteraction.id },
+        });
+      }
+
+      const badgeResult = await refreshUserBadges(currentUserId);
+      if (!badgeResult.error) {
+        badgeResult.awarded.forEach((badgeCode) => {
+          const badge = getBadgeByCode(badgeCode);
+          queuePendingToast({
+            message: `🏆 Badge débloqué : ${badge?.label || badgeCode}`,
+            tone: 'celebrate',
+          });
         });
       }
     }
@@ -954,6 +976,17 @@ const handleBoost = async (activityId: string) => {
         source: 'challenge_joined',
         metadata: { target_id: challenge.id },
       });
+
+      const badgeResult = await refreshUserBadges(user.id);
+      if (!badgeResult.error) {
+        badgeResult.awarded.forEach((badgeCode) => {
+          const badge = getBadgeByCode(badgeCode);
+          queuePendingToast({
+            message: `🏆 Badge débloqué : ${badge?.label || badgeCode}`,
+            tone: 'celebrate',
+          });
+        });
+      }
     } finally {
       setJoiningChallenge(false);
     }

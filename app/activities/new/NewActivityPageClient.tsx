@@ -318,22 +318,6 @@ export default function NewActivityPageClient() {
         }
       }
 
-      const badgeResult = await refreshUserBadges(user.id);
-
-      if (badgeResult.error) {
-        console.error('Erreur refresh badges activité :', badgeResult.error);
-      }
-
-      queuePendingToast({ message: '✅ Activité ajoutée', tone: 'success' });
-
-      badgeResult.awarded.forEach((badgeCode) => {
-        const badge = getBadgeByCode(badgeCode);
-        queuePendingToast({
-          message: `🎉 Badge débloqué : ${badge?.label || badgeCode}`,
-          tone: 'celebrate',
-        });
-      });
-
       const nextProgress =
         selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);
 
@@ -349,6 +333,22 @@ export default function NewActivityPageClient() {
           metadata: { target_id: selectedChallengeId },
         });
       }
+
+      const badgeResult = await refreshUserBadges(user.id);
+
+      if (badgeResult.error) {
+        console.error('Erreur refresh badges activité :', badgeResult.error);
+      }
+
+      queuePendingToast({ message: '✅ Activité ajoutée', tone: 'success' });
+
+      badgeResult.awarded.forEach((badgeCode) => {
+        const badge = getBadgeByCode(badgeCode);
+        queuePendingToast({
+          message: `🎉 Badge débloqué : ${badge?.label || badgeCode}`,
+          tone: 'celebrate',
+        });
+      });
 
       router.push(`/challenges/${selectedChallengeId}`);
     } catch (error) {

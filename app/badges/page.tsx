@@ -48,12 +48,25 @@ function renderBadgeIcon(iconName: string) {
         <path d="M10 15h4v3h-4z" />
       </>
     ),
+    Medal: iconStroke(
+      <>
+        <circle cx="12" cy="15" r="4" />
+        <path d="M8 3h3l1 4-2 2H8L6 7l2-4Z" />
+        <path d="M13 3h3l2 4-2 2h-2l-2-2 1-4Z" />
+      </>
+    ),
     Users: iconStroke(
       <>
         <path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
         <path d="M9.5 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
         <path d="M20 21v-2a4 4 0 0 0-3-3.9" />
         <path d="M16.5 4.1a3.5 3.5 0 0 1 0 6.8" />
+      </>
+    ),
+    ShieldCheck: iconStroke(
+      <>
+        <path d="M12 3 5 6v5c0 4.4 2.8 8.3 7 10 4.2-1.7 7-5.6 7-10V6l-7-3Z" />
+        <path d="m9.5 12 1.7 1.7 3.3-3.4" />
       </>
     ),
     Map: iconStroke(
@@ -71,11 +84,40 @@ function renderBadgeIcon(iconName: string) {
         <path d="M12 9h6" />
       </>
     ),
+    Compass: iconStroke(
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="m14.5 9.5-5 5 5-2 2-5-2 2Z" />
+      </>
+    ),
+    Mountain: iconStroke(
+      <>
+        <path d="m3 20 6-9 3 4 3-6 6 11" />
+        <path d="m9 11 1.5-2 1.5 2" />
+      </>
+    ),
     HeartHandshake: iconStroke(
       <>
         <path d="M8.5 12.5 6 10a2.8 2.8 0 0 1 4-4l2 2 2-2a2.8 2.8 0 0 1 4 4l-2.5 2.5" />
         <path d="M7 14l2.5 2.5a2 2 0 0 0 2.8 0L15 14" />
         <path d="M9 12h6" />
+      </>
+    ),
+    Sparkles: iconStroke(
+      <>
+        <path d="M12 3v4" />
+        <path d="M12 17v4" />
+        <path d="M3 12h4" />
+        <path d="M17 12h4" />
+        <path d="m6 6 2 2" />
+        <path d="m16 16 2 2" />
+        <path d="m6 18 2-2" />
+        <path d="m16 8 2-2" />
+      </>
+    ),
+    Star: iconStroke(
+      <>
+        <path d="m12 3 2.6 5.2 5.7.8-4.1 4 1 5.7L12 16l-5.2 2.7 1-5.7-4.1-4 5.7-.8L12 3Z" />
       </>
     ),
     PlayCircle: iconStroke(
@@ -96,6 +138,15 @@ function renderBadgeIcon(iconName: string) {
         <path d="M12 4a9 9 0 1 0 9 9" />
         <path d="m12 12 5-3" />
         <path d="M12 12v.01" />
+      </>
+    ),
+    Dumbbell: iconStroke(
+      <>
+        <path d="M3 10v4" />
+        <path d="M6 8v8" />
+        <path d="M18 8v8" />
+        <path d="M21 10v4" />
+        <path d="M6 12h12" />
       </>
     ),
     CalendarPlus: iconStroke(
@@ -122,6 +173,18 @@ function renderBadgeIcon(iconName: string) {
         <path d="m8 12 8 6" />
       </>
     ),
+    Shapes: iconStroke(
+      <>
+        <circle cx="7" cy="8" r="3" />
+        <path d="M14 5h5v5h-5z" />
+        <path d="m12 19 4-6 4 6Z" />
+      </>
+    ),
+    Crown: iconStroke(
+      <>
+        <path d="m3 8 4 4 5-7 5 7 4-4-2 10H5L3 8Z" />
+      </>
+    ),
   };
 
   return icons[iconName] || iconStroke(<circle cx="12" cy="12" r="8" />);
@@ -135,6 +198,7 @@ function getBadgeCategoryLabel(badge: BadgeDefinition) {
     social: 'Social',
     session: 'Seance',
     program: 'Programme',
+    sport: 'Multi-sports',
   };
 
   return labels[badge.category];

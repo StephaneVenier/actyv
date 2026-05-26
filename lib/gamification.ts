@@ -25,9 +25,22 @@ export type XpRule = {
 type BadgeActivityRow = {
   id: string;
   user_id: string | null;
+  user_email?: string | null;
+  sport?: string | null;
+  challenge_id?: string | null;
   distance_km: number | null;
   unit_type: string | null;
   unit_value: number | null;
+};
+
+type BadgeTrainingProgramRow = {
+  id: string;
+  visibility: string | null;
+  copied_from_program_id: string | null;
+};
+
+type BadgeXpEventRow = {
+  event_type: string | null;
 };
 
 export const LEVEL_XP_TABLE = [
@@ -52,6 +65,14 @@ export const XP_RULES: Record<XpSource, XpRule> = {
 
 export { BADGES, getBadgeByCode, normalizeBadgeCode };
 export type { BadgeCode } from '@/lib/badges';
+
+function getCanonicalBadgeSet(badgeRows: Array<{ badge_code: string }>) {
+  return new Set(
+    badgeRows
+      .map((badge) => normalizeBadgeCode(badge.badge_code))
+      .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
+  );
+}
 
 export function calculateLevel(totalXp: number) {
   const xp = Math.max(totalXp || 0, 0);
@@ -261,6 +282,20 @@ export async function awardXp({
 export async function awardBadge(userId: string, badgeCode: string) {
   const normalizedCode = normalizeBadgeCode(badgeCode) || (badgeCode as BadgeCode);
 
+  const existingResponse = await supabase.from('user_badges').select('badge_code').eq('user_id', userId);
+
+  if (existingResponse.error) {
+    return { data: null, error: existingResponse.error, badgeCode: normalizedCode };
+  }
+
+  const normalizedExistingSet = getCanonicalBadgeSet(
+    (existingResponse.data as Array<{ badge_code: string }> | null) || []
+  );
+
+  if (normalizedExistingSet.has(normalizedCode)) {
+    return { data: null, error: null, badgeCode: normalizedCode, skipped: true };
+  }
+
   const { data, error } = await supabase
     .from('user_badges')
     .upsert(
@@ -279,12 +314,28 @@ export async function awardBadge(userId: string, badgeCode: string) {
 }
 
 export async function checkAndAwardBadges(userId: string) {
-  const [activitiesResponse, challengesResponse, participantsResponse, interactionsResponse] =
-    await Promise.all([
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', userId)
+    .maybeSingle();
+
+  const userEmail = (profileData as { email?: string | null } | null)?.email || null;
+
+  const [
+    activitiesResponse,
+    challengesResponse,
+    participantsResponse,
+    membersResponse,
+    interactionsResponse,
+    workoutHistoryResponse,
+    trainingProgramsResponse,
+    xpEventsResponse,
+  ] = await Promise.all([
       supabase
         .from('activities')
-        .select('id, user_id, distance_km, unit_type, unit_value')
-        .eq('user_id', userId),
+        .select('id, user_id, user_email, sport, challenge_id, distance_km, unit_type, unit_value')
+        .or(`user_id.eq.${userId}${userEmail ? `,user_email.eq.${userEmail}` : ''}`),
       supabase
         .from('challenges')
         .select('id')
@@ -294,18 +345,38 @@ export async function checkAndAwardBadges(userId: string) {
         .from('challenge_participants')
         .select('id')
         .eq('user_id', userId),
+      userEmail
+        ? supabase.from('challenge_members').select('id').eq('user_email', userEmail)
+        : Promise.resolve({ data: [], error: null }),
       supabase
         .from('activity_interactions')
         .select('id, type')
         .eq('user_id', userId)
         .in('type', ['like', 'boost']),
+      supabase
+        .from('workout_sessions_history')
+        .select('id')
+        .eq('user_id', userId),
+      supabase
+        .from('training_programs')
+        .select('id, visibility, copied_from_program_id')
+        .eq('user_id', userId),
+      supabase
+        .from('xp_events')
+        .select('event_type')
+        .eq('user_id', userId)
+        .in('event_type', ['challenge_completed', 'program_completed']),
     ]);
 
   const firstError =
     activitiesResponse.error ||
     challengesResponse.error ||
     participantsResponse.error ||
-    interactionsResponse.error;
+    membersResponse.error ||
+    interactionsResponse.error ||
+    workoutHistoryResponse.error ||
+    trainingProgramsResponse.error ||
+    xpEventsResponse.error;
 
   if (firstError) {
     console.error('BADGES ERROR:', firstError);
@@ -315,7 +386,27 @@ export async function checkAndAwardBadges(userId: string) {
   const activities = (activitiesResponse.data as BadgeActivityRow[] | null) || [];
   const createdChallenges = challengesResponse.data || [];
   const joinedChallenges = participantsResponse.data || [];
+  const joinedMembers = membersResponse.data || [];
   const interactions = interactionsResponse.data || [];
+  const workoutHistory = workoutHistoryResponse.data || [];
+  const trainingPrograms = (trainingProgramsResponse.data as BadgeTrainingProgramRow[] | null) || [];
+  const xpEvents = (xpEventsResponse.data as BadgeXpEventRow[] | null) || [];
+
+  const ownedActivityIds = activities.map((activity) => activity.id);
+  const reactionsReceivedResponse =
+    ownedActivityIds.length > 0
+      ? await supabase
+          .from('activity_interactions')
+          .select('id')
+          .in('activity_id', ownedActivityIds)
+      : { data: [], error: null };
+
+  if (reactionsReceivedResponse.error) {
+    console.error('BADGES ERROR:', reactionsReceivedResponse.error);
+    return { awarded: [], error: reactionsReceivedResponse.error };
+  }
+
+  const reactionsReceived = reactionsReceivedResponse.data || [];
 
   const totalDistance = activities.reduce((sum, activity) => {
     const isDistance =
@@ -324,16 +415,51 @@ export async function checkAndAwardBadges(userId: string) {
     return sum + Number(activity.unit_value ?? activity.distance_km ?? 0);
   }, 0);
 
+  const distinctSportsCount = new Set(
+    activities
+      .map((activity) => (activity.sport || '').trim().toLowerCase())
+      .filter(Boolean)
+  ).size;
+
+  const completedSessionsCount = workoutHistory.length;
+  const createdPrograms = trainingPrograms.filter((program) => !program.copied_from_program_id);
+  const sharedProgramsCount = createdPrograms.filter((program) => program.visibility === 'shared').length;
+  const challengeCompletedCount = xpEvents.filter((event) => event.event_type === 'challenge_completed').length;
+  const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
+
   const badgesToAward: BadgeCode[] = [];
 
-  if (activities.length >= 1) badgesToAward.push('premier_pas');
-  if (activities.length >= 5) badgesToAward.push('actyv_regulier');
-  if (activities.length >= 10) badgesToAward.push('actyv_motive');
-  if (createdChallenges.length >= 1) badgesToAward.push('challenger');
-  if (joinedChallenges.length >= 1) badgesToAward.push('collectif');
-  if (totalDistance >= 10) badgesToAward.push('distance_10_km');
-  if (totalDistance >= 50) badgesToAward.push('distance_50_km');
-  if (interactions.length >= 1) badgesToAward.push('boosteur');
+  if (activities.length >= 1) badgesToAward.push('first_activity');
+  if (activities.length >= 5) badgesToAward.push('five_activities');
+  if (activities.length >= 10) badgesToAward.push('ten_activities');
+  if (activities.length >= 50) badgesToAward.push('fifty_activities');
+  if (activities.length >= 100) badgesToAward.push('hundred_activities');
+
+  if (createdChallenges.length >= 1) badgesToAward.push('first_challenge');
+  if (createdChallenges.length >= 5) badgesToAward.push('five_challenges');
+  if (joinedChallenges.length + joinedMembers.length >= 1) badgesToAward.push('first_joined_challenge');
+  if (challengeCompletedCount >= 1) badgesToAward.push('challenge_completed');
+
+  if (totalDistance >= 10) badgesToAward.push('distance_10');
+  if (totalDistance >= 50) badgesToAward.push('distance_50');
+  if (totalDistance >= 100) badgesToAward.push('distance_100');
+  if (totalDistance >= 500) badgesToAward.push('distance_500');
+
+  if (interactions.length >= 1) badgesToAward.push('first_like');
+  if (reactionsReceived.length >= 10) badgesToAward.push('ten_likes_received');
+  if (reactionsReceived.length >= 50) badgesToAward.push('fifty_likes_received');
+
+  if (completedSessionsCount >= 1) badgesToAward.push('first_session_completed');
+  if (completedSessionsCount >= 5) badgesToAward.push('five_sessions_completed');
+  if (completedSessionsCount >= 10) badgesToAward.push('ten_sessions_completed');
+  if (completedSessionsCount >= 50) badgesToAward.push('fifty_sessions_completed');
+
+  if (createdPrograms.length >= 1) badgesToAward.push('first_program_created');
+  if (sharedProgramsCount >= 1) badgesToAward.push('program_shared');
+  if (programCompletedCount >= 1) badgesToAward.push('program_completed');
+
+  if (distinctSportsCount >= 3) badgesToAward.push('three_sports');
+  if (distinctSportsCount >= 5) badgesToAward.push('five_sports');
 
   const awarded = [];
 
@@ -373,7 +499,26 @@ export async function refreshUserBadges(userId: string) {
 
     if (error) {
       console.error('BADGES ERROR:', error);
-      return { awarded: [], error, data: null };
+
+      const fallbackResult = await checkAndAwardBadges(userId);
+      if (fallbackResult.error) {
+        return { awarded: [], error, data: null };
+      }
+
+      const normalizedBeforeSet = getCanonicalBadgeSet(
+        ((beforeBadges as { badge_code: string }[] | null) || [])
+      );
+
+      const fallbackAwarded = (fallbackResult.awarded || [])
+        .map((entry) => normalizeBadgeCode(entry.badgeCode))
+        .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
+        .filter((badgeCode) => !normalizedBeforeSet.has(badgeCode));
+
+      return {
+        awarded: fallbackAwarded,
+        error: null,
+        data: fallbackResult,
+      };
     }
 
     const badgeCodes =
@@ -381,10 +526,8 @@ export async function refreshUserBadges(userId: string) {
         ? ((data as { badges: string[] }).badges || [])
         : [];
 
-    const beforeSet = new Set(
+    const beforeSet = getCanonicalBadgeSet(
       ((beforeBadges as { badge_code: string }[] | null) || [])
-        .map((badge) => normalizeBadgeCode(badge.badge_code))
-        .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
     );
 
     const awarded = badgeCodes
