@@ -179,10 +179,12 @@ export async function getUserTotalXp(
     firstHardError = xpEventsResponse.error;
   } else {
     const rows = (xpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || [];
+    console.log('profile xp rows', rows);
     totalXp = rows.reduce(
       (sum, entry) => sum + Number(entry.xp_amount || 0),
       0
     );
+    console.log('profile xp total', totalXp);
     eventsCount = rows.length;
   }
 

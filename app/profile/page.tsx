@@ -204,6 +204,8 @@ export default function ProfilePage() {
         return;
       }
 
+      console.log('profile xp user id', user.id);
+
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, email, username, total_xp, level')
@@ -219,6 +221,7 @@ export default function ProfilePage() {
       };
 
       const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
+      console.log('profile xp result', xpTotalResult);
 
       setXpTotalFromEvents(xpTotalResult.totalXp);
       setProfile(nextProfile);
