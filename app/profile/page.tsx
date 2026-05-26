@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
-import { BADGES, calculateLevel, getLevelProgress, getUserTotalXp, normalizeBadgeCode } from '@/lib/gamification';
+import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
+import type { UserBadge } from '@/lib/badges';
+import { calculateLevel, getLevelProgress, getUserTotalXp } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -50,10 +52,6 @@ type ChallengeMember = {
 type ActivityInteraction = {
   activity_id: string;
   type: 'like' | 'boost';
-};
-
-type UserBadge = {
-  badge_code: string;
 };
 
 type WorkoutHistoryEntry = {
@@ -552,13 +550,10 @@ export default function ProfilePage() {
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
   const totalXp = xpTotalFromEvents;
   const levelProgress = getLevelProgress(totalXp);
-  const unlockedBadgeCodes = new Set(
-    badges
-      .map((badge) => normalizeBadgeCode(badge.badge_code))
-      .filter((badgeCode): badgeCode is NonNullable<typeof badgeCode> => Boolean(badgeCode))
-  );
+  const unlockedBadgeCodes = getUnlockedBadgeCodes(badges);
   const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
   const badgeCount = unlockedBadges.length;
+  const totalBadgeCount = BADGES.length;
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -917,30 +912,32 @@ export default function ProfilePage() {
           </article>
         </section>
 
-        <section className="card gamification-card">
+        <section className="card gamification-card profile-badges-summary-card">
           <div className="profile-section-heading">
             <div>
               <span className="section-kicker">Badges</span>
-              <h2>Badges principaux</h2>
+              <h2>Collection badges</h2>
             </div>
-            <span className="badge">{badgeCount} badge{badgeCount > 1 ? 's' : ''}</span>
+            <span className="badge">
+              {badgeCount} / {totalBadgeCount}
+            </span>
           </div>
 
-          <div className="badge-grid">
-            {unlockedBadges.length === 0 ? (
-              <span className="badge-list-empty">Aucun badge debloque pour le moment.</span>
-            ) : (
-              unlockedBadges.slice(0, 6).map((badge) => (
-                <article
-                  key={badge.code}
-                  className="achievement-badge-card"
-                  title={badge.description}
-                >
-                  <span className="achievement-badge">{badge.label}</span>
-                  <p>{badge.description}</p>
-                </article>
-              ))
-            )}
+          <div className="profile-badges-summary-card__content">
+            <div className="profile-badges-summary-card__stats">
+              <strong>
+                {badgeCount} / {totalBadgeCount} debloques
+              </strong>
+              <p>
+                {badgeCount === 0
+                  ? 'Aucun badge debloque pour le moment.'
+                  : `${totalBadgeCount - badgeCount} badge${totalBadgeCount - badgeCount > 1 ? 's' : ''} restent a aller chercher.`}
+              </p>
+            </div>
+
+            <Link href="/badges" className="button primary">
+              Voir tous les badges
+            </Link>
           </div>
         </section>
 

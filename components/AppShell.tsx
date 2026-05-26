@@ -9,6 +9,11 @@ type Profile = {
   username: string | null;
 };
 
+type WorkoutQuickStatRow = {
+  id: string;
+  duration_seconds: number | null;
+};
+
 type QuickStatsSummary = {
   completedWorkouts: number;
   totalDurationSeconds: number;
@@ -72,13 +77,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             .from('profiles')
             .select('username')
             .eq('email', email)
-            .maybeSingle<Profile>();
+            .maybeSingle();
 
           if (profileError) {
             console.error('Erreur chargement profil :', profileError);
             setUsername(null);
           } else {
-            setUsername(data?.username || null);
+            setUsername((data as Profile | null)?.username || null);
           }
         }
 
@@ -94,9 +99,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           return;
         }
 
-        const completedWorkouts = (statsRows || []).length;
-        const totalDurationSeconds = (statsRows || []).reduce((sum, row) => {
-          const duration = Number((row as { duration_seconds?: number | null }).duration_seconds || 0);
+        const normalizedStatsRows = ((statsRows as WorkoutQuickStatRow[] | null) || []);
+        const completedWorkouts = normalizedStatsRows.length;
+        const totalDurationSeconds = normalizedStatsRows.reduce((sum, row) => {
+          const duration = Number(row.duration_seconds || 0);
           return sum + (Number.isFinite(duration) ? duration : 0);
         }, 0);
 
@@ -224,6 +230,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                         Mon profil
                       </Link>
 
+                      <Link
+                        href="/badges"
+                        onClick={() => setMenuOpen(false)}
+                        className="profile-dropdown-link"
+                      >
+                        Mes badges
+                      </Link>
+
                       <button
                         type="button"
                         onClick={handleLogout}
@@ -299,6 +313,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <span className="quick-menu-item__title">Programmes</span>
                 <span className="quick-menu-item__meta">Planifier et suivre tes cycles</span>
+              </Link>
+
+              <Link
+                href="/badges"
+                className="quick-menu-item"
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <span className="quick-menu-item__title">Badges</span>
+                <span className="quick-menu-item__meta">Voir ta collection Actyv</span>
               </Link>
             </div>
           )}

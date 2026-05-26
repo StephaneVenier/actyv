@@ -1,4 +1,6 @@
 import { supabase } from '@/lib/supabase';
+import { BADGES, getBadgeByCode, normalizeBadgeCode } from '@/lib/badges';
+import type { BadgeCode } from '@/lib/badges';
 
 export type XpSource =
   | 'challenge_created'
@@ -20,39 +22,12 @@ export type XpRule = {
   dailySourceLimit?: number;
 };
 
-export type BadgeCode =
-  | 'premier_pas'
-  | 'actyv_regulier'
-  | 'actyv_motive'
-  | 'challenger'
-  | 'collectif'
-  | 'distance_10_km'
-  | 'distance_50_km'
-  | 'boosteur'
-  | 'premiere_seance_terminee'
-  | 'cinq_seances_terminees'
-  | 'dix_seances_terminees'
-  | 'premier_programme_cree'
-  | 'premier_programme_termine'
-  | 'programme_partage';
-
-type BadgeRule = {
-  code: BadgeCode;
-  label: string;
-  description: string;
-};
-
-const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
-  'first-step': 'premier_pas',
-  'actyv-regular': 'actyv_regulier',
-  'actyv-motivated': 'actyv_motive',
-  challenger: 'challenger',
-  collective: 'collectif',
-  'distance-10': 'distance_10_km',
-  'distance-50': 'distance_50_km',
-  distance_10: 'distance_10_km',
-  distance_50: 'distance_50_km',
-  boosteur: 'boosteur',
+type BadgeActivityRow = {
+  id: string;
+  user_id: string | null;
+  distance_km: number | null;
+  unit_type: string | null;
+  unit_value: number | null;
 };
 
 export const LEVEL_XP_TABLE = [
@@ -75,36 +50,8 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   program_shared: { xp: 15 },
 };
 
-export const BADGES: BadgeRule[] = [
-  { code: 'premier_pas', label: 'Premier pas', description: 'Premiere activite ajoutee.' },
-  { code: 'actyv_regulier', label: 'Actyv regulier', description: '5 activites ajoutees.' },
-  { code: 'actyv_motive', label: 'Actyv motive', description: '10 activites ajoutees.' },
-  { code: 'challenger', label: 'Challenger', description: 'Premier challenge cree.' },
-  { code: 'collectif', label: 'Collectif', description: 'Premier challenge rejoint.' },
-  { code: 'distance_10_km', label: 'Distance 10 km', description: '10 km cumules.' },
-  { code: 'distance_50_km', label: 'Distance 50 km', description: '50 km cumules.' },
-  { code: 'boosteur', label: 'Boosteur', description: 'Premier like ou boost donne.' },
-  { code: 'premiere_seance_terminee', label: 'Premiere seance terminee', description: 'Premiere seance d entrainement terminee.' },
-  { code: 'cinq_seances_terminees', label: '5 seances terminees', description: 'Cinq seances d entrainement terminees.' },
-  { code: 'dix_seances_terminees', label: '10 seances terminees', description: 'Dix seances d entrainement terminees.' },
-  { code: 'premier_programme_cree', label: 'Premier programme cree', description: 'Premier programme personnel cree.' },
-  { code: 'premier_programme_termine', label: 'Premier programme termine', description: 'Premier programme mene jusqu au bout.' },
-  { code: 'programme_partage', label: 'Programme partage', description: 'Premier programme partage sur Actyv.' },
-];
-
-export function getBadgeByCode(code: string | null | undefined) {
-  const normalizedCode = normalizeBadgeCode(code);
-  if (!normalizedCode) return null;
-  return BADGES.find((badge) => badge.code === normalizedCode) || null;
-}
-
-export function normalizeBadgeCode(code: string | null | undefined): BadgeCode | null {
-  if (!code) return null;
-  if (BADGES.some((badge) => badge.code === code)) {
-    return code as BadgeCode;
-  }
-  return LEGACY_BADGE_CODE_MAP[code] || null;
-}
+export { BADGES, getBadgeByCode, normalizeBadgeCode };
+export type { BadgeCode } from '@/lib/badges';
 
 export function calculateLevel(totalXp: number) {
   const xp = Math.max(totalXp || 0, 0);
@@ -365,7 +312,7 @@ export async function checkAndAwardBadges(userId: string) {
     return { awarded: [], error: firstError };
   }
 
-  const activities = activitiesResponse.data || [];
+  const activities = (activitiesResponse.data as BadgeActivityRow[] | null) || [];
   const createdChallenges = challengesResponse.data || [];
   const joinedChallenges = participantsResponse.data || [];
   const interactions = interactionsResponse.data || [];
