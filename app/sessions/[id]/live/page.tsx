@@ -682,12 +682,23 @@ export default function LiveSessionPage() {
       if (!(programSessionId && programId)) {
         const workoutXpResult = await awardXp({
           userId: user.id,
-          source: 'workout_completed',
+          source: 'session_completed',
           metadata: { target_id: data.id },
         });
 
         if (workoutXpResult?.awarded) {
           awardedXpMessages.push('+10 XP seance');
+        } else if (workoutXpResult?.error) {
+          console.error('XP award failed', {
+            payload: {
+              user_id: user.id,
+              event_type: 'session_completed',
+              source_type: 'training_session_completion',
+              source_id: data.id,
+              xp_amount: 10,
+            },
+            error: workoutXpResult.error,
+          });
         }
       }
 
@@ -895,6 +906,17 @@ export default function LiveSessionPage() {
 
             if (programSessionXpResult?.awarded) {
               awardedXpMessages.push('+15 XP programme');
+            } else if (programSessionXpResult?.error) {
+              console.error('XP award failed', {
+                payload: {
+                  user_id: user.id,
+                  event_type: 'program_session_completed',
+                  source_type: 'training_program_completion',
+                  source_id: programSessionId,
+                  xp_amount: 15,
+                },
+                error: programSessionXpResult.error,
+              });
             }
 
             const [{ count: totalProgramSessionsCount }, { count: completedProgramSessionsCount }] = await Promise.all([
@@ -922,6 +944,17 @@ export default function LiveSessionPage() {
 
               if (programCompletedXpResult?.awarded) {
                 awardedXpMessages.push('+100 XP programme termine');
+              } else if (programCompletedXpResult?.error) {
+                console.error('XP award failed', {
+                  payload: {
+                    user_id: user.id,
+                    event_type: 'program_completed',
+                    source_type: 'training_program_completion',
+                    source_id: programId,
+                    xp_amount: 100,
+                  },
+                  error: programCompletedXpResult.error,
+                });
               }
             }
           }

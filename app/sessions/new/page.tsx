@@ -20,6 +20,7 @@ import {
   getSessionEstimatedDuration,
   getSessionEstimatedVolume,
 } from '@/lib/session-blocks';
+import { awardXp } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { insertTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
 
@@ -136,6 +137,28 @@ export default function NewSessionPage() {
         return;
       }
 
+      const xpResult = await awardXp({
+        userId: user.id,
+        source: 'session_created',
+        metadata: { target_id: session.id },
+      });
+
+      if (xpResult?.error) {
+        console.error('XP award failed', {
+          payload: {
+            user_id: user.id,
+            event_type: 'session_created',
+            source_type: 'training_session',
+            source_id: session.id,
+            xp_amount: 5,
+          },
+          error: xpResult.error,
+        });
+      }
+
+      if (xpResult?.awarded) {
+        queuePendingToast({ message: '+5 XP seance creee', tone: 'info' });
+      }
       queuePendingToast({ message: 'Seance creee', tone: 'success' });
       router.push(`/sessions/${session.id}`);
     } catch (error) {

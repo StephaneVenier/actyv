@@ -542,6 +542,17 @@ export function ProgramEditorForm({
 
         if (xpResult?.awarded) {
           queuePendingToast({ message: '+5 XP programme cree', tone: 'info' });
+        } else if (xpResult?.error) {
+          console.error('XP award failed', {
+            payload: {
+              user_id: user.id,
+              event_type: 'program_created',
+              source_type: 'training_program',
+              source_id: resolvedProgramId,
+              xp_amount: 5,
+            },
+            error: xpResult.error,
+          });
         }
 
         const badgeResult = await refreshUserBadges(user.id);

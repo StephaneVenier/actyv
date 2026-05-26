@@ -7,6 +7,8 @@ export type XpSource =
   | 'like_received'
   | 'boost_received'
   | 'challenge_completed'
+  | 'session_created'
+  | 'session_completed'
   | 'workout_completed'
   | 'program_session_completed'
   | 'program_completed'
@@ -73,12 +75,24 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   like_received: { xp: 1, dailyLimit: 20 },
   boost_received: { xp: 3, dailyLimit: 30 },
   challenge_completed: { xp: 50 },
+  session_created: { xp: 5 },
+  session_completed: { xp: 10 },
   workout_completed: { xp: 10 },
   program_session_completed: { xp: 15 },
   program_completed: { xp: 100 },
   program_created: { xp: 5 },
   program_shared: { xp: 5 },
 };
+
+const MODERN_XP_SOURCES = new Set<XpSource>([
+  'session_created',
+  'session_completed',
+  'workout_completed',
+  'program_session_completed',
+  'program_completed',
+  'program_created',
+  'program_shared',
+]);
 
 export const BADGES: BadgeRule[] = [
   { code: 'premier_pas', label: 'Premier pas', description: 'Premiere activite ajoutee.' },
@@ -169,8 +183,10 @@ function isMissingRelationOrColumn(error: SupabaseLikeError | null | undefined) 
 }
 
 function getXpSourceType(source: XpSource) {
-  if (source.startsWith('program')) return 'program';
-  if (source === 'workout_completed') return 'session';
+  if (source === 'session_created') return 'training_session';
+  if (source === 'session_completed' || source === 'workout_completed') return 'training_session_completion';
+  if (source === 'program_created' || source === 'program_shared') return 'training_program';
+  if (source === 'program_session_completed' || source === 'program_completed') return 'training_program_completion';
   if (source.startsWith('challenge')) return 'challenge';
   if (source === 'activity_added') return 'activity';
   return 'engagement';
@@ -263,6 +279,7 @@ export async function awardXp({
 }) {
   const targetUserId = userId || (await resolveUserIdFromEmail(userEmail));
   if (!targetUserId) return { awarded: false };
+  const requiresModernXpEvent = MODERN_XP_SOURCES.has(source);
 
   try {
     const { data: beforeProfileRow } = await supabase
@@ -284,7 +301,8 @@ export async function awardXp({
 
     let persistenceError: unknown = null;
     let didAttemptDirectInsert = false;
-    let shouldFallbackToRpc = true;
+    let shouldFallbackToRpc = !requiresModernXpEvent;
+    let lastPayload: Record<string, unknown> | null = null;
 
     if (authUser?.id === targetUserId) {
       const directPayload = {
@@ -295,6 +313,7 @@ export async function awardXp({
         xp_amount: XP_RULES[source].xp,
       };
 
+      lastPayload = directPayload;
       console.log('XP payload', directPayload);
 
       didAttemptDirectInsert = true;
@@ -316,40 +335,68 @@ export async function awardXp({
             details: existingEventResponse.error.details,
             hint: existingEventResponse.error.hint,
           });
+          if (requiresModernXpEvent) {
+            persistenceError = existingEventResponse.error;
+          }
         } else if (existingEventResponse.error && isMissingRelationOrColumn(existingEventResponse.error)) {
-          shouldFallbackToRpc = true;
+          if (requiresModernXpEvent) {
+            persistenceError = existingEventResponse.error;
+          } else {
+            shouldFallbackToRpc = true;
+          }
         } else if (existingEventResponse.data) {
           return { awarded: false, error: null, reason: 'xp_event_already_exists' };
         }
       }
 
-      const directInsertResponse = await supabase.from('user_xp_events').insert(directPayload).select('id').maybeSingle();
+      if (!persistenceError) {
+        const directInsertResponse = await supabase.from('user_xp_events').insert(directPayload).select('id').maybeSingle();
 
-      if (directInsertResponse.error) {
-        console.error('XP insert failed', directInsertResponse.error);
-        console.error('XP insert failed details', {
-          message: directInsertResponse.error.message,
-          code: directInsertResponse.error.code,
-          details: directInsertResponse.error.details,
-          hint: directInsertResponse.error.hint,
-        });
+        if (directInsertResponse.error) {
+          console.error('XP insert failed', directInsertResponse.error);
+          console.error('XP insert failed details', {
+            message: directInsertResponse.error.message,
+            code: directInsertResponse.error.code,
+            details: directInsertResponse.error.details,
+            hint: directInsertResponse.error.hint,
+          });
+          console.error('XP award failed', {
+            payload: directPayload,
+            error: directInsertResponse.error,
+          });
 
-        if (!isMissingRelationOrColumn(directInsertResponse.error)) {
-          persistenceError = directInsertResponse.error;
+          if (!isMissingRelationOrColumn(directInsertResponse.error) || requiresModernXpEvent) {
+            persistenceError = directInsertResponse.error;
+          } else {
+            shouldFallbackToRpc = true;
+          }
         } else {
-          shouldFallbackToRpc = true;
+          shouldFallbackToRpc = false;
         }
-      } else {
-        shouldFallbackToRpc = false;
       }
     }
 
     if (!persistenceError && !didAttemptDirectInsert) {
-      console.log('XP payload', {
+      lastPayload = {
         user_id: targetUserId,
-        source,
-        target_id: normalizedTargetId,
-      });
+        event_type: source,
+        source_type: getXpSourceType(source),
+        source_id: normalizedTargetId,
+        xp_amount: XP_RULES[source].xp,
+      };
+      console.log('XP payload', lastPayload);
+    }
+
+    if (requiresModernXpEvent && authUser?.id !== targetUserId) {
+      return {
+        awarded: false,
+        error: {
+          message: 'Utilisateur non connecte ou non autorise pour ecrire dans user_xp_events.',
+          code: 'XP_AUTH_REQUIRED',
+          details: 'Les XP seances/programmes exigent un utilisateur authentifie cote client.',
+          hint: 'Verifie supabase.auth.getUser() avant awardXp.',
+        },
+      };
     }
 
     if (!persistenceError && shouldFallbackToRpc) {
@@ -366,6 +413,10 @@ export async function awardXp({
           code: error.code,
           details: error.details,
           hint: error.hint,
+        });
+        console.error('XP award failed', {
+          payload: lastPayload,
+          error,
         });
         return { awarded: false, error };
       }

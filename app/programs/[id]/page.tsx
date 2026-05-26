@@ -728,6 +728,17 @@ export default function ProgramDetailPage() {
 
           if (xpResult?.awarded) {
             queuePendingToast({ message: '+5 XP programme partage', tone: 'info' });
+          } else if (xpResult?.error) {
+            console.error('XP award failed', {
+              payload: {
+                user_id: user.id,
+                event_type: 'program_shared',
+                source_type: 'training_program',
+                source_id: program.id,
+                xp_amount: 5,
+              },
+              error: xpResult.error,
+            });
           }
 
           const badgeResult = await refreshUserBadges(user.id);
