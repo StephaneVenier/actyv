@@ -181,12 +181,37 @@ export async function getUserTotalXp(
   legacyProfileXp?: number | null | undefined
 ) {
   if (!userId) {
-    return { totalXp: 0, legacyXp: 0, eventsXp: 0, error: null };
+    return { totalXp: 0, legacyXp: 0, eventsXp: 0, legacyEventsCount: 0, sessionEventsCount: 0, error: null };
   }
 
+  let legacyXp = Number(legacyProfileXp || 0);
   let eventsXp = 0;
+  let legacyEventsCount = 0;
+  let sessionEventsCount = 0;
   let firstHardError: unknown = null;
-  const legacyXp = Number(legacyProfileXp || 0);
+
+  const legacyXpEventsResponse = await supabase
+    .from('xp_events')
+    .select('xp')
+    .eq('user_id', userId);
+
+  if (legacyXpEventsResponse.error) {
+    console.error('XP total query error on xp_events', legacyXpEventsResponse.error);
+    console.error('XP total query error details', {
+      message: legacyXpEventsResponse.error.message,
+      code: legacyXpEventsResponse.error.code,
+      details: legacyXpEventsResponse.error.details,
+      hint: legacyXpEventsResponse.error.hint,
+    });
+
+    if (!firstHardError) {
+      firstHardError = legacyXpEventsResponse.error;
+    }
+  } else {
+    const legacyRows = (legacyXpEventsResponse.data as Array<{ xp: number | null }> | null) || [];
+    legacyXp = legacyRows.reduce((sum, entry) => sum + Number(entry.xp || 0), 0);
+    legacyEventsCount = legacyRows.length;
+  }
 
   const userXpEventsResponse = await supabase
     .from('user_xp_events')
@@ -202,16 +227,27 @@ export async function getUserTotalXp(
         details: userXpEventsResponse.error.details,
         hint: userXpEventsResponse.error.hint,
       });
-      firstHardError = userXpEventsResponse.error;
+      if (!firstHardError) {
+        firstHardError = userXpEventsResponse.error;
+      }
     }
   } else {
-    eventsXp += (((userXpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || []).reduce(
+    const sessionRows = (userXpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || [];
+    sessionEventsCount = sessionRows.length;
+    eventsXp += (sessionRows.reduce(
       (sum, entry) => sum + Number(entry.xp_amount || 0),
       0
     ));
   }
 
-  return { totalXp: legacyXp + eventsXp, legacyXp, eventsXp, error: firstHardError };
+  return {
+    totalXp: legacyXp + eventsXp,
+    legacyXp,
+    eventsXp,
+    legacyEventsCount,
+    sessionEventsCount,
+    error: firstHardError,
+  };
 }
 
 export async function awardXp({

@@ -174,7 +174,12 @@ function getActivityValue(activity: Activity, goalType: GoalType | null) {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [xpEventsTotal, setXpEventsTotal] = useState(0);
+  const [legacyXpTotal, setLegacyXpTotal] = useState(0);
+  const [sessionXpTotal, setSessionXpTotal] = useState(0);
+  const [xpDebug, setXpDebug] = useState({
+    legacyEventsCount: 0,
+    sessionEventsCount: 0,
+  });
   const [activities, setActivities] = useState<Activity[]>([]);
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
@@ -219,9 +224,13 @@ export default function ProfilePage() {
       };
 
       const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
-      const resolvedEventsXp = xpTotalResult.error ? 0 : xpTotalResult.eventsXp;
 
-      setXpEventsTotal(resolvedEventsXp);
+      setLegacyXpTotal(xpTotalResult.legacyXp);
+      setSessionXpTotal(xpTotalResult.eventsXp);
+      setXpDebug({
+        legacyEventsCount: xpTotalResult.legacyEventsCount,
+        sessionEventsCount: xpTotalResult.sessionEventsCount,
+      });
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
 
@@ -548,7 +557,7 @@ export default function ProfilePage() {
   }, [activities, challenges]);
 
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
-  const totalXp = Number(profile?.total_xp || 0) + xpEventsTotal;
+  const totalXp = legacyXpTotal + sessionXpTotal;
   const levelProgress = getLevelProgress(totalXp);
   const unlockedBadgeCodes = new Set(
     badges
@@ -577,7 +586,7 @@ export default function ProfilePage() {
       email: profile.email,
       username: trimmed,
       total_xp: profile.total_xp || 0,
-      level: calculateLevel(Number(profile.total_xp || 0) + xpEventsTotal),
+      level: calculateLevel(totalXp),
     });
 
     if (error) {
@@ -744,6 +753,41 @@ export default function ProfilePage() {
             <strong className="stat-card-value">{stats.totalActivities}</strong>
           </article>
         </section>
+
+        {process.env.NODE_ENV !== 'production' && (
+          <section className="card profile-debug-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Debug XP</span>
+                <h2>Verification des sources XP</h2>
+              </div>
+            </div>
+
+            <div className="profile-summary-grid">
+              <article className="profile-summary-card">
+                <span className="stat-card-label">XP xp_events</span>
+                <strong className="stat-card-value">{legacyXpTotal} XP</strong>
+                <p className="muted profile-summary-card__meta">
+                  {xpDebug.legacyEventsCount} event{xpDebug.legacyEventsCount > 1 ? 's' : ''}
+                </p>
+              </article>
+
+              <article className="profile-summary-card">
+                <span className="stat-card-label">XP user_xp_events</span>
+                <strong className="stat-card-value">{sessionXpTotal} XP</strong>
+                <p className="muted profile-summary-card__meta">
+                  {xpDebug.sessionEventsCount} event{xpDebug.sessionEventsCount > 1 ? 's' : ''}
+                </p>
+              </article>
+
+              <article className="profile-summary-card">
+                <span className="stat-card-label">XP total</span>
+                <strong className="stat-card-value">{totalXp} XP</strong>
+                <p className="muted profile-summary-card__meta">Niveau calcule : {levelProgress.level}</p>
+              </article>
+            </div>
+          </section>
+        )}
 
         <section className="profile-history-grid">
           <article className="card profile-history-card">
