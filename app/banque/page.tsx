@@ -11,6 +11,7 @@ import {
   fetchPublicTrainingPrograms,
   fetchPublicTrainingSessions,
   fetchTrainingProgramSessionsForPrograms,
+  fetchUserTrainingSessionsByNames,
   getSessionEstimatedDurationLabel,
   importPublicTrainingProgram,
   importPublicTrainingSession,
@@ -98,19 +99,42 @@ export default function BanqueActyvPage() {
           }
 
           if (user?.id) {
-            const importedSessionsResponse = await fetchImportedPublicTrainingSessions(
-              user.id,
-              sessionsResponse.data.map((session) => session.id)
-            );
+            const [importedSessionsResponse, importedSessionsByNameResponse] = await Promise.all([
+              fetchImportedPublicTrainingSessions(
+                user.id,
+                sessionsResponse.data.map((session) => session.id)
+              ),
+              fetchUserTrainingSessionsByNames(
+                user.id,
+                sessionsResponse.data.map((session) => session.name)
+              ),
+            ]);
 
             if (importedSessionsResponse.error) {
               console.error('Erreur chargement copies banque :', importedSessionsResponse.error);
               setImportedSessionSourceIds([]);
-            } else {
+            } else if (importedSessionsByNameResponse.error) {
+              console.error('Erreur chargement copies banque par nom :', importedSessionsByNameResponse.error);
               setImportedSessionSourceIds(
                 importedSessionsResponse.data
                   .map((session) => session.copied_from_session_id)
                   .filter((sessionId): sessionId is string => Boolean(sessionId))
+              );
+            } else {
+              const sourceIdByName = new Map(sessionsResponse.data.map((session) => [session.name, session.id] as const));
+              const importedIdsFromName = importedSessionsByNameResponse.data
+                .map((session) => sourceIdByName.get(session.name))
+                .filter((sessionId): sessionId is string => Boolean(sessionId));
+
+              setImportedSessionSourceIds(
+                Array.from(
+                  new Set([
+                    ...importedSessionsResponse.data
+                      .map((session) => session.copied_from_session_id)
+                      .filter((sessionId): sessionId is string => Boolean(sessionId)),
+                    ...importedIdsFromName,
+                  ])
+                )
               );
             }
           } else {
@@ -315,7 +339,9 @@ export default function BanqueActyvPage() {
                       <div className={getSportBadgeClassName(session.sport, 'badge', 'Seance')}>
                         {formatSportBadgeLabel(session.sport, 'Seance')}
                       </div>
-                      <span className="session-progress-pill session-progress-pill--done">Public</span>
+                      <span className={`session-progress-pill ${alreadyImported ? 'session-progress-pill--pending' : 'session-progress-pill--done'}`}>
+                        {alreadyImported ? 'Deja ajoutee' : 'Public'}
+                      </span>
                     </div>
 
                     <div className="session-card__content">

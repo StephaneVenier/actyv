@@ -63,6 +63,26 @@ export async function fetchImportedPublicTrainingSessions(userId: string, source
   };
 }
 
+export async function fetchUserTrainingSessionsByNames(userId: string, sourceNames: string[]) {
+  if (!userId || sourceNames.length === 0) {
+    return { data: [] as PublicTrainingSession[], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('training_sessions')
+    .select('id, user_id, name, sport, description, visibility, copied_from_session_id, created_at')
+    .eq('user_id', userId)
+    .in('name', sourceNames);
+
+  return {
+    data: ((data as PublicTrainingSession[] | null) || []).map((session) => ({
+      ...session,
+      copied_from_session_id: session.copied_from_session_id ?? null,
+    })),
+    error,
+  };
+}
+
 export async function fetchPublicTrainingPrograms() {
   const { data, error } = await supabase
     .from('training_programs')
@@ -152,6 +172,16 @@ export async function importPublicTrainingSession(session: PublicTrainingSession
   const existingCopy = existingCopyResponse.data[0];
   if (existingCopy) {
     return { data: existingCopy, error: null, alreadyImported: true as const };
+  }
+
+  const existingByNameResponse = await fetchUserTrainingSessionsByNames(userId, [session.name]);
+  if (existingByNameResponse.error) {
+    return { data: null, error: existingByNameResponse.error };
+  }
+
+  const existingByName = existingByNameResponse.data.find((candidate) => candidate.name === session.name);
+  if (existingByName) {
+    return { data: existingByName, error: null, alreadyImported: true as const };
   }
 
   const { data: createdSession, error: sessionError } = await supabase
