@@ -119,6 +119,52 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
   return data?.id || null;
 }
 
+async function fetchTrainingProgramsForBadges(userId: string) {
+  const primaryResponse = await supabase
+    .from('training_programs')
+    .select('id, visibility, copied_from_program_id')
+    .eq('user_id', userId);
+
+  if (!primaryResponse.error) {
+    return {
+      data: ((primaryResponse.data as BadgeTrainingProgramRow[] | null) || []).map((program) => ({
+        ...program,
+        copied_from_program_id: program.copied_from_program_id ?? null,
+      })),
+      error: null,
+    };
+  }
+
+  const message = (primaryResponse.error.message || '').toLowerCase();
+  const missingCopiedFromColumn =
+    primaryResponse.error.code === '42703' ||
+    (message.includes('copied_from_program_id') && message.includes('column'));
+
+  if (!missingCopiedFromColumn) {
+    return { data: null, error: primaryResponse.error };
+  }
+
+  const fallbackResponse = await supabase
+    .from('training_programs')
+    .select('id, visibility')
+    .eq('user_id', userId);
+
+  if (fallbackResponse.error) {
+    return { data: null, error: fallbackResponse.error };
+  }
+
+  return {
+    data: (((fallbackResponse.data as Array<{ id: string; visibility: string | null }> | null) || []).map(
+      (program) => ({
+        id: program.id,
+        visibility: program.visibility,
+        copied_from_program_id: null,
+      })
+    ) as BadgeTrainingProgramRow[]),
+    error: null,
+  };
+}
+
 export async function getUserTotalXp(
   userId: string | null | undefined,
   legacyProfileXp?: number | null | undefined
@@ -359,10 +405,7 @@ export async function checkAndAwardBadges(userId: string) {
         .from('workout_sessions_history')
         .select('id')
         .eq('user_id', userId),
-      supabase
-        .from('training_programs')
-        .select('id, visibility, copied_from_program_id')
-        .eq('user_id', userId),
+      fetchTrainingProgramsForBadges(userId),
       supabase
         .from('xp_events')
         .select('event_type')
@@ -428,6 +471,9 @@ export async function checkAndAwardBadges(userId: string) {
   const sharedProgramsCount = createdPrograms.filter((program) => program.visibility === 'shared').length;
   const challengeCompletedCount = xpEvents.filter((event) => event.event_type === 'challenge_completed').length;
   const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
+
+  console.log('program badge user id', userId);
+  console.log('program badge count', createdPrograms.length);
 
   const badgesToAward: BadgeCode[] = [];
 

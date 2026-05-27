@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
 import type { BadgeDefinition, UserBadge } from '@/lib/badges';
+import { refreshUserBadges } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
 function iconStroke(path: ReactNode) {
@@ -227,6 +228,11 @@ export default function BadgesPage() {
       }
 
       setAuthenticated(true);
+
+      const badgeRefreshResult = await refreshUserBadges(user.id);
+      if (badgeRefreshResult.error) {
+        console.error('Erreur refresh badges page badges :', badgeRefreshResult.error);
+      }
 
       const { data, error } = await supabase
         .from('user_badges')
