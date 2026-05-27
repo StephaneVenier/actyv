@@ -7,7 +7,8 @@ import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/spor
 import { UserLevelBadge } from '@/components/user-level-badge';
 import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
 import type { UserBadge } from '@/lib/badges';
-import { calculateLevel, getLevelProgress, getUserTotalXp } from '@/lib/gamification';
+import { getUserTotalXp } from '@/lib/gamification';
+import { getActyvLevel } from '@/lib/levels';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -549,7 +550,7 @@ export default function ProfilePage() {
 
   const activeChallenges = groupedChallenges.filter((challenge) => !challenge.completed);
   const totalXp = xpTotalFromEvents;
-  const levelProgress = getLevelProgress(totalXp);
+  const levelProgress = getActyvLevel(totalXp);
   const unlockedBadgeCodes = getUnlockedBadgeCodes(badges);
   const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
   const badgeCount = unlockedBadges.length;
@@ -574,7 +575,7 @@ export default function ProfilePage() {
       email: profile.email,
       username: trimmed,
       total_xp: profile.total_xp || 0,
-      level: calculateLevel(totalXp),
+      level: getActyvLevel(totalXp).level,
     });
 
     if (error) {
@@ -699,9 +700,48 @@ export default function ProfilePage() {
           </div>
 
           <div className="profile-summary-grid">
+            <article className="profile-summary-card profile-summary-card--level">
+              <div className="profile-summary-card__top">
+                <div>
+                  <span className="stat-card-label">Niveau Actyv</span>
+                  <strong className="stat-card-value">Niveau {levelProgress.level}</strong>
+                </div>
+                <UserLevelBadge level={levelProgress.level} />
+              </div>
+
+              <div className="profile-level-card__xp-row">
+                <strong>{totalXp} XP</strong>
+                <span>
+                  {levelProgress.nextLevelXp === null
+                    ? 'Niveau max actuel'
+                    : `${levelProgress.currentLevelXp} / ${levelProgress.nextLevelXp} XP`}
+                </span>
+              </div>
+
+              <div className="progress-track profile-level-card__track">
+                <div
+                  className="progress-fill profile-level-card__fill"
+                  style={{ width: `${levelProgress.progressPercent}%` }}
+                />
+              </div>
+
+              <div className="profile-level-card__meta">
+                <span>
+                  {levelProgress.nextLevelXp === null
+                    ? 'Tu as atteint le dernier palier V1.'
+                    : `${levelProgress.xpIntoLevel} XP gagnes dans ce niveau`}
+                </span>
+                <strong>
+                  {levelProgress.nextLevelXp === null
+                    ? '100%'
+                    : `${levelProgress.xpToNextLevel} XP avant le niveau suivant`}
+                </strong>
+              </div>
+            </article>
+
             <article className="profile-summary-card">
-              <span className="stat-card-label">Niveau actuel</span>
-              <strong className="stat-card-value">Nv.{levelProgress.level}</strong>
+              <span className="stat-card-label">XP total</span>
+              <strong className="stat-card-value">{totalXp} XP</strong>
             </article>
 
             <article className="profile-summary-card profile-summary-card--wide">
