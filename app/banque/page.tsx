@@ -276,8 +276,8 @@ export default function BanqueActyvPage() {
                 return (
                   <article key={session.id} className="session-card session-card--compact banque-card">
                     <div className="session-card__top">
-                      <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
-                        {formatSportBadgeLabel(session.sport, 'Sport')}
+                      <div className={getSportBadgeClassName(session.sport, 'badge', 'Seance')}>
+                        {formatSportBadgeLabel(session.sport, 'Seance')}
                       </div>
                       <span className="session-progress-pill session-progress-pill--done">Public</span>
                     </div>

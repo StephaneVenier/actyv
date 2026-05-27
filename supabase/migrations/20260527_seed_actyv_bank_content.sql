@@ -30,6 +30,61 @@ begin
     return;
   end if;
 
+  update public.training_sessions
+  set
+    sport = 'Fitness',
+    description = 'Renforcement utile pour la course avec jambes, tronc et stabilite.'
+  where name = 'Renfo coureur - 35 min'
+    and visibility = 'public'
+    and (
+      coalesce(sport, '') <> 'Fitness'
+      or coalesce(description, '') <> 'Renforcement utile pour la course avec jambes, tronc et stabilite.'
+    );
+
+  update public.training_sessions
+  set
+    sport = 'Fitness',
+    description = 'Circuit cardio rapide pour faire monter le rythme sans materiel complexe.'
+  where name = 'HIIT express - 20 min'
+    and visibility = 'public'
+    and (
+      coalesce(sport, '') <> 'Fitness'
+      or coalesce(description, '') <> 'Circuit cardio rapide pour faire monter le rythme sans materiel complexe.'
+    );
+
+  update public.training_sessions
+  set
+    sport = 'Mobilite',
+    description = 'Routine douce pour recuperer, respirer et retrouver de l amplitude.'
+  where name = 'Mobilite recuperation - 15 min'
+    and visibility = 'public'
+    and (
+      coalesce(sport, '') <> 'Mobilite'
+      or coalesce(description, '') <> 'Routine douce pour recuperer, respirer et retrouver de l amplitude.'
+    );
+
+  update public.training_sessions
+  set
+    sport = 'Fitness',
+    description = 'Seance salle complete orientee force utile et posture.'
+  where name = 'Full body salle - 45 min'
+    and visibility = 'public'
+    and (
+      coalesce(sport, '') <> 'Fitness'
+      or coalesce(description, '') <> 'Seance salle complete orientee force utile et posture.'
+    );
+
+  update public.training_sessions
+  set
+    sport = 'Fitness',
+    description = 'Bloc court pour renforcer le centre et la stabilite generale.'
+  where name = 'Gainage & stabilite - 25 min'
+    and visibility = 'public'
+    and (
+      coalesce(sport, '') <> 'Fitness'
+      or coalesce(description, '') <> 'Bloc court pour renforcer le centre et la stabilite generale.'
+    );
+
   insert into public.training_sessions (user_id, name, sport, description, visibility)
   select seed_owner_id, 'Renfo coureur - 35 min', 'Fitness', 'Renforcement utile pour la course avec jambes, tronc et stabilite.', 'public'
   where not exists (
