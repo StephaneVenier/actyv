@@ -285,6 +285,7 @@ export async function awardBadge(userId: string, badgeCode: string) {
   const existingResponse = await supabase.from('user_badges').select('badge_code').eq('user_id', userId);
 
   if (existingResponse.error) {
+    console.error('badge insert error', existingResponse.error);
     return { data: null, error: existingResponse.error, badgeCode: normalizedCode };
   }
 
@@ -298,22 +299,23 @@ export async function awardBadge(userId: string, badgeCode: string) {
 
   const { data, error } = await supabase
     .from('user_badges')
-    .upsert(
-      {
-        user_id: userId,
-        badge_code: normalizedCode,
-      },
-      {
-        onConflict: 'user_id,badge_code',
-        ignoreDuplicates: true,
-      }
-    )
+    .insert({
+      user_id: userId,
+      badge_code: normalizedCode,
+      unlocked_at: new Date().toISOString(),
+    })
     .select('id, user_id, badge_code, unlocked_at');
+
+  if (error) {
+    console.error('badge insert error', error);
+  }
 
   return { data, error, badgeCode: normalizedCode };
 }
 
 export async function checkAndAwardBadges(userId: string) {
+  console.log('check badges triggered', { userId });
+
   const { data: profileData } = await supabase
     .from('profiles')
     .select('email')
@@ -468,6 +470,12 @@ export async function checkAndAwardBadges(userId: string) {
     awarded.push(result);
   }
 
+  const unlockedCodes = awarded
+    .filter((entry) => !entry.error && !entry.skipped)
+    .map((entry) => entry.badgeCode);
+
+  console.log('badges unlocked', unlockedCodes);
+
   const result = {
     table: 'user_badges',
     columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
@@ -493,53 +501,51 @@ export async function refreshUserBadges(userId: string) {
       return { awarded: [], error: beforeError, data: null };
     }
 
+    const beforeSet = getCanonicalBadgeSet(
+      ((beforeBadges as { badge_code: string }[] | null) || [])
+    );
+
     const { data, error } = await supabase.rpc('refresh_user_badges', {
       p_user_id: userId,
     });
 
     if (error) {
       console.error('BADGES ERROR:', error);
-
-      const fallbackResult = await checkAndAwardBadges(userId);
-      if (fallbackResult.error) {
-        return { awarded: [], error, data: null };
-      }
-
-      const normalizedBeforeSet = getCanonicalBadgeSet(
-        ((beforeBadges as { badge_code: string }[] | null) || [])
-      );
-
-      const fallbackAwarded = (fallbackResult.awarded || [])
-        .map((entry) => normalizeBadgeCode(entry.badgeCode))
-        .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
-        .filter((badgeCode) => !normalizedBeforeSet.has(badgeCode));
-
-      return {
-        awarded: fallbackAwarded,
-        error: null,
-        data: fallbackResult,
-      };
     }
 
-    const badgeCodes =
-      data && typeof data === 'object' && data !== null && Array.isArray((data as { badges?: unknown[] }).badges)
-        ? ((data as { badges: string[] }).badges || [])
-        : [];
+    const localResult = await checkAndAwardBadges(userId);
 
-    const beforeSet = getCanonicalBadgeSet(
-      ((beforeBadges as { badge_code: string }[] | null) || [])
+    if (localResult.error) {
+      return { awarded: [], error: localResult.error, data: localResult };
+    }
+
+    const { data: afterBadges, error: afterError } = await supabase
+      .from('user_badges')
+      .select('badge_code')
+      .eq('user_id', userId);
+
+    if (afterError) {
+      console.error('Erreur lecture badges apres refresh :', afterError);
+      return { awarded: [], error: afterError, data: localResult };
+    }
+
+    const afterSet = getCanonicalBadgeSet(
+      ((afterBadges as { badge_code: string }[] | null) || [])
     );
 
-    const awarded = badgeCodes
-      .map((badgeCode) => normalizeBadgeCode(badgeCode))
-      .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
-      .filter((badgeCode) => !beforeSet.has(badgeCode));
+    const awarded = Array.from(afterSet).filter((badgeCode) => !beforeSet.has(badgeCode));
+
+    console.log('badges unlocked', awarded);
 
     const result = {
       rpc: 'refresh_user_badges',
       table: 'user_badges',
       columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
-      data,
+      data: {
+        rpcResult: data,
+        rpcError: error,
+        localResult,
+      },
       awarded,
       error: null,
     };
