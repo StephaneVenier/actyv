@@ -43,6 +43,26 @@ export async function fetchPublicTrainingSessions() {
   };
 }
 
+export async function fetchImportedPublicTrainingSessions(userId: string, sourceSessionIds: string[]) {
+  if (!userId || sourceSessionIds.length === 0) {
+    return { data: [] as PublicTrainingSession[], error: null };
+  }
+
+  const { data, error } = await supabase
+    .from('training_sessions')
+    .select('id, user_id, name, sport, description, visibility, copied_from_session_id, created_at')
+    .eq('user_id', userId)
+    .in('copied_from_session_id', sourceSessionIds);
+
+  return {
+    data: ((data as PublicTrainingSession[] | null) || []).map((session) => ({
+      ...session,
+      copied_from_session_id: session.copied_from_session_id ?? null,
+    })),
+    error,
+  };
+}
+
 export async function fetchPublicTrainingPrograms() {
   const { data, error } = await supabase
     .from('training_programs')
@@ -124,6 +144,16 @@ export function getSessionEstimatedDurationLabel(blocks: SessionBlockDisplayLike
 }
 
 export async function importPublicTrainingSession(session: PublicTrainingSession, userId: string) {
+  const existingCopyResponse = await fetchImportedPublicTrainingSessions(userId, [session.id]);
+  if (existingCopyResponse.error) {
+    return { data: null, error: existingCopyResponse.error };
+  }
+
+  const existingCopy = existingCopyResponse.data[0];
+  if (existingCopy) {
+    return { data: existingCopy, error: null, alreadyImported: true as const };
+  }
+
   const { data: createdSession, error: sessionError } = await supabase
     .from('training_sessions')
     .insert({
@@ -138,12 +168,12 @@ export async function importPublicTrainingSession(session: PublicTrainingSession
     .single();
 
   if (sessionError || !createdSession) {
-    return { data: null, error: sessionError };
+    return { data: null, error: sessionError, alreadyImported: false as const };
   }
 
   const blocksResponse = await fetchTrainingSessionBlocks([session.id]);
   if (blocksResponse.error) {
-    return { data: createdSession, error: blocksResponse.error };
+    return { data: createdSession, error: blocksResponse.error, alreadyImported: false as const };
   }
 
   const blocksPayload = buildSessionBlockInsertPayload(blocksResponse.data);
@@ -151,11 +181,11 @@ export async function importPublicTrainingSession(session: PublicTrainingSession
     const { error: blocksError } = await insertTrainingSessionBlocks(createdSession.id, blocksPayload);
 
     if (blocksError) {
-      return { data: createdSession, error: blocksError };
+      return { data: createdSession, error: blocksError, alreadyImported: false as const };
     }
   }
 
-  return { data: createdSession, error: null };
+  return { data: createdSession, error: null, alreadyImported: false as const };
 }
 
 export async function importPublicTrainingProgram(

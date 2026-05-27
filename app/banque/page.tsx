@@ -7,6 +7,7 @@ import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import {
   fetchPublicCreatorProfiles,
+  fetchImportedPublicTrainingSessions,
   fetchPublicTrainingPrograms,
   fetchPublicTrainingSessions,
   fetchTrainingProgramSessionsForPrograms,
@@ -59,6 +60,7 @@ export default function BanqueActyvPage() {
   const [programs, setPrograms] = useState<PublicTrainingProgram[]>([]);
   const [programSessions, setProgramSessions] = useState<TrainingProgramSession[]>([]);
   const [creatorProfiles, setCreatorProfiles] = useState<PublicCreatorProfile[]>([]);
+  const [importedSessionSourceIds, setImportedSessionSourceIds] = useState<string[]>([]);
   const [importingSessionId, setImportingSessionId] = useState<string | null>(null);
   const [importingProgramId, setImportingProgramId] = useState<string | null>(null);
 
@@ -93,6 +95,26 @@ export default function BanqueActyvPage() {
             setSessionBlocks([]);
           } else {
             setSessionBlocks(blocksResponse.data);
+          }
+
+          if (user?.id) {
+            const importedSessionsResponse = await fetchImportedPublicTrainingSessions(
+              user.id,
+              sessionsResponse.data.map((session) => session.id)
+            );
+
+            if (importedSessionsResponse.error) {
+              console.error('Erreur chargement copies banque :', importedSessionsResponse.error);
+              setImportedSessionSourceIds([]);
+            } else {
+              setImportedSessionSourceIds(
+                importedSessionsResponse.data
+                  .map((session) => session.copied_from_session_id)
+                  .filter((sessionId): sessionId is string => Boolean(sessionId))
+              );
+            }
+          } else {
+            setImportedSessionSourceIds([]);
           }
         }
 
@@ -166,8 +188,14 @@ export default function BanqueActyvPage() {
     [creatorProfiles]
   );
 
+  const importedSessionSourceIdSet = useMemo(
+    () => new Set(importedSessionSourceIds),
+    [importedSessionSourceIds]
+  );
+
   const handleImportSession = async (session: PublicTrainingSession) => {
     if (!userId) return;
+    if (importedSessionSourceIdSet.has(session.id)) return;
 
     setImportingSessionId(session.id);
     setMessage(null);
@@ -181,6 +209,13 @@ export default function BanqueActyvPage() {
         return;
       }
 
+      if (result.alreadyImported) {
+        setImportedSessionSourceIds((current) => (current.includes(session.id) ? current : [...current, session.id]));
+        queuePendingToast({ message: 'Seance deja ajoutee a tes seances', tone: 'info' });
+        return;
+      }
+
+      setImportedSessionSourceIds((current) => (current.includes(session.id) ? current : [...current, session.id]));
       queuePendingToast({ message: 'Seance ajoutee a tes seances', tone: 'success' });
     } finally {
       setImportingSessionId(null);
@@ -272,6 +307,7 @@ export default function BanqueActyvPage() {
                 const blocks = blocksBySession.get(session.id) || [];
                 const creator = creatorById.get(session.user_id);
                 const estimatedDuration = getSessionEstimatedDurationLabel(blocks);
+                const alreadyImported = importedSessionSourceIdSet.has(session.id);
 
                 return (
                   <article key={session.id} className="session-card session-card--compact banque-card">
@@ -299,9 +335,13 @@ export default function BanqueActyvPage() {
                           type="button"
                           className="button primary"
                           onClick={() => handleImportSession(session)}
-                          disabled={importingSessionId === session.id}
+                          disabled={importingSessionId === session.id || alreadyImported}
                         >
-                          {importingSessionId === session.id ? 'Ajout...' : 'Ajouter a mes seances'}
+                          {alreadyImported
+                            ? 'Deja ajoutee'
+                            : importingSessionId === session.id
+                              ? 'Ajout...'
+                              : 'Ajouter a mes seances'}
                         </button>
                       ) : (
                         <Link href={loginHref} className="button primary">
