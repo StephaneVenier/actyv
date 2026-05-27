@@ -1115,9 +1115,27 @@ create table if not exists public.training_sessions (
   name text not null,
   sport text,
   description text,
+  visibility text not null default 'private' check (visibility in ('private', 'public')),
+  copied_from_session_id uuid references public.training_sessions(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table if exists public.training_sessions
+  add column if not exists visibility text not null default 'private';
+
+alter table if exists public.training_sessions
+  add column if not exists copied_from_session_id uuid references public.training_sessions(id) on delete set null;
+
+alter table if exists public.training_sessions
+  alter column visibility set default 'private';
+
+alter table if exists public.training_sessions
+  drop constraint if exists training_sessions_visibility_check;
+
+alter table if exists public.training_sessions
+  add constraint training_sessions_visibility_check
+  check (visibility in ('private', 'public'));
 
 create table if not exists public.training_session_blocks (
   id uuid primary key default gen_random_uuid(),
@@ -1215,7 +1233,7 @@ alter table if exists public.workout_exercise_history enable row level security;
 drop policy if exists "Users can read own training sessions" on public.training_sessions;
 create policy "Users can read own training sessions"
   on public.training_sessions for select
-  using (auth.uid() = user_id);
+  using (auth.uid() = user_id or visibility = 'public');
 
 drop policy if exists "Users can insert own training sessions" on public.training_sessions;
 create policy "Users can insert own training sessions"
@@ -1241,7 +1259,10 @@ create policy "Users can read own training session blocks"
       select 1
       from public.training_sessions
       where training_sessions.id = training_session_blocks.session_id
-        and training_sessions.user_id = auth.uid()
+        and (
+          training_sessions.user_id = auth.uid()
+          or training_sessions.visibility = 'public'
+        )
     )
   );
 
@@ -1324,6 +1345,8 @@ grant select, insert, update, delete on public.training_session_blocks to authen
 grant select, insert on public.workout_sessions_history to authenticated;
 grant select, insert on public.workout_session_history_exercises to authenticated;
 grant select, insert on public.workout_exercise_history to authenticated;
+grant select on public.training_sessions to anon;
+grant select on public.training_session_blocks to anon;
 
 create table if not exists public.training_programs (
   id uuid primary key default gen_random_uuid(),
@@ -1332,7 +1355,7 @@ create table if not exists public.training_programs (
   description text,
   sport text,
   duration_weeks integer not null default 4 check (duration_weeks > 0),
-  visibility text not null default 'private' check (visibility in ('private', 'shared')),
+  visibility text not null default 'private' check (visibility in ('private', 'shared', 'public')),
   invite_code text,
   copied_from_program_id uuid references public.training_programs(id) on delete set null,
   start_date date not null,
@@ -1357,7 +1380,7 @@ alter table if exists public.training_programs
 
 alter table if exists public.training_programs
   add constraint training_programs_visibility_check
-  check (visibility in ('private', 'shared'));
+  check (visibility in ('private', 'shared', 'public'));
 
 alter table if exists public.training_programs
   drop constraint if exists training_programs_copies_not_shared;
@@ -1414,6 +1437,7 @@ create policy "Users can read own training programs"
   on public.training_programs for select
   using (
     auth.uid() = user_id
+    or visibility = 'public'
     or (visibility = 'shared' and invite_code is not null)
   );
 
@@ -1443,6 +1467,7 @@ create policy "Users can read own training program sessions"
       where training_programs.id = training_program_sessions.program_id
         and (
           training_programs.user_id = auth.uid()
+          or training_programs.visibility = 'public'
           or (training_programs.visibility = 'shared' and training_programs.invite_code is not null)
         )
     )

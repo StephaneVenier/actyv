@@ -5,7 +5,7 @@ export type TrainingProgram = {
   description: string | null;
   sport: string | null;
   duration_weeks: number;
-  visibility: 'private' | 'shared';
+  visibility: 'private' | 'shared' | 'public';
   invite_code?: string | null;
   copied_from_program_id?: string | null;
   start_date: string;
@@ -102,6 +102,7 @@ export function clampProgramDay(dayOfWeek: number) {
 }
 
 export function formatProgramVisibilityLabel(visibility: string | null | undefined) {
+  if (visibility === 'public') return 'Public';
   if (visibility === 'shared') return 'Partage';
   return 'Prive';
 }

@@ -238,6 +238,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                         Mes badges
                       </Link>
 
+                      <Link
+                        href="/banque"
+                        onClick={() => setMenuOpen(false)}
+                        className="profile-dropdown-link"
+                      >
+                        Banque Actyv
+                      </Link>
+
                       <button
                         type="button"
                         onClick={handleLogout}
@@ -322,6 +330,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               >
                 <span className="quick-menu-item__title">Badges</span>
                 <span className="quick-menu-item__meta">Voir ta collection Actyv</span>
+              </Link>
+
+              <Link
+                href="/banque"
+                className="quick-menu-item"
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <span className="quick-menu-item__title">Banque Actyv</span>
+                <span className="quick-menu-item__meta">Importer des seances et programmes publics</span>
               </Link>
             </div>
           )}

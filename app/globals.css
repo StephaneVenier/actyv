@@ -1127,6 +1127,31 @@ img {
   border: 1px solid rgba(15, 23, 42, 0.06);
 }
 
+.banque-page {
+  display: grid;
+  gap: 18px;
+}
+
+.banque-hero-card {
+  background:
+    radial-gradient(circle at top right, rgba(53, 230, 107, 0.14), transparent 26%),
+    radial-gradient(circle at bottom left, rgba(32, 183, 166, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(16, 34, 35, 0.98));
+  border: 1px solid rgba(53, 230, 107, 0.16);
+}
+
+.banque-tabs-card {
+  padding: 14px;
+}
+
+.banque-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.banque-card {
+  background: linear-gradient(180deg, rgba(13, 27, 49, 0.94), rgba(8, 18, 36, 0.98));
+}
+
 .profile-summary-card--level {
   grid-column: 1 / -1;
   gap: 14px;
