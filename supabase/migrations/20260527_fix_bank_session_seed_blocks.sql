@@ -10,68 +10,68 @@ begin
   set
     sport = 'Fitness',
     description = 'Renforcement utile pour la course avec jambes, tronc et stabilite.'
-  where name = 'Renfo coureur - 35 min'
+  where name = 'Renfo coureur — 35 min'
     and visibility = 'public';
 
   update public.training_sessions
   set
     sport = 'Fitness',
     description = 'Circuit cardio rapide pour faire monter le rythme sans materiel complexe.'
-  where name = 'HIIT express - 20 min'
+  where name = 'HIIT express — 20 min'
     and visibility = 'public';
 
   update public.training_sessions
   set
-    sport = 'Mobilite',
+    sport = 'Mobilité',
     description = 'Routine douce pour recuperer, respirer et retrouver de l amplitude.'
-  where name = 'Mobilite recuperation - 15 min'
+  where name = 'Mobilité récupération — 15 min'
     and visibility = 'public';
 
   update public.training_sessions
   set
     sport = 'Fitness',
     description = 'Seance salle complete orientee force utile et posture.'
-  where name = 'Full body salle - 45 min'
+  where name = 'Full body salle — 45 min'
     and visibility = 'public';
 
   update public.training_sessions
   set
     sport = 'Fitness',
     description = 'Bloc court pour renforcer le centre et la stabilite generale.'
-  where name = 'Gainage & stabilite - 25 min'
+  where name = 'Gainage & stabilité — 25 min'
     and visibility = 'public';
 
   select id into session_renfo_id
   from public.training_sessions
-  where name = 'Renfo coureur - 35 min'
+  where name = 'Renfo coureur — 35 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_hiit_id
   from public.training_sessions
-  where name = 'HIIT express - 20 min'
+  where name = 'HIIT express — 20 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_mobility_id
   from public.training_sessions
-  where name = 'Mobilite recuperation - 15 min'
+  where name = 'Mobilité récupération — 15 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_fullbody_id
   from public.training_sessions
-  where name = 'Full body salle - 45 min'
+  where name = 'Full body salle — 45 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_core_id
   from public.training_sessions
-  where name = 'Gainage & stabilite - 25 min'
+  where name = 'Gainage & stabilité — 25 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;

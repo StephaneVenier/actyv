@@ -34,7 +34,7 @@ begin
   set
     sport = 'Fitness',
     description = 'Renforcement utile pour la course avec jambes, tronc et stabilite.'
-  where name = 'Renfo coureur - 35 min'
+  where name = 'Renfo coureur — 35 min'
     and visibility = 'public'
     and (
       coalesce(sport, '') <> 'Fitness'
@@ -45,7 +45,7 @@ begin
   set
     sport = 'Fitness',
     description = 'Circuit cardio rapide pour faire monter le rythme sans materiel complexe.'
-  where name = 'HIIT express - 20 min'
+  where name = 'HIIT express — 20 min'
     and visibility = 'public'
     and (
       coalesce(sport, '') <> 'Fitness'
@@ -54,9 +54,9 @@ begin
 
   update public.training_sessions
   set
-    sport = 'Mobilite',
+    sport = 'Mobilité',
     description = 'Routine douce pour recuperer, respirer et retrouver de l amplitude.'
-  where name = 'Mobilite recuperation - 15 min'
+  where name = 'Mobilité récupération — 15 min'
     and visibility = 'public'
     and (
       coalesce(sport, '') <> 'Mobilite'
@@ -67,7 +67,7 @@ begin
   set
     sport = 'Fitness',
     description = 'Seance salle complete orientee force utile et posture.'
-  where name = 'Full body salle - 45 min'
+  where name = 'Full body salle — 45 min'
     and visibility = 'public'
     and (
       coalesce(sport, '') <> 'Fitness'
@@ -78,7 +78,7 @@ begin
   set
     sport = 'Fitness',
     description = 'Bloc court pour renforcer le centre et la stabilite generale.'
-  where name = 'Gainage & stabilite - 25 min'
+  where name = 'Gainage & stabilité — 25 min'
     and visibility = 'public'
     and (
       coalesce(sport, '') <> 'Fitness'
@@ -86,76 +86,76 @@ begin
     );
 
   insert into public.training_sessions (user_id, name, sport, description, visibility)
-  select seed_owner_id, 'Renfo coureur - 35 min', 'Fitness', 'Renforcement utile pour la course avec jambes, tronc et stabilite.', 'public'
+  select seed_owner_id, 'Renfo coureur — 35 min', 'Fitness', 'Renforcement utile pour la course avec jambes, tronc et stabilite.', 'public'
   where not exists (
     select 1 from public.training_sessions
-    where name = 'Renfo coureur - 35 min'
+    where name = 'Renfo coureur — 35 min'
       and visibility = 'public'
   );
 
   insert into public.training_sessions (user_id, name, sport, description, visibility)
-  select seed_owner_id, 'HIIT express - 20 min', 'Fitness', 'Circuit cardio rapide pour faire monter le rythme sans materiel complexe.', 'public'
+  select seed_owner_id, 'HIIT express — 20 min', 'Fitness', 'Circuit cardio rapide pour faire monter le rythme sans materiel complexe.', 'public'
   where not exists (
     select 1 from public.training_sessions
-    where name = 'HIIT express - 20 min'
+    where name = 'HIIT express — 20 min'
       and visibility = 'public'
   );
 
   insert into public.training_sessions (user_id, name, sport, description, visibility)
-  select seed_owner_id, 'Mobilite recuperation - 15 min', 'Mobilite', 'Routine douce pour recuperer, respirer et retrouver de l amplitude.', 'public'
+  select seed_owner_id, 'Mobilité récupération — 15 min', 'Mobilité', 'Routine douce pour recuperer, respirer et retrouver de l amplitude.', 'public'
   where not exists (
     select 1 from public.training_sessions
-    where name = 'Mobilite recuperation - 15 min'
+    where name = 'Mobilité récupération — 15 min'
       and visibility = 'public'
   );
 
   insert into public.training_sessions (user_id, name, sport, description, visibility)
-  select seed_owner_id, 'Full body salle - 45 min', 'Fitness', 'Seance salle complete orientee force utile et posture.', 'public'
+  select seed_owner_id, 'Full body salle — 45 min', 'Fitness', 'Seance salle complete orientee force utile et posture.', 'public'
   where not exists (
     select 1 from public.training_sessions
-    where name = 'Full body salle - 45 min'
+    where name = 'Full body salle — 45 min'
       and visibility = 'public'
   );
 
   insert into public.training_sessions (user_id, name, sport, description, visibility)
-  select seed_owner_id, 'Gainage & stabilite - 25 min', 'Fitness', 'Bloc court pour renforcer le centre et la stabilite generale.', 'public'
+  select seed_owner_id, 'Gainage & stabilité — 25 min', 'Fitness', 'Bloc court pour renforcer le centre et la stabilite generale.', 'public'
   where not exists (
     select 1 from public.training_sessions
-    where name = 'Gainage & stabilite - 25 min'
+    where name = 'Gainage & stabilité — 25 min'
       and visibility = 'public'
   );
 
   select id into session_renfo_id
   from public.training_sessions
-  where name = 'Renfo coureur - 35 min'
+  where name = 'Renfo coureur — 35 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_hiit_id
   from public.training_sessions
-  where name = 'HIIT express - 20 min'
+  where name = 'HIIT express — 20 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_mobility_id
   from public.training_sessions
-  where name = 'Mobilite recuperation - 15 min'
+  where name = 'Mobilité récupération — 15 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_fullbody_id
   from public.training_sessions
-  where name = 'Full body salle - 45 min'
+  where name = 'Full body salle — 45 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
 
   select id into session_core_id
   from public.training_sessions
-  where name = 'Gainage & stabilite - 25 min'
+  where name = 'Gainage & stabilité — 25 min'
     and visibility = 'public'
   order by created_at asc
   limit 1;
@@ -315,128 +315,128 @@ begin
   limit 1;
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 1, 2, 1
+  select program_reprise_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 1, 2, 1
   where program_reprise_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 1 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_renfo_id, 'Renfo coureur - 35 min', 'Fitness', 1, 5, 1
+  select program_reprise_id, session_renfo_id, 'Renfo coureur — 35 min', 'Fitness', 1, 5, 1
   where program_reprise_id is not null and session_renfo_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 1 and day_of_week = 5 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 2, 2, 1
+  select program_reprise_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 2, 2, 1
   where program_reprise_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 2 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_hiit_id, 'HIIT express - 20 min', 'Fitness', 2, 5, 1
+  select program_reprise_id, session_hiit_id, 'HIIT express — 20 min', 'Fitness', 2, 5, 1
   where program_reprise_id is not null and session_hiit_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 2 and day_of_week = 5 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 3, 2, 1
+  select program_reprise_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 3, 2, 1
   where program_reprise_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 3 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_renfo_id, 'Renfo coureur - 35 min', 'Fitness', 3, 5, 1
+  select program_reprise_id, session_renfo_id, 'Renfo coureur — 35 min', 'Fitness', 3, 5, 1
   where program_reprise_id is not null and session_renfo_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 3 and day_of_week = 5 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 4, 2, 1
+  select program_reprise_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 4, 2, 1
   where program_reprise_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 4 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_reprise_id, session_hiit_id, 'HIIT express - 20 min', 'Fitness', 4, 5, 1
+  select program_reprise_id, session_hiit_id, 'HIIT express — 20 min', 'Fitness', 4, 5, 1
   where program_reprise_id is not null and session_hiit_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_reprise_id and week_number = 4 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_renfo_id, 'Renfo coureur - 35 min', 'Fitness', 1, 2, 1
+  select program_runner_id, session_renfo_id, 'Renfo coureur — 35 min', 'Fitness', 1, 2, 1
   where program_runner_id is not null and session_renfo_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 1 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 1, 5, 1
+  select program_runner_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 1, 5, 1
   where program_runner_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 1 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_renfo_id, 'Renfo coureur - 35 min', 'Fitness', 2, 2, 1
+  select program_runner_id, session_renfo_id, 'Renfo coureur — 35 min', 'Fitness', 2, 2, 1
   where program_runner_id is not null and session_renfo_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 2 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 2, 5, 1
+  select program_runner_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 2, 5, 1
   where program_runner_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 2 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_fullbody_id, 'Full body salle - 45 min', 'Fitness', 3, 2, 1
+  select program_runner_id, session_fullbody_id, 'Full body salle — 45 min', 'Fitness', 3, 2, 1
   where program_runner_id is not null and session_fullbody_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 3 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 3, 5, 1
+  select program_runner_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 3, 5, 1
   where program_runner_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 3 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_renfo_id, 'Renfo coureur - 35 min', 'Fitness', 4, 2, 1
+  select program_runner_id, session_renfo_id, 'Renfo coureur — 35 min', 'Fitness', 4, 2, 1
   where program_runner_id is not null and session_renfo_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 4 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 4, 5, 1
+  select program_runner_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 4, 5, 1
   where program_runner_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 4 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_fullbody_id, 'Full body salle - 45 min', 'Fitness', 5, 2, 1
+  select program_runner_id, session_fullbody_id, 'Full body salle — 45 min', 'Fitness', 5, 2, 1
   where program_runner_id is not null and session_fullbody_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 5 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 5, 5, 1
+  select program_runner_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 5, 5, 1
   where program_runner_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 5 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_renfo_id, 'Renfo coureur - 35 min', 'Fitness', 6, 2, 1
+  select program_runner_id, session_renfo_id, 'Renfo coureur — 35 min', 'Fitness', 6, 2, 1
   where program_runner_id is not null and session_renfo_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 6 and day_of_week = 2 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_runner_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 6, 5, 1
+  select program_runner_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 6, 5, 1
   where program_runner_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_runner_id and week_number = 6 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 1, 1, 1
+  select program_regular_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 1, 1, 1
   where program_regular_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 1 and day_of_week = 1 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_hiit_id, 'HIIT express - 20 min', 'Fitness', 1, 3, 1
+  select program_regular_id, session_hiit_id, 'HIIT express — 20 min', 'Fitness', 1, 3, 1
   where program_regular_id is not null and session_hiit_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 1 and day_of_week = 3 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 1, 5, 1
+  select program_regular_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 1, 5, 1
   where program_regular_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 1 and day_of_week = 5 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 2, 1, 1
+  select program_regular_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 2, 1, 1
   where program_regular_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 2 and day_of_week = 1 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_hiit_id, 'HIIT express - 20 min', 'Fitness', 2, 3, 1
+  select program_regular_id, session_hiit_id, 'HIIT express — 20 min', 'Fitness', 2, 3, 1
   where program_regular_id is not null and session_hiit_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 2 and day_of_week = 3 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_fullbody_id, 'Full body salle - 45 min', 'Fitness', 2, 6, 1
+  select program_regular_id, session_fullbody_id, 'Full body salle — 45 min', 'Fitness', 2, 6, 1
   where program_regular_id is not null and session_fullbody_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 2 and day_of_week = 6 and order_index = 1);
 
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_mobility_id, 'Mobilite recuperation - 15 min', 'Mobilite', 3, 1, 1
+  select program_regular_id, session_mobility_id, 'Mobilité récupération — 15 min', 'Mobilité', 3, 1, 1
   where program_regular_id is not null and session_mobility_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 3 and day_of_week = 1 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_hiit_id, 'HIIT express - 20 min', 'Fitness', 3, 3, 1
+  select program_regular_id, session_hiit_id, 'HIIT express — 20 min', 'Fitness', 3, 3, 1
   where program_regular_id is not null and session_hiit_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 3 and day_of_week = 3 and order_index = 1);
   insert into public.training_program_sessions (program_id, session_id, session_name, sport, week_number, day_of_week, order_index)
-  select program_regular_id, session_core_id, 'Gainage & stabilite - 25 min', 'Fitness', 3, 5, 1
+  select program_regular_id, session_core_id, 'Gainage & stabilité — 25 min', 'Fitness', 3, 5, 1
   where program_regular_id is not null and session_core_id is not null
     and not exists (select 1 from public.training_program_sessions where program_id = program_regular_id and week_number = 3 and day_of_week = 5 and order_index = 1);
 end $$;
