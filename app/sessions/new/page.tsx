@@ -13,6 +13,7 @@ import {
   normalizeDraftSessionBlocks,
   SessionBlockDraft,
 } from '@/lib/session-draft-blocks';
+import { buildTrailFitnessSessionPreset } from '@/lib/session-presets';
 import {
   formatEstimatedWorkoutCalories,
   formatSessionVolumeKg,
@@ -37,6 +38,13 @@ function formatDurationLabel(durationSeconds: number | null) {
   return `${minutes} min${seconds > 0 ? ` ${seconds.toString().padStart(2, '0')}` : ''}`;
 }
 
+type SessionCreationPayload = {
+  name: string;
+  sport: string;
+  description: string;
+  blocks: SessionBlockDraft[];
+};
+
 export default function NewSessionPage() {
   const router = useRouter();
   const [name, setName] = useState('');
@@ -44,6 +52,7 @@ export default function NewSessionPage() {
   const [description, setDescription] = useState('');
   const [blocks, setBlocks] = useState<SessionBlockDraft[]>([createEmptySessionBlockDraft(0)]);
   const [message, setMessage] = useState('');
+  const [messageTone, setMessageTone] = useState<'error' | 'success'>('error');
   const [loading, setLoading] = useState(false);
 
   const validBlocksCount = useMemo(() => blocks.filter((block) => block.name.trim()).length, [blocks]);
@@ -75,29 +84,31 @@ export default function NewSessionPage() {
     setBlocks((current) => (current.length > 1 ? current.filter((block) => block.id !== blockId) : current));
   };
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const createSession = async (payload: SessionCreationPayload) => {
     if (loading) return;
 
     setMessage('');
+    setMessageTone('error');
 
-    if (!name.trim() || !sport) {
+    const normalizedPayloadBlocks = normalizeDraftSessionBlocks(payload.blocks);
+
+    if (!payload.name.trim() || !payload.sport) {
       setMessage('Renseigne le nom de la seance et le sport associe.');
-      return;
+      return false;
     }
 
-    if (normalizedBlocks.length === 0) {
+    if (normalizedPayloadBlocks.length === 0) {
       setMessage('Ajoute au moins un bloc simple pour enregistrer la seance.');
-      return;
+      return false;
     }
 
-    const invalidBlock = getInvalidSessionBlock(normalizedBlocks);
+    const invalidBlock = getInvalidSessionBlock(normalizedPayloadBlocks);
 
     if (invalidBlock) {
       setMessage(
         'Chaque bloc doit avoir un nombre de series valide, un repos valide, une cible valide si necessaire, et une charge positive si renseignee.'
       );
-      return;
+      return false;
     }
 
     setLoading(true);
@@ -110,16 +121,16 @@ export default function NewSessionPage() {
 
       if (userError || !user) {
         setMessage('Connecte-toi pour creer une seance.');
-        return;
+        return false;
       }
 
       const { data: session, error: sessionError } = await supabase
         .from('training_sessions')
         .insert({
           user_id: user.id,
-          name: name.trim(),
-          sport,
-          description: description.trim() || null,
+          name: payload.name.trim(),
+          sport: payload.sport,
+          description: payload.description.trim() || null,
         })
         .select('id')
         .single();
@@ -127,14 +138,14 @@ export default function NewSessionPage() {
       if (sessionError || !session) {
         console.error('Erreur creation seance :', sessionError);
         setMessage('Impossible de creer la seance pour le moment.');
-        return;
+        return false;
       }
 
-      const { error: blocksError } = await insertTrainingSessionBlocks(session.id, normalizedBlocks);
+      const { error: blocksError } = await insertTrainingSessionBlocks(session.id, normalizedPayloadBlocks);
 
       if (blocksError) {
         setMessage("La seance a ete creee mais les blocs n'ont pas pu etre enregistres.");
-        return;
+        return false;
       }
 
       const xpResult = await awardXp({
@@ -160,12 +171,50 @@ export default function NewSessionPage() {
       }
       queuePendingToast({ message: 'Seance creee', tone: 'success' });
       router.push(`/sessions/${session.id}`);
+      return true;
     } catch (error) {
       console.error('Erreur inattendue creation seance :', error);
       setMessage("Une erreur inattendue s'est produite.");
+      return false;
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    await createSession({
+      name,
+      sport,
+      description,
+      blocks,
+    });
+  };
+
+  const handleApplyPreset = () => {
+    if (loading) return;
+
+    const preset = buildTrailFitnessSessionPreset();
+    setName(preset.name);
+    setSport(preset.sport);
+    setDescription(preset.description);
+    setBlocks(preset.blocks);
+    setMessageTone('success');
+    setMessage('Seance trail/fitness pre-remplie. Tu peux encore ajuster les blocs avant creation.');
+  };
+
+  const handleCreatePreset = async () => {
+    if (loading) return;
+
+    const preset = buildTrailFitnessSessionPreset();
+    setName(preset.name);
+    setSport(preset.sport);
+    setDescription(preset.description);
+    setBlocks(preset.blocks);
+
+    console.log('award xp session_created preset flow');
+    await createSession(preset);
   };
 
   return (
@@ -181,6 +230,12 @@ export default function NewSessionPage() {
           </div>
 
           <div className="session-hero-actions">
+            <button type="button" className="button primary" onClick={handleCreatePreset} disabled={loading}>
+              {loading ? 'Creation...' : 'Generer et enregistrer la seance trail'}
+            </button>
+            <button type="button" className="button ghost" onClick={handleApplyPreset} disabled={loading}>
+              Pre-remplir la seance trail
+            </button>
             <Link href="/sessions" className="button ghost">
               Voir mes seances
             </Link>
@@ -255,7 +310,7 @@ export default function NewSessionPage() {
                 </div>
               </div>
 
-              {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
+              {message ? <p className={`form-feedback form-feedback--${messageTone}`}>{message}</p> : null}
             </article>
 
             <aside className="card session-advice-card">
@@ -265,6 +320,14 @@ export default function NewSessionPage() {
                 Structure ta seance avec des blocs adaptes a ton objectif. Tu pourras les
                 reordonner et les ajuster ensuite sans recreer la base.
               </p>
+              <div className="row">
+                <button type="button" className="button primary" onClick={handleCreatePreset} disabled={loading}>
+                  {loading ? 'Creation...' : 'Generer maintenant'}
+                </button>
+                <button type="button" className="button ghost" onClick={handleApplyPreset} disabled={loading}>
+                  Charger le modele
+                </button>
+              </div>
             </aside>
           </div>
 
