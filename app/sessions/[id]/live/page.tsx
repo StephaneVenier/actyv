@@ -69,6 +69,14 @@ function formatElapsedDuration(totalSeconds: number) {
   return `${minutes} min ${seconds.toString().padStart(2, '0')} sec`;
 }
 
+function formatTimerClock(totalSeconds: number) {
+  const normalizedSeconds = Math.max(0, Math.trunc(Number(totalSeconds) || 0));
+  const minutes = Math.floor(normalizedSeconds / 60);
+  const seconds = normalizedSeconds % 60;
+
+  return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
 function createLiveRunKey() {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -78,8 +86,14 @@ function createLiveRunKey() {
 }
 
 function triggerHaptic(pattern: number | number[]) {
-  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
-    navigator.vibrate(pattern);
+  try {
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      navigator.vibrate(pattern);
+    }
+  } catch (error) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('Haptic feedback indisponible pour cette seance live.', error);
+    }
   }
 }
 
@@ -694,30 +708,36 @@ export default function LiveSessionPage() {
   };
 
   const handleStartCurrentSeries = () => {
-    if (!currentBlock) return;
+    try {
+      if (!currentBlock) return;
 
-    triggerHaptic(18);
-    setValidationFeedback(null);
+      triggerHaptic(18);
+      setValidationFeedback(null);
 
-    if (currentBlock.block_type === 'duration') {
-      const normalizedTarget =
-        Number.isFinite(Number(currentBlock.target_value)) && Number(currentBlock.target_value) > 0
-          ? Math.max(1, Math.trunc(Number(currentBlock.target_value)))
-          : 0;
+      if (currentBlock.block_type === 'duration') {
+        const duration = Number(currentBlock?.target_value ?? 0);
+        const normalizedTarget =
+          Number.isFinite(duration) && duration > 0 ? Math.max(1, Math.trunc(duration)) : 0;
 
-      if (normalizedTarget <= 0) {
-        handleValidateCurrent();
+        if (normalizedTarget <= 0) {
+          setValidationFeedback('Duree invalide, serie validee sans chrono');
+          handleValidateCurrent();
+          return;
+        }
+
+        setExerciseBlockId(currentBlock.id);
+        setExerciseSecondsLeft(normalizedTarget);
+        setAwaitingExerciseCompletion(false);
+        setIsTimerPaused(false);
         return;
       }
 
-      setExerciseBlockId(currentBlock.id);
-      setExerciseSecondsLeft(normalizedTarget);
-      setAwaitingExerciseCompletion(false);
-      setIsTimerPaused(false);
-      return;
+      handleValidateCurrent();
+    } catch (error) {
+      console.error('start exercise failed', error);
+      setValidationFeedback("Impossible de lancer la serie pour le moment.");
+      clearExerciseState();
     }
-
-    handleValidateCurrent();
   };
 
   const shouldKeepScreenAwake = !isTimerPaused && (isResting || isExercising);
@@ -730,6 +750,8 @@ export default function LiveSessionPage() {
 
     const requestWakeLock = async () => {
       try {
+        if (typeof navigator === 'undefined' || !('wakeLock' in navigator)) return;
+
         const wakeLockApi = (navigator as Navigator & {
           wakeLock?: { request: (type: 'screen') => Promise<{ release?: () => Promise<void> }> };
         }).wakeLock;
