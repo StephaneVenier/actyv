@@ -33,11 +33,13 @@ type LiveBlockCardProps = {
   blockIndex: number;
   totalBlocks: number;
   currentSeriesLabel: string;
+  statusLabel: string;
   isCompleted: boolean;
   blockVolumeLabel?: string | null;
   actionLabel: string;
   actionHint?: string | null;
   validationFeedback?: string | null;
+  countdownLabel?: string | null;
   onValidate?: () => void;
   actionDisabled?: boolean;
 };
@@ -66,6 +68,16 @@ type LiveBlockPreviewRailProps = {
   blocks: Array<{ id: string; name: string; block_type: SessionBlockDisplayLike['block_type'] }>;
   currentIndex: number;
   completedBlockIds: string[];
+  onSelect: (index: number) => void;
+};
+
+type LiveSequenceListProps = {
+  blocks: SessionBlockDisplayLike[];
+  currentIndex: number;
+  completedBlockIds: string[];
+  completedSetsByBlockId: Record<string, number>;
+  currentSeriesLabel: string;
+  currentStatusLabel: string;
   onSelect: (index: number) => void;
 };
 
@@ -144,11 +156,13 @@ export function LiveBlockCard({
   blockIndex,
   totalBlocks,
   currentSeriesLabel,
+  statusLabel,
   isCompleted,
   blockVolumeLabel,
   actionLabel,
   actionHint,
   validationFeedback,
+  countdownLabel,
   onValidate,
   actionDisabled = false,
 }: LiveBlockCardProps) {
@@ -164,11 +178,11 @@ export function LiveBlockCard({
 
       <div className="session-live-focus-card__hero">
         <h2>{block.name || `Bloc ${blockIndex + 1}`}</h2>
-        <p>{typeLabel}</p>
+        <p>{statusLabel}</p>
       </div>
 
       <div className="session-live-focus-card__value">
-        <strong>{getLivePrimaryValue(block)}</strong>
+        <strong>{countdownLabel || getLivePrimaryValue(block)}</strong>
         <span>{currentSeriesLabel}</span>
       </div>
 
@@ -256,7 +270,7 @@ export function RestTimerOverlay({
       </div>
 
       <p className="session-live-rest-overlay__hint">
-        Prends ton souffle. La prochaine etape repart automatiquement a la fin du repos.
+        Prends ton souffle. La prochaine serie attendra ton signal pour repartir.
       </p>
 
       <div className="session-live-rest-overlay__adjust">
@@ -280,6 +294,62 @@ export function RestTimerOverlay({
         </button>
       </div>
     </article>
+  );
+}
+
+export function LiveSequenceList({
+  blocks,
+  currentIndex,
+  completedBlockIds,
+  completedSetsByBlockId,
+  currentSeriesLabel,
+  currentStatusLabel,
+  onSelect,
+}: LiveSequenceListProps) {
+  return (
+    <div className="session-live-sequence-list">
+      {blocks.map((block, index) => {
+        const isCompleted = completedBlockIds.includes((block as SessionBlockDisplayLike & { id?: string }).id || '');
+        const isCurrent = index === currentIndex;
+        const normalizedSets = Math.max(Math.trunc(Number(block.sets_count || 1)), 1);
+        const completedSets =
+          isCurrent
+            ? currentSeriesLabel
+            : `${Math.min(
+                Math.max(
+                  Math.trunc(
+                    Number(
+                      completedSetsByBlockId[
+                        ((block as SessionBlockDisplayLike & { id?: string }).id as string) || ''
+                      ] || 0
+                    )
+                  ),
+                  0
+                ),
+                normalizedSets
+              )} / ${normalizedSets}`;
+        const status = isCompleted ? 'Termine' : isCurrent ? currentStatusLabel : 'A venir';
+
+        return (
+          <button
+            key={`${(block as SessionBlockDisplayLike & { id?: string }).id || index}`}
+            type="button"
+            className={`session-live-sequence-item${isCurrent ? ' is-current' : ''}${isCompleted ? ' is-done' : ''}`}
+            onClick={() => onSelect(index)}
+          >
+            <div className="session-live-sequence-item__top">
+              <strong>{block.name || `Bloc ${index + 1}`}</strong>
+              <span className="session-block-chip">{status}</span>
+            </div>
+            <div className="session-live-sequence-item__meta">
+              <span>{getSessionBlockTypeLabel(block.block_type)}</span>
+              <span>{isCurrent ? currentSeriesLabel : `Series ${completedSets}`}</span>
+              <span>{formatBlockMainValue(block)}</span>
+            </div>
+          </button>
+        );
+      })}
+    </div>
   );
 }
 

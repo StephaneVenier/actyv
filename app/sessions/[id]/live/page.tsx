@@ -8,6 +8,7 @@ import {
   LiveBlockCard,
   LiveBlockPreviewRail,
   LiveControls,
+  LiveSequenceList,
   RestTimerOverlay,
   SessionLiveHeader,
 } from '@/components/session-live-ui';
@@ -42,6 +43,9 @@ type LiveState = {
   restAfterBlockId: string | null;
   restResumeIndex: number | null;
   restSecondsLeft: number;
+  exerciseBlockId: string | null;
+  exerciseSecondsLeft: number;
+  awaitingExerciseCompletion: boolean;
   elapsedSeconds: number;
   isTimerPaused: boolean;
   runKey: string;
@@ -118,6 +122,9 @@ export default function LiveSessionPage() {
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
   const [restResumeIndex, setRestResumeIndex] = useState<number | null>(null);
   const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
+  const [exerciseBlockId, setExerciseBlockId] = useState<string | null>(null);
+  const [exerciseSecondsLeft, setExerciseSecondsLeft] = useState(0);
+  const [awaitingExerciseCompletion, setAwaitingExerciseCompletion] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [runKey, setRunKey] = useState('');
@@ -225,6 +232,9 @@ export default function LiveSessionPage() {
         setRestAfterBlockId(null);
         setRestResumeIndex(null);
         setRestSecondsLeft(DEFAULT_REST_SECONDS);
+        setExerciseBlockId(null);
+        setExerciseSecondsLeft(0);
+        setAwaitingExerciseCompletion(false);
         setElapsedSeconds(0);
         setIsTimerPaused(false);
         setHistorySaved(false);
@@ -267,6 +277,18 @@ export default function LiveSessionPage() {
         Number.isFinite(parsedValue.restSecondsLeft)
       ) {
         setRestSecondsLeft(Math.max(0, Math.floor(parsedValue.restSecondsLeft)));
+      }
+      if (typeof parsedValue.exerciseBlockId === 'string' || parsedValue.exerciseBlockId === null) {
+        setExerciseBlockId(parsedValue.exerciseBlockId ?? null);
+      }
+      if (
+        typeof parsedValue.exerciseSecondsLeft === 'number' &&
+        Number.isFinite(parsedValue.exerciseSecondsLeft)
+      ) {
+        setExerciseSecondsLeft(Math.max(0, Math.floor(parsedValue.exerciseSecondsLeft)));
+      }
+      if (typeof parsedValue.awaitingExerciseCompletion === 'boolean') {
+        setAwaitingExerciseCompletion(parsedValue.awaitingExerciseCompletion);
       }
       if (
         typeof parsedValue.elapsedSeconds === 'number' &&
@@ -358,6 +380,7 @@ export default function LiveSessionPage() {
         currentBlockSetsTotal
       )
     : 0;
+  const isDurationBlock = currentBlock?.block_type === 'duration';
   const usesSetBySetValidation =
     Boolean(currentBlock) &&
     currentBlockSetsTotal > 1 &&
@@ -366,6 +389,22 @@ export default function LiveSessionPage() {
     ? Math.min(currentCompletedSets + (completedBlockIds.includes(currentBlock.id) ? 0 : 1), currentBlockSetsTotal)
     : 1;
   const isResting = Boolean(restAfterBlockId) && !allBlocksCompleted;
+  const isExercising =
+    Boolean(currentBlock) &&
+    exerciseBlockId === currentBlock?.id &&
+    exerciseSecondsLeft > 0 &&
+    !isResting;
+  const currentStatusLabel = allBlocksCompleted
+    ? 'Bloc termine'
+    : isTimerPaused
+      ? 'Pause'
+      : isResting
+        ? 'Repos'
+        : isExercising
+          ? 'Serie en cours'
+          : currentCompletedSets > 0
+            ? 'Pret pour la serie suivante'
+            : 'Pret pour la serie';
   const currentSeriesLabel = currentBlock
     ? usesSetBySetValidation
       ? `Serie ${Math.max(displayedSeriesStep, 1)} / ${currentBlockSetsTotal}`
@@ -446,6 +485,9 @@ export default function LiveSessionPage() {
         restAfterBlockId: sanitizedRestAfterBlockId,
         restResumeIndex: nextResumeIndex,
         restSecondsLeft,
+        exerciseBlockId,
+        exerciseSecondsLeft,
+        awaitingExerciseCompletion,
         elapsedSeconds,
         isTimerPaused,
         runKey,
@@ -464,6 +506,9 @@ export default function LiveSessionPage() {
     restAfterBlockId,
     restResumeIndex,
     restSecondsLeft,
+    exerciseBlockId,
+    exerciseSecondsLeft,
+    awaitingExerciseCompletion,
     elapsedSeconds,
     isTimerPaused,
     runKey,
@@ -483,6 +528,18 @@ export default function LiveSessionPage() {
   }, [isResting, restSecondsLeft]);
 
   useEffect(() => {
+    if (!isExercising || exerciseSecondsLeft <= 0 || isTimerPaused) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setExerciseSecondsLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [exerciseSecondsLeft, isExercising, isTimerPaused]);
+
+  useEffect(() => {
     if (!isResting || restSecondsLeft > 0) return;
 
     triggerHaptic([20, 35, 20]);
@@ -496,6 +553,14 @@ export default function LiveSessionPage() {
     setRestResumeIndex(null);
     setRestSecondsLeft(DEFAULT_REST_SECONDS);
   }, [blocks.length, currentIndex, isResting, restResumeIndex, restSecondsLeft]);
+
+  useEffect(() => {
+    if (!exerciseBlockId || exerciseSecondsLeft > 0) return;
+
+    triggerHaptic([20, 35, 20]);
+    setExerciseBlockId(null);
+    setAwaitingExerciseCompletion(true);
+  }, [exerciseBlockId, exerciseSecondsLeft]);
 
   useEffect(() => {
     if (loading || !session || blocks.length === 0 || allBlocksCompleted || isTimerPaused) return;
@@ -515,23 +580,33 @@ export default function LiveSessionPage() {
     setRestSecondsLeft(DEFAULT_REST_SECONDS);
   };
 
+  const clearExerciseState = () => {
+    setExerciseBlockId(null);
+    setExerciseSecondsLeft(0);
+    setAwaitingExerciseCompletion(false);
+  };
+
   const goToPrevious = () => {
     clearRestState();
+    clearExerciseState();
     setCurrentIndex((value) => Math.max(value - 1, 0));
   };
 
   const goToNext = () => {
     clearRestState();
+    clearExerciseState();
     setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
   const goToNextExercise = () => {
     clearRestState();
+    clearExerciseState();
     setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
   const goToBlockIndex = (index: number) => {
     clearRestState();
+    clearExerciseState();
     setCurrentIndex(Math.min(Math.max(index, 0), Math.max(blocks.length - 1, 0)));
   };
 
@@ -544,6 +619,7 @@ export default function LiveSessionPage() {
 
     if (normalizedRest <= 0) {
       clearRestState();
+      clearExerciseState();
       setCurrentIndex(Math.min(Math.max(nextIndex, 0), Math.max(blocks.length - 1, 0)));
       return;
     }
@@ -551,6 +627,7 @@ export default function LiveSessionPage() {
     setRestAfterBlockId(sourceBlockId);
     setRestResumeIndex(Math.min(Math.max(nextIndex, 0), Math.max(blocks.length - 1, 0)));
     setRestSecondsLeft(normalizedRest);
+    clearExerciseState();
   };
 
   const resetLiveProgress = () => {
@@ -565,6 +642,7 @@ export default function LiveSessionPage() {
     setSaveState('idle');
     setRunKey(createLiveRunKey());
     clearRestState();
+    clearExerciseState();
     clearPersistedLiveState();
   };
 
@@ -577,6 +655,7 @@ export default function LiveSessionPage() {
 
     if (currentIndex >= blocks.length - 1) {
       clearRestState();
+      clearExerciseState();
       return;
     }
 
@@ -613,6 +692,88 @@ export default function LiveSessionPage() {
 
     completeCurrentExercise();
   };
+
+  const handleStartCurrentSeries = () => {
+    if (!currentBlock) return;
+
+    triggerHaptic(18);
+    setValidationFeedback(null);
+
+    if (currentBlock.block_type === 'duration') {
+      const normalizedTarget =
+        Number.isFinite(Number(currentBlock.target_value)) && Number(currentBlock.target_value) > 0
+          ? Math.max(1, Math.trunc(Number(currentBlock.target_value)))
+          : 0;
+
+      if (normalizedTarget <= 0) {
+        handleValidateCurrent();
+        return;
+      }
+
+      setExerciseBlockId(currentBlock.id);
+      setExerciseSecondsLeft(normalizedTarget);
+      setAwaitingExerciseCompletion(false);
+      setIsTimerPaused(false);
+      return;
+    }
+
+    handleValidateCurrent();
+  };
+
+  const shouldKeepScreenAwake = !isTimerPaused && (isResting || isExercising);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    let released = false;
+    let wakeLockSentinel: { release?: () => Promise<void> } | null = null;
+
+    const requestWakeLock = async () => {
+      try {
+        const wakeLockApi = (navigator as Navigator & {
+          wakeLock?: { request: (type: 'screen') => Promise<{ release?: () => Promise<void> }> };
+        }).wakeLock;
+
+        if (!wakeLockApi || document.visibilityState !== 'visible' || !shouldKeepScreenAwake) return;
+        wakeLockSentinel = await wakeLockApi.request('screen');
+      } catch (error) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn('Wake lock indisponible pour cette seance live.', error);
+        }
+      }
+    };
+
+    const releaseWakeLock = async () => {
+      if (released) return;
+      released = true;
+      try {
+        await wakeLockSentinel?.release?.();
+      } catch {
+        // ignore
+      }
+      wakeLockSentinel = null;
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== 'visible') {
+        void releaseWakeLock();
+      } else if (shouldKeepScreenAwake) {
+        released = false;
+        void requestWakeLock();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    if (shouldKeepScreenAwake) {
+      void requestWakeLock();
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      void releaseWakeLock();
+    };
+  }, [shouldKeepScreenAwake]);
 
   const saveCompletedSession = useCallback(async () => {
     if (!allBlocksCompleted || historySaved || !session || !runKey || saveState === 'saving') {
@@ -1205,17 +1366,47 @@ export default function LiveSessionPage() {
                   blockIndex={currentIndex}
                   totalBlocks={blocks.length}
                   currentSeriesLabel={currentSeriesLabel}
+                  statusLabel={currentStatusLabel}
                   isCompleted={completedBlockIds.includes(currentBlock.id)}
                   blockVolumeLabel={formatSessionVolumeKg(currentBlockVolume)}
-                  actionLabel={usesSetBySetValidation ? 'Serie terminee' : 'Bloc termine'}
+                  actionLabel={
+                    isDurationBlock
+                      ? isExercising
+                        ? 'Serie en cours'
+                        : awaitingExerciseCompletion
+                          ? 'Terminer la serie'
+                          : currentCompletedSets > 0
+                            ? 'Lancer la serie suivante'
+                            : 'Lancer la serie'
+                      : usesSetBySetValidation
+                        ? currentCompletedSets > 0
+                          ? 'Valider la serie suivante'
+                          : 'Valider la serie'
+                        : 'Terminer le bloc'
+                  }
                   actionHint={
-                    usesSetBySetValidation
-                      ? 'Valide chaque serie pour avancer automatiquement.'
-                      : 'Valide ce bloc quand tu as fini l effort.'
+                    isDurationBlock
+                      ? isExercising
+                        ? 'Le chrono tourne. Termine la serie quand tu es pret.'
+                        : awaitingExerciseCompletion
+                          ? 'Le chrono est fini. Confirme la serie pour passer au repos.'
+                          : 'Lance la serie quand tu es pret.'
+                      : usesSetBySetValidation
+                        ? 'Valide chaque serie, puis prends ton repos avant la suivante.'
+                        : 'Valide ce bloc quand tu as fini l effort.'
                   }
                   validationFeedback={validationFeedback}
-                  onValidate={handleValidateCurrent}
-                  actionDisabled={completedBlockIds.includes(currentBlock.id)}
+                  countdownLabel={isExercising ? formatTimerClock(exerciseSecondsLeft) : null}
+                  onValidate={
+                    isExercising
+                      ? undefined
+                      : isDurationBlock
+                        ? awaitingExerciseCompletion
+                          ? handleValidateCurrent
+                          : handleStartCurrentSeries
+                        : handleValidateCurrent
+                  }
+                  actionDisabled={completedBlockIds.includes(currentBlock.id) || isExercising}
                 />
 
                 <div className="session-live-quick-stats">
@@ -1243,6 +1434,26 @@ export default function LiveSessionPage() {
                   previousDisabled={currentIndex === 0}
                   nextDisabled={currentIndex >= blocks.length - 1}
                 />
+
+                <article className="card session-live-rail-card">
+                  <div className="session-live-rail-card__top">
+                    <div>
+                      <span className="section-kicker">Sequence complete</span>
+                      <h2>Vue d ensemble</h2>
+                    </div>
+                    <span className="session-block-chip">{currentStatusLabel}</span>
+                  </div>
+
+                  <LiveSequenceList
+                    blocks={blocks}
+                    currentIndex={currentIndex}
+                    completedBlockIds={completedBlockIds}
+                    completedSetsByBlockId={completedSetsByBlockId}
+                    currentSeriesLabel={currentSeriesLabel}
+                    currentStatusLabel={currentStatusLabel}
+                    onSelect={goToBlockIndex}
+                  />
+                </article>
 
                 <article className="card session-live-rail-card">
                   <div className="session-live-rail-card__top">
