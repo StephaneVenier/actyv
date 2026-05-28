@@ -3881,13 +3881,14 @@ img {
   gap: 6px;
   padding: 14px 16px;
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(8, 18, 19, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .session-live-fact span,
 .session-live-quick-stat span {
-  color: #9fb5b3;
+  color: #bfd0cf;
   font-size: 0.74rem;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -3896,9 +3897,10 @@ img {
 
 .session-live-fact strong,
 .session-live-quick-stat strong {
-  color: #f4f7f6;
+  color: #f7fbfa;
   font-size: 1rem;
   overflow-wrap: anywhere;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.22);
 }
 
 .session-live-focus-card__note {
@@ -3951,6 +3953,27 @@ img {
 .session-live-rest-overlay__actions .button,
 .session-live-actions--end .button {
   min-height: 48px;
+}
+
+.sessions-page--dark .session-live-controls .button.ghost {
+  background: linear-gradient(180deg, rgba(12, 26, 27, 0.98), rgba(7, 17, 17, 0.98));
+  border-color: rgba(151, 184, 187, 0.22);
+  color: #f4f7f6;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.sessions-page--dark .session-live-controls .button.ghost:hover:not(:disabled) {
+  background: linear-gradient(180deg, rgba(18, 38, 39, 0.98), rgba(10, 22, 23, 0.98));
+  border-color: rgba(53, 230, 107, 0.3);
+  color: #ffffff;
+}
+
+.sessions-page--dark .session-live-controls .button.ghost:disabled {
+  background: rgba(10, 20, 21, 0.72);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: rgba(244, 247, 246, 0.58);
+  opacity: 1;
+  box-shadow: none;
 }
 
 .session-live-preview {
@@ -4621,8 +4644,18 @@ img {
 .sessions-page--dark .session-live-preview__item,
 .sessions-page--dark .session-live-fact,
 .sessions-page--dark .session-live-quick-stat {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(9, 19, 20, 0.96), rgba(6, 14, 15, 0.96));
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.sessions-page--dark .session-live-quick-stat span,
+.sessions-page--dark .session-live-fact span {
+  color: #c5d6d5;
+}
+
+.sessions-page--dark .session-live-quick-stat strong,
+.sessions-page--dark .session-live-fact strong {
+  color: #f7fbfa;
 }
 
 .session-creation-overview {
