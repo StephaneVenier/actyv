@@ -39,6 +39,7 @@ type TrainingSession = {
 type LiveState = {
   currentIndex: number;
   completedBlockIds: string[];
+  skippedBlockIds: string[];
   completedSetsByBlockId: Record<string, number>;
   restAfterBlockId: string | null;
   restResumeIndex: number | null;
@@ -132,6 +133,7 @@ export default function LiveSessionPage() {
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
+  const [skippedBlockIds, setSkippedBlockIds] = useState<string[]>([]);
   const [completedSetsByBlockId, setCompletedSetsByBlockId] = useState<Record<string, number>>({});
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
   const [restResumeIndex, setRestResumeIndex] = useState<number | null>(null);
@@ -242,6 +244,7 @@ export default function LiveSessionPage() {
         clearPersistedLiveState();
         setCurrentIndex(0);
         setCompletedBlockIds([]);
+        setSkippedBlockIds([]);
         setCompletedSetsByBlockId({});
         setRestAfterBlockId(null);
         setRestResumeIndex(null);
@@ -264,6 +267,9 @@ export default function LiveSessionPage() {
       }
       if (Array.isArray(parsedValue.completedBlockIds)) {
         setCompletedBlockIds(parsedValue.completedBlockIds.filter(Boolean));
+      }
+      if (Array.isArray(parsedValue.skippedBlockIds)) {
+        setSkippedBlockIds(parsedValue.skippedBlockIds.filter(Boolean));
       }
       if (parsedValue.completedSetsByBlockId && typeof parsedValue.completedSetsByBlockId === 'object') {
         const nextCompletedSets = Object.fromEntries(
@@ -344,6 +350,14 @@ export default function LiveSessionPage() {
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
     [blocks, completedBlockIds]
   );
+  const skippedBlocksCount = useMemo(
+    () => blocks.filter((block) => skippedBlockIds.includes(block.id)).length,
+    [blocks, skippedBlockIds]
+  );
+  const resolvedBlockIds = useMemo(
+    () => [...new Set([...completedBlockIds, ...skippedBlockIds])],
+    [completedBlockIds, skippedBlockIds]
+  );
   const sessionTotalVolume = useMemo(
     () =>
       blocks.reduce((total, block) => {
@@ -363,8 +377,9 @@ export default function LiveSessionPage() {
     [elapsedSeconds, session?.sport]
   );
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
+  const allBlocksResolved = blocks.length > 0 && resolvedBlockIds.length === blocks.length;
   const globalProgressPercent =
-    blocks.length > 0 ? Math.min(100, Math.max(0, Math.round((completedBlocksCount / blocks.length) * 100))) : 0;
+    blocks.length > 0 ? Math.min(100, Math.max(0, Math.round((resolvedBlockIds.length / blocks.length) * 100))) : 0;
   const currentBlock = blocks[currentIndex] || null;
   const restSourceBlock = useMemo(
     () => blocks.find((block) => block.id === restAfterBlockId) || null,
@@ -398,17 +413,18 @@ export default function LiveSessionPage() {
   const usesSetBySetValidation =
     Boolean(currentBlock) &&
     currentBlockSetsTotal > 1 &&
-    !completedBlockIds.includes(currentBlock.id);
+    !resolvedBlockIds.includes(currentBlock.id);
   const displayedSeriesStep = currentBlock
-    ? Math.min(currentCompletedSets + (completedBlockIds.includes(currentBlock.id) ? 0 : 1), currentBlockSetsTotal)
+    ? Math.min(currentCompletedSets + (resolvedBlockIds.includes(currentBlock.id) ? 0 : 1), currentBlockSetsTotal)
     : 1;
-  const isResting = Boolean(restAfterBlockId) && !allBlocksCompleted;
+  const isCurrentBlockSkipped = Boolean(currentBlock) && skippedBlockIds.includes(currentBlock.id);
+  const isResting = Boolean(restAfterBlockId) && !allBlocksResolved;
   const isExercising =
     Boolean(currentBlock) &&
     exerciseBlockId === currentBlock?.id &&
     exerciseSecondsLeft > 0 &&
     !isResting;
-  const currentPhase: 'ready' | 'exercising' | 'resting' | 'paused' | 'completed' = allBlocksCompleted
+  const currentPhase: 'ready' | 'exercising' | 'resting' | 'paused' | 'completed' = allBlocksResolved
     ? 'completed'
     : isResting
       ? 'resting'
@@ -417,7 +433,7 @@ export default function LiveSessionPage() {
         : isTimerPaused
           ? 'paused'
           : 'ready';
-  const currentStatusLabel = allBlocksCompleted
+  const currentStatusLabel = allBlocksResolved
     ? 'Bloc termine'
     : isTimerPaused
       ? 'Pause'
@@ -425,9 +441,11 @@ export default function LiveSessionPage() {
         ? 'Repos'
         : isExercising
           ? 'Serie en cours'
-          : currentCompletedSets > 0
-            ? 'Pret pour la serie suivante'
-            : 'Pret pour la serie';
+          : isCurrentBlockSkipped
+            ? 'Bloc passe'
+            : currentCompletedSets > 0
+              ? 'Pret pour la serie suivante'
+              : 'Pret pour la serie';
   const currentSeriesLabel = currentBlock
     ? usesSetBySetValidation
       ? `Serie ${Math.max(displayedSeriesStep, 1)} / ${currentBlockSetsTotal}`
@@ -451,7 +469,7 @@ export default function LiveSessionPage() {
     Boolean(currentBlock) &&
     currentPhase !== 'completed' &&
     currentPhase !== 'resting' &&
-    !completedBlockIds.includes(currentBlock?.id ?? '') &&
+    !resolvedBlockIds.includes(currentBlock?.id ?? '') &&
     (!isDurationBlock || currentPhase !== 'exercising');
 
   useEffect(() => {
@@ -459,9 +477,17 @@ export default function LiveSessionPage() {
 
     const validBlockIds = new Set(blocks.map((block) => block.id));
     const sanitizedIds = completedBlockIds.filter((blockId) => validBlockIds.has(blockId));
+    const sanitizedSkippedIds = skippedBlockIds.filter(
+      (blockId) => validBlockIds.has(blockId) && !sanitizedIds.includes(blockId)
+    );
 
     if (sanitizedIds.length !== completedBlockIds.length) {
       setCompletedBlockIds(sanitizedIds);
+      return;
+    }
+
+    if (sanitizedSkippedIds.length !== skippedBlockIds.length) {
+      setSkippedBlockIds(sanitizedSkippedIds);
       return;
     }
 
@@ -510,6 +536,7 @@ export default function LiveSessionPage() {
       const payload: LiveState = {
         currentIndex: nextIndex,
         completedBlockIds: sanitizedIds,
+        skippedBlockIds: sanitizedSkippedIds,
         completedSetsByBlockId: sanitizedCompletedSetsByBlockId,
         restAfterBlockId: sanitizedRestAfterBlockId,
         restResumeIndex: nextResumeIndex,
@@ -529,6 +556,7 @@ export default function LiveSessionPage() {
   }, [
     blocks,
     completedBlockIds,
+    skippedBlockIds,
     completedSetsByBlockId,
     currentIndex,
     liveStorageKey,
@@ -592,7 +620,7 @@ export default function LiveSessionPage() {
   }, [exerciseBlockId, exerciseSecondsLeft]);
 
   useEffect(() => {
-    if (loading || !session || blocks.length === 0 || allBlocksCompleted || isTimerPaused) return;
+    if (loading || !session || blocks.length === 0 || allBlocksResolved || isTimerPaused) return;
 
     const timeoutId = window.setTimeout(() => {
       setElapsedSeconds((current) => current + 1);
@@ -601,7 +629,7 @@ export default function LiveSessionPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [allBlocksCompleted, blocks.length, isTimerPaused, loading, session, elapsedSeconds]);
+  }, [allBlocksResolved, blocks.length, isTimerPaused, loading, session, elapsedSeconds]);
 
   const clearRestState = () => {
     setRestAfterBlockId(null);
@@ -661,6 +689,7 @@ export default function LiveSessionPage() {
 
   const resetLiveProgress = () => {
     setCompletedBlockIds([]);
+    setSkippedBlockIds([]);
     setCompletedSetsByBlockId({});
     setCurrentIndex(0);
     setElapsedSeconds(0);
@@ -678,6 +707,7 @@ export default function LiveSessionPage() {
   const completeCurrentExercise = () => {
     if (!currentBlock) return;
 
+    setSkippedBlockIds((current) => current.filter((blockId) => blockId !== currentBlock.id));
     setCompletedBlockIds((current) =>
       current.includes(currentBlock.id) ? current : [...current, currentBlock.id]
     );
@@ -720,6 +750,22 @@ export default function LiveSessionPage() {
     }));
 
     completeCurrentExercise();
+  };
+
+  const handleSkipCurrentBlock = () => {
+    if (!currentBlock || resolvedBlockIds.includes(currentBlock.id)) return;
+
+    triggerHaptic(12);
+    clearRestState();
+    clearExerciseState();
+    setValidationFeedback('Bloc passe');
+    setSkippedBlockIds((current) => (current.includes(currentBlock.id) ? current : [...current, currentBlock.id]));
+
+    if (currentIndex >= blocks.length - 1) {
+      return;
+    }
+
+    setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
   const handleStartCurrentSeries = () => {
@@ -813,7 +859,7 @@ export default function LiveSessionPage() {
   }, [shouldKeepScreenAwake]);
 
   const saveCompletedSession = useCallback(async () => {
-    if (!allBlocksCompleted || historySaved || !session || !runKey || saveState === 'saving') {
+    if (!allBlocksResolved || historySaved || !session || !runKey || saveState === 'saving') {
       return false;
     }
 
@@ -842,8 +888,8 @@ export default function LiveSessionPage() {
       const normalizedTotalVolume = Number.isFinite(Number(sessionTotalVolume))
         ? Number(sessionTotalVolume)
         : 0;
-      const normalizedCompletedExercises = Number.isFinite(Number(blocks.length))
-        ? Number(blocks.length)
+      const normalizedCompletedExercises = Number.isFinite(Number(completedBlocksCount))
+        ? Number(completedBlocksCount)
         : 0;
 
       const payload = {
@@ -900,6 +946,7 @@ export default function LiveSessionPage() {
       let exerciseHistoryMessage: string | null = null;
 
       const exerciseHistoryPayload = blocks
+        .filter((block) => completedBlockIds.includes(block.id))
         .filter((block) => block.name.trim().length > 0)
         .map((block) => {
           const normalizedSetsCount = normalizeSessionSetsCount(block.sets_count);
@@ -1164,8 +1211,10 @@ export default function LiveSessionPage() {
       return false;
     }
   }, [
-    allBlocksCompleted,
+    allBlocksResolved,
     blocks,
+    completedBlockIds,
+    completedBlocksCount,
     elapsedSeconds,
     estimatedCalories,
     historySaved,
@@ -1222,7 +1271,7 @@ export default function LiveSessionPage() {
               </Link>
             </div>
           </div>
-        ) : !currentBlock && !allBlocksCompleted ? (
+        ) : !currentBlock && !allBlocksResolved ? (
           <div className="challenge-state">
             <p>Impossible d'afficher le bloc courant de cette seance.</p>
             <div className="session-empty-actions">
@@ -1247,19 +1296,21 @@ export default function LiveSessionPage() {
               currentBlockLabel={`Bloc ${Math.min(currentIndex + 1, blocks.length)} / ${blocks.length}`}
               progressLabel={`${completedBlocksCount} / ${blocks.length} blocs termines - ${globalProgressPercent}%`}
               progressMetaLabel={
-                allBlocksCompleted
-                  ? 'Tous les blocs sont termines.'
+                allBlocksResolved
+                  ? skippedBlocksCount > 0
+                    ? 'Tous les blocs ont ete traites, avec certains passes.'
+                    : 'Tous les blocs sont termines.'
                   : usesSetBySetValidation
                     ? `${currentSeriesLabel} - progression de la seance en direct`
                     : 'Un seul bloc a la fois, sans distraction.'
               }
               progressPercent={globalProgressPercent}
               onTogglePause={() => setIsTimerPaused((current) => !current)}
-              isPaused={isTimerPaused || allBlocksCompleted}
+              isPaused={isTimerPaused || allBlocksResolved}
               quitHref={`/sessions/${id}`}
             />
 
-            {allBlocksCompleted ? (
+            {allBlocksResolved ? (
               <article className="card session-live-finished session-live-finished--v1">
                 <div className="session-live-finished__hero">
                   <span className="section-kicker">Fin de seance</span>
@@ -1273,7 +1324,11 @@ export default function LiveSessionPage() {
                   </div>
                   <div className="session-live-fact">
                     <span>Blocs</span>
-                    <strong>{`${completedBlocksCount} / ${blocks.length}`}</strong>
+                    <strong>{`${completedBlocksCount} valides`}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Passes</span>
+                    <strong>{skippedBlocksCount}</strong>
                   </div>
                   <div className="session-live-fact">
                     <span>Calories</span>
@@ -1296,7 +1351,9 @@ export default function LiveSessionPage() {
                   <span>
                     {historySaved || saveState === 'success'
                       ? 'Ta realisation est bien prise en compte.'
-                      : "Une fois la seance terminee, pense a confirmer l'enregistrement."}
+                      : skippedBlocksCount > 0
+                        ? "Ta seance sera enregistree avec les blocs passes comme seance partielle."
+                        : "Une fois la seance terminee, pense a confirmer l'enregistrement."}
                   </span>
                 </div>
 
@@ -1469,9 +1526,10 @@ export default function LiveSessionPage() {
 
                 <LiveControls
                   onPrevious={goToPrevious}
-                  onNext={goToNext}
+                  onNext={resolvedBlockIds.includes(currentBlock.id) ? goToNext : handleSkipCurrentBlock}
                   previousDisabled={currentIndex === 0}
-                  nextDisabled={currentIndex >= blocks.length - 1}
+                  nextDisabled={currentIndex >= blocks.length - 1 && resolvedBlockIds.includes(currentBlock.id)}
+                  nextLabel={resolvedBlockIds.includes(currentBlock.id) ? 'Suivant' : 'Passer ce bloc'}
                 />
 
                 <article className="card session-live-rail-card">
@@ -1487,6 +1545,7 @@ export default function LiveSessionPage() {
                     blocks={blocks}
                     currentIndex={currentIndex}
                     completedBlockIds={completedBlockIds}
+                    skippedBlockIds={skippedBlockIds}
                     completedSetsByBlockId={completedSetsByBlockId}
                     currentSeriesLabel={currentSeriesLabel}
                     currentStatusLabel={currentStatusLabel}
@@ -1501,7 +1560,7 @@ export default function LiveSessionPage() {
                       <h2>Plan de seance</h2>
                     </div>
                     <span className="session-block-chip">
-                      {allBlocksCompleted ? 'Termine' : isTimerPaused ? 'Pause' : 'En cours'}
+                      {allBlocksResolved ? 'Termine' : isTimerPaused ? 'Pause' : 'En cours'}
                     </span>
                   </div>
 

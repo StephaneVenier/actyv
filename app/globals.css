@@ -4057,6 +4057,11 @@ img {
   opacity: 0.82;
 }
 
+.session-live-sequence-item.is-skipped {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: rgba(251, 191, 36, 0.08);
+}
+
 .session-live-sequence-item__top,
 .session-live-sequence-item__meta {
   display: flex;

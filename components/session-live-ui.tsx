@@ -60,6 +60,7 @@ type LiveControlsProps = {
   onPrevious: () => void;
   onNext: () => void;
   onOpenPreview?: () => void;
+  nextLabel?: string;
   previousDisabled?: boolean;
   nextDisabled?: boolean;
 };
@@ -75,6 +76,7 @@ type LiveSequenceListProps = {
   blocks: SessionBlockDisplayLike[];
   currentIndex: number;
   completedBlockIds: string[];
+  skippedBlockIds: string[];
   completedSetsByBlockId: Record<string, number>;
   currentSeriesLabel: string;
   currentStatusLabel: string;
@@ -301,6 +303,7 @@ export function LiveSequenceList({
   blocks,
   currentIndex,
   completedBlockIds,
+  skippedBlockIds,
   completedSetsByBlockId,
   currentSeriesLabel,
   currentStatusLabel,
@@ -310,6 +313,7 @@ export function LiveSequenceList({
     <div className="session-live-sequence-list">
       {blocks.map((block, index) => {
         const isCompleted = completedBlockIds.includes((block as SessionBlockDisplayLike & { id?: string }).id || '');
+        const isSkipped = skippedBlockIds.includes((block as SessionBlockDisplayLike & { id?: string }).id || '');
         const isCurrent = index === currentIndex;
         const normalizedSets = Math.max(Math.trunc(Number(block.sets_count || 1)), 1);
         const completedSets =
@@ -328,13 +332,13 @@ export function LiveSequenceList({
                 ),
                 normalizedSets
               )} / ${normalizedSets}`;
-        const status = isCompleted ? 'Termine' : isCurrent ? currentStatusLabel : 'A venir';
+        const status = isCompleted ? 'Termine' : isSkipped ? 'Passe' : isCurrent ? currentStatusLabel : 'A venir';
 
         return (
           <button
             key={`${(block as SessionBlockDisplayLike & { id?: string }).id || index}`}
             type="button"
-            className={`session-live-sequence-item${isCurrent ? ' is-current' : ''}${isCompleted ? ' is-done' : ''}`}
+            className={`session-live-sequence-item${isCurrent ? ' is-current' : ''}${isCompleted ? ' is-done' : ''}${isSkipped ? ' is-skipped' : ''}`}
             onClick={() => onSelect(index)}
           >
             <div className="session-live-sequence-item__top">
@@ -357,6 +361,7 @@ export function LiveControls({
   onPrevious,
   onNext,
   onOpenPreview,
+  nextLabel = 'Suivant',
   previousDisabled = false,
   nextDisabled = false,
 }: LiveControlsProps) {
@@ -371,7 +376,7 @@ export function LiveControls({
         </button>
       ) : null}
       <button type="button" className="button ghost" onClick={onNext} disabled={nextDisabled}>
-        Suivant
+        {nextLabel}
       </button>
     </div>
   );
