@@ -408,6 +408,15 @@ export default function LiveSessionPage() {
     exerciseBlockId === currentBlock?.id &&
     exerciseSecondsLeft > 0 &&
     !isResting;
+  const currentPhase: 'ready' | 'exercising' | 'resting' | 'paused' | 'completed' = allBlocksCompleted
+    ? 'completed'
+    : isResting
+      ? 'resting'
+      : isExercising
+        ? 'exercising'
+        : isTimerPaused
+          ? 'paused'
+          : 'ready';
   const currentStatusLabel = allBlocksCompleted
     ? 'Bloc termine'
     : isTimerPaused
@@ -438,6 +447,12 @@ export default function LiveSessionPage() {
         : saveState === 'error'
           ? "Erreur d'enregistrement"
           : 'Clique sur Terminer pour enregistrer ta seance.';
+  const canValidateCurrentBlock =
+    Boolean(currentBlock) &&
+    currentPhase !== 'completed' &&
+    currentPhase !== 'resting' &&
+    !completedBlockIds.includes(currentBlock?.id ?? '') &&
+    (!isDurationBlock || currentPhase !== 'exercising');
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -1420,7 +1435,9 @@ export default function LiveSessionPage() {
                   validationFeedback={validationFeedback}
                   countdownLabel={isExercising ? formatTimerClock(exerciseSecondsLeft) : null}
                   onValidate={
-                    isExercising
+                    !canValidateCurrentBlock
+                      ? undefined
+                      : isExercising
                       ? undefined
                       : isDurationBlock
                         ? awaitingExerciseCompletion
@@ -1428,7 +1445,7 @@ export default function LiveSessionPage() {
                           : handleStartCurrentSeries
                         : handleValidateCurrent
                   }
-                  actionDisabled={completedBlockIds.includes(currentBlock.id) || isExercising}
+                  actionDisabled={!canValidateCurrentBlock}
                 />
 
                 <div className="session-live-quick-stats">
