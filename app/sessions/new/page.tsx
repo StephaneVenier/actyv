@@ -13,7 +13,6 @@ import {
   normalizeDraftSessionBlocks,
   SessionBlockDraft,
 } from '@/lib/session-draft-blocks';
-import { buildTrailFitnessSessionPreset } from '@/lib/session-presets';
 import {
   formatEstimatedWorkoutCalories,
   formatSessionVolumeKg,
@@ -192,31 +191,6 @@ export default function NewSessionPage() {
     });
   };
 
-  const handleApplyPreset = () => {
-    if (loading) return;
-
-    const preset = buildTrailFitnessSessionPreset();
-    setName(preset.name);
-    setSport(preset.sport);
-    setDescription(preset.description);
-    setBlocks(preset.blocks);
-    setMessageTone('success');
-    setMessage('Seance trail/fitness pre-remplie. Tu peux encore ajuster les blocs avant creation.');
-  };
-
-  const handleCreatePreset = async () => {
-    if (loading) return;
-
-    const preset = buildTrailFitnessSessionPreset();
-    setName(preset.name);
-    setSport(preset.sport);
-    setDescription(preset.description);
-    setBlocks(preset.blocks);
-
-    console.log('award xp session_created preset flow');
-    await createSession(preset);
-  };
-
   return (
     <AppShell>
       <section className="sessions-page sessions-page--dark">
@@ -230,12 +204,6 @@ export default function NewSessionPage() {
           </div>
 
           <div className="session-hero-actions">
-            <button type="button" className="button primary" onClick={handleCreatePreset} disabled={loading}>
-              {loading ? 'Creation...' : 'Generer et enregistrer la seance trail'}
-            </button>
-            <button type="button" className="button ghost" onClick={handleApplyPreset} disabled={loading}>
-              Pre-remplir la seance trail
-            </button>
             <Link href="/sessions" className="button ghost">
               Voir mes seances
             </Link>
@@ -320,14 +288,6 @@ export default function NewSessionPage() {
                 Structure ta seance avec des blocs adaptes a ton objectif. Tu pourras les
                 reordonner et les ajuster ensuite sans recreer la base.
               </p>
-              <div className="row">
-                <button type="button" className="button primary" onClick={handleCreatePreset} disabled={loading}>
-                  {loading ? 'Creation...' : 'Generer maintenant'}
-                </button>
-                <button type="button" className="button ghost" onClick={handleApplyPreset} disabled={loading}>
-                  Charger le modele
-                </button>
-              </div>
             </aside>
           </div>
 
