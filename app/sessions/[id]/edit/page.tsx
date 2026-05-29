@@ -10,6 +10,7 @@ import { sports } from '@/components/challenge-data';
 import {
   createEmptySessionBlockDraft,
   getInvalidSessionBlock,
+  getSessionBlockValidationMessage,
   mapSessionBlockRecordToDraft,
   normalizeDraftSessionBlocks,
   SessionBlockDraft,
@@ -168,7 +169,8 @@ export default function EditSessionPage() {
 
     if (invalidBlock) {
       setMessage(
-        'Chaque bloc doit avoir un nombre de series valide, un repos valide, une cible valide si necessaire, et une charge positive si renseignee.'
+        getSessionBlockValidationMessage(normalizedBlocks) ||
+          'Verifie les valeurs saisies dans les blocs de la seance.'
       );
       return;
     }

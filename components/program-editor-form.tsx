@@ -9,6 +9,7 @@ import { queuePendingToast } from '@/components/ToastProvider';
 import {
   createEmptySessionBlockDraft,
   getInvalidSessionBlock,
+  getSessionBlockValidationMessage,
   mapSessionBlockRecordToDraft,
   normalizeDraftSessionBlocks,
   SessionBlockDraft,
@@ -375,7 +376,8 @@ export function ProgramEditorForm({
         const invalidBlock = getInvalidSessionBlock(normalizedBlocks);
         if (invalidBlock) {
           setMessage(
-            'Les blocs de seance du programme doivent avoir des series, repos et objectifs valides.'
+            getSessionBlockValidationMessage(normalizedBlocks) ||
+              'Les blocs de seance du programme doivent avoir des valeurs valides.'
           );
           return;
         }
