@@ -168,7 +168,7 @@ export function AuthCallbackClient() {
               Aller a la connexion
             </Link>
             <Link href="/" className="button secondary">
-              Retour a l'accueil
+              Retour a l&apos;accueil
             </Link>
           </div>
         )}

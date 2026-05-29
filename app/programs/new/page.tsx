@@ -31,7 +31,7 @@ export default function NewProgramPage() {
             <p className="muted">
               Commence par definir le nom du programme, le sport principal, la duree en
               semaines et une description. Le formulaire ci-dessous enregistre deja ton
-              programme, et la planification detaillee continue d'evoluer.
+              programme, et la planification detaillee continue d&apos;evoluer.
             </p>
           </div>
 

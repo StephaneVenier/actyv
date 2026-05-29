@@ -223,7 +223,6 @@ export default function JoinSharedProgramPage() {
         start_date: program.start_date,
         updated_at: new Date().toISOString(),
       };
-      console.log('Program join payload:', programPayload);
 
       const { data: createdProgram, error: programInsertError } = await supabase
         .from('training_programs')
@@ -280,7 +279,7 @@ export default function JoinSharedProgramPage() {
             <span className="section-kicker">Programme partage</span>
             <h1>Ajouter ce programme a ton espace</h1>
             <p className="muted">
-              Consulte le planning, les seances et les informations essentielles avant d'ajouter une copie privee a ton espace Actyv.
+              Consulte le planning, les seances et les informations essentielles avant d&apos;ajouter une copie privee a ton espace Actyv.
             </p>
           </div>
 

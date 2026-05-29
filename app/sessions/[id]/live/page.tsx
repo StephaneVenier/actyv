@@ -91,10 +91,8 @@ function triggerHaptic(pattern: number | number[]) {
     if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(pattern);
     }
-  } catch (error) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn('Haptic feedback indisponible pour cette seance live.', error);
-    }
+  } catch {
+    // ignore
   }
 }
 
@@ -819,10 +817,8 @@ export default function LiveSessionPage() {
 
         if (!wakeLockApi || document.visibilityState !== 'visible' || !shouldKeepScreenAwake) return;
         wakeLockSentinel = await wakeLockApi.request('screen');
-      } catch (error) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('Wake lock indisponible pour cette seance live.', error);
-        }
+      } catch {
+        // ignore
       }
     };
 
@@ -903,7 +899,6 @@ export default function LiveSessionPage() {
         completed_exercises: normalizedCompletedExercises,
       };
 
-      console.log('Workout history payload:', payload);
       let completionMessage: string | null = null;
 
       const { data, error } = await supabase
@@ -1075,8 +1070,6 @@ export default function LiveSessionPage() {
           }
         });
 
-        console.log('Exercise history payload:', exerciseHistoryPayload);
-
         const { error: exerciseHistoryError } = await supabase
           .from('workout_exercise_history')
           .insert(exerciseHistoryPayload);
@@ -1109,8 +1102,6 @@ export default function LiveSessionPage() {
           workout_history_id: data.id,
           completed_at: payload.completed_at,
         };
-
-        console.log('Program completion payload:', programCompletionPayload);
 
         const { data: existingCompletion, error: existingCompletionError } = await supabase
           .from('training_program_completions')
@@ -1199,7 +1190,6 @@ export default function LiveSessionPage() {
         });
       });
 
-      console.log('Workout history saved:', data);
       setHistorySaved(true);
       setHistoryMessage(exerciseHistoryMessage || completionMessage || 'Seance enregistree.');
       setSaveState('success');
@@ -1273,7 +1263,7 @@ export default function LiveSessionPage() {
           </div>
         ) : !currentBlock && !allBlocksResolved ? (
           <div className="challenge-state">
-            <p>Impossible d'afficher le bloc courant de cette seance.</p>
+            <p>Impossible d&apos;afficher le bloc courant de cette seance.</p>
             <div className="session-empty-actions">
               <button type="button" className="button primary" onClick={resetLiveProgress}>
                 Reinitialiser la progression

@@ -91,16 +91,6 @@ type SessionRecordSummary = {
   maxCompletedBlocks: number | null;
 };
 
-type WorkoutHistoryDebug = {
-  currentWorkoutId: string;
-  currentUserId: string;
-  exactRows: number;
-  matchedByWorkoutNameWithNullId: number;
-  loadedRows: number;
-  loadedWorkoutIds: string[];
-  queryError: string | null;
-};
-
 function formatRelativeDate(dateString: string | null) {
   if (!dateString) return 'recentement';
 
@@ -186,7 +176,6 @@ export default function SessionDetailPage() {
   const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
   const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
-  const [historyDebug, setHistoryDebug] = useState<WorkoutHistoryDebug | null>(null);
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | null>(null);
 
@@ -213,7 +202,6 @@ export default function SessionDetailPage() {
           setBlocks([]);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
-          setHistoryDebug(null);
           return;
         }
 
@@ -231,7 +219,6 @@ export default function SessionDetailPage() {
           setBlocks([]);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
-          setHistoryDebug(null);
           return;
         }
 
@@ -240,7 +227,6 @@ export default function SessionDetailPage() {
           setBlocks([]);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
-          setHistoryDebug(null);
           return;
         }
 
@@ -269,23 +255,6 @@ export default function SessionDetailPage() {
           console.error('Erreur chargement historique detail seance :', historyError);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
-          if (process.env.NODE_ENV === 'development') {
-            console.log('WORKOUT HISTORY SELECT SESSION ID:', currentSession.id);
-            console.log('WORKOUT HISTORY SELECT USER ID:', user.id);
-            console.log('WORKOUT HISTORY SELECT DATA:', null);
-            console.log('WORKOUT HISTORY SELECT ERROR:', historyError);
-            setHistoryDebug({
-              currentWorkoutId: currentSession.id,
-              currentUserId: user.id,
-              exactRows: 0,
-              matchedByWorkoutNameWithNullId: 0,
-              loadedRows: 0,
-              loadedWorkoutIds: [],
-              queryError: JSON.stringify(historyError),
-            });
-          } else {
-            setHistoryDebug(null);
-          }
         } else {
           const exactHistoryRows = (historyRows as WorkoutHistoryEntry[]) || [];
           let resolvedHistoryEntries = exactHistoryRows;
@@ -328,26 +297,6 @@ export default function SessionDetailPage() {
             setHistoryExerciseEntries([]);
           } else {
             setHistoryExerciseEntries((historyExerciseRows as WorkoutHistoryExerciseEntry[]) || []);
-          }
-
-          if (process.env.NODE_ENV === 'development') {
-            console.log('WORKOUT HISTORY SELECT SESSION ID:', currentSession.id);
-            console.log('WORKOUT HISTORY SELECT USER ID:', user.id);
-            console.log('WORKOUT HISTORY SELECT DATA:', exactHistoryRows);
-            console.log('WORKOUT HISTORY SELECT ERROR:', null);
-            setHistoryDebug({
-              currentWorkoutId: currentSession.id,
-              currentUserId: user.id,
-              exactRows: exactHistoryRows.length,
-              matchedByWorkoutNameWithNullId: matchedByWorkoutNameWithNullId.length,
-              loadedRows: resolvedHistoryEntries.length,
-              loadedWorkoutIds: resolvedHistoryEntries
-                .map((entry) => entry.workout_id || 'null')
-                .slice(0, 10),
-              queryError: null,
-            });
-          } else {
-            setHistoryDebug(null);
           }
         }
       } finally {
@@ -1154,26 +1103,6 @@ export default function SessionDetailPage() {
                 </div>
               )}
             </article>
-
-            {process.env.NODE_ENV === 'development' && historyDebug ? (
-              <article className="card session-form-card stack">
-                <div className="session-blocks-header">
-                  <div>
-                    <span className="section-kicker">Debug</span>
-                    <h2>Historique charge</h2>
-                  </div>
-                </div>
-                <div className="challenge-state challenge-state--compact">
-                  <p>Workout courant : {historyDebug.currentWorkoutId}</p>
-                  <p>User courant : {historyDebug.currentUserId}</p>
-                  <p>Matches workout_id exact : {historyDebug.exactRows}</p>
-                  <p>Matches nom + id null : {historyDebug.matchedByWorkoutNameWithNullId}</p>
-                  <p>Historique retenu : {historyDebug.loadedRows}</p>
-                  <p>Workout ids charges : {historyDebug.loadedWorkoutIds.join(', ') || '-'}</p>
-                  <p>Erreur requete : {historyDebug.queryError || 'aucune'}</p>
-                </div>
-              </article>
-            ) : null}
 
             <article className="card session-form-card stack">
               <div className="session-blocks-header">

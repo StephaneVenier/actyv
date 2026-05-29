@@ -707,7 +707,6 @@ export default function ProgramDetailPage() {
           invite_code: inviteCode,
           updated_at: new Date().toISOString(),
         };
-        console.log('Program sharing payload:', payload);
 
         const { error } = await supabase
           .from('training_programs')
@@ -876,7 +875,6 @@ export default function ProgramDetailPage() {
     }
 
     try {
-      console.log('copy click', shareUrl);
       await copyTextWithFallback(shareUrl);
       queuePendingToast({ message: 'Lien de partage copie', tone: 'success' });
     } catch (error) {
@@ -902,7 +900,6 @@ export default function ProgramDetailPage() {
     };
 
     try {
-      console.log('share click', shareUrl);
       if (navigator.share) {
         await navigator.share(shareData);
         queuePendingToast({ message: 'Lien de partage pret', tone: 'success' });

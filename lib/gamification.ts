@@ -193,12 +193,10 @@ export async function getUserTotalXp(
     firstHardError = xpEventsResponse.error;
   } else {
     const rows = (xpEventsResponse.data as Array<{ xp_amount: number | null }> | null) || [];
-    console.log('profile xp rows', rows);
     totalXp = rows.reduce(
       (sum, entry) => sum + Number(entry.xp_amount || 0),
       0
     );
-    console.log('profile xp total', totalXp);
     eventsCount = rows.length;
   }
 
@@ -241,8 +239,6 @@ export async function awardXp({
       xp_amount: XP_RULES[source].xp,
       target_id: normalizedTargetId,
     };
-
-    console.log('award xp payload', payload);
 
     if (authUser?.id !== targetUserId) {
       return {
@@ -360,8 +356,6 @@ export async function awardBadge(userId: string, badgeCode: string) {
 }
 
 export async function checkAndAwardBadges(userId: string) {
-  console.log('check badges triggered', { userId });
-
   const { data: profileData } = await supabase
     .from('profiles')
     .select('email')
@@ -472,9 +466,6 @@ export async function checkAndAwardBadges(userId: string) {
   const challengeCompletedCount = xpEvents.filter((event) => event.event_type === 'challenge_completed').length;
   const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
 
-  console.log('program badge user id', userId);
-  console.log('program badge count', createdPrograms.length);
-
   const badgesToAward: BadgeCode[] = [];
 
   if (activities.length >= 1) badgesToAward.push('first_activity');
@@ -519,8 +510,6 @@ export async function checkAndAwardBadges(userId: string) {
   const unlockedCodes = awarded
     .filter((entry) => !entry.error && !entry.skipped)
     .map((entry) => entry.badgeCode);
-
-  console.log('badges unlocked', unlockedCodes);
 
   const result = {
     table: 'user_badges',
@@ -580,8 +569,6 @@ export async function refreshUserBadges(userId: string) {
     );
 
     const awarded = Array.from(afterSet).filter((badgeCode) => !beforeSet.has(badgeCode));
-
-    console.log('badges unlocked', awarded);
 
     const result = {
       rpc: 'refresh_user_badges',

@@ -203,8 +203,6 @@ export default function ProfilePage() {
         return;
       }
 
-      console.log('profile xp user id', user.id);
-
       const { data: profileData } = await supabase
         .from('profiles')
         .select('id, email, username, total_xp, level')
@@ -220,7 +218,6 @@ export default function ProfilePage() {
       };
 
       const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
-      console.log('profile xp result', xpTotalResult);
 
       setXpTotalFromEvents(xpTotalResult.totalXp);
       setProfile(nextProfile);
@@ -806,7 +803,7 @@ export default function ProfilePage() {
 
                 <div className="profile-history-item">
                   <div className="profile-history-item__top">
-                    <strong>Duree totale d'entrainement</strong>
+                    <strong>Duree totale d&apos;entrainement</strong>
                   </div>
                   <span>{formatWorkoutDuration(workoutProfileSummary.totalDurationSeconds)}</span>
                 </div>
@@ -857,7 +854,7 @@ export default function ProfilePage() {
                 <div className="profile-history-item__top">
                   <strong>Mes seances</strong>
                 </div>
-                <span>Retrouve tes templates, ton live et l'historique de tes seances.</span>
+                <span>Retrouve tes templates, ton live et l&apos;historique de tes seances.</span>
               </Link>
 
               <Link href="/stats" className="profile-history-item">

@@ -493,8 +493,6 @@ export function ProgramEditorForm({
           return;
         }
       } else {
-        console.log('Program payload:', programPayload);
-
         const { data: createdProgram, error: programInsertError } = await supabase
           .from('training_programs')
           .insert(programPayload)
