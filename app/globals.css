@@ -1189,7 +1189,7 @@ img {
 .banque-filters {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1.7fr) repeat(3, minmax(0, 1fr));
 }
 
 .banque-filter {
@@ -1246,6 +1246,43 @@ img {
 
 .banque-card {
   background: linear-gradient(180deg, rgba(13, 27, 49, 0.94), rgba(8, 18, 36, 0.98));
+}
+
+.banque-difficulty-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  border: 1px solid transparent;
+}
+
+.banque-difficulty-badge--beginner {
+  color: #bbf7d0;
+  background: rgba(34, 197, 94, 0.16);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+.banque-difficulty-badge--intermediate {
+  color: #fde68a;
+  background: rgba(245, 158, 11, 0.16);
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.banque-difficulty-badge--advanced {
+  color: #fecaca;
+  background: rgba(239, 68, 68, 0.16);
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.banque-difficulty-badge--free {
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.16);
+  border-color: rgba(148, 163, 184, 0.2);
 }
 
 .banque-empty-state {

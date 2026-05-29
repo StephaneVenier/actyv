@@ -13,6 +13,7 @@ export type PublicTrainingSession = {
   user_id: string;
   name: string;
   sport: string | null;
+  difficulty: string | null;
   description: string | null;
   visibility: 'private' | 'public';
   copied_from_session_id: string | null;
@@ -30,7 +31,7 @@ export type PublicCreatorProfile = {
 export async function fetchPublicTrainingSessions() {
   const { data, error } = await supabase
     .from('training_sessions')
-    .select('id, user_id, name, sport, description, visibility, copied_from_session_id, created_at')
+    .select('id, user_id, name, sport, difficulty, description, visibility, copied_from_session_id, created_at')
     .eq('visibility', 'public')
     .order('created_at', { ascending: false });
 
@@ -50,7 +51,7 @@ export async function fetchImportedPublicTrainingSessions(userId: string, source
 
   const { data, error } = await supabase
     .from('training_sessions')
-    .select('id, user_id, name, sport, description, visibility, copied_from_session_id, created_at')
+    .select('id, user_id, name, sport, difficulty, description, visibility, copied_from_session_id, created_at')
     .eq('user_id', userId)
     .in('copied_from_session_id', sourceSessionIds);
 
@@ -70,7 +71,7 @@ export async function fetchUserTrainingSessionsByNames(userId: string, sourceNam
 
   const { data, error } = await supabase
     .from('training_sessions')
-    .select('id, user_id, name, sport, description, visibility, copied_from_session_id, created_at')
+    .select('id, user_id, name, sport, difficulty, description, visibility, copied_from_session_id, created_at')
     .eq('user_id', userId)
     .in('name', sourceNames);
 
@@ -87,7 +88,7 @@ export async function fetchPublicTrainingPrograms() {
   const { data, error } = await supabase
     .from('training_programs')
     .select(
-      'id, user_id, name, description, sport, duration_weeks, visibility, invite_code, copied_from_program_id, start_date, created_at'
+      'id, user_id, name, description, sport, difficulty, duration_weeks, visibility, invite_code, copied_from_program_id, start_date, created_at'
     )
     .eq('visibility', 'public')
     .order('created_at', { ascending: false });
@@ -190,6 +191,7 @@ export async function importPublicTrainingSession(session: PublicTrainingSession
       user_id: userId,
       name: session.name,
       sport: session.sport,
+      difficulty: session.difficulty,
       description: session.description,
       visibility: 'private',
       copied_from_session_id: session.id,
@@ -230,6 +232,7 @@ export async function importPublicTrainingProgram(
       name: program.name,
       description: program.description,
       sport: program.sport,
+      difficulty: program.difficulty ?? null,
       duration_weeks: program.duration_weeks,
       visibility: 'private',
       invite_code: null,

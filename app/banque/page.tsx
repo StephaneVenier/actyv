@@ -38,6 +38,7 @@ type BanqueSportFilter =
   | 'HIIT'
   | 'Autre';
 type BanqueDurationFilter = 'all' | 'lt15' | '15to30' | '30to45' | '45to60' | '60plus';
+type BanqueDifficultyFilter = 'Toutes' | 'Débutant' | 'Intermédiaire' | 'Avancé';
 
 const SPORT_FILTER_OPTIONS: BanqueSportFilter[] = [
   'Tous',
@@ -60,6 +61,8 @@ const DURATION_FILTER_OPTIONS: Array<{ value: BanqueDurationFilter; label: strin
   { value: '45to60', label: '45-60 min' },
   { value: '60plus', label: '60+ min' },
 ];
+
+const DIFFICULTY_FILTER_OPTIONS: BanqueDifficultyFilter[] = ['Toutes', 'Débutant', 'Intermédiaire', 'Avancé'];
 
 function normalizeSearchValue(value: string | null | undefined) {
   return (value || '')
@@ -136,6 +139,41 @@ function formatProgramEstimatedDuration(totalSeconds: number | null) {
   return `${hours} h ${minutes.toString().padStart(2, '0')}`;
 }
 
+function normalizeDifficultyValue(difficulty: string | null | undefined): BanqueDifficultyFilter | null {
+  const normalized = normalizeSearchValue(difficulty);
+  if (!normalized) return null;
+  if (normalized.includes('debut')) return 'Débutant';
+  if (normalized.includes('inter')) return 'Intermédiaire';
+  if (normalized.includes('avance')) return 'Avancé';
+  return null;
+}
+
+function matchesDifficultyFilter(
+  difficulty: string | null | undefined,
+  difficultyFilter: BanqueDifficultyFilter
+) {
+  if (difficultyFilter === 'Toutes') return true;
+  return normalizeDifficultyValue(difficulty) === difficultyFilter;
+}
+
+function getDifficultyLabel(difficulty: string | null | undefined) {
+  return normalizeDifficultyValue(difficulty) || 'Difficulté libre';
+}
+
+function getDifficultyBadgeClassName(difficulty: string | null | undefined) {
+  const normalized = normalizeDifficultyValue(difficulty);
+  const tone =
+    normalized === 'Débutant'
+      ? 'beginner'
+      : normalized === 'Intermédiaire'
+        ? 'intermediate'
+        : normalized === 'Avancé'
+          ? 'advanced'
+          : 'free';
+
+  return `banque-difficulty-badge banque-difficulty-badge--${tone}`;
+}
+
 function getBanqueErrorMessage(error: {
   message?: string | null;
   code?: string | null;
@@ -155,6 +193,10 @@ function getBanqueErrorMessage(error: {
     return "La colonne copied_from_program_id n'existe pas encore en base. Applique la migration Supabase de copie de programmes.";
   }
 
+  if (message.includes('difficulty') && message.includes('column')) {
+    return "La colonne difficulty n'existe pas encore en base. Applique la migration Supabase Banque Actyv pour la difficulté.";
+  }
+
   if (error?.code === '42501' || message.includes('row-level security')) {
     return "Supabase refuse l'acces ou la copie. Verifie les policies RLS des contenus publics.";
   }
@@ -170,6 +212,7 @@ export default function BanqueActyvPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [sportFilter, setSportFilter] = useState<BanqueSportFilter>('Tous');
   const [durationFilter, setDurationFilter] = useState<BanqueDurationFilter>('all');
+  const [difficultyFilter, setDifficultyFilter] = useState<BanqueDifficultyFilter>('Toutes');
   const [sessions, setSessions] = useState<PublicTrainingSession[]>([]);
   const [sessionBlocks, setSessionBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [programs, setPrograms] = useState<PublicTrainingProgram[]>([]);
@@ -354,9 +397,13 @@ export default function BanqueActyvPage() {
           return false;
         }
 
+        if (!matchesDifficultyFilter(session.difficulty, difficultyFilter)) {
+          return false;
+        }
+
         return matchesDurationFilter(sessionDurationById.get(session.id) ?? null, durationFilter);
       }),
-    [durationFilter, normalizedSearchQuery, sessionDurationById, sessions, sportFilter]
+    [difficultyFilter, durationFilter, normalizedSearchQuery, sessionDurationById, sessions, sportFilter]
   );
 
   const filteredPrograms = useMemo(
@@ -370,6 +417,10 @@ export default function BanqueActyvPage() {
           return false;
         }
 
+        if (!matchesDifficultyFilter(program.difficulty, difficultyFilter)) {
+          return false;
+        }
+
         const linkedEntries = programSessionsByProgram.get(program.id) || [];
         const totalSeconds = linkedEntries.reduce((sum, entry) => {
           const sessionSeconds = entry.session_id ? sessionDurationById.get(entry.session_id) ?? null : null;
@@ -379,13 +430,14 @@ export default function BanqueActyvPage() {
         const effectiveDuration = totalSeconds > 0 ? totalSeconds : null;
         return matchesDurationFilter(effectiveDuration, durationFilter);
       }),
-    [durationFilter, normalizedSearchQuery, programSessionsByProgram, programs, sessionDurationById, sportFilter]
+    [difficultyFilter, durationFilter, normalizedSearchQuery, programSessionsByProgram, programs, sessionDurationById, sportFilter]
   );
 
   const resetFilters = () => {
     setSearchQuery('');
     setSportFilter('Tous');
     setDurationFilter('all');
+    setDifficultyFilter('Toutes');
   };
 
   const handleImportSession = async (session: PublicTrainingSession) => {
@@ -527,6 +579,21 @@ export default function BanqueActyvPage() {
                 ))}
               </select>
             </label>
+
+            <label className="banque-filter">
+              <span>Difficulté</span>
+              <select
+                value={difficultyFilter}
+                onChange={(event) => setDifficultyFilter(event.target.value as BanqueDifficultyFilter)}
+                className="banque-filter-select"
+              >
+                {DIFFICULTY_FILTER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </article>
 
@@ -556,6 +623,7 @@ export default function BanqueActyvPage() {
                 const estimatedDuration = getSessionEstimatedDurationLabel(blocks);
                 const alreadyImported = importedSessionSourceIdSet.has(session.id);
                 const sportLabel = session.sport?.trim() || 'Séance';
+                const difficultyLabel = getDifficultyLabel(session.difficulty);
 
                 return (
                   <article key={session.id} className="session-card session-card--compact banque-card">
@@ -577,7 +645,7 @@ export default function BanqueActyvPage() {
                       <span>{sportLabel}</span>
                       <span>{estimatedDuration || 'Durée libre'}</span>
                       <span>{blocks.length} bloc{blocks.length > 1 ? 's' : ''}</span>
-                      <span>Difficulté libre</span>
+                      <span className={getDifficultyBadgeClassName(session.difficulty)}>{difficultyLabel}</span>
                       <span>{creator?.username || creator?.email || 'Createur Actyv'}</span>
                     </div>
 
@@ -628,6 +696,7 @@ export default function BanqueActyvPage() {
               }, 0);
               const totalDuration = formatProgramEstimatedDuration(linkedDurationSeconds > 0 ? linkedDurationSeconds : null);
               const sportLabel = program.sport?.trim() || 'Autre';
+              const difficultyLabel = getDifficultyLabel(program.difficulty);
 
               return (
                 <article key={program.id} className="session-card session-card--compact banque-card">
@@ -647,6 +716,7 @@ export default function BanqueActyvPage() {
                     <span>{sportLabel}</span>
                     <span>{entries.length} seance{entries.length > 1 ? 's' : ''}</span>
                     <span>{program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}</span>
+                    <span className={getDifficultyBadgeClassName(program.difficulty)}>{difficultyLabel}</span>
                     <span>{totalDuration || 'Durée à découvrir'}</span>
                     <span>{creator?.username || creator?.email || 'Createur Actyv'}</span>
                   </div>

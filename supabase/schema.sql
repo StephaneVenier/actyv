@@ -1114,6 +1114,7 @@ create table if not exists public.training_sessions (
   user_id uuid not null references auth.users(id) on delete cascade,
   name text not null,
   sport text,
+  difficulty text,
   description text,
   visibility text not null default 'private' check (visibility in ('private', 'public')),
   copied_from_session_id uuid references public.training_sessions(id) on delete set null,
@@ -1126,6 +1127,9 @@ alter table if exists public.training_sessions
 
 alter table if exists public.training_sessions
   add column if not exists copied_from_session_id uuid references public.training_sessions(id) on delete set null;
+
+alter table if exists public.training_sessions
+  add column if not exists difficulty text;
 
 alter table if exists public.training_sessions
   alter column visibility set default 'private';
@@ -1354,6 +1358,7 @@ create table if not exists public.training_programs (
   name text not null,
   description text,
   sport text,
+  difficulty text,
   duration_weeks integer not null default 4 check (duration_weeks > 0),
   visibility text not null default 'private' check (visibility in ('private', 'shared', 'public')),
   invite_code text,
@@ -1371,6 +1376,9 @@ alter table if exists public.training_programs
 
 alter table if exists public.training_programs
   add column if not exists copied_from_program_id uuid references public.training_programs(id) on delete set null;
+
+alter table if exists public.training_programs
+  add column if not exists difficulty text;
 
 alter table if exists public.training_programs
   alter column visibility set default 'private';

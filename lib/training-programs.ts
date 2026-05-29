@@ -4,6 +4,7 @@ export type TrainingProgram = {
   name: string;
   description: string | null;
   sport: string | null;
+  difficulty?: string | null;
   duration_weeks: number;
   visibility: 'private' | 'shared' | 'public';
   invite_code?: string | null;
