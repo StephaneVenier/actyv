@@ -351,16 +351,7 @@ img {
   white-space: nowrap;
 }
 
-.sport-badge--run {
-  --sport-bg: rgba(30, 107, 214, 0.12);
-  --sport-color: #1d4ed8;
-  --sport-border: rgba(30, 107, 214, 0.18);
-  --sport-dark-bg: rgba(96, 165, 250, 0.18);
-  --sport-dark-color: #bfdbfe;
-  --sport-dark-border: rgba(147, 197, 253, 0.2);
-}
-
-.sport-badge--walk {
+.sport-badge--course {
   --sport-bg: rgba(34, 197, 94, 0.13);
   --sport-color: #15803d;
   --sport-border: rgba(34, 197, 94, 0.18);
@@ -369,16 +360,25 @@ img {
   --sport-dark-border: rgba(134, 239, 172, 0.2);
 }
 
-.sport-badge--cycle {
-  --sport-bg: rgba(20, 184, 166, 0.13);
-  --sport-color: #0f766e;
-  --sport-border: rgba(20, 184, 166, 0.18);
-  --sport-dark-bg: rgba(45, 212, 191, 0.16);
-  --sport-dark-color: #99f6e4;
-  --sport-dark-border: rgba(153, 246, 228, 0.2);
+.sport-badge--marche {
+  --sport-bg: rgba(101, 163, 13, 0.14);
+  --sport-color: #4d7c0f;
+  --sport-border: rgba(101, 163, 13, 0.18);
+  --sport-dark-bg: rgba(163, 230, 53, 0.15);
+  --sport-dark-color: #d9f99d;
+  --sport-dark-border: rgba(217, 249, 157, 0.2);
 }
 
-.sport-badge--strength {
+.sport-badge--velo {
+  --sport-bg: rgba(139, 92, 246, 0.13);
+  --sport-color: #6d28d9;
+  --sport-border: rgba(139, 92, 246, 0.18);
+  --sport-dark-bg: rgba(167, 139, 250, 0.16);
+  --sport-dark-color: #ddd6fe;
+  --sport-dark-border: rgba(196, 181, 253, 0.2);
+}
+
+.sport-badge--renforcement {
   --sport-bg: rgba(245, 158, 11, 0.14);
   --sport-color: #b45309;
   --sport-border: rgba(245, 158, 11, 0.18);
@@ -387,7 +387,34 @@ img {
   --sport-dark-border: rgba(253, 230, 138, 0.2);
 }
 
-.sport-badge--swim {
+.sport-badge--fitness {
+  --sport-bg: rgba(30, 107, 214, 0.12);
+  --sport-color: #1d4ed8;
+  --sport-border: rgba(30, 107, 214, 0.18);
+  --sport-dark-bg: rgba(96, 165, 250, 0.18);
+  --sport-dark-color: #bfdbfe;
+  --sport-dark-border: rgba(147, 197, 253, 0.2);
+}
+
+.sport-badge--hiit {
+  --sport-bg: rgba(249, 115, 22, 0.14);
+  --sport-color: #c2410c;
+  --sport-border: rgba(249, 115, 22, 0.18);
+  --sport-dark-bg: rgba(251, 146, 60, 0.16);
+  --sport-dark-color: #fed7aa;
+  --sport-dark-border: rgba(253, 186, 116, 0.2);
+}
+
+.sport-badge--mobilite {
+  --sport-bg: rgba(20, 184, 166, 0.13);
+  --sport-color: #0f766e;
+  --sport-border: rgba(20, 184, 166, 0.18);
+  --sport-dark-bg: rgba(45, 212, 191, 0.16);
+  --sport-dark-color: #99f6e4;
+  --sport-dark-border: rgba(153, 246, 228, 0.2);
+}
+
+.sport-badge--natation {
   --sport-bg: rgba(14, 165, 233, 0.13);
   --sport-color: #0369a1;
   --sport-border: rgba(14, 165, 233, 0.18);
@@ -397,12 +424,21 @@ img {
 }
 
 .sport-badge--trail {
-  --sport-bg: rgba(101, 163, 13, 0.14);
-  --sport-color: #4d7c0f;
-  --sport-border: rgba(101, 163, 13, 0.18);
-  --sport-dark-bg: rgba(163, 230, 53, 0.15);
-  --sport-dark-color: #d9f99d;
-  --sport-dark-border: rgba(217, 249, 157, 0.2);
+  --sport-bg: rgba(22, 101, 52, 0.16);
+  --sport-color: #166534;
+  --sport-border: rgba(34, 197, 94, 0.18);
+  --sport-dark-bg: rgba(34, 197, 94, 0.14);
+  --sport-dark-color: #bbf7d0;
+  --sport-dark-border: rgba(134, 239, 172, 0.18);
+}
+
+.sport-badge--yoga {
+  --sport-bg: rgba(244, 114, 182, 0.13);
+  --sport-color: #be185d;
+  --sport-border: rgba(244, 114, 182, 0.18);
+  --sport-dark-bg: rgba(244, 114, 182, 0.16);
+  --sport-dark-color: #fbcfe8;
+  --sport-dark-border: rgba(249, 168, 212, 0.2);
 }
 
 .sport-badge--other {

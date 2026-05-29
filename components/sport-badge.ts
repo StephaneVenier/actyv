@@ -1,4 +1,15 @@
-type SportBadgeTone = 'run' | 'walk' | 'cycle' | 'strength' | 'swim' | 'trail' | 'other';
+type SportBadgeTone =
+  | 'course'
+  | 'marche'
+  | 'velo'
+  | 'renforcement'
+  | 'fitness'
+  | 'hiit'
+  | 'mobilite'
+  | 'natation'
+  | 'trail'
+  | 'yoga'
+  | 'other';
 
 type SportBadgeMeta = {
   icon: string;
@@ -6,69 +17,57 @@ type SportBadgeMeta = {
   tone: SportBadgeTone;
 };
 
-const sportBadgeConfigs: Array<SportBadgeMeta & { keywords: string[] }> = [
-  {
-    keywords: ['course', 'running', 'run', 'jog'],
-    icon: '🏃',
-    label: 'Course',
-    tone: 'run',
-  },
-  {
-    keywords: ['marche', 'walk'],
-    icon: '🚶',
-    label: 'Marche',
-    tone: 'walk',
-  },
-  {
-    keywords: ['velo', 'vélo', 'cycl', 'bike'],
-    icon: '🚴',
-    label: 'Vélo',
-    tone: 'cycle',
-  },
-  {
-    keywords: ['renforcement', 'muscu', 'musculation', 'fitness', 'force'],
-    icon: '💪',
-    label: 'Renforcement',
-    tone: 'strength',
-  },
-  {
-    keywords: ['natation', 'swim'],
-    icon: '🏊',
-    label: 'Natation',
-    tone: 'swim',
-  },
-  {
-    keywords: ['randon', 'trail', 'hike'],
-    icon: '⛰️',
-    label: 'Randonnée / trail',
-    tone: 'trail',
-  },
+type SportBadgeConfig = {
+  aliases: string[];
+  icon: string;
+  tone: SportBadgeTone;
+};
+
+const sportBadgeConfigs: SportBadgeConfig[] = [
+  { aliases: ['renforcement', 'muscu', 'musculation', 'force'], icon: '🏋', tone: 'renforcement' },
+  { aliases: ['fitness'], icon: '✦', tone: 'fitness' },
+  { aliases: ['hiit'], icon: '⚡', tone: 'hiit' },
+  { aliases: ['mobilite', 'mobilite douce'], icon: '✧', tone: 'mobilite' },
+  { aliases: ['course', 'course a pied', 'running', 'run', 'jog'], icon: '🏃', tone: 'course' },
+  { aliases: ['trail', 'randonnee', 'hike'], icon: '⛰', tone: 'trail' },
+  { aliases: ['marche', 'walk'], icon: '🚶', tone: 'marche' },
+  { aliases: ['velo', 'bike', 'cycling', 'cyclisme'], icon: '🚲', tone: 'velo' },
+  { aliases: ['yoga'], icon: '♥', tone: 'yoga' },
+  { aliases: ['natation', 'swim'], icon: '🏊', tone: 'natation' },
 ];
 
 function normalizeSport(sport: string) {
   return sport
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '');
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim();
+}
+
+function resolveSportBadgeConfig(sport: string | null | undefined) {
+  const normalized = normalizeSport(sport || '');
+  if (!normalized) return null;
+
+  return (
+    sportBadgeConfigs.find((config) => config.aliases.some((alias) => normalizeSport(alias) === normalized)) ||
+    sportBadgeConfigs.find((config) => config.aliases.some((alias) => normalized.includes(normalizeSport(alias))))
+  );
 }
 
 export function getSportBadgeMeta(sport: string | null | undefined, fallback = 'Autre'): SportBadgeMeta {
   const label = sport?.trim() || fallback;
-  const normalized = normalizeSport(label);
-  const config = sportBadgeConfigs.find((item) =>
-    item.keywords.some((keyword) => normalized.includes(normalizeSport(keyword)))
-  );
+  const config = resolveSportBadgeConfig(sport);
 
   if (config) {
     return {
       icon: config.icon,
-      label: config.label,
+      label,
       tone: config.tone,
     };
   }
 
   return {
-    icon: '🏅',
+    icon: '◎',
     label,
     tone: 'other',
   };
