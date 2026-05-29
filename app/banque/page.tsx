@@ -25,10 +25,32 @@ import type { TrainingProgramSession } from '@/lib/training-programs';
 import { fetchTrainingSessionBlocks, type TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
 type BanqueTab = 'sessions' | 'programmes';
-type BanqueSportFilter = 'Tous' | 'Fitness' | 'Course' | 'Trail' | 'Marche' | 'Velo' | 'Mobilite' | 'Yoga' | 'HIIT' | 'Autre';
+type BanqueSportFilter =
+  | 'Tous'
+  | 'Fitness'
+  | 'Renforcement'
+  | 'Course'
+  | 'Trail'
+  | 'Marche'
+  | 'Velo'
+  | 'Mobilite'
+  | 'Yoga'
+  | 'HIIT'
+  | 'Autre';
 type BanqueDurationFilter = 'all' | 'lt15' | '15to30' | '30to45' | '45to60' | '60plus';
 
-const SPORT_FILTER_OPTIONS: BanqueSportFilter[] = ['Tous', 'Fitness', 'Course', 'Trail', 'Marche', 'Velo', 'Mobilite', 'Yoga', 'HIIT'];
+const SPORT_FILTER_OPTIONS: BanqueSportFilter[] = [
+  'Tous',
+  'Fitness',
+  'Renforcement',
+  'Course',
+  'Trail',
+  'Marche',
+  'Velo',
+  'Mobilite',
+  'Yoga',
+  'HIIT',
+];
 
 const DURATION_FILTER_OPTIONS: Array<{ value: BanqueDurationFilter; label: string }> = [
   { value: 'all', label: 'Toutes' },
@@ -51,15 +73,16 @@ function getSportFilterValue(sport: string | null | undefined): BanqueSportFilte
 
   if (!normalized) return 'Autre';
   if (normalized.includes('mobilit')) return 'Mobilite';
+  if (normalized.includes('renforcement') || normalized.includes('muscu') || normalized.includes('musculation') || normalized.includes('force')) {
+    return 'Renforcement';
+  }
+  if (normalized.includes('fitness')) return 'Fitness';
+  if (normalized.includes('hiit')) return 'HIIT';
   if (normalized.includes('trail')) return 'Trail';
   if (normalized.includes('course') || normalized.includes('run')) return 'Course';
   if (normalized.includes('march')) return 'Marche';
   if (normalized.includes('velo') || normalized.includes('bike') || normalized.includes('cycl')) return 'Velo';
   if (normalized.includes('yoga')) return 'Yoga';
-  if (normalized.includes('hiit')) return 'HIIT';
-  if (normalized.includes('fitness') || normalized.includes('renforcement') || normalized.includes('muscu') || normalized.includes('force')) {
-    return 'Fitness';
-  }
 
   return 'Autre';
 }
@@ -484,7 +507,7 @@ export default function BanqueActyvPage() {
               >
                 {SPORT_FILTER_OPTIONS.map((option) => (
                   <option key={option} value={option}>
-                    {option === 'Mobilite' ? 'Mobilité' : option}
+                    {option === 'Mobilite' ? 'Mobilité' : option === 'Velo' ? 'Vélo' : option}
                   </option>
                 ))}
               </select>
