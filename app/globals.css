@@ -1144,12 +1144,113 @@ img {
   padding: 14px;
 }
 
+.banque-filters-card {
+  padding: 14px;
+  background: linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(16, 34, 35, 0.98));
+  border: 1px solid rgba(53, 230, 107, 0.12);
+}
+
+.banque-filters {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1.7fr) repeat(2, minmax(0, 1fr));
+}
+
+.banque-filter {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.banque-filter span {
+  font-size: 0.82rem;
+  color: rgba(244, 247, 246, 0.72);
+}
+
+.banque-search-input,
+.banque-filter-select {
+  width: 100%;
+  min-width: 0;
+  border-radius: 14px;
+  border: 1px solid rgba(83, 217, 188, 0.18);
+  background: rgba(10, 18, 33, 0.84);
+  color: #f4f7f6;
+  padding: 0.88rem 0.95rem;
+  font: inherit;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.banque-search-input::placeholder {
+  color: rgba(244, 247, 246, 0.42);
+}
+
+.banque-search-input:focus,
+.banque-filter-select:focus {
+  outline: none;
+  border-color: rgba(53, 230, 107, 0.5);
+  box-shadow: 0 0 0 3px rgba(53, 230, 107, 0.14);
+}
+
+.banque-filter-select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, rgba(244, 247, 246, 0.72) 50%),
+    linear-gradient(135deg, rgba(244, 247, 246, 0.72) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 3px),
+    calc(100% - 12px) calc(50% - 3px);
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 2.5rem;
+}
+
 .banque-grid {
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
 .banque-card {
   background: linear-gradient(180deg, rgba(13, 27, 49, 0.94), rgba(8, 18, 36, 0.98));
+}
+
+.banque-empty-state {
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+  text-align: center;
+  padding: 28px 18px;
+}
+
+.banque-empty-state p {
+  margin: 0;
+  color: #f4f7f6;
+  font-weight: 700;
+}
+
+.banque-empty-state span {
+  color: rgba(244, 247, 246, 0.7);
+}
+
+.banque-empty-state__icon {
+  width: 52px;
+  height: 52px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid rgba(53, 230, 107, 0.24);
+  background: rgba(32, 183, 166, 0.14);
+  color: #35e66b;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .banque-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .banque-filter--search {
+    order: -1;
+  }
 }
 
 .profile-summary-card--level {

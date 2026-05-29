@@ -19,11 +19,99 @@ import {
   type PublicTrainingProgram,
   type PublicTrainingSession,
 } from '@/lib/actyv-bank';
+import { getSessionEstimatedDuration } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import type { TrainingProgramSession } from '@/lib/training-programs';
 import { fetchTrainingSessionBlocks, type TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
 type BanqueTab = 'sessions' | 'programmes';
+type BanqueSportFilter = 'Tous' | 'Fitness' | 'Course' | 'Trail' | 'Marche' | 'Velo' | 'Mobilite' | 'Yoga' | 'HIIT' | 'Autre';
+type BanqueDurationFilter = 'all' | 'lt15' | '15to30' | '30to45' | '45to60' | '60plus';
+
+const SPORT_FILTER_OPTIONS: BanqueSportFilter[] = ['Tous', 'Fitness', 'Course', 'Trail', 'Marche', 'Velo', 'Mobilite', 'Yoga', 'HIIT'];
+
+const DURATION_FILTER_OPTIONS: Array<{ value: BanqueDurationFilter; label: string }> = [
+  { value: 'all', label: 'Toutes' },
+  { value: 'lt15', label: '< 15 min' },
+  { value: '15to30', label: '15-30 min' },
+  { value: '30to45', label: '30-45 min' },
+  { value: '45to60', label: '45-60 min' },
+  { value: '60plus', label: '60+ min' },
+];
+
+function normalizeSearchValue(value: string | null | undefined) {
+  return (value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function getSportFilterValue(sport: string | null | undefined): BanqueSportFilter {
+  const normalized = normalizeSearchValue(sport);
+
+  if (!normalized) return 'Autre';
+  if (normalized.includes('mobilit')) return 'Mobilite';
+  if (normalized.includes('trail')) return 'Trail';
+  if (normalized.includes('course') || normalized.includes('run')) return 'Course';
+  if (normalized.includes('march')) return 'Marche';
+  if (normalized.includes('velo') || normalized.includes('bike') || normalized.includes('cycl')) return 'Velo';
+  if (normalized.includes('yoga')) return 'Yoga';
+  if (normalized.includes('hiit')) return 'HIIT';
+  if (normalized.includes('fitness') || normalized.includes('renforcement') || normalized.includes('muscu') || normalized.includes('force')) {
+    return 'Fitness';
+  }
+
+  return 'Autre';
+}
+
+function matchesSearchQuery(name: string, description: string | null, query: string) {
+  if (!query) return true;
+  const haystack = normalizeSearchValue(`${name} ${description || ''}`);
+  return haystack.includes(query);
+}
+
+function matchesSportFilter(sport: string | null | undefined, sportFilter: BanqueSportFilter) {
+  if (sportFilter === 'Tous') return true;
+  return getSportFilterValue(sport) === sportFilter;
+}
+
+function matchesDurationFilter(totalSeconds: number | null, durationFilter: BanqueDurationFilter) {
+  if (durationFilter === 'all' || totalSeconds === null) return true;
+
+  const minutes = totalSeconds / 60;
+
+  switch (durationFilter) {
+    case 'lt15':
+      return minutes < 15;
+    case '15to30':
+      return minutes >= 15 && minutes < 30;
+    case '30to45':
+      return minutes >= 30 && minutes < 45;
+    case '45to60':
+      return minutes >= 45 && minutes < 60;
+    case '60plus':
+      return minutes >= 60;
+    default:
+      return true;
+  }
+}
+
+function formatProgramEstimatedDuration(totalSeconds: number | null) {
+  if (!totalSeconds || totalSeconds <= 0) return null;
+
+  const totalMinutes = Math.round(totalSeconds / 60);
+  if (totalMinutes < 60) {
+    return `${totalMinutes} min`;
+  }
+
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  if (minutes === 0) {
+    return `${hours} h`;
+  }
+
+  return `${hours} h ${minutes.toString().padStart(2, '0')}`;
+}
 
 function getBanqueErrorMessage(error: {
   message?: string | null;
@@ -56,6 +144,9 @@ export default function BanqueActyvPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sportFilter, setSportFilter] = useState<BanqueSportFilter>('Tous');
+  const [durationFilter, setDurationFilter] = useState<BanqueDurationFilter>('all');
   const [sessions, setSessions] = useState<PublicTrainingSession[]>([]);
   const [sessionBlocks, setSessionBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [programs, setPrograms] = useState<PublicTrainingProgram[]>([]);
@@ -217,6 +308,63 @@ export default function BanqueActyvPage() {
     [importedSessionSourceIds]
   );
 
+  const normalizedSearchQuery = useMemo(() => normalizeSearchValue(searchQuery.trim()), [searchQuery]);
+
+  const sessionDurationById = useMemo(() => {
+    const durations = new Map<string, number | null>();
+    sessions.forEach((session) => {
+      const blocks = blocksBySession.get(session.id) || [];
+      const totalSeconds = getSessionEstimatedDuration(blocks);
+      durations.set(session.id, totalSeconds && totalSeconds > 0 ? totalSeconds : null);
+    });
+    return durations;
+  }, [blocksBySession, sessions]);
+
+  const filteredSessions = useMemo(
+    () =>
+      sessions.filter((session) => {
+        if (!matchesSearchQuery(session.name, session.description, normalizedSearchQuery)) {
+          return false;
+        }
+
+        if (!matchesSportFilter(session.sport, sportFilter)) {
+          return false;
+        }
+
+        return matchesDurationFilter(sessionDurationById.get(session.id) ?? null, durationFilter);
+      }),
+    [durationFilter, normalizedSearchQuery, sessionDurationById, sessions, sportFilter]
+  );
+
+  const filteredPrograms = useMemo(
+    () =>
+      programs.filter((program) => {
+        if (!matchesSearchQuery(program.name, program.description, normalizedSearchQuery)) {
+          return false;
+        }
+
+        if (!matchesSportFilter(program.sport, sportFilter)) {
+          return false;
+        }
+
+        const linkedEntries = programSessionsByProgram.get(program.id) || [];
+        const totalSeconds = linkedEntries.reduce((sum, entry) => {
+          const sessionSeconds = entry.session_id ? sessionDurationById.get(entry.session_id) ?? null : null;
+          return sum + (sessionSeconds ?? 0);
+        }, 0);
+
+        const effectiveDuration = totalSeconds > 0 ? totalSeconds : null;
+        return matchesDurationFilter(effectiveDuration, durationFilter);
+      }),
+    [durationFilter, normalizedSearchQuery, programSessionsByProgram, programs, sessionDurationById, sportFilter]
+  );
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setSportFilter('Tous');
+    setDurationFilter('all');
+  };
+
   const handleImportSession = async (session: PublicTrainingSession) => {
     if (!userId) return;
     if (importedSessionSourceIdSet.has(session.id)) return;
@@ -314,6 +462,51 @@ export default function BanqueActyvPage() {
           </div>
         </article>
 
+        <article className="card banque-filters-card">
+          <div className="banque-filters">
+            <label className="banque-filter banque-filter--search">
+              <span>Recherche</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Rechercher une séance ou un programme..."
+                className="banque-search-input"
+              />
+            </label>
+
+            <label className="banque-filter">
+              <span>Sport</span>
+              <select
+                value={sportFilter}
+                onChange={(event) => setSportFilter(event.target.value as BanqueSportFilter)}
+                className="banque-filter-select"
+              >
+                {SPORT_FILTER_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option === 'Mobilite' ? 'Mobilité' : option}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="banque-filter">
+              <span>Durée</span>
+              <select
+                value={durationFilter}
+                onChange={(event) => setDurationFilter(event.target.value as BanqueDurationFilter)}
+                className="banque-filter-select"
+              >
+                {DURATION_FILTER_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </article>
+
         {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
 
         {loading ? (
@@ -321,23 +514,31 @@ export default function BanqueActyvPage() {
             <p>Chargement de la Banque Actyv...</p>
           </div>
         ) : activeTab === 'sessions' ? (
-          sessions.length === 0 ? (
-            <div className="challenge-state">
-              <p>Aucune seance publique disponible pour le moment.</p>
+          filteredSessions.length === 0 ? (
+            <div className="challenge-state banque-empty-state">
+              <span className="banque-empty-state__icon">+</span>
+              <div>
+                <p>Aucun résultat</p>
+                <span>Essaie un autre mot-clé ou réinitialise les filtres.</span>
+              </div>
+              <button type="button" className="button ghost" onClick={resetFilters}>
+                Réinitialiser les filtres
+              </button>
             </div>
           ) : (
             <div className="sessions-grid banque-grid">
-              {sessions.map((session) => {
+              {filteredSessions.map((session) => {
                 const blocks = blocksBySession.get(session.id) || [];
                 const creator = creatorById.get(session.user_id);
                 const estimatedDuration = getSessionEstimatedDurationLabel(blocks);
                 const alreadyImported = importedSessionSourceIdSet.has(session.id);
+                const sportLabel = session.sport?.trim() || 'Séance';
 
                 return (
                   <article key={session.id} className="session-card session-card--compact banque-card">
                     <div className="session-card__top">
-                      <div className={getSportBadgeClassName(session.sport, 'badge', 'Seance')}>
-                        {formatSportBadgeLabel(session.sport, 'Seance')}
+                      <div className={getSportBadgeClassName(session.sport, 'badge', 'Séance')}>
+                        {formatSportBadgeLabel(session.sport, 'Séance')}
                       </div>
                       <span className={`session-progress-pill ${alreadyImported ? 'session-progress-pill--pending' : 'session-progress-pill--done'}`}>
                         {alreadyImported ? 'Deja ajoutee' : 'Public'}
@@ -350,8 +551,10 @@ export default function BanqueActyvPage() {
                     </div>
 
                     <div className="session-card__meta">
+                      <span>{sportLabel}</span>
+                      <span>{estimatedDuration || 'Durée libre'}</span>
                       <span>{blocks.length} bloc{blocks.length > 1 ? 's' : ''}</span>
-                      <span>{estimatedDuration || 'Duree a venir'}</span>
+                      <span>Difficulté libre</span>
                       <span>{creator?.username || creator?.email || 'Createur Actyv'}</span>
                     </div>
 
@@ -380,21 +583,34 @@ export default function BanqueActyvPage() {
               })}
             </div>
           )
-        ) : programs.length === 0 ? (
-          <div className="challenge-state">
-            <p>Aucun programme public disponible pour le moment.</p>
+        ) : filteredPrograms.length === 0 ? (
+          <div className="challenge-state banque-empty-state">
+            <span className="banque-empty-state__icon">+</span>
+            <div>
+              <p>Aucun résultat</p>
+              <span>Essaie un autre mot-clé ou réinitialise les filtres.</span>
+            </div>
+            <button type="button" className="button ghost" onClick={resetFilters}>
+              Réinitialiser les filtres
+            </button>
           </div>
         ) : (
           <div className="sessions-grid banque-grid">
-            {programs.map((program) => {
+            {filteredPrograms.map((program) => {
               const entries = programSessionsByProgram.get(program.id) || [];
               const creator = creatorById.get(program.user_id);
+              const linkedDurationSeconds = entries.reduce((sum, entry) => {
+                const sessionSeconds = entry.session_id ? sessionDurationById.get(entry.session_id) ?? null : null;
+                return sum + (sessionSeconds ?? 0);
+              }, 0);
+              const totalDuration = formatProgramEstimatedDuration(linkedDurationSeconds > 0 ? linkedDurationSeconds : null);
+              const sportLabel = program.sport?.trim() || 'Autre';
 
               return (
                 <article key={program.id} className="session-card session-card--compact banque-card">
                   <div className="session-card__top">
-                    <div className={getSportBadgeClassName(program.sport, 'badge', 'Sport')}>
-                      {formatSportBadgeLabel(program.sport, 'Sport')}
+                    <div className={getSportBadgeClassName(program.sport, 'badge', 'Autre')}>
+                      {formatSportBadgeLabel(program.sport, 'Autre')}
                     </div>
                     <span className="session-progress-pill session-progress-pill--done">Public</span>
                   </div>
@@ -405,8 +621,10 @@ export default function BanqueActyvPage() {
                   </div>
 
                   <div className="session-card__meta">
+                    <span>{sportLabel}</span>
                     <span>{entries.length} seance{entries.length > 1 ? 's' : ''}</span>
                     <span>{program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}</span>
+                    <span>{totalDuration || 'Durée à découvrir'}</span>
                     <span>{creator?.username || creator?.email || 'Createur Actyv'}</span>
                   </div>
 
