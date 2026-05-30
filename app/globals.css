@@ -4106,7 +4106,7 @@ img {
 
 .session-live-focus-card__validate {
   min-width: 220px;
-  min-height: 56px;
+  min-height: 50px;
   font-size: 1rem;
 }
 
@@ -4141,7 +4141,7 @@ img {
 .session-live-rest-overlay__adjust .button,
 .session-live-rest-overlay__actions .button,
 .session-live-actions--end .button {
-  min-height: 48px;
+  min-height: 44px;
 }
 
 .sessions-page--dark .session-live-controls .button.ghost {
@@ -5369,9 +5369,12 @@ img {
 
   .session-live-focus-card__facts,
   .session-live-finished__stats,
-  .session-live-quick-stats,
   .session-live-preview {
     grid-template-columns: 1fr;
+  }
+
+  .session-live-quick-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .session-live-shell__actions,
@@ -5393,6 +5396,7 @@ img {
   .session-live-focus-card__validate {
     width: 100%;
     min-width: 0;
+    min-height: 46px;
   }
 
   .session-live-controls,

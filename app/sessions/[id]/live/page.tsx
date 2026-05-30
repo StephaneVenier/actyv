@@ -23,7 +23,7 @@ import {
   getSessionEstimatedDuration,
   normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
-import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
+import { awardXp, getBadgeByCode, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 
@@ -51,6 +51,7 @@ type LiveState = {
   isTimerPaused: boolean;
   runKey: string;
   historySaved: boolean;
+  startedSeriesKey: string | null;
 };
 
 type NewPersonalRecord = {
@@ -143,7 +144,9 @@ export default function LiveSessionPage() {
   const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [runKey, setRunKey] = useState('');
   const [historySaved, setHistorySaved] = useState(false);
+  const [startedSeriesKey, setStartedSeriesKey] = useState<string | null>(null);
   const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
+  const [earnedXpTotal, setEarnedXpTotal] = useState(0);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
 
@@ -256,6 +259,8 @@ export default function LiveSessionPage() {
         setHistoryMessage(null);
         setSaveState('idle');
         setNewPersonalRecords([]);
+        setStartedSeriesKey(null);
+        setEarnedXpTotal(0);
         setRunKey(createLiveRunKey());
         return;
       }
@@ -322,6 +327,9 @@ export default function LiveSessionPage() {
       }
       if (typeof parsedValue.historySaved === 'boolean') {
         setHistorySaved(parsedValue.historySaved);
+      }
+      if (typeof parsedValue.startedSeriesKey === 'string' || parsedValue.startedSeriesKey === null) {
+        setStartedSeriesKey(parsedValue.startedSeriesKey ?? null);
       }
     } catch (error) {
       console.error('Erreur lecture etat live seance :', error);
@@ -418,27 +426,26 @@ export default function LiveSessionPage() {
   const isCurrentBlockSkipped = Boolean(currentBlock) && skippedBlockIds.includes(currentBlock.id);
   const isResting = Boolean(restAfterBlockId) && !allBlocksResolved;
   const isExercising =
-    Boolean(currentBlock) &&
-    exerciseBlockId === currentBlock?.id &&
-    exerciseSecondsLeft > 0 &&
-    !isResting;
+    Boolean(currentBlock) && (Boolean(isSeriesStarted) || awaitingExerciseCompletion) && !isResting;
   const currentPhase: 'ready' | 'exercising' | 'resting' | 'paused' | 'completed' = allBlocksResolved
     ? 'completed'
     : isResting
       ? 'resting'
-      : isExercising
-        ? 'exercising'
-        : isTimerPaused
+      : isTimerPaused
           ? 'paused'
-          : 'ready';
+          : isExercising
+            ? 'exercising'
+            : 'ready';
   const currentStatusLabel = allBlocksResolved
     ? 'Bloc termine'
     : isTimerPaused
       ? 'Pause'
       : isResting
-        ? 'Repos'
-        : isExercising
-          ? 'Serie en cours'
+      ? 'Repos'
+      : isExercising
+          ? awaitingExerciseCompletion
+            ? 'Serie prete a etre terminee'
+            : 'Serie en cours'
           : isCurrentBlockSkipped
             ? 'Bloc passe'
             : currentCompletedSets > 0
@@ -455,6 +462,11 @@ export default function LiveSessionPage() {
   const restingBlockName =
     restSourceBlock?.name?.trim() ||
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
+  const currentSeriesKey = currentBlock ? `${currentBlock.id}:${currentCompletedSets}` : null;
+  const isSeriesStarted =
+    Boolean(currentSeriesKey) &&
+    startedSeriesKey === currentSeriesKey &&
+    !resolvedBlockIds.includes(currentBlock?.id ?? '');
   const finishStateLabel =
     saveState === 'saving'
       ? 'Enregistrement...'
@@ -468,7 +480,28 @@ export default function LiveSessionPage() {
     currentPhase !== 'completed' &&
     currentPhase !== 'resting' &&
     !resolvedBlockIds.includes(currentBlock?.id ?? '') &&
-    (!isDurationBlock || currentPhase !== 'exercising');
+    (!isDurationBlock || currentPhase !== 'exercising' || awaitingExerciseCompletion);
+
+  const validatedSeriesCount = useMemo(
+    () =>
+      blocks.reduce((total, block) => {
+        if (!completedBlockIds.includes(block.id)) {
+          return total;
+        }
+
+        const recordedSets = Number(completedSetsByBlockId[block.id] ?? normalizeSessionSetsCount(block.sets_count));
+        const normalizedSets = Math.min(
+          Math.max(Number.isFinite(recordedSets) ? Math.trunc(recordedSets) : 0, 0),
+          normalizeSessionSetsCount(block.sets_count)
+        );
+
+        return total + normalizedSets;
+      }, 0),
+    [blocks, completedBlockIds, completedSetsByBlockId]
+  );
+
+  const totalExercisesCount = blocks.length;
+  const displayedEarnedXp = historySaved ? earnedXpTotal : XP_RULES.session_completed.xp;
 
   useEffect(() => {
     if (typeof window === 'undefined' || blocks.length === 0) return;
@@ -525,10 +558,25 @@ export default function LiveSessionPage() {
     }
 
     const nextIndex = Math.min(Math.max(currentIndex, 0), Math.max(blocks.length - 1, 0));
-    if (nextIndex !== currentIndex) {
-      setCurrentIndex(nextIndex);
-      return;
-    }
+      if (nextIndex !== currentIndex) {
+        setCurrentIndex(nextIndex);
+        return;
+      }
+
+      const sanitizedStartedSeriesKey =
+        typeof startedSeriesKey === 'string' &&
+        startedSeriesKey.trim().length > 0 &&
+        (() => {
+          const [blockId] = startedSeriesKey.split(':');
+          return validBlockIds.has(blockId);
+        })()
+          ? startedSeriesKey
+          : null;
+
+      if (sanitizedStartedSeriesKey !== startedSeriesKey) {
+        setStartedSeriesKey(sanitizedStartedSeriesKey);
+        return;
+      }
 
     try {
       const payload: LiveState = {
@@ -546,6 +594,7 @@ export default function LiveSessionPage() {
         isTimerPaused,
         runKey,
         historySaved,
+        startedSeriesKey: sanitizedStartedSeriesKey,
       };
       window.localStorage.setItem(liveStorageKey, JSON.stringify(payload));
     } catch (error) {
@@ -568,6 +617,7 @@ export default function LiveSessionPage() {
     isTimerPaused,
     runKey,
     historySaved,
+    startedSeriesKey,
   ]);
 
   useEffect(() => {
@@ -639,6 +689,7 @@ export default function LiveSessionPage() {
     setExerciseBlockId(null);
     setExerciseSecondsLeft(0);
     setAwaitingExerciseCompletion(false);
+    setStartedSeriesKey(null);
   };
 
   const goToPrevious = () => {
@@ -695,6 +746,8 @@ export default function LiveSessionPage() {
     setHistorySaved(false);
     setHistoryMessage(null);
     setNewPersonalRecords([]);
+    setStartedSeriesKey(null);
+    setEarnedXpTotal(0);
     setSaveState('idle');
     setRunKey(createLiveRunKey());
     clearRestState();
@@ -723,6 +776,7 @@ export default function LiveSessionPage() {
     if (!currentBlock) return;
 
     triggerHaptic(18);
+    setStartedSeriesKey(null);
     setValidationFeedback(usesSetBySetValidation ? 'Serie validee' : 'Bloc valide');
 
     if (usesSetBySetValidation) {
@@ -784,6 +838,7 @@ export default function LiveSessionPage() {
           return;
         }
 
+        setStartedSeriesKey(currentSeriesKey);
         setExerciseBlockId(currentBlock.id);
         setExerciseSecondsLeft(normalizedTarget);
         setAwaitingExerciseCompletion(false);
@@ -791,7 +846,8 @@ export default function LiveSessionPage() {
         return;
       }
 
-      handleValidateCurrent();
+      setStartedSeriesKey(currentSeriesKey);
+      setValidationFeedback('Serie lancee');
     } catch (error) {
       console.error('start exercise failed', error);
       setValidationFeedback("Impossible de lancer la serie pour le moment.");
@@ -799,7 +855,7 @@ export default function LiveSessionPage() {
     }
   };
 
-  const shouldKeepScreenAwake = !isTimerPaused && (isResting || isExercising);
+  const shouldKeepScreenAwake = Boolean(session) && blocks.length > 0 && !allBlocksResolved;
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -917,6 +973,7 @@ export default function LiveSessionPage() {
       }
 
       const awardedXpMessages: string[] = [];
+      let nextEarnedXpTotal = 0;
 
       const workoutXpResult = await awardXp({
         userId: user.id,
@@ -926,6 +983,7 @@ export default function LiveSessionPage() {
 
       if (workoutXpResult?.awarded) {
         awardedXpMessages.push('+10 XP seance');
+        nextEarnedXpTotal += XP_RULES.session_completed.xp;
       } else if (workoutXpResult?.error) {
         console.error('XP award failed', {
           payload: {
@@ -1156,6 +1214,7 @@ export default function LiveSessionPage() {
 
               if (programCompletedXpResult?.awarded) {
                 awardedXpMessages.push('+50 XP programme termine');
+                nextEarnedXpTotal += XP_RULES.program_completed.xp;
               } else if (programCompletedXpResult?.error) {
                 console.error('XP award failed', {
                   payload: {
@@ -1191,6 +1250,7 @@ export default function LiveSessionPage() {
       });
 
       setHistorySaved(true);
+      setEarnedXpTotal(nextEarnedXpTotal);
       setHistoryMessage(exerciseHistoryMessage || completionMessage || 'Seance enregistree.');
       setSaveState('success');
       return true;
@@ -1226,10 +1286,7 @@ export default function LiveSessionPage() {
 
     const didSave = await saveCompletedSession();
     if (!didSave) return;
-
-    clearPersistedLiveState();
     queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
-    router.push(`/sessions/${id}`);
   };
 
   return (
@@ -1309,12 +1366,20 @@ export default function LiveSessionPage() {
 
                 <div className="session-live-finished__stats">
                   <div className="session-live-fact">
+                    <span>XP gagnee</span>
+                    <strong>{`${displayedEarnedXp} XP`}</strong>
+                  </div>
+                  <div className="session-live-fact">
                     <span>Duree</span>
                     <strong>{formatElapsedDuration(elapsedSeconds)}</strong>
                   </div>
                   <div className="session-live-fact">
-                    <span>Blocs</span>
-                    <strong>{`${completedBlocksCount} valides`}</strong>
+                    <span>Exercices</span>
+                    <strong>{`${completedBlocksCount} / ${totalExercisesCount}`}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Series validees</span>
+                    <strong>{validatedSeriesCount}</strong>
                   </div>
                   <div className="session-live-fact">
                     <span>Passes</span>
@@ -1340,7 +1405,7 @@ export default function LiveSessionPage() {
                   <strong>{finishStateLabel}</strong>
                   <span>
                     {historySaved || saveState === 'success'
-                      ? 'Ta realisation est bien prise en compte.'
+                      ? `Ta realisation est bien prise en compte avec ${displayedEarnedXp} XP ajoutes.`
                       : skippedBlocksCount > 0
                         ? "Ta seance sera enregistree avec les blocs passes comme seance partielle."
                         : "Une fois la seance terminee, pense a confirmer l'enregistrement."}
@@ -1405,7 +1470,9 @@ export default function LiveSessionPage() {
                 ) : null}
 
                 <p className="session-live-finished__copy">
-                  Tous les blocs ont ete valides. Clique sur Terminer pour enregistrer ta seance.
+                  {skippedBlocksCount > 0
+                    ? 'La seance est prete a etre enregistree, avec quelques blocs passes.'
+                    : 'La seance est prete a etre enregistree.'}
                 </p>
 
                 <div className="session-live-actions session-live-actions--end">
@@ -1454,43 +1521,43 @@ export default function LiveSessionPage() {
                   isCompleted={completedBlockIds.includes(currentBlock.id)}
                   blockVolumeLabel={formatSessionVolumeKg(currentBlockVolume)}
                   actionLabel={
-                    isDurationBlock
-                      ? isExercising
-                        ? 'Serie en cours'
-                        : awaitingExerciseCompletion
+                    isExercising
+                      ? awaitingExerciseCompletion
+                        ? 'Terminer la serie'
+                        : isDurationBlock
                           ? 'Terminer la serie'
-                          : currentCompletedSets > 0
-                            ? 'Lancer la serie suivante'
-                            : 'Lancer la serie'
-                      : usesSetBySetValidation
-                        ? currentCompletedSets > 0
-                          ? 'Valider la serie suivante'
-                          : 'Valider la serie'
-                        : 'Terminer le bloc'
+                          : usesSetBySetValidation
+                            ? 'Valider la serie'
+                            : 'Terminer le bloc'
+                      : currentCompletedSets > 0
+                        ? 'Lancer la serie suivante'
+                        : 'Lancer la serie'
                   }
                   actionHint={
                     isDurationBlock
                       ? isExercising
-                        ? 'Le chrono tourne. Termine la serie quand tu es pret.'
-                        : awaitingExerciseCompletion
-                          ? 'Le chrono est fini. Confirme la serie pour passer au repos.'
-                          : 'Lance la serie quand tu es pret.'
-                      : usesSetBySetValidation
-                        ? 'Valide chaque serie, puis prends ton repos avant la suivante.'
-                        : 'Valide ce bloc quand tu as fini l effort.'
+                        ? awaitingExerciseCompletion
+                          ? 'Le chrono est termine. Confirme la serie pour passer au repos.'
+                          : `Temps ecoule : ${formatTimerClock(
+                              Number(currentBlock?.target_value ?? 0) - exerciseSecondsLeft
+                            )} / ${formatTimerClock(Number(currentBlock?.target_value ?? 0))}`
+                        : 'Lance la serie quand tu es pret.'
+                      : isExercising
+                        ? usesSetBySetValidation
+                          ? 'La serie est en cours. Valide-la des que tu as termine.'
+                          : "Le bloc est en cours. Termine-le quand tu as fini l'effort."
+                        : usesSetBySetValidation
+                          ? 'Lance puis valide chaque serie, avec repos entre les tours.'
+                          : 'Lance ce bloc avant de pouvoir le terminer.'
                   }
                   validationFeedback={validationFeedback}
-                  countdownLabel={isExercising ? formatTimerClock(exerciseSecondsLeft) : null}
+                  countdownLabel={isDurationBlock && isExercising && !awaitingExerciseCompletion ? formatTimerClock(exerciseSecondsLeft) : null}
                   onValidate={
                     !canValidateCurrentBlock
                       ? undefined
                       : isExercising
-                      ? undefined
-                      : isDurationBlock
-                        ? awaitingExerciseCompletion
-                          ? handleValidateCurrent
-                          : handleStartCurrentSeries
-                        : handleValidateCurrent
+                        ? handleValidateCurrent
+                        : handleStartCurrentSeries
                   }
                   actionDisabled={!canValidateCurrentBlock}
                 />
