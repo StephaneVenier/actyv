@@ -429,6 +429,11 @@ export default function LiveSessionPage() {
     : 1;
   const isCurrentBlockSkipped = Boolean(currentBlock) && skippedBlockIds.includes(currentBlock.id);
   const isResting = Boolean(restAfterBlockId) && !allBlocksResolved;
+  const currentSeriesKey = currentBlock ? `${currentBlock.id}:${currentCompletedSets}` : null;
+  const isSeriesStarted =
+    Boolean(currentSeriesKey) &&
+    startedSeriesKey === currentSeriesKey &&
+    !resolvedBlockIds.includes(currentBlock?.id ?? '');
   const isExercising =
     Boolean(currentBlock) && (Boolean(isSeriesStarted) || awaitingExerciseCompletion) && !isResting;
   const currentPhase: 'ready' | 'exercising' | 'resting' | 'paused' | 'completed' = allBlocksResolved
@@ -466,11 +471,6 @@ export default function LiveSessionPage() {
   const restingBlockName =
     restSourceBlock?.name?.trim() ||
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
-  const currentSeriesKey = currentBlock ? `${currentBlock.id}:${currentCompletedSets}` : null;
-  const isSeriesStarted =
-    Boolean(currentSeriesKey) &&
-    startedSeriesKey === currentSeriesKey &&
-    !resolvedBlockIds.includes(currentBlock?.id ?? '');
   const finishStateLabel =
     saveState === 'saving'
       ? 'Enregistrement...'
