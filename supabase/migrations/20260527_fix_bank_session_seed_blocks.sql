@@ -102,11 +102,11 @@ begin
     and not exists (select 1 from public.training_session_blocks where session_id = session_renfo_id and position = 6);
 
   insert into public.training_session_blocks (session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds)
-  select session_hiit_id, 1, 'Jumping jacks', 'duration', 2, 30, null, 15
+  select session_hiit_id, 1, 'Burpees', 'duration', 3, 30, null, 30
   where session_hiit_id is not null
     and not exists (select 1 from public.training_session_blocks where session_id = session_hiit_id and position = 1);
   insert into public.training_session_blocks (session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds)
-  select session_hiit_id, 2, 'Squats au poids du corps', 'reps', 3, 15, null, 20
+  select session_hiit_id, 2, 'Squats', 'duration', 3, 30, null, 30
   where session_hiit_id is not null
     and not exists (select 1 from public.training_session_blocks where session_id = session_hiit_id and position = 2);
   insert into public.training_session_blocks (session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds)
@@ -118,7 +118,7 @@ begin
   where session_hiit_id is not null
     and not exists (select 1 from public.training_session_blocks where session_id = session_hiit_id and position = 4);
   insert into public.training_session_blocks (session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds)
-  select session_hiit_id, 5, 'Planche finale', 'duration', 2, 30, null, 20
+  select session_hiit_id, 5, 'Jumping jacks', 'duration', 3, 30, null, 30
   where session_hiit_id is not null
     and not exists (select 1 from public.training_session_blocks where session_id = session_hiit_id and position = 5);
 

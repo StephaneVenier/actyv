@@ -13,7 +13,7 @@ begin
   ) then
     insert into public.training_session_blocks
       (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-    select session_hiit_id, 1, 'Jumping jacks', 'duration', 45, null, 3, 15
+    select session_hiit_id, 1, 'Burpees', 'duration', 30, null, 3, 30
     where not exists (
       select 1 from public.training_session_blocks
       where session_id = session_hiit_id and position = 1
@@ -21,7 +21,7 @@ begin
 
     insert into public.training_session_blocks
       (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-    select session_hiit_id, 2, 'Squats', 'duration', 45, null, 3, 15
+    select session_hiit_id, 2, 'Squats', 'duration', 30, null, 3, 30
     where not exists (
       select 1 from public.training_session_blocks
       where session_id = session_hiit_id and position = 2
@@ -29,7 +29,7 @@ begin
 
     insert into public.training_session_blocks
       (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-    select session_hiit_id, 3, 'Mountain climbers', 'duration', 45, null, 3, 15
+    select session_hiit_id, 3, 'Mountain climbers', 'duration', 30, null, 3, 30
     where not exists (
       select 1 from public.training_session_blocks
       where session_id = session_hiit_id and position = 3
@@ -45,7 +45,7 @@ begin
 
     insert into public.training_session_blocks
       (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-    select session_hiit_id, 5, 'Mountain climbers', 'duration', 30, null, 3, 30
+    select session_hiit_id, 5, 'Jumping jacks', 'duration', 30, null, 3, 30
     where not exists (
       select 1 from public.training_session_blocks
       where session_id = session_hiit_id and position = 5

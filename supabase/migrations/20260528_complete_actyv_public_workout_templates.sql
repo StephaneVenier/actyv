@@ -78,7 +78,7 @@ begin
 
   -- HIIT express — 20 min
   insert into public.training_session_blocks (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-  select session_hiit_id, 1, 'Jumping jacks', 'duration', 45, null, 3, 15
+  select session_hiit_id, 1, 'Burpees', 'duration', 30, null, 3, 30
   where session_hiit_id is not null
     and not exists (
       select 1
@@ -88,7 +88,7 @@ begin
     );
 
   insert into public.training_session_blocks (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-  select session_hiit_id, 2, 'Squats', 'duration', 45, null, 3, 15
+  select session_hiit_id, 2, 'Squats', 'duration', 30, null, 3, 30
   where session_hiit_id is not null
     and not exists (
       select 1
@@ -98,7 +98,7 @@ begin
     );
 
   insert into public.training_session_blocks (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-  select session_hiit_id, 3, 'Mountain climbers', 'duration', 45, null, 3, 15
+  select session_hiit_id, 3, 'Mountain climbers', 'duration', 30, null, 3, 30
   where session_hiit_id is not null
     and not exists (
       select 1
@@ -118,7 +118,7 @@ begin
     );
 
   insert into public.training_session_blocks (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-  select session_hiit_id, 5, 'Mountain climbers', 'duration', 30, null, 3, 30
+  select session_hiit_id, 5, 'Jumping jacks', 'duration', 30, null, 3, 30
   where session_hiit_id is not null
     and not exists (
       select 1
