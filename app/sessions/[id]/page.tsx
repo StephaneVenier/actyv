@@ -1114,7 +1114,7 @@ export default function SessionDetailPage() {
                     return (
                       <CompactExerciseCard
                         key={block.id}
-                        index={block.position}
+                        index={index}
                         block={block}
                         isCompleted={isCompleted}
                         isCurrent={isCurrent}
