@@ -179,6 +179,57 @@ const HOME_ACTIONS = [
   },
 ] as const;
 
+const HOME_FEATURE_CARDS = [
+  {
+    title: 'Creer un challenge',
+    description: 'Lance un objectif solo ou collectif.',
+    href: '/challenges/new',
+    emoji: '🏆',
+  },
+  {
+    title: 'Rejoindre un challenge',
+    description: 'Participe a des defis ouverts ou prives.',
+    href: '/challenges',
+    emoji: '🤝',
+  },
+  {
+    title: 'Seances',
+    description: 'Cree, lance et suis tes seances.',
+    href: '/sessions',
+    emoji: '🏋️',
+  },
+  {
+    title: 'Programmes',
+    description: 'Planifie tes cycles et suis ta progression.',
+    href: '/programs',
+    emoji: '🗓️',
+  },
+  {
+    title: 'Banque Actyv',
+    description: 'Importe des seances et programmes publics.',
+    href: '/banque',
+    emoji: '📚',
+  },
+  {
+    title: 'Statistiques',
+    description: 'Retrouve ta progression et ton historique.',
+    href: '/stats',
+    emoji: '📊',
+  },
+  {
+    title: 'Classements',
+    description: 'Compare ton activite avec la communaute.',
+    href: '/leaderboard',
+    emoji: '🥇',
+  },
+  {
+    title: 'Badges / XP',
+    description: 'Debloque des badges et gagne de l experience.',
+    href: '/profile',
+    emoji: '✨',
+  },
+] as const;
+
 export default function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -521,7 +572,7 @@ export default function HomePage() {
           </div>
 
           <div className="home-actions-grid">
-            {HOME_ACTIONS.map((action) => (
+            {HOME_FEATURE_CARDS.map((action) => (
               <Link key={action.title} href={action.href} className="home-action-card">
                 <span className="home-action-card__emoji" aria-hidden="true">
                   {action.emoji}
