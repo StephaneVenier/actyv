@@ -118,7 +118,7 @@ begin
     );
 
   insert into public.training_session_blocks (session_id, position, name, block_type, target_value, charge_kg, sets_count, rest_seconds)
-  select session_hiit_id, 5, 'Repos', 'duration', 30, null, 3, 30
+  select session_hiit_id, 5, 'Mountain climbers', 'duration', 30, null, 3, 30
   where session_hiit_id is not null
     and not exists (
       select 1
