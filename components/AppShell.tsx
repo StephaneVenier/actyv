@@ -285,7 +285,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="quick-menu-item quick-menu-item--featured"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Statistiques</span>
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--stats" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Statistiques</span>
+                </div>
                 <span className="quick-menu-item__meta">Voir tes donnees detaillees</span>
                 {quickStatsSummary ? (
                   <span className="quick-menu-item__summary">
@@ -301,7 +304,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Classements</span>
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--leaderboard" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Classements</span>
+                </div>
                 <span className="quick-menu-item__meta">Voir les classements Actyv</span>
               </Link>
 
@@ -310,8 +316,11 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Creer une seance</span>
-                <span className="quick-menu-item__meta">Composer une seance simple</span>
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--sessions" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Seances</span>
+                </div>
+                <span className="quick-menu-item__meta">Creer, lancer et suivre tes seances</span>
               </Link>
 
               <Link
@@ -319,7 +328,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Programmes</span>
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--programs" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Programmes</span>
+                </div>
                 <span className="quick-menu-item__meta">Planifier et suivre tes cycles</span>
               </Link>
 
@@ -328,7 +340,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Badges</span>
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--badges" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Badges</span>
+                </div>
                 <span className="quick-menu-item__meta">Voir ta collection Actyv</span>
               </Link>
 
@@ -337,7 +352,10 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className="quick-menu-item"
                 onClick={() => setQuickMenuOpen(false)}
               >
-                <span className="quick-menu-item__title">Banque Actyv</span>
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--bank" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Banque Actyv</span>
+                </div>
                 <span className="quick-menu-item__meta">Importer des seances et programmes publics</span>
               </Link>
             </div>
