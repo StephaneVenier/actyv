@@ -367,6 +367,10 @@ export default function LiveSessionPage() {
   const sessionTotalVolume = useMemo(
     () =>
       blocks.reduce((total, block) => {
+        if (!completedBlockIds.includes(block.id)) {
+          return total;
+        }
+
         const volume = getSessionBlockVolumeKg(
           block.block_type,
           block.target_value,
@@ -375,7 +379,7 @@ export default function LiveSessionPage() {
         );
         return total + (volume ?? 0);
       }, 0),
-    [blocks]
+    [blocks, completedBlockIds]
   );
   const estimatedDurationSeconds = useMemo(() => getSessionEstimatedDuration(blocks), [blocks]);
   const estimatedCalories = useMemo(
@@ -496,6 +500,29 @@ export default function LiveSessionPage() {
         );
 
         return total + normalizedSets;
+      }, 0),
+    [blocks, completedBlockIds, completedSetsByBlockId]
+  );
+  const totalRepetitionsCount = useMemo(
+    () =>
+      blocks.reduce((total, block) => {
+        if (!completedBlockIds.includes(block.id) || block.block_type !== 'reps') {
+          return total;
+        }
+
+        const repsValue =
+          Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
+            ? Math.trunc(Number(block.target_value))
+            : 0;
+        const recordedSets = Number(
+          completedSetsByBlockId[block.id] ?? normalizeSessionSetsCount(block.sets_count)
+        );
+        const normalizedSets = Math.min(
+          Math.max(Number.isFinite(recordedSets) ? Math.trunc(recordedSets) : 0, 0),
+          normalizeSessionSetsCount(block.sets_count)
+        );
+
+        return total + repsValue * normalizedSets;
       }, 0),
     [blocks, completedBlockIds, completedSetsByBlockId]
   );
@@ -1380,6 +1407,10 @@ export default function LiveSessionPage() {
                   <div className="session-live-fact">
                     <span>Series validees</span>
                     <strong>{validatedSeriesCount}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Repetitions</span>
+                    <strong>{totalRepetitionsCount > 0 ? `${totalRepetitionsCount} reps` : '-'}</strong>
                   </div>
                   <div className="session-live-fact">
                     <span>Passes</span>
