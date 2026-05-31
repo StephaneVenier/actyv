@@ -28,6 +28,7 @@ type TrainingSession = {
   name: string;
   sport: string | null;
   description: string | null;
+  visibility: 'private' | 'public' | null;
   created_at: string | null;
 };
 
@@ -224,9 +225,9 @@ export default function SessionDetailPage() {
 
         const { data: sessionRow, error: sessionError } = await supabase
           .from('training_sessions')
-          .select('id, user_id, name, sport, description, created_at')
+          .select('id, user_id, name, sport, description, visibility, created_at')
           .eq('id', id)
-          .eq('user_id', user.id)
+          .or(`user_id.eq.${user.id},visibility.eq.public`)
           .maybeSingle();
 
         if (sessionError) {
