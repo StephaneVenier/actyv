@@ -22,6 +22,7 @@ import {
   getTrainingProgramProgress,
   PROGRAM_DAY_OPTIONS,
   TrainingProgram,
+  TrainingProgramCompletion,
   TrainingProgramSession,
 } from '@/lib/training-programs';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
@@ -40,12 +41,6 @@ type PlannerSlot = {
 };
 
 type ProgramPlanView = 'calendar' | 'list';
-
-type WorkoutHistoryCompletion = {
-  id: string;
-  workout_id: string | null;
-  completed_at: string;
-};
 
 type ProgramSessionInsight = {
   blockCount: number;
@@ -288,7 +283,7 @@ export default function ProgramDetailPage() {
 
   const [program, setProgram] = useState<TrainingProgram | null>(null);
   const [programSessions, setProgramSessions] = useState<TrainingProgramSession[]>([]);
-  const [sessionCompletions, setSessionCompletions] = useState<WorkoutHistoryCompletion[]>([]);
+  const [sessionCompletions, setSessionCompletions] = useState<TrainingProgramCompletion[]>([]);
   const [availableSessions, setAvailableSessions] = useState<AvailableProgramSessionOption[]>([]);
   const [programSessionInsights, setProgramSessionInsights] = useState<Record<string, ProgramSessionInsight>>({});
   const [loading, setLoading] = useState(true);
@@ -437,22 +432,18 @@ export default function ProgramDetailPage() {
           setProgramSessionInsights(nextInsights);
         }
 
-        if (linkedSessionIds.length === 0) {
+        const { data: completionsRows, error: completionsError } = await supabase
+          .from('training_program_completions')
+          .select('id, user_id, program_id, program_session_id, session_id, workout_history_id, completed_at, created_at')
+          .eq('user_id', user.id)
+          .eq('program_id', id)
+          .order('completed_at', { ascending: false });
+
+        if (completionsError) {
+          console.error('Erreur chargement progression programme :', completionsError);
           setSessionCompletions([]);
         } else {
-          const { data: completionsRows, error: completionsError } = await supabase
-            .from('workout_sessions_history')
-            .select('id, workout_id, completed_at')
-            .eq('user_id', user.id)
-            .in('workout_id', linkedSessionIds)
-            .order('completed_at', { ascending: false });
-
-          if (completionsError) {
-            console.error('Erreur chargement progression programme :', completionsError);
-            setSessionCompletions([]);
-          } else {
-            setSessionCompletions((completionsRows as WorkoutHistoryCompletion[]) || []);
-          }
+          setSessionCompletions((completionsRows as TrainingProgramCompletion[]) || []);
         }
 
         if (availableSessionsResponse.error) {
@@ -496,28 +487,28 @@ export default function ProgramDetailPage() {
     loadProgram();
   }, [id]);
 
-  const completedSessionIds = useMemo(() => {
+  const completedProgramSessionIds = useMemo(() => {
     const ids = new Set<string>();
     sessionCompletions.forEach((entry) => {
-      if (entry.workout_id) ids.add(entry.workout_id);
+      if (entry.program_session_id) ids.add(entry.program_session_id);
     });
     return ids;
   }, [sessionCompletions]);
 
-  const latestCompletionBySessionId = useMemo(() => {
-    const entries = new Map<string, WorkoutHistoryCompletion>();
+  const latestCompletionByProgramSessionId = useMemo(() => {
+    const entries = new Map<string, TrainingProgramCompletion>();
     sessionCompletions.forEach((entry) => {
-      if (!entry.workout_id) return;
-      if (!entries.has(entry.workout_id)) {
-        entries.set(entry.workout_id, entry);
+      if (!entry.program_session_id) return;
+      if (!entries.has(entry.program_session_id)) {
+        entries.set(entry.program_session_id, entry);
       }
     });
     return entries;
   }, [sessionCompletions]);
 
   const completedCount = useMemo(
-    () => programSessions.filter((entry) => entry.session_id && completedSessionIds.has(entry.session_id)).length,
-    [completedSessionIds, programSessions]
+    () => programSessions.filter((entry) => completedProgramSessionIds.has(entry.id)).length,
+    [completedProgramSessionIds, programSessions]
   );
   const totalSessions = programSessions.length;
   const progress = getTrainingProgramProgress(completedCount, totalSessions);
@@ -555,9 +546,7 @@ export default function ProgramDetailPage() {
   const remainingSessionsCount = useMemo(() => Math.max(totalSessions - completedCount, 0), [completedCount, totalSessions]);
 
   const nextProgramSession = useMemo(() => {
-    const unfinishedSessions = programSessions.filter(
-      (entry) => !entry.session_id || !completedSessionIds.has(entry.session_id)
-    );
+    const unfinishedSessions = programSessions.filter((entry) => !completedProgramSessionIds.has(entry.id));
 
     if (unfinishedSessions.length === 0) {
       return null;
@@ -586,7 +575,7 @@ export default function ProgramDetailPage() {
     }
 
     return sessionsWithDates[0]?.entry || null;
-  }, [completedSessionIds, program?.start_date, programSessions]);
+  }, [completedProgramSessionIds, program?.start_date, programSessions]);
 
   const nextProgramSessionInsight = useMemo(() => {
     if (!nextProgramSession?.session_id) return null;
@@ -1665,11 +1654,8 @@ export default function ProgramDetailPage() {
                                 ) : (
                                   <div className="program-plan-day__entries">
                                     {dayEntries.map((entry) => {
-                                      const completed =
-                                        Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
-                                      const completion = entry.session_id
-                                        ? latestCompletionBySessionId.get(entry.session_id)
-                                        : null;
+                                      const completed = completedProgramSessionIds.has(entry.id);
+                                      const completion = latestCompletionByProgramSessionId.get(entry.id) || null;
 
                                       return (
                                         <article
@@ -1841,10 +1827,8 @@ export default function ProgramDetailPage() {
                             </div>
                           ) : (
                             displayWeekEntries.map(({ entry, day }) => {
-                              const completed = Boolean(entry.session_id) && completedSessionIds.has(entry.session_id);
-                              const completion = entry.session_id
-                                ? latestCompletionBySessionId.get(entry.session_id)
-                                : null;
+                              const completed = completedProgramSessionIds.has(entry.id);
+                              const completion = latestCompletionByProgramSessionId.get(entry.id) || null;
 
                               return (
                                 <article
