@@ -2109,6 +2109,15 @@ img {
     rgba(8, 18, 36, 0.96);
 }
 
+.daily-session-hero .session-hero-copy h1 {
+  color: #ffffff;
+}
+
+.daily-session-hero .session-hero-copy .muted,
+.daily-session-hero .session-hero-copy p {
+  color: #cbd5e1;
+}
+
 .daily-session-blocks {
   display: grid;
   gap: 18px;
