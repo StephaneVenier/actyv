@@ -14,7 +14,8 @@ export type XpSource =
   | 'workout_completed'
   | 'program_completed'
   | 'program_created'
-  | 'program_shared';
+  | 'program_shared'
+  | 'daily_session_completed';
 
 export type XpRule = {
   xp: number;
@@ -61,6 +62,7 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   program_completed: { xp: 50 },
   program_created: { xp: 10 },
   program_shared: { xp: 15 },
+  daily_session_completed: { xp: 25 },
 };
 
 export { BADGES, getBadgeByCode, normalizeBadgeCode };
@@ -212,11 +214,13 @@ export async function awardXp({
   userEmail,
   source,
   metadata,
+  xpOverride,
 }: {
   userId?: string | null;
   userEmail?: string | null;
   source: XpSource;
   metadata?: Record<string, unknown>;
+  xpOverride?: number | null;
 }) {
   const targetUserId = userId || (await resolveUserIdFromEmail(userEmail));
   if (!targetUserId) return { awarded: false };
@@ -236,7 +240,10 @@ export async function awardXp({
     const payload = {
       user_id: targetUserId,
       event_type: source,
-      xp_amount: XP_RULES[source].xp,
+      xp_amount:
+        Number.isFinite(Number(xpOverride)) && Number(xpOverride) >= 0
+          ? Number(xpOverride)
+          : XP_RULES[source].xp,
       target_id: normalizedTargetId,
     };
 

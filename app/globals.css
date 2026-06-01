@@ -2085,6 +2085,44 @@ img {
   min-height: 42px;
 }
 
+.daily-session-card {
+  background:
+    linear-gradient(135deg, rgba(19, 78, 74, 0.82), rgba(16, 42, 67, 0.9)),
+    rgba(8, 18, 36, 0.94);
+  border: 1px solid rgba(74, 222, 128, 0.16);
+  box-shadow: 0 18px 38px rgba(2, 8, 23, 0.28);
+}
+
+.daily-session-card .home-program-reminder-card__copy strong,
+.daily-session-card .program-card__facts,
+.daily-session-card .program-card__facts span {
+  color: #e2f7ef;
+}
+
+.daily-session-card .home-program-reminder-card__copy p {
+  color: rgba(226, 247, 239, 0.76);
+}
+
+.daily-session-hero {
+  background:
+    linear-gradient(135deg, rgba(11, 42, 62, 0.95), rgba(16, 68, 75, 0.88)),
+    rgba(8, 18, 36, 0.96);
+}
+
+.daily-session-blocks {
+  display: grid;
+  gap: 18px;
+}
+
+.daily-session-blocks__list {
+  display: grid;
+  gap: 12px;
+}
+
+.daily-session-block-card {
+  border-radius: 18px;
+}
+
 .feed-item__top {
   display: flex;
   align-items: flex-start;

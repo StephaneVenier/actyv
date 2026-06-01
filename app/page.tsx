@@ -5,7 +5,16 @@ import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
+import {
+  formatDailySessionDateLabel,
+  getTodayIsoDate,
+  isDailySessionForToday,
+  type DailySession,
+  type DailySessionCompletion,
+} from '@/lib/daily-sessions';
+import { getSessionEstimatedDuration } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
+import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
 import {
   formatProgramDate,
   formatProgramDayLabel,
@@ -67,6 +76,25 @@ type ProgramReminderEntry = {
   plannedDate: Date | null;
   status: 'completed' | 'todo';
 };
+
+type TrainingSessionSummary = {
+  id: string;
+  user_id: string;
+  name: string;
+  sport: string | null;
+  difficulty: string | null;
+  description: string | null;
+  visibility: 'private' | 'public' | null;
+  created_at: string | null;
+};
+
+function formatDailyDurationLabel(totalSeconds: number | null) {
+  if (!Number.isFinite(Number(totalSeconds)) || Number(totalSeconds) <= 0) {
+    return 'Duree libre';
+  }
+
+  return `${Math.max(1, Math.round(Number(totalSeconds) / 60))} min`;
+}
 
 function isSameLocalDay(left: Date, right: Date) {
   return (
@@ -233,6 +261,11 @@ const HOME_FEATURE_CARDS = [
 export default function HomePage() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [dailySession, setDailySession] = useState<DailySession | null>(null);
+  const [dailySessionTraining, setDailySessionTraining] = useState<TrainingSessionSummary | null>(null);
+  const [dailySessionCompletion, setDailySessionCompletion] = useState<DailySessionCompletion | null>(null);
+  const [dailySessionBlockCount, setDailySessionBlockCount] = useState(0);
+  const [dailySessionEstimatedDuration, setDailySessionEstimatedDuration] = useState<string | null>(null);
   const [todayProgramSessions, setTodayProgramSessions] = useState<ProgramReminderEntry[]>([]);
   const [nextProgramSession, setNextProgramSession] = useState<ProgramReminderEntry | null>(null);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
@@ -240,12 +273,14 @@ export default function HomePage() {
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [loadingProgramReminders, setLoadingProgramReminders] = useState(true);
+  const [loadingDailySession, setLoadingDailySession] = useState(true);
 
   useEffect(() => {
     const fetchHomeData = async () => {
       setLoadingChallenges(true);
       setLoadingFeed(true);
       setLoadingProgramReminders(true);
+      setLoadingDailySession(true);
 
       const {
         data: { user },
@@ -253,6 +288,87 @@ export default function HomePage() {
 
       const userEmail = user?.email || null;
       const userId = user?.id || null;
+      const todayIso = getTodayIsoDate();
+
+      const nextDailySessionResponse = await supabase
+        .from('daily_sessions')
+        .select('id, session_id, scheduled_for, bonus_xp, created_at')
+        .gte('scheduled_for', todayIso)
+        .order('scheduled_for', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+      if (nextDailySessionResponse.error) {
+        console.error('Erreur chargement seance du jour accueil :', nextDailySessionResponse.error);
+        setDailySession(null);
+        setDailySessionTraining(null);
+        setDailySessionCompletion(null);
+        setDailySessionBlockCount(0);
+        setDailySessionEstimatedDuration(null);
+      } else {
+        const nextDailySession = (nextDailySessionResponse.data as DailySession | null) || null;
+        setDailySession(nextDailySession);
+
+        if (!nextDailySession) {
+          setDailySessionTraining(null);
+          setDailySessionCompletion(null);
+          setDailySessionBlockCount(0);
+          setDailySessionEstimatedDuration(null);
+        } else {
+          const [{ data: sessionRow, error: sessionError }, completionResponse] = await Promise.all([
+            supabase
+              .from('training_sessions')
+              .select('id, user_id, name, sport, difficulty, description, visibility, created_at')
+              .eq('id', nextDailySession.session_id)
+              .eq('visibility', 'public')
+              .maybeSingle(),
+            userId
+              ? supabase
+                  .from('daily_session_completions')
+                  .select('id, daily_session_id, user_id, session_id, workout_history_id, scheduled_for, completed_at, created_at')
+                  .eq('user_id', userId)
+                  .eq('daily_session_id', nextDailySession.id)
+                  .maybeSingle()
+              : Promise.resolve({ data: null, error: null }),
+          ]);
+
+          if (sessionError) {
+            console.error('Erreur chargement seance publique du jour accueil :', sessionError);
+            setDailySessionTraining(null);
+            setDailySessionBlockCount(0);
+            setDailySessionEstimatedDuration(null);
+          } else {
+            const nextTraining = (sessionRow as TrainingSessionSummary | null) || null;
+            setDailySessionTraining(nextTraining);
+
+            if (nextTraining) {
+              const { data: blockRows, error: blocksError } = await fetchTrainingSessionBlocks([nextTraining.id]);
+
+              if (blocksError) {
+                console.error('Erreur chargement blocs seance du jour accueil :', blocksError);
+                setDailySessionBlockCount(0);
+                setDailySessionEstimatedDuration(null);
+              } else {
+                const nextBlocks = blockRows || [];
+                setDailySessionBlockCount(nextBlocks.length);
+                setDailySessionEstimatedDuration(formatDailyDurationLabel(getSessionEstimatedDuration(nextBlocks)));
+              }
+            } else {
+              setDailySessionBlockCount(0);
+              setDailySessionEstimatedDuration(null);
+            }
+          }
+
+          if (completionResponse.error) {
+            console.error('Erreur chargement completion seance du jour accueil :', completionResponse.error);
+            setDailySessionCompletion(null);
+          } else {
+            setDailySessionCompletion((completionResponse.data as DailySessionCompletion | null) || null);
+          }
+        }
+      }
+
+      setLoadingDailySession(false);
 
       if (userId) {
         const { data: programsRows, error: programsError } = await supabase
@@ -582,6 +698,78 @@ export default function HomePage() {
               </Link>
             ))}
           </div>
+        </section>
+
+        <section className="home-placeholder card home-daily-session">
+          <div className="home-challenges__header">
+            <div>
+              <span className="section-kicker">Actyv quotidien</span>
+              <h2>Séance du jour</h2>
+            </div>
+            <Link href="/session-du-jour" className="home-challenges__link">
+              Ouvrir la page dédiée
+            </Link>
+          </div>
+
+          {loadingDailySession ? (
+            <div className="challenge-state challenge-state--compact">
+              <p>Chargement de la séance du jour...</p>
+            </div>
+          ) : !dailySession || !dailySessionTraining ? (
+            <div className="home-program-reminder-empty stack">
+              <div className="challenge-state challenge-state--compact">
+                <p>Aucune séance du jour disponible pour le moment.</p>
+              </div>
+              <div className="home-program-reminder-card__actions">
+                <Link href="/banque" className="button ghost">
+                  Ouvrir la Banque Actyv
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <article className="home-program-reminder-card daily-session-card daily-session-card--home">
+              <div className="home-program-reminder-card__top">
+                <div className={getSportBadgeClassName(dailySessionTraining.sport, 'badge', 'Sport')}>
+                  {formatSportBadgeLabel(dailySessionTraining.sport, 'Sport')}
+                </div>
+                <span className="session-progress-pill">
+                  {isDailySessionForToday(dailySession.scheduled_for)
+                    ? 'Aujourd hui'
+                    : formatDailySessionDateLabel(dailySession.scheduled_for)}
+                </span>
+              </div>
+
+              <div className="home-program-reminder-card__copy">
+                <strong>{dailySessionTraining.name}</strong>
+                <p>{dailySessionTraining.description || 'Séance publique prête à lancer.'}</p>
+              </div>
+
+              <div className="program-card__facts">
+                <span>{dailySessionTraining.difficulty || 'Difficulte libre'}</span>
+                <span>{dailySessionEstimatedDuration || 'Duree libre'}</span>
+                <span>{dailySessionBlockCount} bloc{dailySessionBlockCount > 1 ? 's' : ''}</span>
+                <span>{dailySession.bonus_xp} XP bonus</span>
+              </div>
+
+              {dailySessionCompletion ? (
+                <p className="form-feedback form-feedback--success">
+                  Bonus du jour déjà récupéré.
+                </p>
+              ) : null}
+
+              <div className="home-program-reminder-card__actions">
+                <Link
+                  href={`/sessions/${dailySessionTraining.id}/live?dailySessionId=${dailySession.id}`}
+                  className="button primary"
+                >
+                  {dailySessionCompletion ? 'Relancer' : 'Lancer'}
+                </Link>
+                <Link href="/session-du-jour" className="button ghost">
+                  Voir la séance du jour
+                </Link>
+              </div>
+            </article>
+          )}
         </section>
 
         <section className="home-placeholder card home-program-reminders">
