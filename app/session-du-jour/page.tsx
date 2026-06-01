@@ -8,6 +8,7 @@ import { fetchTrainingSessionBlocks, type TrainingSessionBlockRecord } from '@/l
 import { getSessionEstimatedDuration, formatBlockMainValue } from '@/lib/session-blocks';
 import {
   formatDailySessionDateLabel,
+  getDailySessionStreakDays,
   getTodayIsoDate,
   isDailySessionForToday,
   type DailySession,
@@ -40,6 +41,7 @@ export default function DailySessionPage() {
   const [session, setSession] = useState<TrainingSessionSummary | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [completion, setCompletion] = useState<DailySessionCompletion | null>(null);
+  const [streakDays, setStreakDays] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -131,21 +133,41 @@ export default function DailySessionPage() {
 
         if (!user) {
           setCompletion(null);
+          setStreakDays(0);
           return;
         }
 
-        const { data: completionRow, error: completionError } = await supabase
-          .from('daily_session_completions')
-          .select('id, daily_session_id, user_id, session_id, workout_history_id, scheduled_for, completed_at, created_at')
-          .eq('user_id', user.id)
-          .eq('daily_session_id', selectedDailySession.id)
-          .maybeSingle();
+        const [completionResponse, streakResponse] = await Promise.all([
+          supabase
+            .from('daily_session_completions')
+            .select('id, daily_session_id, user_id, session_id, workout_history_id, scheduled_for, completed_at, created_at')
+            .eq('user_id', user.id)
+            .eq('daily_session_id', selectedDailySession.id)
+            .maybeSingle(),
+          supabase
+            .from('daily_session_completions')
+            .select('scheduled_for')
+            .eq('user_id', user.id)
+            .order('scheduled_for', { ascending: false })
+            .limit(120),
+        ]);
 
-        if (completionError) {
-          console.error('Erreur chargement completion seance du jour :', completionError);
+        if (completionResponse.error) {
+          console.error('Erreur chargement completion seance du jour :', completionResponse.error);
           setCompletion(null);
         } else {
-          setCompletion((completionRow as DailySessionCompletion | null) || null);
+          setCompletion((completionResponse.data as DailySessionCompletion | null) || null);
+        }
+
+        if (streakResponse.error) {
+          console.error('Erreur chargement streak seance du jour :', streakResponse.error);
+          setStreakDays(0);
+        } else {
+          setStreakDays(
+            getDailySessionStreakDays(
+              ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || [])
+            )
+          );
         }
       } finally {
         setLoading(false);
@@ -207,6 +229,10 @@ export default function DailySessionPage() {
                 <span>{blocks.length} bloc{blocks.length > 1 ? 's' : ''}</span>
                 <span>{dailySession.bonus_xp} XP bonus</span>
               </div>
+
+              <p className="daily-session-streak">
+                <span aria-hidden="true">🔥</span> Série actuelle <strong>{streakDays} jour{streakDays > 1 ? 's' : ''}</strong>
+              </p>
 
               {completion ? (
                 <p className="form-feedback form-feedback--success">

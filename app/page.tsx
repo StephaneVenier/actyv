@@ -7,6 +7,7 @@ import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/spor
 import { UserLevelBadge } from '@/components/user-level-badge';
 import {
   formatDailySessionDateLabel,
+  getDailySessionStreakDays,
   getTodayIsoDate,
   isDailySessionForToday,
   type DailySession,
@@ -266,6 +267,7 @@ export default function HomePage() {
   const [dailySessionCompletion, setDailySessionCompletion] = useState<DailySessionCompletion | null>(null);
   const [dailySessionBlockCount, setDailySessionBlockCount] = useState(0);
   const [dailySessionEstimatedDuration, setDailySessionEstimatedDuration] = useState<string | null>(null);
+  const [dailySessionStreakDays, setDailySessionStreakDays] = useState(0);
   const [todayProgramSessions, setTodayProgramSessions] = useState<ProgramReminderEntry[]>([]);
   const [nextProgramSession, setNextProgramSession] = useState<ProgramReminderEntry | null>(null);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
@@ -305,6 +307,7 @@ export default function HomePage() {
         setDailySessionCompletion(null);
         setDailySessionBlockCount(0);
         setDailySessionEstimatedDuration(null);
+        setDailySessionStreakDays(0);
       } else {
         const nextDailySession = (nextDailySessionResponse.data as DailySession | null) || null;
         setDailySession(nextDailySession);
@@ -314,8 +317,9 @@ export default function HomePage() {
           setDailySessionCompletion(null);
           setDailySessionBlockCount(0);
           setDailySessionEstimatedDuration(null);
+          setDailySessionStreakDays(0);
         } else {
-          const [{ data: sessionRow, error: sessionError }, completionResponse] = await Promise.all([
+          const [{ data: sessionRow, error: sessionError }, completionResponse, streakResponse] = await Promise.all([
             supabase
               .from('training_sessions')
               .select('id, user_id, name, sport, difficulty, description, visibility, created_at')
@@ -330,6 +334,14 @@ export default function HomePage() {
                   .eq('daily_session_id', nextDailySession.id)
                   .maybeSingle()
               : Promise.resolve({ data: null, error: null }),
+            userId
+              ? supabase
+                  .from('daily_session_completions')
+                  .select('scheduled_for')
+                  .eq('user_id', userId)
+                  .order('scheduled_for', { ascending: false })
+                  .limit(120)
+              : Promise.resolve({ data: [], error: null }),
           ]);
 
           if (sessionError) {
@@ -364,6 +376,17 @@ export default function HomePage() {
             setDailySessionCompletion(null);
           } else {
             setDailySessionCompletion((completionResponse.data as DailySessionCompletion | null) || null);
+          }
+
+          if (streakResponse.error) {
+            console.error('Erreur chargement streak seance du jour accueil :', streakResponse.error);
+            setDailySessionStreakDays(0);
+          } else {
+            setDailySessionStreakDays(
+              getDailySessionStreakDays(
+                ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || [])
+              )
+            );
           }
         }
       }
@@ -750,6 +773,10 @@ export default function HomePage() {
                 <span>{dailySessionBlockCount} bloc{dailySessionBlockCount > 1 ? 's' : ''}</span>
                 <span>{dailySession.bonus_xp} XP bonus</span>
               </div>
+
+              <p className="daily-session-streak">
+                <span aria-hidden="true">🔥</span> Série actuelle <strong>{dailySessionStreakDays} jour{dailySessionStreakDays > 1 ? 's' : ''}</strong>
+              </p>
 
               {dailySessionCompletion ? (
                 <p className="form-feedback form-feedback--success">

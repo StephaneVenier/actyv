@@ -2115,6 +2115,20 @@ img {
   color: rgba(226, 247, 239, 0.76);
 }
 
+.daily-session-streak {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -2px 0 0;
+  color: #c6f6d5;
+  font-size: 0.95rem;
+}
+
+.daily-session-streak strong {
+  color: #f4f7f6;
+  font-weight: 700;
+}
+
 .daily-session-hero {
   background:
     linear-gradient(135deg, rgba(11, 42, 62, 0.95), rgba(16, 68, 75, 0.88)),
