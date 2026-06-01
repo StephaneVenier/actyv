@@ -2029,6 +2029,18 @@ img {
   gap: 18px;
 }
 
+.home-daily-session .home-challenges__header h2,
+.home-program-reminders .home-challenges__header h2 {
+  color: #f4f7f6;
+}
+
+.home-daily-session .home-challenges__header p,
+.home-program-reminders .home-challenges__header p,
+.home-daily-session .muted,
+.home-program-reminders .muted {
+  color: #cbd5e1;
+}
+
 .home-program-reminder-list,
 .home-program-reminder-empty {
   display: grid;
