@@ -2114,6 +2114,19 @@ img {
   gap: 18px;
 }
 
+.daily-session-blocks .section-kicker,
+.daily-session-blocks .home-challenges__header h2,
+.daily-session-block-card .session-block-card__top strong {
+  color: #ffffff;
+}
+
+.daily-session-block-card .muted,
+.daily-session-block-card p,
+.daily-session-blocks .home-challenges__header p,
+.daily-session-blocks .home-challenges__header small {
+  color: #cbd5e1;
+}
+
 .daily-session-blocks__list {
   display: grid;
   gap: 12px;
@@ -2121,6 +2134,10 @@ img {
 
 .daily-session-block-card {
   border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(15, 23, 42, 0.76), rgba(30, 41, 59, 0.9)),
+    rgba(15, 23, 42, 0.88);
+  border: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .feed-item__top {
