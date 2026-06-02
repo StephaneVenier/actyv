@@ -1169,6 +1169,7 @@ create table if not exists public.workout_sessions_history (
   estimated_calories integer,
   total_volume numeric,
   completed_exercises integer,
+  metadata jsonb not null default '{}'::jsonb,
   run_key text unique,
   created_at timestamptz not null default now()
 );

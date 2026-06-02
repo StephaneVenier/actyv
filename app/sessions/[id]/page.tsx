@@ -21,6 +21,7 @@ import {
 import { XP_RULES } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
+import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
 type TrainingSession = {
   id: string;
@@ -41,6 +42,7 @@ type WorkoutHistoryEntry = {
   total_volume: number | null;
   completed_exercises: number | null;
   estimated_calories?: number | null;
+  metadata?: unknown;
 };
 
 type WorkoutHistoryExerciseEntry = {
@@ -94,9 +96,18 @@ type SessionRecordSummary = {
 };
 
 type WorkoutHistoryDetailSummary = {
+  totalBlocks: number;
+  completedBlocks: number;
+  skippedBlocks: number;
+  totalSets: number;
   validatedSets: number;
+  skippedSets: number;
   totalRepetitions: number;
   totalVolumeKg: number;
+  completionRate: number;
+  completionType: 'full' | 'partial';
+  estimatedCaloriesValue: number | null;
+  earnedXp: number;
 };
 
 function formatRelativeDate(dateString: string | null) {
@@ -260,14 +271,32 @@ export default function SessionDetailPage() {
           setBlocks(blockRows || []);
         }
 
-        const { data: historyRows, error: historyError } = await supabase
+        let historyResponse = await supabase
           .from('workout_sessions_history')
           .select(
-            'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
+            'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories, metadata'
           )
           .eq('user_id', user.id)
           .eq('workout_id', currentSession.id)
           .order('completed_at', { ascending: true });
+
+        const missingMetadataColumn =
+          historyResponse.error?.code === 'PGRST204' ||
+          historyResponse.error?.code === '42703' ||
+          (historyResponse.error?.message || '').toLowerCase().includes('metadata');
+
+        if (missingMetadataColumn) {
+          historyResponse = await supabase
+            .from('workout_sessions_history')
+            .select(
+              'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
+            )
+            .eq('user_id', user.id)
+            .eq('workout_id', currentSession.id)
+            .order('completed_at', { ascending: true });
+        }
+
+        const { data: historyRows, error: historyError } = historyResponse;
 
         if (historyError) {
           console.error('Erreur chargement historique detail seance :', historyError);
@@ -279,15 +308,34 @@ export default function SessionDetailPage() {
           let matchedByWorkoutNameWithNullId: WorkoutHistoryEntry[] = [];
 
           if (exactHistoryRows.length === 0) {
-            const { data: fallbackRows, error: fallbackError } = await supabase
+            let fallbackResponse = await supabase
               .from('workout_sessions_history')
               .select(
-                'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
+                'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories, metadata'
               )
               .eq('user_id', user.id)
               .is('workout_id', null)
               .eq('workout_name', currentSession.name)
               .order('completed_at', { ascending: true });
+
+            const fallbackMissingMetadataColumn =
+              fallbackResponse.error?.code === 'PGRST204' ||
+              fallbackResponse.error?.code === '42703' ||
+              (fallbackResponse.error?.message || '').toLowerCase().includes('metadata');
+
+            if (fallbackMissingMetadataColumn) {
+              fallbackResponse = await supabase
+                .from('workout_sessions_history')
+                .select(
+                  'id, workout_id, workout_name, completed_at, duration_seconds, total_volume, completed_exercises, estimated_calories'
+                )
+                .eq('user_id', user.id)
+                .is('workout_id', null)
+                .eq('workout_name', currentSession.name)
+                .order('completed_at', { ascending: true });
+            }
+
+            const { data: fallbackRows, error: fallbackError } = fallbackResponse;
 
             if (fallbackError) {
               console.error('Erreur chargement historique fallback detail seance :', fallbackError);
@@ -708,71 +756,113 @@ export default function SessionDetailPage() {
     });
 
     return new Map<string, WorkoutHistoryDetailSummary>(
-      [...groupedEntries.entries()].map(([historyId, entries]) => {
-        const validatedSets = entries.reduce(
-          (total, entry) => total + normalizePositiveInteger(entry.sets_count, 1),
+      historyEntries.map((entry) => {
+        const metadata = parseWorkoutCompletionMetadata(entry.metadata);
+        const entries = groupedEntries.get(entry.id) || [];
+        const validatedSetsFromExercises = entries.reduce(
+          (total, historyEntry) => total + normalizePositiveInteger(historyEntry.sets_count, 1),
           0
         );
-        const totalRepetitions = entries.reduce((total, entry) => {
-          if (entry.block_type !== 'reps') {
+        const totalRepetitionsFromExercises = entries.reduce((total, historyEntry) => {
+          if (historyEntry.block_type !== 'reps') {
             return total;
           }
 
-          const repsValue = normalizePositiveInteger(entry.reps, 0);
-          const setsValue = normalizePositiveInteger(entry.sets_count, 1);
+          const repsValue = normalizePositiveInteger(historyEntry.reps, 0);
+          const setsValue = normalizePositiveInteger(historyEntry.sets_count, 1);
           return total + repsValue * setsValue;
         }, 0);
-        const totalVolumeKg = entries.reduce((total, entry) => {
-          const volumeValue = Number(entry.volume);
+        const totalVolumeFromExercises = entries.reduce((total, historyEntry) => {
+          const volumeValue = Number(historyEntry.volume);
           return total + (Number.isFinite(volumeValue) && volumeValue > 0 ? volumeValue : 0);
         }, 0);
 
+        const completedBlocks =
+          metadata.completed_blocks ?? normalizePositiveInteger(entry.completed_exercises, 0);
+        const totalBlocks = Math.max(
+          metadata.total_blocks ?? 0,
+          blocks.length,
+          completedBlocks
+        );
+        const skippedBlocks = metadata.skipped_blocks ?? Math.max(totalBlocks - completedBlocks, 0);
+        const validatedSets = metadata.completed_sets ?? validatedSetsFromExercises;
+        const totalSets = Math.max(metadata.total_sets ?? 0, validatedSets);
+        const skippedSets = metadata.skipped_sets ?? Math.max(totalSets - validatedSets, 0);
+        const totalRepetitions = metadata.total_repetitions ?? totalRepetitionsFromExercises;
+        const totalVolumeKg =
+          metadata.total_volume ??
+          (totalVolumeFromExercises > 0
+            ? totalVolumeFromExercises
+            : Number.isFinite(Number(entry.total_volume))
+              ? Number(entry.total_volume)
+              : 0);
+        const completionRate =
+          metadata.completion_rate ??
+          (totalBlocks > 0 ? Math.min(100, Math.max(0, Math.round((completedBlocks / totalBlocks) * 100))) : 0);
+        const estimatedCaloriesValue =
+          metadata.estimated_calories ??
+          (Number.isFinite(Number(entry.estimated_calories)) && Number(entry.estimated_calories) > 0
+            ? Number(entry.estimated_calories)
+            : null);
+
         return [
-          historyId,
+          entry.id,
           {
+            totalBlocks,
+            completedBlocks,
+            skippedBlocks,
+            totalSets,
             validatedSets,
+            skippedSets,
             totalRepetitions,
             totalVolumeKg,
+            completionRate,
+            completionType: metadata.completion_type || (skippedBlocks > 0 || skippedSets > 0 ? 'partial' : 'full'),
+            estimatedCaloriesValue,
+            earnedXp: metadata.earned_xp ?? XP_RULES.session_completed.xp,
           },
         ];
       })
     );
-  }, [historyExerciseEntries]);
+  }, [blocks.length, historyEntries, historyExerciseEntries]);
   const normalizedHistoryEntries = useMemo(
     () =>
       historyEntries.map((entry) => {
-        const completedExercises =
-          Number.isFinite(Number(entry.completed_exercises)) && Number(entry.completed_exercises) > 0
-            ? Number(entry.completed_exercises)
-            : 0;
-        const totalBlocks = Math.max(blocks.length, completedExercises, 0);
-        const completionRate =
-          totalBlocks > 0 ? Math.min(100, Math.max(0, Math.round((completedExercises / totalBlocks) * 100))) : 0;
         const historyDetail = historyDetailsByEntryId.get(entry.id) || {
+          totalBlocks: Math.max(blocks.length, 0),
+          completedBlocks:
+            Number.isFinite(Number(entry.completed_exercises)) && Number(entry.completed_exercises) > 0
+              ? Number(entry.completed_exercises)
+              : 0,
+          skippedBlocks: 0,
+          totalSets: 0,
           validatedSets: 0,
+          skippedSets: 0,
           totalRepetitions: 0,
           totalVolumeKg: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
+          completionRate: 0,
+          completionType: 'full' as const,
+          estimatedCaloriesValue:
+            Number.isFinite(Number(entry.estimated_calories)) && Number(entry.estimated_calories) > 0
+              ? Number(entry.estimated_calories)
+              : null,
+          earnedXp: XP_RULES.session_completed.xp,
         };
-        const estimatedCaloriesValue = Number(entry.estimated_calories);
 
         return {
           ...entry,
-          completedExercises,
-          totalBlocks,
-          completionRate,
+          completedExercises: historyDetail.completedBlocks,
+          skippedBlocks: historyDetail.skippedBlocks,
+          totalBlocks: historyDetail.totalBlocks,
+          completionRate: historyDetail.completionRate,
+          completionType: historyDetail.completionType,
+          totalSets: historyDetail.totalSets,
           validatedSets: historyDetail.validatedSets,
+          skippedSets: historyDetail.skippedSets,
           totalRepetitions: historyDetail.totalRepetitions,
-          totalVolumeKg:
-            historyDetail.totalVolumeKg > 0
-              ? historyDetail.totalVolumeKg
-              : Number.isFinite(Number(entry.total_volume))
-                ? Number(entry.total_volume)
-                : 0,
-          estimatedCaloriesValue:
-            Number.isFinite(estimatedCaloriesValue) && estimatedCaloriesValue > 0
-              ? estimatedCaloriesValue
-              : null,
-          earnedXp: XP_RULES.session_completed.xp,
+          totalVolumeKg: historyDetail.totalVolumeKg,
+          estimatedCaloriesValue: historyDetail.estimatedCaloriesValue,
+          earnedXp: historyDetail.earnedXp,
         };
       }),
     [blocks.length, historyDetailsByEntryId, historyEntries]
@@ -788,14 +878,14 @@ export default function SessionDetailPage() {
         )
       : null;
   const bestVolume =
-    historyEntries.length > 0
-      ? historyEntries.reduce((best, entry) => Math.max(best, Number(entry.total_volume || 0)), 0)
+    normalizedHistoryEntries.length > 0
+      ? normalizedHistoryEntries.reduce((best, entry) => Math.max(best, Number(entry.totalVolumeKg || 0)), 0)
       : 0;
-  const lastCompletedAt = historyEntries[0]?.completed_at || null;
+  const lastCompletedAt = historyEntries[historyEntries.length - 1]?.completed_at || null;
   const totalCumulativeVolume = useMemo(
     () =>
       normalizedHistoryEntries.reduce(
-        (total, entry) => total + (Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0),
+        (total, entry) => total + (Number.isFinite(Number(entry.totalVolumeKg)) ? Number(entry.totalVolumeKg) : 0),
         0
       ),
     [normalizedHistoryEntries]
@@ -848,7 +938,7 @@ export default function SessionDetailPage() {
       id: entry.id,
       label: formatChartDayLabel(entry.completed_at),
       completedAt: entry.completed_at,
-      volume: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
+      volume: Number.isFinite(Number(entry.totalVolumeKg)) ? Number(entry.totalVolumeKg) : 0,
       duration: Number.isFinite(Number(entry.duration_seconds)) ? Number(entry.duration_seconds) : 0,
       completionRate: entry.completionRate,
     }));
@@ -1169,12 +1259,16 @@ export default function SessionDetailPage() {
                   <strong>{lastCompletedAt ? formatRelativeDate(lastCompletedAt) : '-'}</strong>
                 </div>
                 <div className="session-meta-card">
-                  <span>Duree moyenne</span>
-                  <strong>{formatDurationLabel(averageDurationSeconds) || '-'}</strong>
+                  <span>Meilleure duree</span>
+                  <strong>{formatDurationLabel(sessionRecordSummary.longestDurationSeconds) || '-'}</strong>
                 </div>
                 <div className="session-meta-card">
                   <span>Volume total cumule</span>
                   <strong>{formatSessionVolumeKg(totalCumulativeVolume) || '-'}</strong>
+                </div>
+                <div className="session-meta-card">
+                  <span>Meilleure seance en volume</span>
+                  <strong>{formatSessionVolumeKg(sessionRecordSummary.bestVolumeKg) || '-'}</strong>
                 </div>
               </div>
 
@@ -1590,6 +1684,9 @@ export default function SessionDetailPage() {
                             Blocs : <strong>{entry.completedExercises} / {entry.totalBlocks}</strong>
                           </p>
                           <p>
+                            Calories : <strong>{formatEstimatedWorkoutCalories(entry.estimatedCaloriesValue) || '-'}</strong>
+                          </p>
+                          <p>
                             Volume : <strong>{formatSessionVolumeKg(entry.totalVolumeKg) || '-'}</strong>
                           </p>
                           <p>
@@ -1617,8 +1714,16 @@ export default function SessionDetailPage() {
                                 <strong>{entry.completedExercises} / {entry.totalBlocks}</strong>
                               </div>
                               <div className="session-meta-card">
+                                <span>Blocs passes</span>
+                                <strong>{entry.skippedBlocks > 0 ? entry.skippedBlocks : '-'}</strong>
+                              </div>
+                              <div className="session-meta-card">
                                 <span>Series validees</span>
                                 <strong>{entry.validatedSets > 0 ? entry.validatedSets : '-'}</strong>
+                              </div>
+                              <div className="session-meta-card">
+                                <span>Series passees</span>
+                                <strong>{entry.skippedSets > 0 ? entry.skippedSets : '-'}</strong>
                               </div>
                               <div className="session-meta-card">
                                 <span>Repetitions</span>
@@ -1638,7 +1743,7 @@ export default function SessionDetailPage() {
                               </div>
                               <div className="session-meta-card">
                                 <span>Statut</span>
-                                <strong>Terminee</strong>
+                                <strong>{entry.completionType === 'partial' ? 'Partielle' : 'Terminee'}</strong>
                               </div>
                             </div>
 
@@ -1646,7 +1751,8 @@ export default function SessionDetailPage() {
                               <p>
                                 Resume : {entry.completedExercises} bloc{entry.completedExercises > 1 ? 's' : ''}{' '}
                                 valide{entry.completedExercises > 1 ? 's' : ''}, {entry.validatedSets}{' '}
-                                serie{entry.validatedSets > 1 ? 's' : ''} et{' '}
+                                serie{entry.validatedSets > 1 ? 's' : ''}, {entry.skippedSets}{' '}
+                                serie{entry.skippedSets > 1 ? 's' : ''} passe{entry.skippedSets > 1 ? 'es' : 'e'} et{' '}
                                 {entry.totalRepetitions > 0 ? `${entry.totalRepetitions} repetitions` : 'aucune repetition comptabilisee'}.
                               </p>
                             </div>

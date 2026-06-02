@@ -26,6 +26,7 @@ import {
 import { awardXp, getBadgeByCode, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
+import { WorkoutCompletionMetadata } from '@/lib/workout-history';
 
 type TrainingSession = {
   id: string;
@@ -148,6 +149,7 @@ export default function LiveSessionPage() {
   const [historySaved, setHistorySaved] = useState(false);
   const [startedSeriesKey, setStartedSeriesKey] = useState<string | null>(null);
   const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
+  const [awardedBadgeCodes, setAwardedBadgeCodes] = useState<string[]>([]);
   const [earnedXpTotal, setEarnedXpTotal] = useState(0);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
@@ -261,6 +263,7 @@ export default function LiveSessionPage() {
         setHistoryMessage(null);
         setSaveState('idle');
         setNewPersonalRecords([]);
+        setAwardedBadgeCodes([]);
         setStartedSeriesKey(null);
         setEarnedXpTotal(0);
         setRunKey(createLiveRunKey());
@@ -528,6 +531,29 @@ export default function LiveSessionPage() {
       }, 0),
     [blocks, completedBlockIds, completedSetsByBlockId]
   );
+  const totalSetsCount = useMemo(
+    () => blocks.reduce((total, block) => total + normalizeSessionSetsCount(block.sets_count), 0),
+    [blocks]
+  );
+  const skippedSeriesCount = useMemo(
+    () =>
+      blocks.reduce((total, block) => {
+        if (!skippedBlockIds.includes(block.id)) {
+          return total;
+        }
+
+        const totalSets = normalizeSessionSetsCount(block.sets_count);
+        const completedSets = Math.min(
+          Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
+          totalSets
+        );
+
+        return total + Math.max(totalSets - completedSets, 0);
+      }, 0),
+    [blocks, skippedBlockIds, completedSetsByBlockId]
+  );
+  const completionRate = blocks.length > 0 ? Math.round((completedBlocksCount / blocks.length) * 100) : 0;
+  const isPartialCompletion = skippedBlocksCount > 0 || skippedSeriesCount > 0;
 
   const totalExercisesCount = blocks.length;
   const displayedEarnedXp = historySaved ? earnedXpTotal : XP_RULES.session_completed.xp;
@@ -775,6 +801,7 @@ export default function LiveSessionPage() {
     setHistorySaved(false);
     setHistoryMessage(null);
     setNewPersonalRecords([]);
+    setAwardedBadgeCodes([]);
     setStartedSeriesKey(null);
     setEarnedXpTotal(0);
     setSaveState('idle');
@@ -972,6 +999,43 @@ export default function LiveSessionPage() {
       const normalizedCompletedExercises = Number.isFinite(Number(completedBlocksCount))
         ? Number(completedBlocksCount)
         : 0;
+      const normalizedSkippedBlocks = Number.isFinite(Number(skippedBlocksCount))
+        ? Number(skippedBlocksCount)
+        : 0;
+      const normalizedTotalBlocks = Number.isFinite(Number(totalExercisesCount))
+        ? Number(totalExercisesCount)
+        : 0;
+      const normalizedCompletedSets = Number.isFinite(Number(validatedSeriesCount))
+        ? Number(validatedSeriesCount)
+        : 0;
+      const normalizedSkippedSets = Number.isFinite(Number(skippedSeriesCount))
+        ? Number(skippedSeriesCount)
+        : 0;
+      const normalizedTotalSets = Number.isFinite(Number(totalSetsCount))
+        ? Number(totalSetsCount)
+        : 0;
+      const normalizedCompletionRate = Number.isFinite(Number(completionRate))
+        ? Number(completionRate)
+        : 0;
+      const normalizedTotalRepetitions = Number.isFinite(Number(totalRepetitionsCount))
+        ? Number(totalRepetitionsCount)
+        : 0;
+      const completionType: WorkoutCompletionMetadata['completion_type'] = isPartialCompletion ? 'partial' : 'full';
+      const historyMetadata: WorkoutCompletionMetadata = {
+        stats_version: 2,
+        total_blocks: normalizedTotalBlocks,
+        completed_blocks: normalizedCompletedExercises,
+        skipped_blocks: normalizedSkippedBlocks,
+        total_sets: normalizedTotalSets,
+        completed_sets: normalizedCompletedSets,
+        skipped_sets: normalizedSkippedSets,
+        completion_rate: normalizedCompletionRate,
+        completion_type: completionType,
+        total_repetitions: normalizedTotalRepetitions,
+        total_volume: normalizedTotalVolume,
+        estimated_calories: normalizedEstimatedCalories,
+        earned_xp: XP_RULES.session_completed.xp,
+      };
 
       const payload = {
         user_id: user.id,
@@ -982,17 +1046,36 @@ export default function LiveSessionPage() {
         estimated_calories: normalizedEstimatedCalories,
         total_volume: normalizedTotalVolume,
         completed_exercises: normalizedCompletedExercises,
+        metadata: historyMetadata,
       };
 
       let completionMessage: string | null = null;
 
-      const { data, error } = await supabase
+      let insertResponse = await supabase
         .from('workout_sessions_history')
         .insert(payload)
         .select(
-          'id, workout_id, user_id, workout_name, duration_seconds, estimated_calories, total_volume, completed_exercises, completed_at'
+          'id, workout_id, user_id, workout_name, duration_seconds, estimated_calories, total_volume, completed_exercises, completed_at, metadata'
         )
         .single();
+
+      const missingMetadataColumn =
+        insertResponse.error?.code === 'PGRST204' ||
+        insertResponse.error?.code === '42703' ||
+        (insertResponse.error?.message || '').toLowerCase().includes('metadata');
+
+      if (missingMetadataColumn) {
+        const { metadata, ...legacyPayload } = payload;
+        insertResponse = await supabase
+          .from('workout_sessions_history')
+          .insert(legacyPayload)
+          .select(
+            'id, workout_id, user_id, workout_name, duration_seconds, estimated_calories, total_volume, completed_exercises, completed_at'
+          )
+          .single();
+      }
+
+      const { data, error } = insertResponse;
 
       if (error) {
         console.error('Workout history insert error:', error);
@@ -1346,6 +1429,7 @@ export default function LiveSessionPage() {
         });
       });
 
+      setAwardedBadgeCodes(badgeResult.awarded);
       setHistorySaved(true);
       setEarnedXpTotal(nextEarnedXpTotal);
       setHistoryMessage(exerciseHistoryMessage || completionMessage || 'Seance enregistree.');
@@ -1362,9 +1446,14 @@ export default function LiveSessionPage() {
     blocks,
     completedBlockIds,
     completedBlocksCount,
+    completionRate,
+    totalExercisesCount,
+    totalRepetitionsCount,
+    totalSetsCount,
     elapsedSeconds,
     estimatedCalories,
     historySaved,
+    isPartialCompletion,
     programId,
     programSessionId,
     dailySessionId,
@@ -1372,6 +1461,9 @@ export default function LiveSessionPage() {
     saveState,
     session,
     sessionTotalVolume,
+    skippedBlocksCount,
+    skippedSeriesCount,
+    validatedSeriesCount,
   ]);
 
   const handleFinishSession = async () => {
@@ -1459,7 +1551,7 @@ export default function LiveSessionPage() {
               <article className="card session-live-finished session-live-finished--v1">
                 <div className="session-live-finished__hero">
                   <span className="section-kicker">Fin de seance</span>
-                  <strong>Seance terminee</strong>
+                  <strong>{isPartialCompletion ? 'Seance terminee partiellement' : 'Seance terminee'}</strong>
                 </div>
 
                 <div className="session-live-finished__stats">
@@ -1472,7 +1564,7 @@ export default function LiveSessionPage() {
                     <strong>{formatElapsedDuration(elapsedSeconds)}</strong>
                   </div>
                   <div className="session-live-fact">
-                    <span>Exercices</span>
+                    <span>Blocs valides</span>
                     <strong>{`${completedBlocksCount} / ${totalExercisesCount}`}</strong>
                   </div>
                   <div className="session-live-fact">
@@ -1480,11 +1572,15 @@ export default function LiveSessionPage() {
                     <strong>{validatedSeriesCount}</strong>
                   </div>
                   <div className="session-live-fact">
+                    <span>Series passees</span>
+                    <strong>{skippedSeriesCount}</strong>
+                  </div>
+                  <div className="session-live-fact">
                     <span>Repetitions</span>
                     <strong>{totalRepetitionsCount > 0 ? `${totalRepetitionsCount} reps` : '-'}</strong>
                   </div>
                   <div className="session-live-fact">
-                    <span>Passes</span>
+                    <span>Blocs passes</span>
                     <strong>{skippedBlocksCount}</strong>
                   </div>
                   <div className="session-live-fact">
@@ -1494,6 +1590,10 @@ export default function LiveSessionPage() {
                   <div className="session-live-fact">
                     <span>Volume</span>
                     <strong>{formatSessionVolumeKg(sessionTotalVolume) || '-'}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Taux de completion</span>
+                    <strong>{`${completionRate}%`}</strong>
                   </div>
                 </div>
 
@@ -1522,6 +1622,20 @@ export default function LiveSessionPage() {
                   >
                     {historyMessage}
                   </p>
+                ) : null}
+
+                {awardedBadgeCodes.length > 0 ? (
+                  <div className="session-live-records">
+                    <div className="session-live-records__header">
+                      <strong>Badges debloques</strong>
+                      <span className="session-block-chip">BADGES</span>
+                    </div>
+                    <div className="program-card__facts">
+                      {awardedBadgeCodes.map((badgeCode) => (
+                        <span key={badgeCode}>{getBadgeByCode(badgeCode)?.label || badgeCode}</span>
+                      ))}
+                    </div>
+                  </div>
                 ) : null}
 
                 {newPersonalRecords.length > 0 ? (
