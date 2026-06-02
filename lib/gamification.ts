@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { BADGES, getBadgeByCode, normalizeBadgeCode } from '@/lib/badges';
 import type { BadgeCode } from '@/lib/badges';
+import { getDailySessionStreakDays } from '@/lib/daily-sessions';
 
 export type XpSource =
   | 'challenge_created'
@@ -42,6 +43,10 @@ type BadgeTrainingProgramRow = {
 
 type BadgeXpEventRow = {
   event_type: string | null;
+};
+
+type BadgeDailySessionCompletionRow = {
+  scheduled_for: string;
 };
 
 export const LEVEL_XP_TABLE = [
@@ -380,6 +385,7 @@ export async function checkAndAwardBadges(userId: string) {
     workoutHistoryResponse,
     trainingProgramsResponse,
     xpEventsResponse,
+    dailySessionCompletionsResponse,
   ] = await Promise.all([
       supabase
         .from('activities')
@@ -412,6 +418,12 @@ export async function checkAndAwardBadges(userId: string) {
         .select('event_type')
         .eq('user_id', userId)
         .in('event_type', ['challenge_completed', 'program_completed']),
+      supabase
+        .from('daily_session_completions')
+        .select('scheduled_for')
+        .eq('user_id', userId)
+        .order('scheduled_for', { ascending: false })
+        .limit(120),
     ]);
 
   const firstError =
@@ -422,7 +434,8 @@ export async function checkAndAwardBadges(userId: string) {
     interactionsResponse.error ||
     workoutHistoryResponse.error ||
     trainingProgramsResponse.error ||
-    xpEventsResponse.error;
+    xpEventsResponse.error ||
+    dailySessionCompletionsResponse.error;
 
   if (firstError) {
     console.error('BADGES ERROR:', firstError);
@@ -437,6 +450,8 @@ export async function checkAndAwardBadges(userId: string) {
   const workoutHistory = workoutHistoryResponse.data || [];
   const trainingPrograms = (trainingProgramsResponse.data as BadgeTrainingProgramRow[] | null) || [];
   const xpEvents = (xpEventsResponse.data as BadgeXpEventRow[] | null) || [];
+  const dailySessionCompletions =
+    (dailySessionCompletionsResponse.data as BadgeDailySessionCompletionRow[] | null) || [];
 
   const ownedActivityIds = activities.map((activity) => activity.id);
   const reactionsReceivedResponse =
@@ -472,6 +487,8 @@ export async function checkAndAwardBadges(userId: string) {
   const sharedProgramsCount = createdPrograms.filter((program) => program.visibility === 'shared').length;
   const challengeCompletedCount = xpEvents.filter((event) => event.event_type === 'challenge_completed').length;
   const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
+  const dailySessionCount = dailySessionCompletions.length;
+  const dailySessionStreak = getDailySessionStreakDays(dailySessionCompletions);
 
   const badgesToAward: BadgeCode[] = [];
 
@@ -503,6 +520,11 @@ export async function checkAndAwardBadges(userId: string) {
   if (createdPrograms.length >= 1) badgesToAward.push('first_program_created');
   if (sharedProgramsCount >= 1) badgesToAward.push('program_shared');
   if (programCompletedCount >= 1) badgesToAward.push('program_completed');
+
+  if (dailySessionCount >= 1) badgesToAward.push('first_daily_session');
+  if (dailySessionStreak >= 3) badgesToAward.push('daily_streak_3');
+  if (dailySessionStreak >= 7) badgesToAward.push('daily_streak_7');
+  if (dailySessionStreak >= 30) badgesToAward.push('daily_streak_30');
 
   if (distinctSportsCount >= 3) badgesToAward.push('three_sports');
   if (distinctSportsCount >= 5) badgesToAward.push('five_sports');

@@ -165,6 +165,27 @@ function renderBadgeIcon(iconName: string) {
         <path d="m5 5 10-2v9L5 10" />
       </>
     ),
+    SunMedium: iconStroke(
+      <>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2" />
+        <path d="M12 20v2" />
+        <path d="m4.9 4.9 1.4 1.4" />
+        <path d="m17.7 17.7 1.4 1.4" />
+        <path d="M2 12h2" />
+        <path d="M20 12h2" />
+        <path d="m4.9 19.1 1.4-1.4" />
+        <path d="m17.7 6.3 1.4-1.4" />
+      </>
+    ),
+    CalendarCheck2: iconStroke(
+      <>
+        <path d="M8 2v4" />
+        <path d="M16 2v4" />
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="m9 14 2 2 4-4" />
+      </>
+    ),
     Share2: iconStroke(
       <>
         <circle cx="18" cy="5" r="2" />

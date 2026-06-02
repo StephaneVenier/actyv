@@ -22,6 +22,10 @@ export type BadgeCode =
   | 'first_program_created'
   | 'program_shared'
   | 'program_completed'
+  | 'first_daily_session'
+  | 'daily_streak_3'
+  | 'daily_streak_7'
+  | 'daily_streak_30'
   | 'three_sports'
   | 'five_sports';
 
@@ -65,6 +69,10 @@ const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
   premier_programme_cree: 'first_program_created',
   premier_programme_termine: 'program_completed',
   programme_partage: 'program_shared',
+  premiere_seance_du_jour: 'first_daily_session',
+  serie_quotidienne_3: 'daily_streak_3',
+  serie_quotidienne_7: 'daily_streak_7',
+  serie_quotidienne_30: 'daily_streak_30',
 };
 
 export const BADGES: BadgeDefinition[] = [
@@ -274,6 +282,42 @@ export const BADGES: BadgeDefinition[] = [
     category: 'program',
     icon: 'Flag',
     color: '#35e66b',
+  },
+  {
+    code: 'first_daily_session',
+    name: 'Premiere seance du jour',
+    label: 'Premiere seance du jour',
+    description: 'Valider une premiere seance Actyv Quotidien.',
+    category: 'session',
+    icon: 'SunMedium',
+    color: '#35e66b',
+  },
+  {
+    code: 'daily_streak_3',
+    name: 'Serie 3 jours',
+    label: 'Serie 3 jours',
+    description: 'Valider la seance du jour 3 jours de suite.',
+    category: 'session',
+    icon: 'Flame',
+    color: '#f0a35e',
+  },
+  {
+    code: 'daily_streak_7',
+    name: 'Serie 7 jours',
+    label: 'Serie 7 jours',
+    description: 'Valider la seance du jour 7 jours de suite.',
+    category: 'session',
+    icon: 'Flame',
+    color: '#ff8a4c',
+  },
+  {
+    code: 'daily_streak_30',
+    name: 'Serie 30 jours',
+    label: 'Serie 30 jours',
+    description: 'Valider la seance du jour 30 jours de suite.',
+    category: 'session',
+    icon: 'CalendarCheck2',
+    color: '#b084ff',
   },
   {
     code: 'three_sports',
