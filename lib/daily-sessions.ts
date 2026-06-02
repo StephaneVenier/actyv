@@ -57,12 +57,12 @@ function parseIsoLocalDate(dateString: string | null | undefined) {
   return new Date(parsed.getFullYear(), parsed.getMonth(), parsed.getDate());
 }
 
-export function getDailySessionStreakDays(
+function getNormalizedCompletionDates(
   completions: Array<Pick<DailySessionCompletion, 'scheduled_for'>> | null | undefined
 ) {
-  if (!completions?.length) return 0;
+  if (!completions?.length) return [];
 
-  const completionDates = Array.from(
+  return Array.from(
     new Set(
       completions
         .map((completion) => completion.scheduled_for)
@@ -72,7 +72,14 @@ export function getDailySessionStreakDays(
     .map(parseIsoLocalDate)
     .filter((date): date is Date => Boolean(date))
     .sort((left, right) => right.getTime() - left.getTime());
+}
 
+export function getDailySessionStreakDays(
+  completions: Array<Pick<DailySessionCompletion, 'scheduled_for'>> | null | undefined
+) {
+  if (!completions?.length) return 0;
+
+  const completionDates = getNormalizedCompletionDates(completions);
   if (completionDates.length === 0) return 0;
 
   const today = parseIsoLocalDate(getTodayIsoDate());
@@ -95,4 +102,29 @@ export function getDailySessionStreakDays(
   }
 
   return streak;
+}
+
+export function getBestDailySessionStreakDays(
+  completions: Array<Pick<DailySessionCompletion, 'scheduled_for'>> | null | undefined
+) {
+  const completionDates = getNormalizedCompletionDates(completions);
+  if (completionDates.length === 0) return 0;
+
+  let bestStreak = 1;
+  let currentStreak = 1;
+
+  for (let index = 1; index < completionDates.length; index += 1) {
+    const previousDate = completionDates[index - 1];
+    const currentDate = completionDates[index];
+    const dayGap = Math.round((previousDate.getTime() - currentDate.getTime()) / 86400000);
+
+    if (dayGap === 1) {
+      currentStreak += 1;
+      bestStreak = Math.max(bestStreak, currentStreak);
+    } else {
+      currentStreak = 1;
+    }
+  }
+
+  return bestStreak;
 }

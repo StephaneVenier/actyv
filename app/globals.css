@@ -2115,6 +2115,20 @@ img {
   color: rgba(226, 247, 239, 0.76);
 }
 
+.daily-session-card__eyebrow {
+  color: #86efac;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.daily-session-stats-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
 .daily-session-streak {
   display: flex;
   align-items: center;
@@ -2129,7 +2143,15 @@ img {
   font-weight: 700;
 }
 
+.daily-session-status {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.95rem;
+}
+
 .daily-session-hero {
+  display: grid;
+  gap: 20px;
   background:
     linear-gradient(135deg, rgba(11, 42, 62, 0.95), rgba(16, 68, 75, 0.88)),
     rgba(8, 18, 36, 0.96);
@@ -2142,6 +2164,29 @@ img {
 .daily-session-hero .session-hero-copy .muted,
 .daily-session-hero .session-hero-copy p {
   color: #cbd5e1;
+}
+
+.daily-session-hero__aside {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  padding: 16px 18px;
+  border-radius: 18px;
+  background: rgba(10, 20, 35, 0.42);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.daily-session-hero__label {
+  color: #86efac;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.daily-session-hero__aside strong {
+  color: #f8fafc;
+  font-size: 1.08rem;
 }
 
 .daily-session-blocks {

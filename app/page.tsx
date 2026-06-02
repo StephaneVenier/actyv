@@ -7,6 +7,7 @@ import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/spor
 import { UserLevelBadge } from '@/components/user-level-badge';
 import {
   formatDailySessionDateLabel,
+  getBestDailySessionStreakDays,
   getDailySessionStreakDays,
   getTodayIsoDate,
   isDailySessionForToday,
@@ -268,6 +269,7 @@ export default function HomePage() {
   const [dailySessionBlockCount, setDailySessionBlockCount] = useState(0);
   const [dailySessionEstimatedDuration, setDailySessionEstimatedDuration] = useState<string | null>(null);
   const [dailySessionStreakDays, setDailySessionStreakDays] = useState(0);
+  const [dailySessionBestStreakDays, setDailySessionBestStreakDays] = useState(0);
   const [todayProgramSessions, setTodayProgramSessions] = useState<ProgramReminderEntry[]>([]);
   const [nextProgramSession, setNextProgramSession] = useState<ProgramReminderEntry | null>(null);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
@@ -308,6 +310,7 @@ export default function HomePage() {
         setDailySessionBlockCount(0);
         setDailySessionEstimatedDuration(null);
         setDailySessionStreakDays(0);
+        setDailySessionBestStreakDays(0);
       } else {
         const nextDailySession = (nextDailySessionResponse.data as DailySession | null) || null;
         setDailySession(nextDailySession);
@@ -318,6 +321,7 @@ export default function HomePage() {
           setDailySessionBlockCount(0);
           setDailySessionEstimatedDuration(null);
           setDailySessionStreakDays(0);
+          setDailySessionBestStreakDays(0);
         } else {
           const [{ data: sessionRow, error: sessionError }, completionResponse, streakResponse] = await Promise.all([
             supabase
@@ -381,12 +385,14 @@ export default function HomePage() {
           if (streakResponse.error) {
             console.error('Erreur chargement streak seance du jour accueil :', streakResponse.error);
             setDailySessionStreakDays(0);
+            setDailySessionBestStreakDays(0);
           } else {
+            const streakRows =
+              ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || []);
             setDailySessionStreakDays(
-              getDailySessionStreakDays(
-                ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || [])
-              )
+              getDailySessionStreakDays(streakRows)
             );
+            setDailySessionBestStreakDays(getBestDailySessionStreakDays(streakRows));
           }
         }
       }
@@ -727,6 +733,7 @@ export default function HomePage() {
           <div className="home-challenges__header">
             <div>
               <span className="section-kicker">Actyv quotidien</span>
+              <p>Ta mission sportive du jour</p>
               <h2>Séance du jour</h2>
             </div>
             <Link href="/session-du-jour" className="home-challenges__link">
@@ -763,6 +770,9 @@ export default function HomePage() {
               </div>
 
               <div className="home-program-reminder-card__copy">
+                <span className="daily-session-card__eyebrow">
+                  {isDailySessionForToday(dailySession.scheduled_for) ? "Seance d'aujourd'hui" : 'Prochaine seance du jour'}
+                </span>
                 <strong>{dailySessionTraining.name}</strong>
                 <p>{dailySessionTraining.description || 'Séance publique prête à lancer.'}</p>
               </div>
@@ -774,15 +784,30 @@ export default function HomePage() {
                 <span>{dailySession.bonus_xp} XP bonus</span>
               </div>
 
+              <div className="daily-session-stats-grid">
               <p className="daily-session-streak">
                 <span aria-hidden="true">🔥</span> Série actuelle <strong>{dailySessionStreakDays} jour{dailySessionStreakDays > 1 ? 's' : ''}</strong>
               </p>
 
+              <p className="daily-session-streak">
+                <span aria-hidden="true">🏅</span> Meilleure serie <strong>{dailySessionBestStreakDays} jour{dailySessionBestStreakDays > 1 ? 's' : ''}</strong>
+              </p>
+              </div>
+
               {dailySessionCompletion ? (
+                <>
+                <p className="daily-session-status">
+                  Deja realisee aujourd&apos;hui. Relance libre, sans XP supplementaire.
+                </p>
                 <p className="form-feedback form-feedback--success">
                   Bonus du jour déjà récupéré.
                 </p>
-              ) : null}
+                </>
+              ) : (
+                <p className="daily-session-status">
+                  Seance non realisee. {dailySession.bonus_xp} XP bonus disponibles aujourd&apos;hui.
+                </p>
+              )}
 
               <div className="home-program-reminder-card__actions">
                 <Link

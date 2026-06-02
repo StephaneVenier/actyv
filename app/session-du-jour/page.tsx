@@ -8,6 +8,7 @@ import { fetchTrainingSessionBlocks, type TrainingSessionBlockRecord } from '@/l
 import { getSessionEstimatedDuration, formatBlockMainValue } from '@/lib/session-blocks';
 import {
   formatDailySessionDateLabel,
+  getBestDailySessionStreakDays,
   getDailySessionStreakDays,
   getTodayIsoDate,
   isDailySessionForToday,
@@ -42,6 +43,7 @@ export default function DailySessionPage() {
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [completion, setCompletion] = useState<DailySessionCompletion | null>(null);
   const [streakDays, setStreakDays] = useState(0);
+  const [bestStreakDays, setBestStreakDays] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -91,6 +93,8 @@ export default function DailySessionPage() {
           setSession(null);
           setBlocks([]);
           setCompletion(null);
+          setStreakDays(0);
+          setBestStreakDays(0);
           setMessage("Aucune seance du jour n'est programmee pour le moment.");
           return;
         }
@@ -134,6 +138,7 @@ export default function DailySessionPage() {
         if (!user) {
           setCompletion(null);
           setStreakDays(0);
+          setBestStreakDays(0);
           return;
         }
 
@@ -162,12 +167,12 @@ export default function DailySessionPage() {
         if (streakResponse.error) {
           console.error('Erreur chargement streak seance du jour :', streakResponse.error);
           setStreakDays(0);
+          setBestStreakDays(0);
         } else {
-          setStreakDays(
-            getDailySessionStreakDays(
-              ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || [])
-            )
-          );
+          const streakRows =
+            ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || []);
+          setStreakDays(getDailySessionStreakDays(streakRows));
+          setBestStreakDays(getBestDailySessionStreakDays(streakRows));
         }
       } finally {
         setLoading(false);
@@ -186,20 +191,24 @@ export default function DailySessionPage() {
         <article className="card session-hero-card daily-session-hero">
           <div className="session-hero-copy">
             <span className="section-kicker">Actyv quotidien</span>
-            <h1>Séance du jour</h1>
+            <h1>Seance du jour</h1>
             <p className="muted">
-              Une séance publique prête à lancer, avec bonus XP si tu la valides aujourd&apos;hui.
+              Une seance publique prete a lancer, avec bonus XP si tu la valides aujourd&apos;hui.
             </p>
+          </div>
+          <div className="daily-session-hero__aside">
+            <span className="daily-session-hero__label">Ta mission sportive du jour</span>
+            <strong>{streakDays} jour{streakDays > 1 ? 's' : ''} de serie</strong>
           </div>
         </article>
 
         {loading ? (
           <div className="challenge-state">
-            <p>Chargement de la séance du jour...</p>
+            <p>Chargement de la seance du jour...</p>
           </div>
         ) : !dailySession || !session ? (
           <div className="challenge-state">
-            <p>{message || "Aucune séance du jour n'est disponible."}</p>
+            <p>{message || "Aucune seance du jour n'est disponible."}</p>
             <div className="session-empty-actions">
               <Link href="/banque" className="button primary">
                 Ouvrir la Banque Actyv
@@ -214,13 +223,16 @@ export default function DailySessionPage() {
                   {formatSportBadgeLabel(session.sport, 'Sport')}
                 </div>
                 <span className="session-progress-pill">
-                  {isToday ? 'Aujourd hui' : formatDailySessionDateLabel(dailySession.scheduled_for)}
+                  {isToday ? "Aujourd'hui" : formatDailySessionDateLabel(dailySession.scheduled_for)}
                 </span>
               </div>
 
               <div className="home-program-reminder-card__copy">
+                <span className="daily-session-card__eyebrow">
+                  {isToday ? "Seance d'aujourd'hui" : 'Prochaine seance du jour'}
+                </span>
                 <strong>{session.name}</strong>
-                <p>{session.description || 'Séance publique Actyv du jour.'}</p>
+                <p>{session.description || 'Seance publique Actyv du jour.'}</p>
               </div>
 
               <div className="program-card__facts">
@@ -230,25 +242,34 @@ export default function DailySessionPage() {
                 <span>{dailySession.bonus_xp} XP bonus</span>
               </div>
 
-              <p className="daily-session-streak">
-                <span aria-hidden="true">🔥</span> Série actuelle <strong>{streakDays} jour{streakDays > 1 ? 's' : ''}</strong>
-              </p>
+              <div className="daily-session-stats-grid">
+                <p className="daily-session-streak">
+                  <span aria-hidden="true">🔥</span> Serie actuelle <strong>{streakDays} jour{streakDays > 1 ? 's' : ''}</strong>
+                </p>
+                <p className="daily-session-streak">
+                  <span aria-hidden="true">🏅</span> Meilleure serie <strong>{bestStreakDays} jour{bestStreakDays > 1 ? 's' : ''}</strong>
+                </p>
+              </div>
 
               {completion ? (
                 <p className="form-feedback form-feedback--success">
-                  Séance du jour déjà validée. Bonus XP récupéré pour {formatDailySessionDateLabel(completion.scheduled_for)}.
+                  Deja realisee aujourd&apos;hui. Bonus XP deja recupere pour {formatDailySessionDateLabel(completion.scheduled_for)}.
                 </p>
-              ) : null}
+              ) : (
+                <p className="daily-session-status">
+                  Pas encore realisee aujourd&apos;hui. {dailySession.bonus_xp} XP bonus a recuperer.
+                </p>
+              )}
 
               <div className="home-program-reminder-card__actions">
                 <Link
                   href={`/sessions/${session.id}/live?dailySessionId=${dailySession.id}`}
                   className="button primary"
                 >
-                  {completion ? 'Relancer la séance' : 'Lancer la séance'}
+                  {completion ? 'Relancer la seance' : 'Lancer la seance'}
                 </Link>
                 <Link href={`/sessions/${session.id}`} className="button ghost">
-                  Voir la séance
+                  Voir la seance
                 </Link>
               </div>
             </article>
@@ -256,8 +277,8 @@ export default function DailySessionPage() {
             <article className="card daily-session-blocks">
               <div className="home-challenges__header">
                 <div>
-                  <span className="section-kicker">Aperçu</span>
-                  <h2>Les blocs de la séance</h2>
+                  <span className="section-kicker">Apercu</span>
+                  <h2>Les blocs de la seance</h2>
                 </div>
               </div>
 
