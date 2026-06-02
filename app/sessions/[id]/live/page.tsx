@@ -1086,26 +1086,70 @@ export default function LiveSessionPage() {
 
       const awardedXpMessages: string[] = [];
       let nextEarnedXpTotal = 0;
+      let dailySessionRow:
+        | {
+            id: string;
+            session_id: string | null;
+            scheduled_for: string;
+            bonus_xp: number | null;
+          }
+        | null = null;
+      let alreadyCompletedDailySession = false;
 
-      const workoutXpResult = await awardXp({
-        userId: user.id,
-        source: 'session_completed',
-        metadata: { target_id: data.id },
-      });
+      if (dailySessionId) {
+        const { data: fetchedDailySessionRow, error: dailySessionError } = await supabase
+          .from('daily_sessions')
+          .select('id, session_id, scheduled_for, bonus_xp')
+          .eq('id', dailySessionId)
+          .maybeSingle();
 
-      if (workoutXpResult?.awarded) {
-        awardedXpMessages.push('+10 XP seance');
-        nextEarnedXpTotal += XP_RULES.session_completed.xp;
-      } else if (workoutXpResult?.error) {
-        console.error('XP award failed', {
-          payload: {
-            user_id: user.id,
-            event_type: 'session_completed',
-            xp_amount: 10,
-            target_id: data.id,
-          },
-          error: workoutXpResult.error,
+        if (dailySessionError) {
+          console.error('Daily session completion lookup error:', dailySessionError);
+          completionMessage =
+            completionMessage || "L'historique a ete enregistre, mais pas la validation de la seance du jour.";
+        } else if (fetchedDailySessionRow) {
+          dailySessionRow = fetchedDailySessionRow;
+
+          const { data: existingDailyCompletion, error: existingDailyCompletionError } = await supabase
+            .from('daily_session_completions')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('daily_session_id', dailySessionId)
+            .maybeSingle();
+
+          if (existingDailyCompletionError) {
+            console.error('Daily session completion existing check error:', existingDailyCompletionError);
+            completionMessage =
+              completionMessage || "L'historique a ete enregistre, mais pas la validation de la seance du jour.";
+          } else {
+            alreadyCompletedDailySession = Boolean(existingDailyCompletion?.id);
+          }
+        }
+      }
+
+      if (!dailySessionId || !alreadyCompletedDailySession) {
+        const workoutXpResult = await awardXp({
+          userId: user.id,
+          source: 'session_completed',
+          metadata: { target_id: data.id },
         });
+
+        if (workoutXpResult?.awarded) {
+          awardedXpMessages.push('+10 XP seance');
+          nextEarnedXpTotal += XP_RULES.session_completed.xp;
+        } else if (workoutXpResult?.error) {
+          console.error('XP award failed', {
+            payload: {
+              user_id: user.id,
+              event_type: 'session_completed',
+              xp_amount: 10,
+              target_id: data.id,
+            },
+            error: workoutXpResult.error,
+          });
+        }
+      } else {
+        completionMessage = completionMessage || "Deja realisee aujourd'hui. Aucun XP supplementaire.";
       }
 
       let exerciseHistoryMessage: string | null = null;
@@ -1343,71 +1387,51 @@ export default function LiveSessionPage() {
         }
       }
 
-      if (dailySessionId) {
-        const { data: dailySessionRow, error: dailySessionError } = await supabase
-          .from('daily_sessions')
-          .select('id, session_id, scheduled_for, bonus_xp')
-          .eq('id', dailySessionId)
-          .maybeSingle();
+      if (dailySessionId && dailySessionRow) {
+        if (!alreadyCompletedDailySession) {
+          const dailyCompletionPayload = {
+            user_id: user.id,
+            daily_session_id: dailySessionId,
+            session_id: session.id,
+            workout_history_id: data.id,
+            scheduled_for: dailySessionRow.scheduled_for,
+            completed_at: payload.completed_at,
+          };
 
-        if (dailySessionError) {
-          console.error('Daily session completion lookup error:', dailySessionError);
-          completionMessage = completionMessage || "L'historique a ete enregistre, mais pas la validation de la seance du jour.";
-        } else if (dailySessionRow) {
-          const { data: existingDailyCompletion, error: existingDailyCompletionError } = await supabase
+          const { error: dailyCompletionInsertError } = await supabase
             .from('daily_session_completions')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('daily_session_id', dailySessionId)
-            .maybeSingle();
+            .insert(dailyCompletionPayload);
 
-          if (existingDailyCompletionError) {
-            console.error('Daily session completion existing check error:', existingDailyCompletionError);
+          if (dailyCompletionInsertError) {
+            console.error('Daily session completion insert error:', dailyCompletionInsertError);
             completionMessage =
               completionMessage || "L'historique a ete enregistre, mais pas la validation de la seance du jour.";
-          } else if (!existingDailyCompletion) {
-            const dailyCompletionPayload = {
-              user_id: user.id,
-              daily_session_id: dailySessionId,
-              session_id: session.id,
-              workout_history_id: data.id,
-              scheduled_for: dailySessionRow.scheduled_for,
-              completed_at: payload.completed_at,
-            };
+          } else {
+            const bonusXp = Number(dailySessionRow.bonus_xp || 25);
+            const dailyXpResult = await awardXp({
+              userId: user.id,
+              source: 'daily_session_completed',
+              metadata: { target_id: dailySessionId },
+              xpOverride: bonusXp,
+            });
 
-            const { error: dailyCompletionInsertError } = await supabase
-              .from('daily_session_completions')
-              .insert(dailyCompletionPayload);
-
-            if (dailyCompletionInsertError) {
-              console.error('Daily session completion insert error:', dailyCompletionInsertError);
-              completionMessage =
-                completionMessage || "L'historique a ete enregistre, mais pas la validation de la seance du jour.";
-            } else {
-              const bonusXp = Number(dailySessionRow.bonus_xp || 25);
-              const dailyXpResult = await awardXp({
-                userId: user.id,
-                source: 'daily_session_completed',
-                metadata: { target_id: dailySessionId },
-                xpOverride: bonusXp,
+            if (dailyXpResult?.awarded) {
+              awardedXpMessages.push(`+${bonusXp} XP seance du jour`);
+              nextEarnedXpTotal += bonusXp;
+            } else if (dailyXpResult?.error) {
+              console.error('XP award failed', {
+                payload: {
+                  user_id: user.id,
+                  event_type: 'daily_session_completed',
+                  xp_amount: bonusXp,
+                  target_id: dailySessionId,
+                },
+                error: dailyXpResult.error,
               });
-
-              if (dailyXpResult?.awarded) {
-                awardedXpMessages.push(`+${bonusXp} XP seance du jour`);
-                nextEarnedXpTotal += bonusXp;
-              } else if (dailyXpResult?.error) {
-                console.error('XP award failed', {
-                  payload: {
-                    user_id: user.id,
-                    event_type: 'daily_session_completed',
-                    xp_amount: bonusXp,
-                    target_id: dailySessionId,
-                  },
-                  error: dailyXpResult.error,
-                });
-              }
             }
           }
+        } else {
+          completionMessage = completionMessage || "Deja realisee aujourd'hui. Aucun XP supplementaire.";
         }
       }
 
