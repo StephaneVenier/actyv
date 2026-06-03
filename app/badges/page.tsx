@@ -4,7 +4,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
-import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
+import { BadgeArtwork } from '@/components/badge-artwork';
+import { BADGES, getUnlockedBadgeCodes, normalizeBadgeCode } from '@/lib/badges';
 import type { BadgeDefinition, UserBadge } from '@/lib/badges';
 import { refreshUserBadges } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
@@ -277,6 +278,15 @@ export default function BadgesPage() {
 
   const unlockedBadgeCodes = useMemo(() => getUnlockedBadgeCodes(userBadges), [userBadges]);
   const unlockedCount = unlockedBadgeCodes.size;
+  const unlockedBadgeDates = useMemo(() => {
+    return userBadges.reduce<Record<string, string>>((accumulator, badge) => {
+      const normalizedCode = normalizeBadgeCode(badge.badge_code);
+      if (normalizedCode && badge.unlocked_at) {
+        accumulator[normalizedCode] = badge.unlocked_at;
+      }
+      return accumulator;
+    }, {});
+  }, [userBadges]);
 
   const orderedBadges = useMemo(() => {
     return [...BADGES].sort((left, right) => {
@@ -290,6 +300,20 @@ export default function BadgesPage() {
       return left.name.localeCompare(right.name, 'fr');
     });
   }, [unlockedBadgeCodes]);
+
+  const formatUnlockedDate = (value: string | undefined) => {
+    if (!value) return null;
+
+    try {
+      return new Intl.DateTimeFormat('fr-FR', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(new Date(value));
+    } catch {
+      return null;
+    }
+  };
 
   if (loading) {
     return (
@@ -367,6 +391,7 @@ export default function BadgesPage() {
         <section className="badges-collection-grid">
           {orderedBadges.map((badge) => {
             const unlocked = unlockedBadgeCodes.has(badge.code);
+            const unlockedDate = formatUnlockedDate(unlockedBadgeDates[badge.code]);
 
             return (
               <article
@@ -379,6 +404,13 @@ export default function BadgesPage() {
                 }
               >
                 <div className="badge-collection-card__top">
+                  <BadgeArtwork
+                    badgeCode={badge.code}
+                    badgeName={badge.name}
+                    unlocked={unlocked}
+                    className="badge-collection-card__artwork"
+                    fallback={renderBadgeIcon(badge.icon)}
+                  />
                   <span className={`badge-collection-card__status${unlocked ? ' badge-collection-card__status--unlocked' : ''}`}>
                     {unlocked ? 'Debloque' : 'Verrouille'}
                   </span>
@@ -391,9 +423,12 @@ export default function BadgesPage() {
 
                 <div className="badge-collection-card__meta">
                   <span>{getBadgeCategoryLabel(badge)}</span>
-                  <span className="badge-collection-card__icon badge-collection-card__icon--meta" aria-hidden="true">
-                    {renderBadgeIcon(badge.icon)}
-                  </span>
+                  <div className="badge-collection-card__meta-right">
+                    {unlockedDate ? <span className="badge-collection-card__date">{unlockedDate}</span> : null}
+                    <span className="badge-collection-card__icon badge-collection-card__icon--meta" aria-hidden="true">
+                      {renderBadgeIcon(badge.icon)}
+                    </span>
+                  </div>
                 </div>
               </article>
             );

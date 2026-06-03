@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { BadgeArtwork } from '@/components/badge-artwork';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
 import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
@@ -552,6 +553,7 @@ export default function ProfilePage() {
   const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
   const badgeCount = unlockedBadges.length;
   const totalBadgeCount = BADGES.length;
+  const featuredBadges = unlockedBadges.slice(0, 4);
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -961,15 +963,34 @@ export default function ProfilePage() {
           </div>
 
           <div className="profile-badges-summary-card__content">
-            <div className="profile-badges-summary-card__stats">
-              <strong>
-                {badgeCount} / {totalBadgeCount} debloques
-              </strong>
-              <p>
-                {badgeCount === 0
-                  ? 'Aucun badge debloque pour le moment.'
-                  : `${totalBadgeCount - badgeCount} badge${totalBadgeCount - badgeCount > 1 ? 's' : ''} restent a aller chercher.`}
-              </p>
+            <div className="profile-badges-summary-card__body">
+              <div className="profile-badges-summary-card__stats">
+                <strong>
+                  {badgeCount} / {totalBadgeCount} debloques
+                </strong>
+                <p>
+                  {badgeCount === 0
+                    ? 'Aucun badge debloque pour le moment.'
+                    : `${totalBadgeCount - badgeCount} badge${totalBadgeCount - badgeCount > 1 ? 's' : ''} restent a aller chercher.`}
+                </p>
+              </div>
+
+              <div className="profile-badges-summary-card__artwork-row" aria-label="Apercu des badges">
+                {featuredBadges.length > 0 ? (
+                  featuredBadges.map((badge) => (
+                    <BadgeArtwork
+                      key={badge.code}
+                      badgeCode={badge.code}
+                      badgeName={badge.name}
+                      unlocked
+                      className="profile-badge-preview"
+                      fallback={badge.name.slice(0, 1).toUpperCase()}
+                    />
+                  ))
+                ) : (
+                  <span className="profile-badges-summary-card__empty">Tes prochains badges apparaitront ici.</span>
+                )}
+              </div>
             </div>
 
             <Link href="/badges" className="button primary">

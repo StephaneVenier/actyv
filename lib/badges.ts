@@ -353,6 +353,12 @@ export function getBadgeByCode(code: string | null | undefined) {
   return BADGES.find((badge) => badge.code === normalizedCode) || null;
 }
 
+export function getBadgeArtworkSrc(code: string | null | undefined) {
+  const normalizedCode = normalizeBadgeCode(code);
+  if (!normalizedCode) return null;
+  return `/badges/${normalizedCode}.webp`;
+}
+
 export function getUnlockedBadgeCodes(userBadges: UserBadge[]) {
   return new Set(
     userBadges
