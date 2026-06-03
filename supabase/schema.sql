@@ -494,6 +494,10 @@ declare
   completed_challenges_count integer := 0;
   completed_programs_count integer := 0;
   distinct_sports_count integer := 0;
+  daily_session_count integer := 0;
+  daily_session_streak integer := 0;
+  ordered_daily_dates date[];
+  streak_date date;
 begin
   if p_user_id is null then
     return jsonb_build_object(
@@ -589,6 +593,35 @@ begin
     and sport is not null
     and length(trim(sport)) > 0;
 
+  select count(*)
+  into daily_session_count
+  from public.daily_session_completions
+  where user_id = p_user_id;
+
+  select coalesce(array_agg(scheduled_for order by scheduled_for desc), '{}')
+  into ordered_daily_dates
+  from (
+    select distinct scheduled_for
+    from public.daily_session_completions
+    where user_id = p_user_id
+    order by scheduled_for desc
+    limit 120
+  ) daily_dates;
+
+  if coalesce(array_length(ordered_daily_dates, 1), 0) > 0
+     and ordered_daily_dates[1] >= current_date - 1 then
+    daily_session_streak := 0;
+
+    foreach streak_date in array ordered_daily_dates
+    loop
+      if streak_date = current_date - daily_session_streak then
+        daily_session_streak := daily_session_streak + 1;
+      else
+        exit;
+      end if;
+    end loop;
+  end if;
+
   if activity_count >= 1 then
     perform public.grant_user_badge(p_user_id, 'first_activity');
   end if;
@@ -679,6 +712,22 @@ begin
 
   if completed_programs_count >= 1 then
     perform public.grant_user_badge(p_user_id, 'program_completed');
+  end if;
+
+  if daily_session_count >= 1 then
+    perform public.grant_user_badge(p_user_id, 'first_daily_session');
+  end if;
+
+  if daily_session_streak >= 3 then
+    perform public.grant_user_badge(p_user_id, 'daily_streak_3');
+  end if;
+
+  if daily_session_streak >= 7 then
+    perform public.grant_user_badge(p_user_id, 'daily_streak_7');
+  end if;
+
+  if daily_session_streak >= 30 then
+    perform public.grant_user_badge(p_user_id, 'daily_streak_30');
   end if;
 
   if distinct_sports_count >= 3 then
