@@ -6,8 +6,14 @@ import { AppShell } from '@/components/AppShell';
 import { BadgeArtwork } from '@/components/badge-artwork';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
-import { BADGES, getUnlockedBadgeCodes } from '@/lib/badges';
+import { BADGES, getBadgeByCode, getUnlockedBadgeCodes } from '@/lib/badges';
 import type { UserBadge } from '@/lib/badges';
+import {
+  getBestDailySessionStreakDays,
+  getDailySessionStreakDays,
+  getTodayIsoDate,
+} from '@/lib/daily-sessions';
+import type { DailySessionCompletion } from '@/lib/daily-sessions';
 import { getUserTotalXp } from '@/lib/gamification';
 import { getActyvLevel } from '@/lib/levels';
 import { supabase } from '@/lib/supabase';
@@ -73,6 +79,28 @@ type WorkoutExerciseHistoryEntry = {
   completed_at: string;
 };
 
+type TrainingProgramEntry = {
+  id: string;
+  visibility: string | null;
+  copied_from_program_id: string | null;
+};
+
+type XpEventEntry = {
+  id: string;
+  event_type: string | null;
+  xp_amount: number | null;
+  created_at: string;
+  target_id: string | null;
+};
+
+type DashboardEvent = {
+  id: string;
+  kind: 'xp' | 'badge' | 'session' | 'activity';
+  title: string;
+  subtitle: string;
+  created_at: string;
+};
+
 type UserChallengeSummary = {
   challenge: Challenge;
   goalType: GoalType | null;
@@ -134,6 +162,36 @@ function formatProfileRelativeDate(dateString: string | null) {
   return formatter.format(Math.round(diffHours / 24), 'day');
 }
 
+function formatProfileAbsoluteDate(dateString: string | null) {
+  if (!dateString) return '-';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
+
+  return date.toLocaleDateString('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+  });
+}
+
+function getXpEventLabel(eventType: string | null) {
+  const labels: Record<string, { title: string; subtitle: string }> = {
+    activity_added: { title: 'XP gagnee', subtitle: 'Activite ajoutee' },
+    session_completed: { title: 'XP gagnee', subtitle: 'Seance terminee' },
+    daily_session_completed: { title: 'XP gagnee', subtitle: 'Seance du jour validee' },
+    challenge_created: { title: 'XP gagnee', subtitle: 'Challenge cree' },
+    challenge_joined: { title: 'XP gagnee', subtitle: 'Challenge rejoint' },
+    challenge_completed: { title: 'XP gagnee', subtitle: 'Challenge termine' },
+    like_received: { title: 'XP gagnee', subtitle: 'Reaction recue' },
+    boost_received: { title: 'XP gagnee', subtitle: 'Boost recu' },
+    program_created: { title: 'XP gagnee', subtitle: 'Programme cree' },
+    program_shared: { title: 'XP gagnee', subtitle: 'Programme partage' },
+    program_completed: { title: 'XP gagnee', subtitle: 'Programme termine' },
+  };
+
+  return labels[eventType || ''] || { title: 'XP gagnee', subtitle: 'Evenement Actyv' };
+}
+
 function getGoalType(challenge: Challenge): GoalType | null {
   return challenge.goal_type || (challenge.goal_km ? 'distance' : null);
 }
@@ -180,6 +238,9 @@ export default function ProfilePage() {
   const [joinedChallengeIds, setJoinedChallengeIds] = useState<string[]>([]);
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [badges, setBadges] = useState<UserBadge[]>([]);
+  const [dailyCompletions, setDailyCompletions] = useState<DailySessionCompletion[]>([]);
+  const [xpEvents, setXpEvents] = useState<XpEventEntry[]>([]);
+  const [trainingPrograms, setTrainingPrograms] = useState<TrainingProgramEntry[]>([]);
   const [recentWorkoutHistory, setRecentWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [allWorkoutHistory, setAllWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [workoutExerciseHistory, setWorkoutExerciseHistory] = useState<WorkoutExerciseHistoryEntry[]>([]);
@@ -229,6 +290,9 @@ export default function ProfilePage() {
         membersResponse,
         participantsResponse,
         badgesResponse,
+        dailyCompletionsResponse,
+        xpEventsResponse,
+        trainingProgramsResponse,
         workoutHistoryResponse,
         recentWorkoutHistoryResponse,
         workoutExerciseHistoryResponse,
@@ -245,7 +309,23 @@ export default function ProfilePage() {
             ? supabase.from('challenge_members').select('challenge_id').eq('user_email', user.email)
             : Promise.resolve({ data: [], error: null }),
           supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
-          supabase.from('user_badges').select('badge_code').eq('user_id', user.id),
+          supabase.from('user_badges').select('badge_code, unlocked_at').eq('user_id', user.id),
+          supabase
+            .from('daily_session_completions')
+            .select('id, daily_session_id, user_id, session_id, workout_history_id, scheduled_for, completed_at, created_at')
+            .eq('user_id', user.id)
+            .order('scheduled_for', { ascending: false })
+            .limit(180),
+          supabase
+            .from('xp_events')
+            .select('id, event_type, xp_amount, created_at, target_id')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(12),
+          supabase
+            .from('training_programs')
+            .select('id, visibility, copied_from_program_id')
+            .eq('user_id', user.id),
           supabase
             .from('workout_sessions_history')
             .select(
@@ -290,6 +370,27 @@ export default function ProfilePage() {
         setBadges([]);
       } else {
         setBadges((badgesResponse.data as UserBadge[] | null) || []);
+      }
+
+      if (dailyCompletionsResponse.error) {
+        console.error('Erreur chargement Actyv Quotidien profil :', dailyCompletionsResponse.error);
+        setDailyCompletions([]);
+      } else {
+        setDailyCompletions((dailyCompletionsResponse.data as DailySessionCompletion[] | null) || []);
+      }
+
+      if (xpEventsResponse.error) {
+        console.error('Erreur chargement xp_events profil :', xpEventsResponse.error);
+        setXpEvents([]);
+      } else {
+        setXpEvents((xpEventsResponse.data as XpEventEntry[] | null) || []);
+      }
+
+      if (trainingProgramsResponse.error) {
+        console.error('Erreur chargement programmes profil :', trainingProgramsResponse.error);
+        setTrainingPrograms([]);
+      } else {
+        setTrainingPrograms((trainingProgramsResponse.data as TrainingProgramEntry[] | null) || []);
       }
 
       if (workoutHistoryResponse.error) {
@@ -426,10 +527,15 @@ export default function ProfilePage() {
     const joinedOnlyChallengeIds = joinedChallengeIds.filter(
       (challengeId) => !createdChallengeIds.includes(challengeId)
     );
+    const createdProgramsCount = trainingPrograms.filter((program) => !program.copied_from_program_id).length;
+    const completedProgramsCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
 
     return {
       createdChallenges: createdChallengeIds.length,
       joinedChallenges: new Set(joinedOnlyChallengeIds).size,
+      createdPrograms: createdProgramsCount,
+      completedPrograms: completedProgramsCount,
+      completedWorkouts: allWorkoutHistory.length,
       totalActivities,
       totalDistance,
       totalDuration,
@@ -437,7 +543,7 @@ export default function ProfilePage() {
       totalLikes,
       totalBoosts,
     };
-  }, [activities, challenges, interactions, joinedChallengeIds, profile?.id]);
+  }, [activities, allWorkoutHistory.length, challenges, interactions, joinedChallengeIds, profile?.id, trainingPrograms, xpEvents]);
 
   const workoutProfileSummary = useMemo(() => {
     const totalCompletedWorkouts = allWorkoutHistory.length;
@@ -519,6 +625,20 @@ export default function ProfilePage() {
     };
   }, [allWorkoutHistory, workoutExerciseHistory, workoutSportsById]);
 
+  const dailySummary = useMemo(() => {
+    const currentStreak = getDailySessionStreakDays(dailyCompletions);
+    const bestStreak = getBestDailySessionStreakDays(dailyCompletions);
+    const todayIso = getTodayIsoDate();
+    const completedToday = dailyCompletions.some((completion) => completion.scheduled_for === todayIso);
+
+    return {
+      totalCompletions: dailyCompletions.length,
+      currentStreak,
+      bestStreak,
+      completedToday,
+    };
+  }, [dailyCompletions]);
+
   const groupedChallenges = useMemo<UserChallengeSummary[]>(() => {
     return challenges.map((challenge) => {
       const goalType = getGoalType(challenge);
@@ -553,7 +673,78 @@ export default function ProfilePage() {
   const unlockedBadges = BADGES.filter((badge) => unlockedBadgeCodes.has(badge.code));
   const badgeCount = unlockedBadges.length;
   const totalBadgeCount = BADGES.length;
-  const featuredBadges = unlockedBadges.slice(0, 4);
+  const recentUnlockedBadges = useMemo(() => {
+    const badgeRows = badges
+      .filter((badge) => Boolean(getBadgeByCode(badge.badge_code)))
+      .sort((left, right) => {
+        const leftTime = left.unlocked_at ? new Date(left.unlocked_at).getTime() : 0;
+        const rightTime = right.unlocked_at ? new Date(right.unlocked_at).getTime() : 0;
+        return rightTime - leftTime;
+      })
+      .slice(0, 3);
+
+    return badgeRows
+      .map((badge) => {
+        const definition = getBadgeByCode(badge.badge_code);
+        return definition
+          ? {
+              ...definition,
+              unlockedAt: badge.unlocked_at || null,
+            }
+          : null;
+      })
+      .filter((badge): badge is NonNullable<typeof badge> => Boolean(badge));
+  }, [badges]);
+
+  const recentEvents = useMemo<DashboardEvent[]>(() => {
+    const xpDashboardEvents: DashboardEvent[] = xpEvents.slice(0, 5).map((event) => {
+      const label = getXpEventLabel(event.event_type);
+      return {
+        id: `xp-${event.id}`,
+        kind: 'xp',
+        title: `${label.title} +${Number(event.xp_amount || 0)} XP`,
+        subtitle: label.subtitle,
+        created_at: event.created_at,
+      };
+    });
+
+    const badgeDashboardEvents: DashboardEvent[] = badges
+      .filter((badge) => badge.unlocked_at)
+      .slice()
+      .sort((left, right) => {
+        const leftTime = left.unlocked_at ? new Date(left.unlocked_at).getTime() : 0;
+        const rightTime = right.unlocked_at ? new Date(right.unlocked_at).getTime() : 0;
+        return rightTime - leftTime;
+      })
+      .slice(0, 5)
+      .map((badge) => ({
+        id: `badge-${badge.badge_code}-${badge.unlocked_at}`,
+        kind: 'badge',
+        title: `Badge debloque : ${getBadgeByCode(badge.badge_code)?.label || badge.badge_code}`,
+        subtitle: 'Collection badges',
+        created_at: badge.unlocked_at || new Date().toISOString(),
+      }));
+
+    const sessionDashboardEvents: DashboardEvent[] = recentWorkoutHistory.slice(0, 5).map((entry) => ({
+      id: `session-${entry.id}`,
+      kind: 'session',
+      title: `Seance terminee : ${entry.workout_name}`,
+      subtitle: `${formatWorkoutDuration(entry.duration_seconds)} · ${formatSessionVolumeLabel(entry.total_volume)}`,
+      created_at: entry.completed_at,
+    }));
+
+    const activityDashboardEvents: DashboardEvent[] = activities.slice(0, 5).map((entry) => ({
+      id: `activity-${entry.id}`,
+      kind: 'activity',
+      title: 'Activite ajoutee',
+      subtitle: entry.sport ? formatSportBadgeLabel(entry.sport, 'Sport') : 'Activite Actyv',
+      created_at: entry.created_at || new Date().toISOString(),
+    }));
+
+    return [...xpDashboardEvents, ...badgeDashboardEvents, ...sessionDashboardEvents, ...activityDashboardEvents]
+      .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())
+      .slice(0, 5);
+  }, [activities, badges, recentWorkoutHistory, xpEvents]);
 
   const handleSaveUsername = async () => {
     if (!profile) return;
@@ -647,13 +838,22 @@ export default function ProfilePage() {
               </div>
 
               <div>
+                <span>Niveau Actyv</span>
+                <strong>Niveau {levelProgress.level}</strong>
+              </div>
+
+              <div>
                 <span>XP totale</span>
                 <strong>{totalXp} XP</strong>
               </div>
 
               <div>
-                <span>Badges debloques</span>
-                <strong>{badgeCount}</strong>
+                <span>Progression</span>
+                <strong>
+                  {levelProgress.nextLevelXp === null
+                    ? 'Niveau max actuel'
+                    : `${totalXp} / ${levelProgress.nextLevelXp} XP`}
+                </strong>
               </div>
 
               <div className="profile-actions">
@@ -738,11 +938,6 @@ export default function ProfilePage() {
               </div>
             </article>
 
-            <article className="profile-summary-card">
-              <span className="stat-card-label">XP total</span>
-              <strong className="stat-card-value">{totalXp} XP</strong>
-            </article>
-
             <article className="profile-summary-card profile-summary-card--wide">
               <div className="profile-summary-card__top">
                 <span className="stat-card-label">Progression XP</span>
@@ -759,14 +954,95 @@ export default function ProfilePage() {
               </p>
             </article>
 
-            <article className="profile-summary-card">
-              <span className="stat-card-label">Badges</span>
-              <strong className="stat-card-value">{badgeCount}</strong>
+            <article className="profile-summary-card profile-summary-card--daily">
+              <div className="profile-summary-card__top">
+                <span className="stat-card-label">Actyv Quotidien</span>
+                <strong>{dailySummary.currentStreak} jour{dailySummary.currentStreak > 1 ? 's' : ''}</strong>
+              </div>
+              <p className="profile-summary-card__meta">
+                {dailySummary.completedToday ? 'Seance du jour deja faite' : 'Seance du jour a lancer'}
+              </p>
+              <div className="profile-daily-inline-stats">
+                <span>Meilleure serie : {dailySummary.bestStreak} j</span>
+                <span>{dailySummary.totalCompletions} validations</span>
+              </div>
+              <Link href="/session-du-jour" className="button ghost">
+                Voir Actyv Quotidien
+              </Link>
             </article>
           </div>
         </section>
 
-        <section className="profile-stats-grid">
+        <section className="card gamification-card profile-badges-summary-card">
+          <div className="profile-section-heading">
+            <div>
+              <span className="section-kicker">Badges</span>
+              <h2>Collection badges</h2>
+            </div>
+            <span className="badge">
+              {badgeCount} / {totalBadgeCount}
+            </span>
+          </div>
+
+          <div className="profile-badges-summary-card__content">
+            <div className="profile-badges-summary-card__body">
+              <div className="profile-badges-summary-card__stats">
+                <strong>
+                  {badgeCount} / {totalBadgeCount} debloques
+                </strong>
+                <p>
+                  {badgeCount === 0
+                    ? 'Aucun badge debloque pour le moment.'
+                    : `${totalBadgeCount - badgeCount} badge${totalBadgeCount - badgeCount > 1 ? 's' : ''} restent a aller chercher.`}
+                </p>
+              </div>
+
+              <div className="profile-badges-summary-card__artwork-row" aria-label="Derniers badges debloques">
+                {recentUnlockedBadges.length > 0 ? (
+                  recentUnlockedBadges.map((badge) => (
+                    <div key={`${badge.code}-${badge.unlockedAt || 'na'}`} className="profile-badge-preview-card">
+                      <BadgeArtwork
+                        badgeCode={badge.code}
+                        badgeName={badge.name}
+                        unlocked
+                        className="profile-badge-preview"
+                        fallback={badge.name.slice(0, 1).toUpperCase()}
+                      />
+                      <div className="profile-badge-preview-card__copy">
+                        <strong>{badge.label}</strong>
+                        <span>{formatProfileAbsoluteDate(badge.unlockedAt)}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <span className="profile-badges-summary-card__empty">Tes prochains badges apparaitront ici.</span>
+                )}
+              </div>
+            </div>
+
+            <Link href="/badges" className="button primary">
+              Voir tous les badges
+            </Link>
+          </div>
+        </section>
+
+        <section className="profile-stats-grid profile-stats-grid--dashboard">
+          <article className="card stat-card">
+            <span className="stat-card-label">Activites publiees</span>
+            <strong className="stat-card-value">{stats.totalActivities}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Seances realisees</span>
+            <strong className="stat-card-value">{stats.completedWorkouts}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Programmes crees</span>
+            <strong className="stat-card-value">{stats.createdPrograms}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Programmes termines</span>
+            <strong className="stat-card-value">{stats.completedPrograms}</strong>
+          </article>
           <article className="card stat-card">
             <span className="stat-card-label">Challenges crees</span>
             <strong className="stat-card-value">{stats.createdChallenges}</strong>
@@ -776,12 +1052,82 @@ export default function ProfilePage() {
             <strong className="stat-card-value">{stats.joinedChallenges}</strong>
           </article>
           <article className="card stat-card">
-            <span className="stat-card-label">Activites ajoutees</span>
-            <strong className="stat-card-value">{stats.totalActivities}</strong>
+            <span className="stat-card-label">Distance totale</span>
+            <strong className="stat-card-value">{stats.totalDistance > 0 ? formatDistance(stats.totalDistance) : '0 km'}</strong>
+          </article>
+          <article className="card stat-card">
+            <span className="stat-card-label">Actyv Quotidien</span>
+            <strong className="stat-card-value">{dailySummary.totalCompletions}</strong>
           </article>
         </section>
 
-        <section className="profile-history-grid">
+        <section className="profile-history-grid profile-dashboard-grid">
+          <article className="card profile-history-card profile-history-card--daily">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Actyv Quotidien</span>
+                <h2>Serie quotidienne</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Serie actuelle</strong>
+                </div>
+                <span>🔥 {dailySummary.currentStreak} jour{dailySummary.currentStreak > 1 ? 's' : ''}</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Meilleure serie</strong>
+                </div>
+                <span>{dailySummary.bestStreak} jour{dailySummary.bestStreak > 1 ? 's' : ''}</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Statut du jour</strong>
+                </div>
+                <span>{dailySummary.completedToday ? "Deja realisee aujourd'hui" : "A faire aujourd'hui"}</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Total valide</strong>
+                </div>
+                <span>{dailySummary.totalCompletions} seance{dailySummary.totalCompletions > 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          </article>
+
+          <article className="card profile-history-card">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Activite recente</span>
+                <h2>Derniers evenements</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              {recentEvents.length === 0 ? (
+                <div className="profile-history-item">
+                  <span>Aucun evenement recent pour le moment.</span>
+                </div>
+              ) : (
+                recentEvents.map((event) => (
+                  <div key={event.id} className="profile-history-item">
+                    <div className="profile-history-item__top">
+                      <strong>{event.title}</strong>
+                      <span className="profile-history-item__date">{formatProfileRelativeDate(event.created_at)}</span>
+                    </div>
+                    <span>{event.subtitle}</span>
+                  </div>
+                ))
+              )}
+            </div>
+          </article>
+
           <article className="card profile-history-card">
             <div className="profile-section-heading">
               <div>
@@ -843,28 +1189,38 @@ export default function ProfilePage() {
               </div>
             )}
           </article>
+
           <article className="card profile-history-card">
             <div className="profile-section-heading">
               <div>
-                <span className="section-kicker">Raccourcis</span>
-                <h2>Mon espace training</h2>
+                <span className="section-kicker">Seances</span>
+                <h2>Dernieres seances realisees</h2>
               </div>
             </div>
 
             <div className="profile-history-list">
-              <Link href="/sessions" className="profile-history-item">
-                <div className="profile-history-item__top">
-                  <strong>Mes seances</strong>
+              {recentWorkoutHistory.length === 0 ? (
+                <div className="profile-history-item">
+                  <span>Lance ta premiere seance pour construire ton profil sportif.</span>
                 </div>
-                <span>Retrouve tes templates, ton live et l&apos;historique de tes seances.</span>
-              </Link>
-
-              <Link href="/stats" className="profile-history-item">
-                <div className="profile-history-item__top">
-                  <strong>Voir toutes mes statistiques</strong>
-                </div>
-                <span>Volume, calories, progression, records et stats par exercice.</span>
-              </Link>
+              ) : (
+                recentWorkoutHistory.map((entry) => (
+                  <div key={entry.id} className="profile-history-item">
+                    <div className="profile-history-item__top">
+                      <strong>{entry.workout_name}</strong>
+                      <span className="profile-history-item__date">{formatProfileRelativeDate(entry.completed_at)}</span>
+                    </div>
+                    <span>
+                      {formatWorkoutDuration(entry.duration_seconds)} - {formatSessionVolumeLabel(entry.total_volume)}
+                    </span>
+                    {entry.workout_id ? (
+                      <Link href={`/sessions/${entry.workout_id}`} className="session-link-button">
+                        Voir la seance
+                      </Link>
+                    ) : null}
+                  </div>
+                ))
+              )}
             </div>
           </article>
 
@@ -919,84 +1275,41 @@ export default function ProfilePage() {
           <article className="card profile-history-card">
             <div className="profile-section-heading">
               <div>
-                <span className="section-kicker">Seances</span>
-                <h2>Dernieres seances realisees</h2>
+                <span className="section-kicker">Raccourcis</span>
+                <h2>Mon espace training</h2>
               </div>
             </div>
 
             <div className="profile-history-list">
-              {recentWorkoutHistory.length === 0 ? (
-                <div className="profile-history-item">
-                  <span>Lance ta premiere seance pour construire ton profil sportif.</span>
+              <Link href="/sessions" className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Mes seances</strong>
                 </div>
-              ) : (
-                recentWorkoutHistory.map((entry) => (
-                  <div key={entry.id} className="profile-history-item">
-                    <div className="profile-history-item__top">
-                      <strong>{entry.workout_name}</strong>
-                      <span className="profile-history-item__date">{formatProfileRelativeDate(entry.completed_at)}</span>
-                    </div>
-                    <span>
-                      {formatWorkoutDuration(entry.duration_seconds)} - {formatSessionVolumeLabel(entry.total_volume)}
-                    </span>
-                    {entry.workout_id ? (
-                      <Link href={`/sessions/${entry.workout_id}`} className="session-link-button">
-                        Voir la seance
-                      </Link>
-                    ) : null}
-                  </div>
-                ))
-              )}
+                <span>Retrouve tes templates, ton live et l&apos;historique de tes seances.</span>
+              </Link>
+
+              <Link href="/programs" className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Mes programmes</strong>
+                </div>
+                <span>Suivi des cycles, calendrier et progression hebdomadaire.</span>
+              </Link>
+
+              <Link href="/session-du-jour" className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Actyv Quotidien</strong>
+                </div>
+                <span>Relance la seance du jour et garde ta serie active.</span>
+              </Link>
+
+              <Link href="/stats" className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Voir toutes mes statistiques</strong>
+                </div>
+                <span>Volume, calories, progression, records et stats par exercice.</span>
+              </Link>
             </div>
           </article>
-        </section>
-
-        <section className="card gamification-card profile-badges-summary-card">
-          <div className="profile-section-heading">
-            <div>
-              <span className="section-kicker">Badges</span>
-              <h2>Collection badges</h2>
-            </div>
-            <span className="badge">
-              {badgeCount} / {totalBadgeCount}
-            </span>
-          </div>
-
-          <div className="profile-badges-summary-card__content">
-            <div className="profile-badges-summary-card__body">
-              <div className="profile-badges-summary-card__stats">
-                <strong>
-                  {badgeCount} / {totalBadgeCount} debloques
-                </strong>
-                <p>
-                  {badgeCount === 0
-                    ? 'Aucun badge debloque pour le moment.'
-                    : `${totalBadgeCount - badgeCount} badge${totalBadgeCount - badgeCount > 1 ? 's' : ''} restent a aller chercher.`}
-                </p>
-              </div>
-
-              <div className="profile-badges-summary-card__artwork-row" aria-label="Apercu des badges">
-                {featuredBadges.length > 0 ? (
-                  featuredBadges.map((badge) => (
-                    <BadgeArtwork
-                      key={badge.code}
-                      badgeCode={badge.code}
-                      badgeName={badge.name}
-                      unlocked
-                      className="profile-badge-preview"
-                      fallback={badge.name.slice(0, 1).toUpperCase()}
-                    />
-                  ))
-                ) : (
-                  <span className="profile-badges-summary-card__empty">Tes prochains badges apparaitront ici.</span>
-                )}
-              </div>
-            </div>
-
-            <Link href="/badges" className="button primary">
-              Voir tous les badges
-            </Link>
-          </div>
         </section>
 
         <section className="home-challenges profile-section">
