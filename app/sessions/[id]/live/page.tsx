@@ -509,31 +509,6 @@ export default function LiveSessionPage() {
     return () => window.clearTimeout(timeoutId);
   }, [validationFeedback]);
 
-  useEffect(() => {
-    if (!currentBlock || currentBlock.block_type !== 'reps' || resolvedBlockIds.includes(currentBlock.id)) {
-      return;
-    }
-
-    const nextDraft =
-      actualPerformanceCarryForwardByBlockId[currentBlock.id] || getPerformanceDraftFromBlock(currentBlock);
-
-    setActualPerformanceDraftsByBlockId((current) => {
-      const currentDraft = current[currentBlock.id];
-      if (
-        currentDraft &&
-        currentDraft.actualReps === nextDraft.actualReps &&
-        currentDraft.actualChargeKg === nextDraft.actualChargeKg
-      ) {
-        return current;
-      }
-
-      return {
-        ...current,
-        [currentBlock.id]: nextDraft,
-      };
-    });
-  }, [actualPerformanceCarryForwardByBlockId, currentBlock, currentSeriesKey, resolvedBlockIds]);
-
   const completedBlocksCount = useMemo(
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
     [blocks, completedBlockIds]
@@ -687,6 +662,31 @@ export default function LiveSessionPage() {
     Boolean(currentBlock) &&
     currentBlock.block_type === 'reps' &&
     !resolvedBlockIds.includes(currentBlock.id);
+
+  useEffect(() => {
+    if (!currentBlock || currentBlock.block_type !== 'reps' || resolvedBlockIds.includes(currentBlock.id)) {
+      return;
+    }
+
+    const nextDraft =
+      actualPerformanceCarryForwardByBlockId[currentBlock.id] || getPerformanceDraftFromBlock(currentBlock);
+
+    setActualPerformanceDraftsByBlockId((current) => {
+      const currentDraft = current[currentBlock.id];
+      if (
+        currentDraft &&
+        currentDraft.actualReps === nextDraft.actualReps &&
+        currentDraft.actualChargeKg === nextDraft.actualChargeKg
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [currentBlock.id]: nextDraft,
+      };
+    });
+  }, [actualPerformanceCarryForwardByBlockId, currentBlock, resolvedBlockIds]);
 
   const validatedSeriesCount = useMemo(
     () =>
