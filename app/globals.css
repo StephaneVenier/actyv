@@ -4551,6 +4551,101 @@ img {
   line-height: 1.5;
 }
 
+.session-live-finished__session-name {
+  margin: 2px 0 0;
+  color: #d9e6e3;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.session-live-summary-panel {
+  display: grid;
+  gap: 12px;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(32, 183, 166, 0.12), rgba(11, 23, 24, 0.88));
+  border: 1px solid rgba(32, 183, 166, 0.2);
+}
+
+.session-live-summary-panel__top {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.session-live-summary-panel__top strong,
+.session-live-summary-panel__xp strong {
+  color: #f4f7f6;
+  font-size: 1.15rem;
+}
+
+.session-live-summary-panel__xp {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+}
+
+.session-live-summary-panel__xp span,
+.session-live-summary-panel__progress p {
+  margin: 0;
+  color: #b9d1ce;
+  font-size: 0.92rem;
+}
+
+.session-live-summary-panel__progress {
+  display: grid;
+  gap: 8px;
+}
+
+.session-live-summary-panel__progress-bar {
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.session-live-summary-panel__progress-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #35e66b 0%, #20b7a6 100%);
+}
+
+.session-live-badge-banner {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 16px 18px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(53, 230, 107, 0.2);
+}
+
+.session-live-badge-banner__art .badge-artwork {
+  width: 76px;
+  height: 76px;
+}
+
+.session-live-badge-banner__copy {
+  display: grid;
+  gap: 4px;
+}
+
+.session-live-badge-banner__copy strong {
+  color: #f4f7f6;
+  font-size: 1.08rem;
+}
+
+.session-live-badge-banner__copy p {
+  margin: 0;
+  color: #bfd0cf;
+  line-height: 1.5;
+}
+
 .session-live-focus-card__validate {
   min-width: 220px;
   min-height: 50px;
@@ -5848,6 +5943,15 @@ img {
   .session-live-performance-card__actions {
     width: 100%;
     flex-direction: column;
+  }
+
+  .session-live-summary-panel__top,
+  .session-live-badge-banner {
+    grid-template-columns: 1fr;
+  }
+
+  .session-live-summary-panel__xp {
+    justify-items: start;
   }
 
   .session-live-shell__actions,

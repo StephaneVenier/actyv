@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { BadgeArtwork } from '@/components/badge-artwork';
 import {
   LiveBlockCard,
   LiveBlockPreviewRail,
@@ -23,7 +24,8 @@ import {
   getSessionEstimatedDuration,
   normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
-import { awardXp, getBadgeByCode, refreshUserBadges, XP_RULES } from '@/lib/gamification';
+import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
+import { getActyvLevel, type ActyvLevelProgress } from '@/lib/levels';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { WorkoutCompletionMetadata, WorkoutSetPerformance } from '@/lib/workout-history';
@@ -209,6 +211,8 @@ export default function LiveSessionPage() {
   const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
   const [awardedBadgeCodes, setAwardedBadgeCodes] = useState<string[]>([]);
   const [earnedXpTotal, setEarnedXpTotal] = useState(0);
+  const [completionTotalXp, setCompletionTotalXp] = useState(0);
+  const [completionLevelProgress, setCompletionLevelProgress] = useState<ActyvLevelProgress | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
 
@@ -1249,6 +1253,8 @@ export default function LiveSessionPage() {
     setHistoryMessage(null);
     setNewPersonalRecords([]);
     setAwardedBadgeCodes([]);
+    setCompletionTotalXp(0);
+    setCompletionLevelProgress(null);
     setStartedSeriesKey(null);
     setEarnedXpTotal(0);
     setSaveState('idle');
@@ -2034,6 +2040,12 @@ export default function LiveSessionPage() {
         });
       });
 
+      const xpTotalResult = await getUserTotalXp(user.id, 0);
+      if (!xpTotalResult.error) {
+        setCompletionTotalXp(xpTotalResult.totalXp);
+        setCompletionLevelProgress(getActyvLevel(xpTotalResult.totalXp));
+      }
+
       setAwardedBadgeCodes(badgeResult.awarded);
       setHistorySaved(true);
       setFinishReviewOpen(true);
@@ -2087,6 +2099,13 @@ export default function LiveSessionPage() {
     if (!didSave) return;
     queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
   };
+
+  const primaryAwardedBadge = awardedBadgeCodes.length > 0 ? getBadgeByCode(awardedBadgeCodes[0]) : null;
+  const completionProgressLabel = completionLevelProgress
+    ? completionLevelProgress.nextLevelXp === null
+      ? `${completionTotalXp} XP`
+      : `${completionTotalXp} / ${completionLevelProgress.nextLevelXp} XP`
+    : null;
 
   return (
     <AppShell>
@@ -2163,23 +2182,16 @@ export default function LiveSessionPage() {
                   <strong>
                     {historySaved
                       ? isPartialCompletion
-                        ? 'Seance terminee partiellement'
-                        : 'Seance terminee'
+                        ? '🏁 Seance terminee partiellement'
+                        : '🏁 Seance terminee'
                       : remainingBlocksCount > 0
                         ? `Il reste ${remainingBlocksCount} bloc${remainingBlocksCount > 1 ? 's' : ''} non termine${remainingBlocksCount > 1 ? 's' : ''}`
-                        : 'Seance terminee'}
+                        : '🏁 Seance terminee'}
                   </strong>
+                  {historySaved ? <p className="session-live-finished__session-name">{session.name}</p> : null}
                 </div>
 
                 <div className="session-live-finished__stats">
-                  <div className="session-live-fact">
-                    <span>XP gagnee</span>
-                    <strong>{`${displayedEarnedXp} XP`}</strong>
-                  </div>
-                  <div className="session-live-fact">
-                    <span>Duree</span>
-                    <strong>{formatElapsedDuration(elapsedSeconds)}</strong>
-                  </div>
                   <div className="session-live-fact">
                     <span>Blocs valides</span>
                     <strong>{`${completedBlocksCount} / ${totalExercisesCount}`}</strong>
@@ -2187,6 +2199,14 @@ export default function LiveSessionPage() {
                   <div className="session-live-fact">
                     <span>Series validees</span>
                     <strong>{validatedSeriesCount}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>Duree reelle</span>
+                    <strong>{formatElapsedDuration(elapsedSeconds)}</strong>
+                  </div>
+                  <div className="session-live-fact">
+                    <span>XP gagnee</span>
+                    <strong>{`+${displayedEarnedXp} XP`}</strong>
                   </div>
                   <div className="session-live-fact">
                     <span>Series passees</span>
@@ -2213,6 +2233,27 @@ export default function LiveSessionPage() {
                     <strong>{`${completionRate}%`}</strong>
                   </div>
                 </div>
+
+                {historySaved && completionLevelProgress ? (
+                  <div className="session-live-summary-panel">
+                    <div className="session-live-summary-panel__top">
+                      <div>
+                        <span className="section-kicker">Progression Actyv</span>
+                        <strong>{`Niveau ${completionLevelProgress.level}`}</strong>
+                      </div>
+                      <div className="session-live-summary-panel__xp">
+                        <span>XP gagnee</span>
+                        <strong>{`+${displayedEarnedXp} XP`}</strong>
+                      </div>
+                    </div>
+                    <div className="session-live-summary-panel__progress">
+                      <div className="session-live-summary-panel__progress-bar" aria-hidden="true">
+                        <span style={{ width: `${completionLevelProgress.progressPercent}%` }} />
+                      </div>
+                      <p>{completionProgressLabel}</p>
+                    </div>
+                  </div>
+                ) : null}
 
                 {estimatedDurationSeconds ? (
                   <p className="session-live-total-time">
@@ -2241,14 +2282,31 @@ export default function LiveSessionPage() {
                   </p>
                 ) : null}
 
-                {awardedBadgeCodes.length > 0 ? (
+                {primaryAwardedBadge ? (
+                  <div className="session-live-badge-banner">
+                    <div className="session-live-badge-banner__art">
+                      <BadgeArtwork
+                        badgeCode={primaryAwardedBadge.code}
+                        badgeName={primaryAwardedBadge.label}
+                        unlocked
+                      />
+                    </div>
+                    <div className="session-live-badge-banner__copy">
+                      <span className="section-kicker">Nouveau badge obtenu</span>
+                      <strong>{primaryAwardedBadge.label}</strong>
+                      <p>{primaryAwardedBadge.description}</p>
+                    </div>
+                  </div>
+                ) : null}
+
+                {awardedBadgeCodes.length > 1 ? (
                   <div className="session-live-records">
                     <div className="session-live-records__header">
-                      <strong>Badges debloques</strong>
+                      <strong>Autres badges debloques</strong>
                       <span className="session-block-chip">BADGES</span>
                     </div>
                     <div className="program-card__facts">
-                      {awardedBadgeCodes.map((badgeCode) => (
+                      {awardedBadgeCodes.slice(1).map((badgeCode) => (
                         <span key={badgeCode}>{getBadgeByCode(badgeCode)?.label || badgeCode}</span>
                       ))}
                     </div>
@@ -2335,8 +2393,16 @@ export default function LiveSessionPage() {
                 </p>
 
                 <div className="session-live-actions session-live-actions--end">
+                  <Link href="/sessions" className="button ghost">
+                    Retour aux seances
+                  </Link>
+                  {dailySessionId ? (
+                    <Link href="/session-du-jour" className="button ghost">
+                      Retour Actyv Quotidien
+                    </Link>
+                  ) : null}
                   <button type="button" className="button primary" onClick={resetLiveProgress}>
-                    Refaire
+                    Relancer la seance
                   </button>
                   {!historySaved ? (
                     <button
@@ -2347,9 +2413,6 @@ export default function LiveSessionPage() {
                       {remainingBlocksCount > 0 ? 'Revenir aux blocs restants' : 'Revenir a la seance'}
                     </button>
                   ) : null}
-                  <Link href={`/sessions/${id}`} className="button ghost">
-                    Retour seance
-                  </Link>
                   <button
                     type="button"
                     className="button primary session-live-finish-button"
