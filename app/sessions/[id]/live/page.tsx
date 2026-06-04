@@ -211,6 +211,8 @@ export default function LiveSessionPage() {
   const [newPersonalRecords, setNewPersonalRecords] = useState<NewPersonalRecord[]>([]);
   const [awardedBadgeCodes, setAwardedBadgeCodes] = useState<string[]>([]);
   const [earnedXpTotal, setEarnedXpTotal] = useState(0);
+  const [completionSummaryTitle, setCompletionSummaryTitle] = useState<string | null>(null);
+  const [completionSummarySubtitle, setCompletionSummarySubtitle] = useState<string | null>(null);
   const [completionTotalXp, setCompletionTotalXp] = useState(0);
   const [completionLevelProgress, setCompletionLevelProgress] = useState<ActyvLevelProgress | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
@@ -1253,6 +1255,8 @@ export default function LiveSessionPage() {
     setHistoryMessage(null);
     setNewPersonalRecords([]);
     setAwardedBadgeCodes([]);
+    setCompletionSummaryTitle(null);
+    setCompletionSummarySubtitle(null);
     setCompletionTotalXp(0);
     setCompletionLevelProgress(null);
     setStartedSeriesKey(null);
@@ -1669,6 +1673,8 @@ export default function LiveSessionPage() {
 
       const awardedXpMessages: string[] = [];
       let nextEarnedXpTotal = 0;
+      let nextCompletionSummaryTitle: string | null = null;
+      let nextCompletionSummarySubtitle: string | null = null;
       let dailySessionRow:
         | {
             id: string;
@@ -1733,6 +1739,8 @@ export default function LiveSessionPage() {
         }
       } else {
         completionMessage = completionMessage || "Deja realisee aujourd'hui. Aucun XP supplementaire.";
+        nextCompletionSummaryTitle = "Seance deja realisee aujourd'hui";
+        nextCompletionSummarySubtitle = 'Aucun XP supplementaire';
       }
 
       let exerciseHistoryMessage: string | null = null;
@@ -2005,6 +2013,8 @@ export default function LiveSessionPage() {
             if (dailyXpResult?.awarded) {
               awardedXpMessages.push(`+${bonusXp} XP seance du jour`);
               nextEarnedXpTotal += bonusXp;
+              nextCompletionSummaryTitle = 'Seance du jour terminee';
+              nextCompletionSummarySubtitle = `+${bonusXp} XP bonus ajoutes`;
             } else if (dailyXpResult?.error) {
               console.error('XP award failed', {
                 payload: {
@@ -2019,6 +2029,8 @@ export default function LiveSessionPage() {
           }
         } else {
           completionMessage = completionMessage || "Deja realisee aujourd'hui. Aucun XP supplementaire.";
+          nextCompletionSummaryTitle = "Seance deja realisee aujourd'hui";
+          nextCompletionSummarySubtitle = 'Aucun XP supplementaire';
         }
       }
 
@@ -2046,11 +2058,19 @@ export default function LiveSessionPage() {
         setCompletionLevelProgress(getActyvLevel(xpTotalResult.totalXp));
       }
 
+      if (!nextCompletionSummaryTitle) {
+        nextCompletionSummaryTitle = 'Seance terminee';
+        nextCompletionSummarySubtitle =
+          nextEarnedXpTotal > 0 ? `+${XP_RULES.session_completed.xp} XP ajoutes` : 'Aucun XP supplementaire';
+      }
+
       setAwardedBadgeCodes(badgeResult.awarded);
+      setCompletionSummaryTitle(nextCompletionSummaryTitle);
+      setCompletionSummarySubtitle(nextCompletionSummarySubtitle);
       setHistorySaved(true);
       setFinishReviewOpen(true);
       setEarnedXpTotal(nextEarnedXpTotal);
-      setHistoryMessage(exerciseHistoryMessage || completionMessage || 'Seance enregistree.');
+      setHistoryMessage(exerciseHistoryMessage || completionMessage);
       setSaveState('success');
       return true;
     } catch (error) {
@@ -2090,14 +2110,12 @@ export default function LiveSessionPage() {
   const handleFinishSession = async () => {
     if (historySaved) {
       clearPersistedLiveState();
-      queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
       router.push(`/sessions/${id}`);
       return;
     }
 
     const didSave = await saveCompletedSession();
     if (!didSave) return;
-    queuePendingToast({ message: 'Seance enregistree', tone: 'success' });
   };
 
   const primaryAwardedBadge = awardedBadgeCodes.length > 0 ? getBadgeByCode(awardedBadgeCodes[0]) : null;
@@ -2262,10 +2280,10 @@ export default function LiveSessionPage() {
                 ) : null}
 
                 <div className={`session-live-save-banner session-live-save-banner--${saveState}`}>
-                  <strong>{finishStateLabel}</strong>
+                  <strong>{historySaved ? completionSummaryTitle || finishStateLabel : finishStateLabel}</strong>
                   <span>
                     {historySaved || saveState === 'success'
-                      ? `Ta realisation est bien prise en compte avec ${displayedEarnedXp} XP ajoutes.`
+                      ? completionSummarySubtitle || `+${displayedEarnedXp} XP ajoutes`
                       : remainingBlocksCount > 0
                         ? 'Tu peux revenir aux blocs restants ou terminer maintenant la seance.'
                         : 'Tous les blocs sont termines. Valide maintenant la seance pour attribuer XP, badges et stats.'}
