@@ -662,6 +662,19 @@ export default function LiveSessionPage() {
     Boolean(currentBlock) &&
     currentBlock.block_type === 'reps' &&
     !resolvedBlockIds.includes(currentBlock.id);
+  const canOpenFinishReview =
+    Boolean(session) &&
+    blocks.length > 0 &&
+    !historySaved &&
+    (allBlocksCompleted ||
+      currentIndex >= blocks.length - 1 ||
+      completedBlocksCount > 0 ||
+      skippedBlocksCount > 0);
+  const finishReviewHint = canOpenFinishReview
+    ? allBlocksCompleted
+      ? 'Tous les blocs sont termines. Tu peux valider la seance.'
+      : 'Tu peux terminer maintenant la seance ou revenir sur les blocs restants.'
+    : 'Termine, passe ou atteins le dernier bloc pour pouvoir cloturer la seance.';
 
   useEffect(() => {
     if (!currentBlock || currentBlock.block_type !== 'reps' || resolvedBlockIds.includes(currentBlock.id)) {
@@ -2534,8 +2547,10 @@ export default function LiveSessionPage() {
                 <div className="session-live-actions session-live-actions--inline">
                   <button
                     type="button"
-                    className="button ghost"
+                    className="button primary session-live-finish-button"
+                    disabled={!canOpenFinishReview}
                     onClick={() => {
+                      if (!canOpenFinishReview) return;
                       clearRestState();
                       clearExerciseState();
                       setFinishReviewOpen(true);
@@ -2543,6 +2558,7 @@ export default function LiveSessionPage() {
                   >
                     🏁 Terminer la seance
                   </button>
+                  <p className="session-live-actions__hint">{finishReviewHint}</p>
                 </div>
 
                 <article className="card session-live-rail-card">

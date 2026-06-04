@@ -4539,6 +4539,18 @@ img {
   flex-wrap: wrap;
 }
 
+.session-live-actions--inline {
+  display: grid;
+  gap: 8px;
+}
+
+.session-live-actions__hint {
+  margin: 0;
+  color: #9fb5b3;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
 .session-live-focus-card__validate {
   min-width: 220px;
   min-height: 50px;
@@ -4796,6 +4808,23 @@ img {
 .session-live-finish-button {
   min-width: 220px;
   min-height: 52px;
+}
+
+.sessions-page--dark .session-live-actions--inline .session-live-finish-button {
+  width: 100%;
+  background: linear-gradient(135deg, #35e66b 0%, #20b7a6 100%);
+  border-color: rgba(53, 230, 107, 0.35);
+  color: #071111;
+  font-weight: 800;
+  box-shadow: 0 14px 28px rgba(32, 183, 166, 0.22);
+}
+
+.sessions-page--dark .session-live-actions--inline .session-live-finish-button:disabled {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  color: #d7e3e1;
+  box-shadow: none;
 }
 
 @keyframes session-live-validated-flash {
