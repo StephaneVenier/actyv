@@ -1,3 +1,14 @@
+export type WorkoutSetPerformance = {
+  block_id: string;
+  block_name: string;
+  set_number: number;
+  planned_reps: number | null;
+  actual_reps: number | null;
+  planned_charge_kg: number | null;
+  actual_charge_kg: number | null;
+  status: 'completed' | 'skipped';
+};
+
 export type WorkoutCompletionMetadata = {
   stats_version?: number;
   total_blocks?: number;
@@ -10,9 +21,12 @@ export type WorkoutCompletionMetadata = {
   completion_type?: 'full' | 'partial';
   total_repetitions?: number;
   total_volume?: number;
+  planned_total_volume?: number;
+  actual_total_volume?: number;
   estimated_calories?: number;
   earned_xp?: number;
   awarded_badges?: string[];
+  set_performances?: WorkoutSetPerformance[];
 };
 
 function toPositiveNumber(value: unknown) {
@@ -38,6 +52,8 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
     completion_rate: toPositiveNumber(candidate.completion_rate),
     total_repetitions: toPositiveNumber(candidate.total_repetitions),
     total_volume: toPositiveNumber(candidate.total_volume),
+    planned_total_volume: toPositiveNumber(candidate.planned_total_volume),
+    actual_total_volume: toPositiveNumber(candidate.actual_total_volume),
     estimated_calories: toPositiveNumber(candidate.estimated_calories),
     earned_xp: toPositiveNumber(candidate.earned_xp),
     completion_type:
@@ -46,6 +62,36 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
         : undefined,
     awarded_badges: Array.isArray(candidate.awarded_badges)
       ? candidate.awarded_badges.filter((value): value is string => typeof value === 'string' && value.length > 0)
+      : undefined,
+    set_performances: Array.isArray(candidate.set_performances)
+      ? candidate.set_performances.flatMap((entry) => {
+          if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+          const candidateEntry = entry as Record<string, unknown>;
+          const blockId = typeof candidateEntry.block_id === 'string' ? candidateEntry.block_id : '';
+          const blockName = typeof candidateEntry.block_name === 'string' ? candidateEntry.block_name : '';
+          const setNumber = toPositiveNumber(candidateEntry.set_number);
+          const status =
+            candidateEntry.status === 'completed' || candidateEntry.status === 'skipped'
+              ? candidateEntry.status
+              : undefined;
+
+          if (!blockId || !blockName || !setNumber || !status) {
+            return [];
+          }
+
+          return [
+            {
+              block_id: blockId,
+              block_name: blockName,
+              set_number: setNumber,
+              planned_reps: toPositiveNumber(candidateEntry.planned_reps) ?? null,
+              actual_reps: toPositiveNumber(candidateEntry.actual_reps) ?? null,
+              planned_charge_kg: toPositiveNumber(candidateEntry.planned_charge_kg) ?? null,
+              actual_charge_kg: toPositiveNumber(candidateEntry.actual_charge_kg) ?? null,
+              status,
+            } satisfies WorkoutSetPerformance,
+          ];
+        })
       : undefined,
   };
 }

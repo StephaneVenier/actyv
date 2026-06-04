@@ -4455,6 +4455,90 @@ img {
   justify-items: stretch;
 }
 
+.session-live-performance-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px 20px;
+  border-radius: 24px;
+}
+
+.session-live-performance-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.session-live-performance-card__header h2 {
+  margin: 0;
+  color: #f4f7f6;
+  font-size: 1.15rem;
+}
+
+.session-live-performance-card__planned {
+  display: grid;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.session-live-performance-card__planned span {
+  color: #9fb5b3;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.session-live-performance-card__planned strong {
+  color: #f4f7f6;
+}
+
+.session-live-performance-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.session-live-performance-field {
+  display: grid;
+  gap: 8px;
+}
+
+.session-live-performance-field span {
+  color: #bfd0cf;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.session-live-stepper {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.session-live-stepper input {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 18, 19, 0.92);
+  color: #f4f7f6;
+  text-align: center;
+  font-weight: 700;
+}
+
+.session-live-performance-card__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .session-live-focus-card__validate {
   min-width: 220px;
   min-height: 50px;
@@ -5726,6 +5810,15 @@ img {
 
   .session-live-quick-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-live-performance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .session-live-performance-card__actions {
+    width: 100%;
+    flex-direction: column;
   }
 
   .session-live-shell__actions,
