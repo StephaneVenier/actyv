@@ -110,6 +110,34 @@ type WorkoutHistoryDetailSummary = {
   earnedXp: number;
 };
 
+type ActualSetHistoryEntry = {
+  block_id: string;
+  block_name: string;
+  set_number: number;
+  planned_reps: number | null;
+  actual_reps: number | null;
+  planned_charge_kg: number | null;
+  actual_charge_kg: number | null;
+  status: 'completed' | 'skipped';
+};
+
+type WorkoutPerformanceHistoryEntry = {
+  id: string;
+  completedAt: string;
+  durationSeconds: number | null;
+  validatedSets: number;
+  skippedSets: number;
+  actualVolumeKg: number;
+  actualSets: ActualSetHistoryEntry[];
+};
+
+type ExercisePerformanceSnapshot = {
+  historyId: string;
+  completedAt: string;
+  blockName: string;
+  summary: string;
+};
+
 function formatRelativeDate(dateString: string | null) {
   if (!dateString) return 'recentement';
 
@@ -172,6 +200,28 @@ function formatFullDateTimeLabel(dateString: string | null) {
   });
 }
 
+function formatPerformanceSetSummary(sets: ActualSetHistoryEntry[]) {
+  if (sets.length === 0) return null;
+
+  const completedSets = sets.filter((entry) => entry.status === 'completed');
+  if (completedSets.length === 0) return null;
+
+  const first = completedSets[0];
+  const sameReps = completedSets.every((entry) => entry.actual_reps === first.actual_reps);
+  const sameCharge = completedSets.every((entry) => entry.actual_charge_kg === first.actual_charge_kg);
+
+  const repsLabel =
+    sameReps && first.actual_reps != null
+      ? `${completedSets.length}x${first.actual_reps}`
+      : `${completedSets.length} series`;
+  const chargeLabel =
+    sameCharge && first.actual_charge_kg != null && first.actual_charge_kg > 0
+      ? ` @ ${first.actual_charge_kg}kg`
+      : '';
+
+  return `${repsLabel}${chargeLabel}`;
+}
+
 function buildChartPath(points: Array<{ x: number; y: number }>) {
   if (points.length === 0) return '';
 
@@ -207,6 +257,7 @@ export default function SessionDetailPage() {
   const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | null>(null);
+  const [showAllPerformanceHistory, setShowAllPerformanceHistory] = useState(false);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -1061,6 +1112,92 @@ export default function SessionDetailPage() {
     [normalizedHistoryEntries]
   );
   const remainingSessionHistoryCount = Math.max(normalizedHistoryEntries.length - recentSessionHistoryEntries.length, 0);
+  const workoutPerformanceHistoryEntries = useMemo<WorkoutPerformanceHistoryEntry[]>(
+    () =>
+      historyEntries
+        .map((entry) => {
+          const metadata = parseWorkoutCompletionMetadata(entry.metadata);
+          const actualSets = (metadata.actual_sets || metadata.set_performances || []).map((setEntry) => ({
+            ...setEntry,
+          }));
+
+          const validatedSets = actualSets.filter((setEntry) => setEntry.status === 'completed').length;
+          const skippedSets = actualSets.filter((setEntry) => setEntry.status === 'skipped').length;
+          const actualVolumeKg = actualSets
+            .filter((setEntry) => setEntry.status === 'completed')
+            .reduce((total, setEntry) => {
+              const reps = normalizePositiveInteger(setEntry.actual_reps, 0);
+              const charge = Number.isFinite(Number(setEntry.actual_charge_kg))
+                ? Math.max(Number(setEntry.actual_charge_kg), 0)
+                : 0;
+              return total + reps * charge;
+            }, 0);
+
+          return {
+            id: entry.id,
+            completedAt: entry.completed_at,
+            durationSeconds:
+              Number.isFinite(Number(entry.duration_seconds)) && Number(entry.duration_seconds) > 0
+                ? Number(entry.duration_seconds)
+                : null,
+            validatedSets,
+            skippedSets,
+            actualVolumeKg,
+            actualSets,
+          };
+        })
+        .filter((entry) => entry.actualSets.length > 0)
+        .sort((left, right) => new Date(right.completedAt).getTime() - new Date(left.completedAt).getTime()),
+    [historyEntries]
+  );
+  const displayedWorkoutPerformanceHistoryEntries = useMemo(
+    () =>
+      showAllPerformanceHistory
+        ? workoutPerformanceHistoryEntries
+        : workoutPerformanceHistoryEntries.slice(0, 5),
+    [showAllPerformanceHistory, workoutPerformanceHistoryEntries]
+  );
+  const remainingWorkoutPerformanceHistoryCount = Math.max(
+    workoutPerformanceHistoryEntries.length - displayedWorkoutPerformanceHistoryEntries.length,
+    0
+  );
+  const repsBlocks = useMemo(
+    () => blocks.filter((block) => block.block_type === 'reps' && block.name.trim().length > 0),
+    [blocks]
+  );
+  const exercisePerformanceSnapshotsByName = useMemo(
+    () =>
+      new Map<string, ExercisePerformanceSnapshot[]>(
+        repsBlocks.map((block) => {
+          const normalizedBlockName = block.name.trim().toLowerCase();
+          const snapshots = workoutPerformanceHistoryEntries
+            .map((historyEntry) => {
+              const matchingSets = historyEntry.actualSets.filter(
+                (setEntry) =>
+                  setEntry.status === 'completed' &&
+                  setEntry.block_name.trim().toLowerCase() === normalizedBlockName
+              );
+
+              if (matchingSets.length === 0) return null;
+
+              const summary = formatPerformanceSetSummary(matchingSets);
+              if (!summary) return null;
+
+              return {
+                historyId: historyEntry.id,
+                completedAt: historyEntry.completedAt,
+                blockName: block.name.trim(),
+                summary,
+              } satisfies ExercisePerformanceSnapshot;
+            })
+            .filter((entry): entry is ExercisePerformanceSnapshot => Boolean(entry))
+            .slice(0, 2);
+
+          return [normalizedBlockName, snapshots];
+        })
+      ),
+    [repsBlocks, workoutPerformanceHistoryEntries]
+  );
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -1627,6 +1764,117 @@ export default function SessionDetailPage() {
                       )}
                     </article>
                   ) : null}
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Performances</span>
+                  <h2>Historique des performances</h2>
+                </div>
+                {remainingWorkoutPerformanceHistoryCount > 0 ? (
+                  <button
+                    type="button"
+                    className="session-link-button"
+                    onClick={() => setShowAllPerformanceHistory((current) => !current)}
+                  >
+                    {showAllPerformanceHistory ? 'Voir moins' : `Voir plus (${remainingWorkoutPerformanceHistoryCount})`}
+                  </button>
+                ) : null}
+              </div>
+
+              {workoutPerformanceHistoryEntries.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Aucune donnee detaillee disponible.</p>
+                </div>
+              ) : (
+                <div className="session-block-list">
+                  {displayedWorkoutPerformanceHistoryEntries.map((entry) => (
+                    <article key={entry.id} className="session-block-card session-record-card">
+                      <div className="session-block-card__top">
+                        <div className="session-block-check__label">
+                          <strong>{formatFullDateTimeLabel(entry.completedAt)}</strong>
+                          <small>{formatRelativeDate(entry.completedAt)}</small>
+                        </div>
+                        <span className="session-block-chip">
+                          {entry.validatedSets} serie{entry.validatedSets > 1 ? 's' : ''}
+                        </span>
+                      </div>
+
+                      <div className="session-record-lines">
+                        <p>
+                          Duree : <strong>{formatDurationLabel(entry.durationSeconds) || '-'}</strong>
+                        </p>
+                        <p>
+                          Series validees : <strong>{entry.validatedSets}</strong>
+                        </p>
+                        <p>
+                          Series passees : <strong>{entry.skippedSets > 0 ? entry.skippedSets : '-'}</strong>
+                        </p>
+                        <p>
+                          Volume total : <strong>{formatSessionVolumeKg(entry.actualVolumeKg) || '-'}</strong>
+                        </p>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </article>
+
+            <article className="card session-form-card stack">
+              <div className="session-blocks-header">
+                <div>
+                  <span className="section-kicker">Exercices</span>
+                  <h2>Dernieres performances par bloc</h2>
+                </div>
+              </div>
+
+              {repsBlocks.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Aucun bloc reps sur cette seance.</p>
+                </div>
+              ) : workoutPerformanceHistoryEntries.length === 0 ? (
+                <div className="challenge-state challenge-state--compact">
+                  <p>Aucune donnee detaillee disponible.</p>
+                </div>
+              ) : (
+                <div className="session-block-list">
+                  {repsBlocks.map((block) => {
+                    const snapshots = exercisePerformanceSnapshotsByName.get(block.name.trim().toLowerCase()) || [];
+                    const latestSnapshot = snapshots[0] || null;
+                    const previousSnapshot = snapshots[1] || null;
+
+                    return (
+                      <article key={block.id} className="session-block-card session-record-card">
+                        <div className="session-block-card__top">
+                          <div className="session-block-check__label">
+                            <strong>{block.name.trim()}</strong>
+                            <small>{formatSessionBlockSummary(block)}</small>
+                          </div>
+                        </div>
+
+                        {latestSnapshot ? (
+                          <div className="session-record-lines">
+                            <p>
+                              Derniere realisation : <strong>{latestSnapshot.summary}</strong>
+                            </p>
+                            <p>
+                              {formatRelativeDate(latestSnapshot.completedAt)}
+                            </p>
+                            <p>
+                              Seance precedente : <strong>{previousSnapshot?.summary || '-'}</strong>
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="challenge-state challenge-state--compact">
+                            <p>Aucune donnee detaillee disponible.</p>
+                          </div>
+                        )}
+                      </article>
+                    );
+                  })}
                 </div>
               )}
             </article>
