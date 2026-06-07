@@ -26,6 +26,7 @@ export type WorkoutCompletionMetadata = {
   estimated_calories?: number;
   earned_xp?: number;
   awarded_badges?: string[];
+  actual_sets?: WorkoutSetPerformance[];
   set_performances?: WorkoutSetPerformance[];
 };
 
@@ -41,30 +42,9 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
 
   const candidate = raw as Record<string, unknown>;
 
-  return {
-    stats_version: toPositiveNumber(candidate.stats_version),
-    total_blocks: toPositiveNumber(candidate.total_blocks),
-    completed_blocks: toPositiveNumber(candidate.completed_blocks),
-    skipped_blocks: toPositiveNumber(candidate.skipped_blocks),
-    total_sets: toPositiveNumber(candidate.total_sets),
-    completed_sets: toPositiveNumber(candidate.completed_sets),
-    skipped_sets: toPositiveNumber(candidate.skipped_sets),
-    completion_rate: toPositiveNumber(candidate.completion_rate),
-    total_repetitions: toPositiveNumber(candidate.total_repetitions),
-    total_volume: toPositiveNumber(candidate.total_volume),
-    planned_total_volume: toPositiveNumber(candidate.planned_total_volume),
-    actual_total_volume: toPositiveNumber(candidate.actual_total_volume),
-    estimated_calories: toPositiveNumber(candidate.estimated_calories),
-    earned_xp: toPositiveNumber(candidate.earned_xp),
-    completion_type:
-      candidate.completion_type === 'full' || candidate.completion_type === 'partial'
-        ? candidate.completion_type
-        : undefined,
-    awarded_badges: Array.isArray(candidate.awarded_badges)
-      ? candidate.awarded_badges.filter((value): value is string => typeof value === 'string' && value.length > 0)
-      : undefined,
-    set_performances: Array.isArray(candidate.set_performances)
-      ? candidate.set_performances.flatMap((entry) => {
+  const parseSetPerformances = (value: unknown) =>
+    Array.isArray(value)
+      ? value.flatMap((entry) => {
           if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
           const candidateEntry = entry as Record<string, unknown>;
           const blockId = typeof candidateEntry.block_id === 'string' ? candidateEntry.block_id : '';
@@ -92,6 +72,34 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
             } satisfies WorkoutSetPerformance,
           ];
         })
+      : undefined;
+
+  const actualSets = parseSetPerformances(candidate.actual_sets);
+  const legacySetPerformances = parseSetPerformances(candidate.set_performances);
+
+  return {
+    stats_version: toPositiveNumber(candidate.stats_version),
+    total_blocks: toPositiveNumber(candidate.total_blocks),
+    completed_blocks: toPositiveNumber(candidate.completed_blocks),
+    skipped_blocks: toPositiveNumber(candidate.skipped_blocks),
+    total_sets: toPositiveNumber(candidate.total_sets),
+    completed_sets: toPositiveNumber(candidate.completed_sets),
+    skipped_sets: toPositiveNumber(candidate.skipped_sets),
+    completion_rate: toPositiveNumber(candidate.completion_rate),
+    total_repetitions: toPositiveNumber(candidate.total_repetitions),
+    total_volume: toPositiveNumber(candidate.total_volume),
+    planned_total_volume: toPositiveNumber(candidate.planned_total_volume),
+    actual_total_volume: toPositiveNumber(candidate.actual_total_volume),
+    estimated_calories: toPositiveNumber(candidate.estimated_calories),
+    earned_xp: toPositiveNumber(candidate.earned_xp),
+    completion_type:
+      candidate.completion_type === 'full' || candidate.completion_type === 'partial'
+        ? candidate.completion_type
+        : undefined,
+    awarded_badges: Array.isArray(candidate.awarded_badges)
+      ? candidate.awarded_badges.filter((value): value is string => typeof value === 'string' && value.length > 0)
       : undefined,
+    actual_sets: actualSets ?? legacySetPerformances,
+    set_performances: legacySetPerformances ?? actualSets,
   };
 }
