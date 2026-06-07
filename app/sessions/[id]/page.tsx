@@ -138,6 +138,16 @@ type ExercisePerformanceSnapshot = {
   summary: string;
 };
 
+type ActualPerformanceRecord = {
+  blockId: string;
+  exerciseName: string;
+  maxChargeKg: number | null;
+  bestSetReps: number | null;
+  bestWorkoutVolumeKg: number | null;
+  lastPerformedAt: string | null;
+  lastPerformedSummary: string | null;
+};
+
 function formatRelativeDate(dateString: string | null) {
   if (!dateString) return 'recentement';
 
@@ -1198,6 +1208,94 @@ export default function SessionDetailPage() {
       ),
     [repsBlocks, workoutPerformanceHistoryEntries]
   );
+  const actualPerformanceRecords = useMemo<ActualPerformanceRecord[]>(() => {
+    if (repsBlocks.length === 0 || workoutPerformanceHistoryEntries.length === 0) {
+      return [];
+    }
+
+    return repsBlocks
+      .map((block) => {
+        const normalizedBlockName = block.name.trim().toLowerCase();
+        const matchingHistoryEntries = workoutPerformanceHistoryEntries
+          .map((historyEntry) => {
+            const matchingSets = historyEntry.actualSets.filter(
+              (setEntry) =>
+                setEntry.status === 'completed' &&
+                setEntry.block_name.trim().toLowerCase() === normalizedBlockName
+            );
+
+            if (matchingSets.length === 0) return null;
+
+            const workoutVolumeKg = matchingSets.reduce((total, setEntry) => {
+              const reps = normalizePositiveInteger(setEntry.actual_reps, 0);
+              const charge =
+                Number.isFinite(Number(setEntry.actual_charge_kg)) && Number(setEntry.actual_charge_kg) > 0
+                  ? Number(setEntry.actual_charge_kg)
+                  : 0;
+              return total + reps * charge;
+            }, 0);
+
+            return {
+              completedAt: historyEntry.completedAt,
+              matchingSets,
+              workoutVolumeKg,
+              summary: formatPerformanceSetSummary(matchingSets),
+            };
+          })
+          .filter(
+            (
+              entry
+            ): entry is {
+              completedAt: string;
+              matchingSets: ActualSetHistoryEntry[];
+              workoutVolumeKg: number;
+              summary: string | null;
+            } => Boolean(entry)
+          );
+
+        if (matchingHistoryEntries.length === 0) {
+          return null;
+        }
+
+        const maxChargeKg = matchingHistoryEntries.reduce((bestCharge, historyEntry) => {
+          const entryBest = historyEntry.matchingSets.reduce((setBest, setEntry) => {
+            const charge =
+              Number.isFinite(Number(setEntry.actual_charge_kg)) && Number(setEntry.actual_charge_kg) > 0
+                ? Number(setEntry.actual_charge_kg)
+                : 0;
+            return Math.max(setBest, charge);
+          }, 0);
+
+          return Math.max(bestCharge, entryBest);
+        }, 0);
+
+        const bestSetReps = matchingHistoryEntries.reduce((bestReps, historyEntry) => {
+          const entryBest = historyEntry.matchingSets.reduce((setBest, setEntry) => {
+            const reps = normalizePositiveInteger(setEntry.actual_reps, 0);
+            return Math.max(setBest, reps);
+          }, 0);
+
+          return Math.max(bestReps, entryBest);
+        }, 0);
+
+        const bestWorkoutVolumeKg = matchingHistoryEntries.reduce(
+          (bestVolume, historyEntry) => Math.max(bestVolume, historyEntry.workoutVolumeKg),
+          0
+        );
+        const latestEntry = matchingHistoryEntries[0] || null;
+
+        return {
+          blockId: block.id,
+          exerciseName: block.name.trim(),
+          maxChargeKg: maxChargeKg > 0 ? maxChargeKg : null,
+          bestSetReps: bestSetReps > 0 ? bestSetReps : null,
+          bestWorkoutVolumeKg: bestWorkoutVolumeKg > 0 ? bestWorkoutVolumeKg : null,
+          lastPerformedAt: latestEntry?.completedAt || null,
+          lastPerformedSummary: latestEntry?.summary || null,
+        } satisfies ActualPerformanceRecord;
+      })
+      .filter((entry): entry is ActualPerformanceRecord => Boolean(entry));
+  }, [repsBlocks, workoutPerformanceHistoryEntries]);
 
   const toggleBlockCompleted = (blockId: string) => {
     setCompletedBlockIds((current) =>
@@ -1467,108 +1565,49 @@ export default function SessionDetailPage() {
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Records</span>
-                  <h2>Records personnels</h2>
+                  <h2>🏆 Records personnels</h2>
                 </div>
               </div>
 
-              {historyEntries.length === 0 ? (
+              {actualPerformanceRecords.length === 0 ? (
                 <div className="challenge-state challenge-state--compact">
-                  <p>Aucun record personnel pour le moment.</p>
+                  <p>Aucun record disponible pour le moment.</p>
                 </div>
               ) : (
                 <div className="session-block-list session-records-list">
-                  <article className="session-block-card session-record-card">
-                    <div className="session-block-card__top">
-                      <div className="session-record-card__header">
-                        <SessionExerciseIcon
-                          exerciseName={session.name}
-                          sport={session.sport}
-                          size="md"
-                        />
-                        <div className="session-block-check__label">
-                          <strong>Meilleur volume</strong>
-                          <small>Sur les realisations enregistrees</small>
+                  {actualPerformanceRecords.map((record) => (
+                    <article key={record.blockId} className="session-block-card session-record-card">
+                      <div className="session-block-card__top">
+                        <div className="session-record-card__header">
+                          <SessionExerciseIcon
+                            exerciseName={record.exerciseName}
+                            sport={session.sport}
+                            blockType="reps"
+                            size="md"
+                          />
+                          <div className="session-block-check__label">
+                            <strong>{record.exerciseName}</strong>
+                            <small>{record.lastPerformedAt ? formatRelativeDate(record.lastPerformedAt) : 'Pas encore realise'}</small>
+                          </div>
                         </div>
                       </div>
-                    </div>
 
-                    <div className="session-record-lines">
-                      <p>
-                        Volume max : <strong>{formatSessionVolumeKg(sessionRecordSummary.bestVolumeKg) || '-'}</strong>
-                      </p>
-                    </div>
-                  </article>
-
-                  <article className="session-block-card session-record-card">
-                    <div className="session-block-card__top">
-                      <div className="session-record-card__header">
-                        <SessionExerciseIcon
-                          exerciseName="Duree"
-                          sport={session.sport}
-                          blockType="duration"
-                          size="md"
-                        />
-                        <div className="session-block-check__label">
-                          <strong>Seance la plus longue</strong>
-                          <small>Temps record</small>
-                        </div>
+                      <div className="session-record-lines">
+                        <p>
+                          Charge max : <strong>{record.maxChargeKg ? `${record.maxChargeKg} kg` : '-'}</strong>
+                        </p>
+                        <p>
+                          Meilleure serie : <strong>{record.bestSetReps ? `${record.bestSetReps} reps` : '-'}</strong>
+                        </p>
+                        <p>
+                          Volume record : <strong>{formatSessionVolumeKg(record.bestWorkoutVolumeKg) || '-'}</strong>
+                        </p>
+                        <p>
+                          Derniere realisation : <strong>{record.lastPerformedSummary || '-'}</strong>
+                        </p>
                       </div>
-                    </div>
-
-                    <div className="session-record-lines">
-                      <p>
-                        Duree max : <strong>{formatDurationLabel(sessionRecordSummary.longestDurationSeconds) || '-'}</strong>
-                      </p>
-                    </div>
-                  </article>
-
-                  <article className="session-block-card session-record-card">
-                    <div className="session-block-card__top">
-                      <div className="session-record-card__header">
-                        <SessionExerciseIcon
-                          exerciseName="Progression"
-                          sport={session.sport}
-                          blockType="free"
-                          size="md"
-                        />
-                        <div className="session-block-check__label">
-                          <strong>Meilleur taux de completion</strong>
-                          <small>Blocs termines / total</small>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="session-record-lines">
-                      <p>
-                        Completion : <strong>{sessionRecordSummary.bestCompletionRate !== null ? `${sessionRecordSummary.bestCompletionRate}%` : '-'}</strong>
-                      </p>
-                      <p>
-                        Ratio : <strong>{sessionRecordSummary.bestCompletionLabel || '-'}</strong>
-                      </p>
-                    </div>
-                  </article>
-
-                  <article className="session-block-card session-record-card">
-                    <div className="session-block-card__top">
-                      <div className="session-record-card__header">
-                        <SessionExerciseIcon
-                          exerciseName="Blocs"
-                          sport={session.sport}
-                          size="md"
-                        />
-                        <div className="session-block-check__label">
-                          <strong>Plus grand nombre de blocs termines</strong>
-                          <small>Sur une seule realisation</small>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="session-record-lines">
-                      <p>
-                        Blocs : <strong>{sessionRecordSummary.maxCompletedBlocks ?? '-'}</strong>
-                      </p>
-                    </div>
-                  </article>
+                    </article>
+                  ))}
                 </div>
               )}
             </article>
