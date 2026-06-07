@@ -16,6 +16,7 @@ import {
 import type { DailySessionCompletion } from '@/lib/daily-sessions';
 import { getUserTotalXp } from '@/lib/gamification';
 import { getActyvLevel } from '@/lib/levels';
+import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
@@ -122,6 +123,13 @@ type WorkoutGlobalStrengthStats = {
     exerciseName: string;
     workoutCount: number;
   } | null;
+};
+
+type DailyStepsCardState = {
+  todaySteps: number;
+  weeklySteps: number;
+  monthlySteps: number;
+  hasTodayEntry: boolean;
 };
 
 type UserChallengeSummary = {
@@ -272,6 +280,15 @@ export default function ProfilePage() {
   const [editMode, setEditMode] = useState(false);
   const [usernameInput, setUsernameInput] = useState('');
   const [savingUsername, setSavingUsername] = useState(false);
+  const [dailySteps, setDailySteps] = useState<DailyStepsCardState>({
+    todaySteps: 0,
+    weeklySteps: 0,
+    monthlySteps: 0,
+    hasTodayEntry: false,
+  });
+  const [stepsInput, setStepsInput] = useState('0');
+  const [savingSteps, setSavingSteps] = useState(false);
+  const [stepsMessage, setStepsMessage] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -307,6 +324,32 @@ export default function ProfilePage() {
       setXpTotalFromEvents(xpTotalResult.totalXp);
       setProfile(nextProfile);
       setUsernameInput(nextProfile.username || '');
+
+      try {
+        const [todayStepsEntry, weeklyStepsSummary, monthlyStepsSummary] = await Promise.all([
+          getTodaySteps(user.id),
+          getWeeklySteps(user.id),
+          getMonthlySteps(user.id),
+        ]);
+
+        const todayStepsCount = todayStepsEntry?.steps_count || 0;
+        setDailySteps({
+          todaySteps: todayStepsCount,
+          weeklySteps: weeklyStepsSummary.totalSteps,
+          monthlySteps: monthlyStepsSummary.totalSteps,
+          hasTodayEntry: Boolean(todayStepsEntry),
+        });
+        setStepsInput(String(todayStepsCount));
+      } catch (error) {
+        console.error('Erreur chargement daily_steps profil :', error);
+        setDailySteps({
+          todaySteps: 0,
+          weeklySteps: 0,
+          monthlySteps: 0,
+          hasTodayEntry: false,
+        });
+        setStepsInput('0');
+      }
 
       const [
         activitiesResponse,
@@ -763,6 +806,15 @@ export default function ProfilePage() {
       favoriteExercise: topExercises[0] || null,
     };
   }, [allWorkoutHistory]);
+  const stepsGoal = 10000;
+  const stepsProgressPercent = Math.min(
+    100,
+    Math.max(0, Math.round((dailySteps.todaySteps / stepsGoal) * 100))
+  );
+  const stepsSupportMessage =
+    dailySteps.hasTodayEntry || dailySteps.weeklySteps > 0 || dailySteps.monthlySteps > 0
+      ? 'Saisie manuelle temporaire active.'
+      : 'Synchronisation Android a venir';
 
   const dailySummary = useMemo(() => {
     const currentStreak = getDailySessionStreakDays(dailyCompletions);
@@ -918,6 +970,34 @@ export default function ProfilePage() {
     setMessage('Pseudo mis a jour.');
     setEditMode(false);
     setSavingUsername(false);
+  };
+
+  const handleSaveTodaySteps = async () => {
+    if (!profile || savingSteps) return;
+
+    setSavingSteps(true);
+    setStepsMessage('');
+
+    try {
+      const normalizedSteps = Math.max(0, Math.trunc(Number(stepsInput) || 0));
+      const savedEntry = await upsertTodaySteps(profile.id, normalizedSteps);
+      const weeklySummary = await getWeeklySteps(profile.id);
+      const monthlySummary = await getMonthlySteps(profile.id);
+
+      setDailySteps({
+        todaySteps: savedEntry.steps_count,
+        weeklySteps: weeklySummary.totalSteps,
+        monthlySteps: monthlySummary.totalSteps,
+        hasTodayEntry: true,
+      });
+      setStepsInput(String(savedEntry.steps_count));
+      setStepsMessage('Pas du jour mis a jour.');
+    } catch (error) {
+      console.error('Erreur enregistrement daily_steps profil :', error);
+      setStepsMessage("Impossible d'enregistrer les pas du jour.");
+    } finally {
+      setSavingSteps(false);
+    }
   };
 
   if (loading) {
@@ -1236,6 +1316,76 @@ export default function ProfilePage() {
                   <strong>Total valide</strong>
                 </div>
                 <span>{dailySummary.totalCompletions} seance{dailySummary.totalCompletions > 1 ? 's' : ''}</span>
+              </div>
+            </div>
+          </article>
+
+          <article className="card profile-history-card profile-history-card--daily">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">Pas</span>
+                <h2>👣 Pas aujourd&apos;hui</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Pas du jour</strong>
+                  <span className="profile-history-item__date">{stepsProgressPercent}%</span>
+                </div>
+                <span>{dailySteps.todaySteps.toLocaleString('fr-FR')} / {stepsGoal.toLocaleString('fr-FR')} pas</span>
+                <div className="progress-track">
+                  <div className="progress-fill" style={{ width: `${stepsProgressPercent}%` }} />
+                </div>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Cette semaine</strong>
+                </div>
+                <span>{dailySteps.weeklySteps.toLocaleString('fr-FR')} pas</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Ce mois</strong>
+                </div>
+                <span>{dailySteps.monthlySteps.toLocaleString('fr-FR')} pas</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Modifier mes pas du jour</strong>
+                </div>
+                <div className="profile-steps-input-row">
+                  <input
+                    type="number"
+                    min={0}
+                    inputMode="numeric"
+                    value={stepsInput}
+                    onChange={(event) => setStepsInput(event.target.value)}
+                    aria-label="Modifier mes pas du jour"
+                  />
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={handleSaveTodaySteps}
+                    disabled={savingSteps}
+                  >
+                    {savingSteps ? 'Enregistrement...' : 'Enregistrer'}
+                  </button>
+                </div>
+                <span>
+                  {stepsSupportMessage}
+                </span>
+                {stepsMessage && (
+                  <p
+                    className={`form-feedback ${stepsMessage.includes('Impossible') ? 'form-feedback--error' : 'form-feedback--success'}`}
+                  >
+                    {stepsMessage}
+                  </p>
+                )}
               </div>
             </div>
           </article>

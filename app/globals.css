@@ -1946,6 +1946,17 @@ img {
   border-color: rgba(53, 230, 107, 0.16);
 }
 
+.profile-steps-input-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.profile-steps-input-row input {
+  min-width: 0;
+}
+
 .profile-badge-preview-card {
   display: grid;
   gap: 8px;
