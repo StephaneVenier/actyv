@@ -496,6 +496,8 @@ declare
   distinct_sports_count integer := 0;
   daily_session_count integer := 0;
   daily_session_streak integer := 0;
+  best_daily_steps integer := 0;
+  rolling_weekly_steps integer := 0;
   ordered_daily_dates date[];
   streak_date date;
 begin
@@ -597,6 +599,21 @@ begin
   into daily_session_count
   from public.daily_session_completions
   where user_id = p_user_id;
+
+  select coalesce(max(steps_count), 0)
+  into best_daily_steps
+  from public.daily_steps
+  where user_id = p_user_id;
+
+  select coalesce(sum(steps_count), 0)
+  into rolling_weekly_steps
+  from (
+    select step_date, steps_count
+    from public.daily_steps
+    where user_id = p_user_id
+    order by step_date desc
+    limit 7
+  ) recent_steps;
 
   select coalesce(array_agg(scheduled_for order by scheduled_for desc), '{}')
   into ordered_daily_dates
@@ -728,6 +745,26 @@ begin
 
   if daily_session_streak >= 30 then
     perform public.grant_user_badge(p_user_id, 'daily_streak_30');
+  end if;
+
+  if best_daily_steps > 0 then
+    perform public.grant_user_badge(p_user_id, 'steps_first');
+  end if;
+
+  if best_daily_steps >= 5000 then
+    perform public.grant_user_badge(p_user_id, 'steps_5000');
+  end if;
+
+  if best_daily_steps >= 10000 then
+    perform public.grant_user_badge(p_user_id, 'steps_10000');
+  end if;
+
+  if best_daily_steps >= 20000 then
+    perform public.grant_user_badge(p_user_id, 'steps_20000');
+  end if;
+
+  if rolling_weekly_steps >= 50000 then
+    perform public.grant_user_badge(p_user_id, 'weekly_steps_50000');
   end if;
 
   if distinct_sports_count >= 3 then

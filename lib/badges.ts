@@ -1,4 +1,9 @@
 export type BadgeCode =
+  | 'steps_first'
+  | 'steps_5000'
+  | 'steps_10000'
+  | 'steps_20000'
+  | 'weekly_steps_50000'
   | 'first_activity'
   | 'five_activities'
   | 'ten_activities'
@@ -29,7 +34,7 @@ export type BadgeCode =
   | 'three_sports'
   | 'five_sports';
 
-export type BadgeCategory = 'activity' | 'challenge' | 'distance' | 'social' | 'session' | 'program' | 'sport';
+export type BadgeCategory = 'activity' | 'challenge' | 'distance' | 'social' | 'session' | 'program' | 'sport' | 'steps';
 
 export type BadgeDefinition = {
   code: BadgeCode;
@@ -47,6 +52,11 @@ export type UserBadge = {
 };
 
 const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
+  steps_first: 'steps_first',
+  steps_5000: 'steps_5000',
+  steps_10000: 'steps_10000',
+  steps_20000: 'steps_20000',
+  weekly_steps_50000: 'weekly_steps_50000',
   'first-step': 'first_activity',
   'actyv-regular': 'five_activities',
   'actyv-motivated': 'ten_activities',
@@ -76,6 +86,51 @@ const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
 };
 
 export const BADGES: BadgeDefinition[] = [
+  {
+    code: 'steps_first',
+    name: 'Premier pas',
+    label: 'Premier pas',
+    description: 'Enregistrer ses premiers pas dans Actyv.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#35e66b',
+  },
+  {
+    code: 'steps_5000',
+    name: '5 000 pas',
+    label: '5 000 pas',
+    description: 'Atteindre 5 000 pas en une journee.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#20b7a6',
+  },
+  {
+    code: 'steps_10000',
+    name: 'Objectif 10 000',
+    label: 'Objectif 10 000',
+    description: 'Atteindre 10 000 pas en une journee.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#4db3ff',
+  },
+  {
+    code: 'steps_20000',
+    name: 'Grosse journee',
+    label: 'Grosse journee',
+    description: 'Atteindre 20 000 pas en une journee.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#b084ff',
+  },
+  {
+    code: 'weekly_steps_50000',
+    name: 'Semaine active',
+    label: 'Semaine active',
+    description: 'Cumuler 50 000 pas sur 7 jours.',
+    category: 'steps',
+    icon: 'CalendarCheck2',
+    color: '#35e66b',
+  },
   {
     code: 'first_activity',
     name: 'Premier pas',

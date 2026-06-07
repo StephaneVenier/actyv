@@ -222,6 +222,7 @@ function getBadgeCategoryLabel(badge: BadgeDefinition) {
     session: 'Seance',
     program: 'Programme',
     sport: 'Multi-sports',
+    steps: 'Pas',
   };
 
   return labels[badge.category];

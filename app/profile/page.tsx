@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { BadgeArtwork } from '@/components/badge-artwork';
+import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
 import { BADGES, getBadgeByCode, getUnlockedBadgeCodes } from '@/lib/badges';
@@ -14,7 +15,7 @@ import {
   getTodayIsoDate,
 } from '@/lib/daily-sessions';
 import type { DailySessionCompletion } from '@/lib/daily-sessions';
-import { getUserTotalXp } from '@/lib/gamification';
+import { getUserTotalXp, refreshUserBadges } from '@/lib/gamification';
 import { getActyvLevel } from '@/lib/levels';
 import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
@@ -991,6 +992,31 @@ export default function ProfilePage() {
         hasTodayEntry: true,
       });
       setStepsInput(String(savedEntry.steps_count));
+
+      const badgeResult = await refreshUserBadges(profile.id);
+      if (badgeResult.error) {
+        console.error('Erreur refresh badges pas :', badgeResult.error);
+      } else if (badgeResult.awarded.length > 0) {
+        badgeResult.awarded.forEach((badgeCode) => {
+          const badge = getBadgeByCode(badgeCode);
+          queuePendingToast({
+            message: `Badge debloque : ${badge?.label || badgeCode}`,
+            tone: 'celebrate',
+          });
+        });
+
+        const { data: badgeRows, error: badgesError } = await supabase
+          .from('user_badges')
+          .select('badge_code, unlocked_at')
+          .eq('user_id', profile.id);
+
+        if (badgesError) {
+          console.error('Erreur rechargement badges profil apres pas :', badgesError);
+        } else {
+          setBadges((badgeRows as UserBadge[] | null) || []);
+        }
+      }
+
       setStepsMessage('Pas du jour mis a jour.');
     } catch (error) {
       console.error('Erreur enregistrement daily_steps profil :', error);
