@@ -65,6 +65,8 @@ export function SessionSummaryHeader({
   progressLabel,
   variant = 'default',
 }: SessionSummaryHeaderProps) {
+  const isCoachCompact = variant === 'coach-compact';
+
   return (
     <article className={`card session-summary-header session-summary-header--${variant}`}>
       <div className="session-summary-header__main">
@@ -80,14 +82,29 @@ export function SessionSummaryHeader({
         </div>
       </div>
 
-      <div className="session-summary-header__stats">
-        {stats.map((stat) => (
-          <div key={stat.label} className="session-summary-header__stat">
-            <span>{stat.label}</span>
-            <strong>{stat.value}</strong>
-          </div>
-        ))}
-      </div>
+      {isCoachCompact ? (
+        <div className="session-summary-header__stats-bar" role="list" aria-label="Informations de la seance">
+          {stats.map((stat) => (
+            <div
+              key={stat.label}
+              className="session-summary-header__stat-inline"
+              role="listitem"
+              aria-label={`${stat.label} : ${stat.value}`}
+            >
+              <strong>{stat.value}</strong>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="session-summary-header__stats">
+          {stats.map((stat) => (
+            <div key={stat.label} className="session-summary-header__stat">
+              <span>{stat.label}</span>
+              <strong>{stat.value}</strong>
+            </div>
+          ))}
+        </div>
+      )}
     </article>
   );
 }
@@ -107,6 +124,7 @@ export function CompactExerciseCard({
   variant = 'default',
 }: CompactExerciseCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const isCoachCompact = variant === 'coach-compact';
 
   const status = getBlockStatus({ isCompleted, isCurrent });
   const accent = getBlockAccentColor(block);
@@ -136,21 +154,23 @@ export function CompactExerciseCard({
             <SessionExerciseIcon exerciseName={block.name} blockType={block.block_type} size="md" />
             <div>
               <strong>{block.name || `Bloc ${index + 1}`}</strong>
-              <small>{subtitle || getSessionBlockTypeLabel(block.block_type)}</small>
+              {!isCoachCompact ? <small>{subtitle || getSessionBlockTypeLabel(block.block_type)}</small> : null}
             </div>
           </div>
           <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
         </div>
 
-        {variant === 'coach-compact' ? (
+        {isCoachCompact ? (
           <div className="compact-exercise-card__summary">
             {summary || (
-              <>
-                <span>{formatBlockMainValue(block)}</span>
-                <span>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</span>
-                <span>{progress.label}</span>
-                {blockVolume ? <span>{formatSessionVolumeKg(blockVolume)}</span> : null}
-              </>
+              <span className="compact-exercise-card__summary-main">
+                {[
+                  formatBlockMainValue(block),
+                  Number(block.charge_kg || 0) > 0 ? `${block.charge_kg} kg` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' • ')}
+              </span>
             )}
           </div>
         ) : (
@@ -205,7 +225,7 @@ export function CompactExerciseCard({
               onClick={() => setExpanded((current) => !current)}
               aria-expanded={expanded}
             >
-              {expanded ? 'Masquer ▲' : 'Détails ▼'}
+              {expanded ? 'Moins' : isCoachCompact ? 'Plus' : 'Details'}
             </button>
           ) : null}
         </div>

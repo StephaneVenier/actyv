@@ -1351,26 +1351,38 @@ export default function SessionDetailPage() {
               description={session.description || 'Aucune description pour le moment.'}
               progressLabel={`${completedBlocksCount} / ${blocks.length || 0} blocs - ${globalProgressPercent}%`}
               actions={
-                <>
-                  <Link href={`/sessions/${session.id}/live`} className="button primary">
-                    Demarrer la seance
+                <div className="session-detail-actions session-detail-actions--coach">
+                  <Link href={`/sessions/${session.id}/live`} className="button primary session-detail-actions__primary">
+                    ▶ Demarrer la seance
                   </Link>
-                  <Link href={`/sessions/${session.id}/edit`} className="button ghost">
-                    Modifier
-                  </Link>
-                  <Link href="/sessions/new" className="button ghost">
-                    Nouvelle seance
-                  </Link>
-                  <button
-                    type="button"
-                    className="button ghost session-delete-button"
-                    onClick={handleDeleteSession}
-                    disabled={deleting}
-                    aria-busy={deleting}
-                  >
-                    {deleting ? 'Suppression...' : 'Supprimer'}
-                  </button>
-                </>
+
+                  <div className="session-detail-actions__secondary">
+                    <Link href={`/sessions/${session.id}/edit`} className="button ghost">
+                      ✏ Modifier
+                    </Link>
+
+                    <details className="session-overflow-menu">
+                      <summary className="button ghost session-overflow-menu__trigger" aria-label="Plus d'actions">
+                        ⋮
+                      </summary>
+
+                      <div className="session-overflow-menu__panel">
+                        <Link href="/sessions/new" className="session-overflow-menu__item">
+                          Nouvelle seance
+                        </Link>
+                        <button
+                          type="button"
+                          className="session-overflow-menu__item session-overflow-menu__item--danger"
+                          onClick={handleDeleteSession}
+                          disabled={deleting}
+                          aria-busy={deleting}
+                        >
+                          {deleting ? 'Suppression...' : 'Supprimer'}
+                        </button>
+                      </div>
+                    </details>
+                  </div>
+                </div>
               }
               stats={[
                 { label: 'Sport', value: formatSportBadgeLabel(session.sport, 'Sport') },
@@ -1382,11 +1394,10 @@ export default function SessionDetailPage() {
               ]}
             />
 
-            <article className="card session-form-card stack">
-              <div className="session-blocks-header">
+            <article className="card session-form-card session-form-card--coach stack">
+              <div className="session-blocks-header session-blocks-header--coach">
                 <div>
-                  <span className="section-kicker">Blocs</span>
-                  <h2>Plan de la seance</h2>
+                  <h2>Blocs</h2>
                 </div>
                 {blocks.length > 0 && (
                   <span className="session-progress-pill">
@@ -1429,14 +1440,16 @@ export default function SessionDetailPage() {
                         actionLabel={isCompleted ? 'Termine' : isCurrent ? 'Continuer' : 'Demarrer'}
                         onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}
                         actionDisabled={isCompleted}
-                        subtitle={`Bloc ${index + 1} - ${getSessionBlockTypeLabel(block.block_type)}`}
+                        subtitle={null}
                         summary={
-                          <>
-                            <span>{formatBlockMainValue(block)}</span>
-                            {Number(block.charge_kg || 0) > 0 ? <span>{block.charge_kg} kg</span> : null}
-                            <span>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</span>
-                            <span>{isCompleted ? 'Termine' : isCurrent ? 'En cours' : 'A faire'}</span>
-                          </>
+                          <span className="compact-exercise-card__summary-main">
+                            {[
+                              formatBlockMainValue(block),
+                              Number(block.charge_kg || 0) > 0 ? `${block.charge_kg} kg` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' • ')}
+                          </span>
                         }
                         details={
                           <div className="compact-exercise-card__details-grid">
