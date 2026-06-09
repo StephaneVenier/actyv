@@ -187,7 +187,7 @@ export default function NewChallengePage() {
 
   return (
     <AppShell>
-      <div className="card stack">
+      <div className="card stack challenge-create-card challenge-create-card--compact">
         <div>
           <h1>Créer un challenge</h1>
           <p className="muted">
@@ -195,7 +195,7 @@ export default function NewChallengePage() {
           </p>
         </div>
 
-        <form className="form-grid" onSubmit={handleSubmit}>
+        <form className="form-grid challenge-create-form" onSubmit={handleSubmit}>
           <div className="field">
             <label htmlFor="name">Nom du challenge</label>
             <input

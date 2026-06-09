@@ -7761,6 +7761,398 @@ img {
   }
 }
 
+/* COMPACT UI GLOBAL V1 */
+
+.home-page,
+.challenges-page,
+.profile-page,
+.badges-page,
+.leaderboard-page,
+.activity-page,
+.challenge-detail-page {
+  gap: 16px;
+}
+
+.home-actions,
+.home-placeholder,
+.home-feed,
+.profile-hero-card,
+.profile-history-card,
+.badges-hero-card,
+.badges-state-card,
+.leaderboard-hero-card,
+.leaderboard-card,
+.activity-hero-card,
+.activity-form-card,
+.challenge-hero-card,
+.challenge-create-card--compact,
+.challenge-overview-card,
+.challenge-item {
+  border-radius: 20px;
+}
+
+.home-actions,
+.home-placeholder,
+.home-feed,
+.profile-hero-card,
+.profile-history-card,
+.badges-hero-card,
+.badges-state-card,
+.leaderboard-hero-card,
+.leaderboard-card,
+.activity-hero-card,
+.activity-form-card,
+.challenge-hero-card,
+.challenge-create-card--compact {
+  padding: 18px;
+}
+
+.home-actions-grid {
+  gap: 10px;
+}
+
+.home-action-card {
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.home-action-card strong {
+  font-size: 0.94rem;
+  line-height: 1.2;
+}
+
+.home-action-card p {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.home-feed__header,
+.home-challenges__header,
+.profile-section-heading,
+.leaderboard-card__header,
+.challenge-hero-top,
+.activity-hero-top {
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.home-program-reminders,
+.home-program-reminder-list,
+.home-program-reminder-empty,
+.daily-session-blocks,
+.profile-history-list,
+.leaderboard-list,
+.activity-list {
+  gap: 10px;
+}
+
+.home-program-reminder-card,
+.feed-item,
+.challenge-item,
+.challenge-overview-card,
+.activity-item,
+.profile-history-item,
+.leaderboard-item {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.home-program-reminder-card__copy strong,
+.feed-item__identity strong,
+.challenge-item h3,
+.challenge-overview-card h3,
+.activity-user,
+.leaderboard-name {
+  font-size: 0.95rem;
+  line-height: 1.18;
+}
+
+.home-program-reminder-card__copy p,
+.feed-item__comment,
+.challenge-item p,
+.challenge-overview-card p,
+.profile-history-item span,
+.profile-history-item p {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.home-program-reminder-card__actions .button,
+.challenge-overview-card .button,
+.profile-history-item .button,
+.badges-hero-actions .button,
+.leaderboard-page .button,
+.activity-submit-btn,
+.challenge-hero-actions .button,
+.challenge-filter-button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 0.84rem;
+}
+
+.daily-session-stats-grid,
+.profile-stats-grid,
+.challenge-stats-grid {
+  gap: 10px;
+}
+
+.daily-session-stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.feed-item__stats,
+.activity-stats,
+.challenge-overview-meta {
+  gap: 8px;
+}
+
+.feed-item__stats span,
+.activity-stats span {
+  min-height: 40px;
+  min-width: 98px;
+  padding: 8px 10px;
+  border-radius: 12px;
+}
+
+.feed-item__stats small,
+.activity-stats span strong {
+  font-size: 0.66rem;
+}
+
+.challenge-item__pill,
+.feed-item__challenge,
+.feed-item__sport,
+.activity-sport,
+.badges-stat-chip,
+.program-card__facts span,
+.session-block-chip {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 0.72rem;
+}
+
+.challenge-hero-card {
+  padding: 18px;
+}
+
+.challenge-hero-title,
+.activity-page-title,
+.profile-hero-card h1,
+.badges-hero-card h1,
+.leaderboard-hero-card h1 {
+  font-size: clamp(1.35rem, 2.3vw, 1.9rem);
+  line-height: 1.08;
+}
+
+.challenge-hero-description,
+.activity-page-subtitle,
+.badges-hero-card p,
+.leaderboard-hero-card p,
+.profile-hero-card .muted {
+  font-size: 0.88rem;
+  line-height: 1.38;
+}
+
+.challenge-meta-grid {
+  margin-top: 14px;
+  gap: 10px;
+}
+
+.challenge-meta-item,
+.activity-context-card,
+.stat-card,
+.profile-page .stat-card,
+.profile-page .profile-summary-card:not(.profile-summary-card--level),
+.profile-page .profile-badges-summary-card {
+  padding: 12px 14px;
+  border-radius: 14px;
+}
+
+.challenge-meta-label,
+.stat-card-label,
+.activity-context-label {
+  font-size: 0.74rem;
+}
+
+.challenge-meta-helper,
+.activity-feedback-message,
+.profile-page .stat-card-label,
+.profile-page .muted,
+.profile-page .profile-summary-card__meta {
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.stat-card-value,
+.profile-page .stat-card-value {
+  font-size: 1.28rem;
+}
+
+.progress-track {
+  height: 10px;
+}
+
+.leaderboard-item {
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+}
+
+.leaderboard-rank {
+  min-width: 40px;
+  height: 40px;
+  font-size: 0.88rem;
+}
+
+.leaderboard-meta {
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
+.badges-collection-grid {
+  gap: 12px;
+}
+
+.badge-collection-card {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.badge-collection-card__artwork {
+  width: 76px;
+  height: 76px;
+}
+
+.badge-collection-card__copy {
+  gap: 4px;
+}
+
+.badge-collection-card__copy strong {
+  font-size: 0.92rem;
+  line-height: 1.18;
+}
+
+.badge-collection-card__copy span,
+.badge-collection-card__meta,
+.badge-collection-card__date {
+  font-size: 0.76rem;
+}
+
+.activity-form-grid,
+.challenge-create-form {
+  gap: 12px;
+}
+
+.activity-form-card,
+.challenge-create-card--compact {
+  gap: 12px;
+}
+
+.challenge-create-card--compact h1 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2.2vw, 1.8rem);
+  line-height: 1.08;
+}
+
+.challenge-create-card--compact .muted {
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
+.activity-submit-btn {
+  min-height: 42px;
+  font-size: 0.92rem;
+}
+
+@media (max-width: 767px) {
+  .home-actions,
+  .home-placeholder,
+  .home-feed,
+  .profile-hero-card,
+  .profile-history-card,
+  .badges-hero-card,
+  .badges-state-card,
+  .leaderboard-hero-card,
+  .leaderboard-card,
+  .activity-hero-card,
+  .activity-form-card,
+  .challenge-hero-card,
+  .challenge-create-card--compact {
+    padding: 14px;
+  }
+
+  .home-actions .section-kicker,
+  .home-challenges .section-kicker,
+  .profile-page .section-kicker,
+  .badges-page .section-kicker,
+  .leaderboard-page .section-kicker,
+  .activity-page .section-kicker,
+  .challenge-detail-page .section-kicker {
+    margin-bottom: 2px;
+    font-size: 0.68rem;
+  }
+
+  .home-challenges__header h2,
+  .home-feed__header h2,
+  .profile-section-heading h2,
+  .leaderboard-card__header h2,
+  .session-form-card h2,
+  .activity-page h1,
+  .challenge-detail-page h1 {
+    font-size: 1.02rem;
+  }
+
+  .home-program-reminder-card,
+  .feed-item,
+  .challenge-item,
+  .challenge-overview-card,
+  .activity-item,
+  .profile-history-item,
+  .leaderboard-item,
+  .badge-collection-card {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .profile-stats-grid,
+  .challenge-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .badges-collection-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .badge-collection-card__artwork {
+    width: 64px;
+    height: 64px;
+  }
+
+  .leaderboard-grid {
+    gap: 12px;
+  }
+
+  .leaderboard-rank {
+    min-width: 34px;
+    height: 34px;
+    font-size: 0.78rem;
+  }
+
+  .challenge-meta-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .feed-item__stats span,
+  .activity-stats span {
+    min-width: 82px;
+    flex: 1 1 calc(50% - 8px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
