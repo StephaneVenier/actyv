@@ -107,6 +107,7 @@ img {
   max-width: 1100px;
   margin: 0 auto;
   padding: 110px 24px 120px;
+  scroll-padding-bottom: 148px;
 }
 
 /* TOPBAR */
@@ -456,12 +457,16 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 0.35rem;
   min-height: 44px;
   padding: 12px 18px;
   border-radius: 999px;
   border: none;
   cursor: pointer;
   font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  white-space: normal;
   transition:
     transform 0.18s ease,
     box-shadow 0.18s ease,
@@ -519,7 +524,7 @@ img {
 
 .button:disabled {
   cursor: not-allowed;
-  opacity: 0.55;
+  opacity: 0.68;
   transform: none;
 }
 
@@ -729,6 +734,7 @@ img {
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.1em;
+  line-height: 1.15;
   color: #16a34a;
 }
 
@@ -872,6 +878,7 @@ img {
 
 .challenge-state--compact {
   margin-bottom: 14px;
+  line-height: 1.4;
 }
 
 .leaderboard-page {
@@ -7169,7 +7176,7 @@ img {
   }
 
   .page-content {
-    padding: 92px 14px calc(120px + env(safe-area-inset-bottom));
+    padding: 90px 14px calc(138px + env(safe-area-inset-bottom));
   }
 
   .form-grid,
@@ -7178,7 +7185,7 @@ img {
   }
 
   .bottom-bar {
-    height: calc(74px + env(safe-area-inset-bottom));
+    height: calc(78px + env(safe-area-inset-bottom));
     padding-bottom: env(safe-area-inset-bottom);
   }
 
@@ -7190,31 +7197,32 @@ img {
   }
 
   .bottom-bar-center-space {
-    width: 86px;
-    flex: 0 0 86px;
+    width: 90px;
+    flex: 0 0 90px;
   }
 
   .bottom-btn {
-    min-width: 92px;
-    min-height: 56px;
+    min-width: 96px;
+    min-height: 60px;
+    padding: 6px 8px 8px;
   }
 
   .menu-center-btn {
-    width: 74px;
-    height: 74px;
+    width: 72px;
+    height: 72px;
     background:
       url('/images/logo.png') center center / 46px 46px no-repeat,
       linear-gradient(135deg, #0f172a, #1e293b);
   }
 
   .quick-menu-wrap {
-    bottom: calc(36px + env(safe-area-inset-bottom));
-    width: 74px;
-    height: 74px;
+    bottom: calc(38px + env(safe-area-inset-bottom));
+    width: 72px;
+    height: 72px;
   }
 
   .quick-menu-panel {
-    bottom: 88px;
+    bottom: 92px;
     width: min(320px, calc(100vw - 20px));
   }
 
@@ -7887,7 +7895,7 @@ img {
 .activity-submit-btn,
 .challenge-hero-actions .button,
 .challenge-filter-button {
-  min-height: 36px;
+  min-height: 40px;
   padding: 0 12px;
   font-size: 0.84rem;
 }
@@ -8091,8 +8099,9 @@ img {
   .leaderboard-page .section-kicker,
   .activity-page .section-kicker,
   .challenge-detail-page .section-kicker {
-    margin-bottom: 2px;
-    font-size: 0.68rem;
+    margin-bottom: 3px;
+    font-size: 0.7rem;
+    line-height: 1.15;
   }
 
   .home-challenges__header h2,
@@ -8102,7 +8111,9 @@ img {
   .session-form-card h2,
   .activity-page h1,
   .challenge-detail-page h1 {
-    font-size: 1.02rem;
+    font-size: 1.04rem;
+    line-height: 1.18;
+    overflow-wrap: anywhere;
   }
 
   .home-program-reminder-card,
@@ -8113,7 +8124,7 @@ img {
   .profile-history-item,
   .leaderboard-item,
   .badge-collection-card {
-    padding: 12px;
+    padding: 13px;
     border-radius: 14px;
   }
 
@@ -8150,6 +8161,28 @@ img {
   .activity-stats span {
     min-width: 82px;
     flex: 1 1 calc(50% - 8px);
+  }
+
+  .home-program-reminder-card__copy p,
+  .feed-item__comment,
+  .challenge-item p,
+  .challenge-overview-card p,
+  .profile-history-item span,
+  .profile-history-item p,
+  .badge-collection-card__copy span,
+  .badge-collection-card__meta,
+  .badge-collection-card__date,
+  .leaderboard-meta,
+  .challenge-meta-helper,
+  .activity-feedback-message {
+    overflow-wrap: anywhere;
+  }
+
+  .home-placeholder,
+  .badges-state-card,
+  .challenge-state--compact {
+    padding: 14px;
+    line-height: 1.45;
   }
 }
 
