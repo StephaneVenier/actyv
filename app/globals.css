@@ -5140,6 +5140,10 @@ img {
   gap: 18px;
 }
 
+.session-summary-header--coach-compact {
+  gap: 14px;
+}
+
 .session-summary-header__main {
   display: flex;
   justify-content: space-between;
@@ -5165,6 +5169,24 @@ img {
   line-height: 1.6;
 }
 
+.session-summary-header--coach-compact .session-summary-header__main {
+  gap: 14px;
+}
+
+.session-summary-header--coach-compact .session-summary-header__copy {
+  gap: 8px;
+}
+
+.session-summary-header--coach-compact .session-summary-header__copy h1 {
+  font-size: clamp(1.5rem, 2.4vw, 2rem);
+  line-height: 1.12;
+}
+
+.session-summary-header--coach-compact .session-summary-header__copy p {
+  font-size: 0.94rem;
+  line-height: 1.45;
+}
+
 .session-summary-header__side,
 .session-summary-header__actions {
   display: flex;
@@ -5178,10 +5200,25 @@ img {
   align-items: flex-end;
 }
 
+.session-summary-header--coach-compact .session-summary-header__actions {
+  gap: 8px;
+}
+
+.session-summary-header--coach-compact .session-summary-header__actions .button {
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 0.9rem;
+}
+
 .session-summary-header__stats {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 12px;
+}
+
+.session-summary-header--coach-compact .session-summary-header__stats {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
 }
 
 .session-summary-header__stat {
@@ -5193,6 +5230,12 @@ img {
   border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
+.session-summary-header--coach-compact .session-summary-header__stat {
+  gap: 4px;
+  padding: 11px 12px;
+  border-radius: 16px;
+}
+
 .session-summary-header__stat span {
   color: #89a1a6;
   font-size: 0.74rem;
@@ -5201,9 +5244,17 @@ img {
   text-transform: uppercase;
 }
 
+.session-summary-header--coach-compact .session-summary-header__stat span {
+  font-size: 0.68rem;
+}
+
 .session-summary-header__stat strong {
   color: #f4fbfb;
   font-size: 1rem;
+}
+
+.session-summary-header--coach-compact .session-summary-header__stat strong {
+  font-size: 0.92rem;
 }
 
 .session-card--compact {
@@ -5220,6 +5271,23 @@ img {
   gap: 12px;
 }
 
+.sessions-page--dark .session-form-card.stack {
+  gap: 14px;
+}
+
+.sessions-page--dark .session-blocks-header {
+  gap: 12px;
+}
+
+.sessions-page--dark .session-blocks-header h2 {
+  margin: 0;
+  font-size: 1.18rem;
+}
+
+.sessions-page--dark .session-block-list--compact {
+  gap: 10px;
+}
+
 .compact-exercise-card {
   display: grid;
   grid-template-columns: 36px 8px minmax(0, 1fr);
@@ -5231,6 +5299,13 @@ img {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: linear-gradient(180deg, #0b1718 0%, #071111 100%);
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.22);
+}
+
+.compact-exercise-card--coach-compact {
+  grid-template-columns: 30px 6px minmax(0, 1fr);
+  gap: 10px;
+  border-radius: 18px;
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.18);
 }
 
 .compact-exercise-card__accent {
@@ -5270,6 +5345,11 @@ img {
   min-width: 0;
 }
 
+.compact-exercise-card--coach-compact .compact-exercise-card__content {
+  gap: 10px;
+  padding: 12px 14px 12px 0;
+}
+
 .compact-exercise-card__identity,
 .compact-exercise-card__actions {
   display: flex;
@@ -5279,6 +5359,11 @@ img {
   flex-wrap: wrap;
 }
 
+.compact-exercise-card--coach-compact .compact-exercise-card__identity,
+.compact-exercise-card--coach-compact .compact-exercise-card__actions {
+  gap: 10px;
+}
+
 .compact-exercise-card__identity strong {
   display: block;
   color: #f5fafa;
@@ -5286,10 +5371,20 @@ img {
   line-height: 1.35;
 }
 
+.compact-exercise-card--coach-compact .compact-exercise-card__identity strong {
+  font-size: 0.94rem;
+  line-height: 1.25;
+}
+
 .compact-exercise-card__identity small {
   display: block;
   margin-top: 4px;
   color: #8ea5aa;
+}
+
+.compact-exercise-card--coach-compact .compact-exercise-card__identity small {
+  margin-top: 2px;
+  font-size: 0.76rem;
 }
 
 .compact-exercise-card__metrics {
@@ -5306,6 +5401,27 @@ img {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
   min-width: 0;
+}
+
+.compact-exercise-card__summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.compact-exercise-card__summary span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #d7e8e6;
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .compact-exercise-card__metric span,
@@ -5329,6 +5445,12 @@ img {
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.compact-exercise-card--coach-compact .compact-exercise-card__actions .button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 0.86rem;
+}
+
 .compact-exercise-card__details-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -5343,6 +5465,11 @@ img {
   gap: 8px;
 }
 
+.compact-exercise-card--coach-compact .session-block-timeline {
+  padding-top: 12px;
+  gap: 6px;
+}
+
 .session-block-timeline__dot {
   display: inline-flex;
   align-items: center;
@@ -5355,6 +5482,12 @@ img {
   color: #d5e6e7;
   font-size: 0.8rem;
   font-weight: 800;
+}
+
+.compact-exercise-card--coach-compact .session-block-timeline__dot {
+  width: 24px;
+  height: 24px;
+  font-size: 0.72rem;
 }
 
 .session-block-timeline__dot--done {
@@ -5375,6 +5508,10 @@ img {
   min-height: 42px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.09);
+}
+
+.compact-exercise-card--coach-compact .session-block-timeline__line {
+  min-height: 32px;
 }
 
 .sessions-page--dark .session-live-rest {
@@ -5880,6 +6017,10 @@ img {
   .compact-exercise-card__details-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+
+  .session-summary-header--coach-compact .session-summary-header__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -5887,10 +6028,18 @@ img {
   .session-detail-meta,
   .session-live-meta,
   .session-creation-overview,
-  .session-summary-header__stats,
   .compact-exercise-card__metrics,
   .compact-exercise-card__details-grid {
     grid-template-columns: 1fr;
+  }
+
+  .session-summary-header__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .session-summary-header--coach-compact .session-summary-header__stats {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
   }
 
   .compact-exercise-card {
@@ -5899,6 +6048,10 @@ img {
 
   .compact-exercise-card__content {
     padding: 14px 14px 14px 0;
+  }
+
+  .compact-exercise-card--coach-compact .compact-exercise-card__content {
+    padding: 11px 12px 11px 0;
   }
 
   .session-summary-header__side {
@@ -5926,6 +6079,10 @@ img {
   .session-editor-block__controls .button {
     flex: 1 1 0;
     justify-content: center;
+  }
+
+  .session-summary-header--coach-compact .session-summary-header__actions .button {
+    flex: 1 1 calc(50% - 8px);
   }
 
   .session-live-shell,
@@ -7033,6 +7190,18 @@ img {
   .program-share-preview__top {
     align-items: flex-start;
     flex-direction: column;
+  }
+}
+
+@media (max-width: 520px) {
+  .session-summary-header--coach-compact .session-summary-header__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .compact-exercise-card__summary span {
+    min-height: 26px;
+    padding: 0 8px;
+    font-size: 0.74rem;
   }
 }
 

@@ -25,6 +25,8 @@ type CompactExerciseCardProps = {
   actionDisabled?: boolean;
   details?: ReactNode;
   subtitle?: string | null;
+  summary?: ReactNode;
+  variant?: 'default' | 'coach-compact';
 };
 
 type SessionSummaryHeaderProps = {
@@ -34,6 +36,7 @@ type SessionSummaryHeaderProps = {
   stats: Array<{ label: string; value: string | number }>;
   actions?: ReactNode;
   progressLabel?: string | null;
+  variant?: 'default' | 'coach-compact';
 };
 
 export function SessionBlockTimeline({
@@ -60,9 +63,10 @@ export function SessionSummaryHeader({
   stats,
   actions,
   progressLabel,
+  variant = 'default',
 }: SessionSummaryHeaderProps) {
   return (
-    <article className="card session-summary-header">
+    <article className={`card session-summary-header session-summary-header--${variant}`}>
       <div className="session-summary-header__main">
         <div className="session-summary-header__copy">
           {sportBadge ? <div className="session-summary-header__badge">{sportBadge}</div> : null}
@@ -99,6 +103,8 @@ export function CompactExerciseCard({
   actionDisabled = false,
   details,
   subtitle,
+  summary,
+  variant = 'default',
 }: CompactExerciseCardProps) {
   const [expanded, setExpanded] = useState(false);
 
@@ -118,7 +124,7 @@ export function CompactExerciseCard({
 
   return (
     <article
-      className={`compact-exercise-card compact-exercise-card--${status} compact-exercise-card--accent-${accent}`}
+      className={`compact-exercise-card compact-exercise-card--${variant} compact-exercise-card--${status} compact-exercise-card--accent-${accent}`}
     >
       <SessionBlockTimeline index={index} status={status} />
 
@@ -136,36 +142,49 @@ export function CompactExerciseCard({
           <span className="session-block-chip">{getSessionBlockTypeLabel(block.block_type)}</span>
         </div>
 
-        <div className="compact-exercise-card__metrics">
-          <div className="compact-exercise-card__metric">
-            <span>Format</span>
-            <strong>{formatBlockMainValue(block)}</strong>
+        {variant === 'coach-compact' ? (
+          <div className="compact-exercise-card__summary">
+            {summary || (
+              <>
+                <span>{formatBlockMainValue(block)}</span>
+                <span>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</span>
+                <span>{progress.label}</span>
+                {blockVolume ? <span>{formatSessionVolumeKg(blockVolume)}</span> : null}
+              </>
+            )}
           </div>
-
-          {Number(block.charge_kg || 0) > 0 ? (
+        ) : (
+          <div className="compact-exercise-card__metrics">
             <div className="compact-exercise-card__metric">
-              <span>Charge</span>
-              <strong>{block.charge_kg} kg</strong>
+              <span>Format</span>
+              <strong>{formatBlockMainValue(block)}</strong>
             </div>
-          ) : null}
 
-          <div className="compact-exercise-card__metric">
-            <span>Repos</span>
-            <strong>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</strong>
-          </div>
+            {Number(block.charge_kg || 0) > 0 ? (
+              <div className="compact-exercise-card__metric">
+                <span>Charge</span>
+                <strong>{block.charge_kg} kg</strong>
+              </div>
+            ) : null}
 
-          <div className="compact-exercise-card__metric">
-            <span>Progression</span>
-            <strong>{progress.label}</strong>
-          </div>
-
-          {blockVolume ? (
             <div className="compact-exercise-card__metric">
-              <span>Volume</span>
-              <strong>{formatSessionVolumeKg(blockVolume)}</strong>
+              <span>Repos</span>
+              <strong>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</strong>
             </div>
-          ) : null}
-        </div>
+
+            <div className="compact-exercise-card__metric">
+              <span>Progression</span>
+              <strong>{progress.label}</strong>
+            </div>
+
+            {blockVolume ? (
+              <div className="compact-exercise-card__metric">
+                <span>Volume</span>
+                <strong>{formatSessionVolumeKg(blockVolume)}</strong>
+              </div>
+            ) : null}
+          </div>
+        )}
 
         <div className="compact-exercise-card__actions">
           {actionLabel ? (

@@ -505,11 +505,6 @@ export default function SessionDetailPage() {
     }
   }, [blocks, completedBlockIds, completionStorageKey]);
 
-  const totalStructuredBlocks = useMemo(
-    () => blocks.filter((block) => block.block_type !== 'free').length,
-    [blocks]
-  );
-
   const completedBlocksCount = useMemo(
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,
     [blocks, completedBlockIds]
@@ -523,19 +518,6 @@ export default function SessionDetailPage() {
         ? getEstimatedWorkoutCalories(lastLiveElapsedSeconds, session?.sport)
         : null,
     [lastLiveElapsedSeconds, lastLiveWasCompleted, session?.sport]
-  );
-  const sessionTotalVolume = useMemo(
-    () =>
-      blocks.reduce((total, block) => {
-        const volume = getSessionBlockVolumeKg(
-          block.block_type,
-          block.target_value,
-          block.sets_count,
-          block.charge_kg
-        );
-        return total + (volume ?? 0);
-      }, 0),
-    [blocks]
   );
   const personalExerciseRecords = useMemo<ExercisePersonalRecord[]>(() => {
     if (historyExerciseEntries.length === 0) {
@@ -1359,6 +1341,7 @@ export default function SessionDetailPage() {
         ) : (
           <>
             <SessionSummaryHeader
+              variant="coach-compact"
               sportBadge={
                 <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                   {formatSportBadgeLabel(session.sport, 'Sport')}
@@ -1396,9 +1379,6 @@ export default function SessionDetailPage() {
                   value: formatDurationLabel(averageDurationSeconds) || '-',
                 },
                 { label: 'Blocs', value: blocks.length },
-                { label: 'Struct.', value: totalStructuredBlocks },
-                { label: 'Volume total', value: formatSessionVolumeKg(sessionTotalVolume) || '-' },
-                { label: 'Creee', value: formatRelativeDate(session.created_at) },
               ]}
             />
 
@@ -1442,6 +1422,7 @@ export default function SessionDetailPage() {
                         key={block.id}
                         index={index}
                         block={block}
+                        variant="coach-compact"
                         isCompleted={isCompleted}
                         isCurrent={isCurrent}
                         completedSets={isCompleted ? Number(block.sets_count || 1) : 0}
@@ -1449,6 +1430,14 @@ export default function SessionDetailPage() {
                         onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}
                         actionDisabled={isCompleted}
                         subtitle={`Bloc ${index + 1} - ${getSessionBlockTypeLabel(block.block_type)}`}
+                        summary={
+                          <>
+                            <span>{formatBlockMainValue(block)}</span>
+                            {Number(block.charge_kg || 0) > 0 ? <span>{block.charge_kg} kg</span> : null}
+                            <span>{formatSessionRestSeconds(block.rest_seconds) || 'Sans repos'}</span>
+                            <span>{isCompleted ? 'Termine' : isCurrent ? 'En cours' : 'A faire'}</span>
+                          </>
+                        }
                         details={
                           <div className="compact-exercise-card__details-grid">
                             <div>
