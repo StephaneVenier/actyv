@@ -7406,6 +7406,361 @@ img {
   }
 }
 
+/* COMPACT UI V1: sessions + programs */
+
+.sessions-page--compact-overview,
+.sessions-page--compact-programs,
+.program-detail-page--compact {
+  gap: 16px;
+}
+
+.session-hero-card--compact {
+  gap: 10px;
+  padding: 18px 18px 16px;
+}
+
+.session-hero-card--compact .session-hero-copy {
+  gap: 6px;
+}
+
+.session-hero-card--compact h1 {
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  line-height: 1.08;
+}
+
+.session-hero-card--compact .muted,
+.session-hero-card--compact .session-hero-copy p {
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.session-hero-actions--compact {
+  gap: 8px;
+}
+
+.session-hero-actions--compact .button,
+.session-card__actions--compact .button,
+.program-detail-actions .button {
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 0.84rem;
+}
+
+.sessions-grid--compact-overview,
+.programs-grid--compact {
+  gap: 12px;
+}
+
+.session-card--overview-compact,
+.program-card--compact {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+}
+
+.session-card--overview-compact .session-card__top,
+.program-card--compact .session-card__top {
+  gap: 8px;
+}
+
+.session-card--overview-compact .session-card__content,
+.program-card--compact .session-card__content {
+  gap: 4px;
+}
+
+.session-card--overview-compact .session-card__content h2,
+.program-card--compact .session-card__content h2 {
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.session-card--overview-compact .session-card__content p,
+.program-card--compact .session-card__content p {
+  font-size: 0.82rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.session-card__meta--compact {
+  gap: 2px;
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.session-card--overview-compact .session-card__date,
+.program-card--compact .session-card__date {
+  font-size: 0.76rem;
+}
+
+.program-card__facts--compact {
+  gap: 6px;
+}
+
+.program-card__facts--compact span {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 0.74rem;
+}
+
+.program-card__summary--compact {
+  gap: 8px;
+}
+
+.program-next-card--compact {
+  gap: 3px;
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.program-next-card--compact strong {
+  font-size: 0.82rem;
+}
+
+.program-next-card--compact p,
+.program-next-card--compact small {
+  font-size: 0.76rem;
+  line-height: 1.3;
+}
+
+.program-placeholder-card--compact {
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.program-placeholder-card--compact .program-placeholder-card__copy {
+  gap: 4px;
+}
+
+.program-placeholder-card--compact .program-placeholder-card__copy h2 {
+  font-size: 1rem;
+}
+
+.program-placeholder-card--compact .program-placeholder-card__copy p {
+  font-size: 0.82rem;
+  line-height: 1.35;
+}
+
+.program-placeholder-card--compact .program-placeholder-card__chips {
+  gap: 6px;
+}
+
+.program-detail-actions {
+  width: min(100%, 360px);
+  display: grid;
+  gap: 6px;
+}
+
+.program-detail-actions__primary {
+  width: 100%;
+}
+
+.program-detail-actions__secondary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px;
+}
+
+.program-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: center;
+  gap: 0;
+  min-height: 42px;
+  padding: 0 8px;
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+}
+
+.program-summary-strip span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 0 8px;
+  color: #0f172a;
+  font-size: 0.82rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.program-summary-strip span + span {
+  border-left: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.session-form-card--program-compact {
+  gap: 12px;
+}
+
+.program-summary-note--compact {
+  gap: 4px;
+  padding: 12px 14px;
+}
+
+.program-summary-note--compact small {
+  color: #64748b;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.program-detail-page--compact .program-next-session-card {
+  gap: 12px;
+  padding: 16px;
+}
+
+.program-detail-page--compact .program-next-session-card__grid {
+  gap: 12px;
+}
+
+.program-detail-page--compact .program-next-session-card__stats {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.program-detail-page--compact .program-next-session-card__stats div {
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.program-detail-page--compact .program-next-session-card__stats span {
+  font-size: 0.66rem;
+}
+
+.program-detail-page--compact .program-next-session-card__stats strong {
+  font-size: 0.84rem;
+}
+
+.program-detail-page--compact .program-next-session-card__meta span {
+  min-height: 26px;
+  padding: 0 8px;
+  font-size: 0.74rem;
+}
+
+.program-detail-page--compact .program-next-session-card__footer {
+  gap: 8px;
+}
+
+.program-detail-page--compact .program-plan-week {
+  gap: 8px;
+}
+
+.program-detail-page--compact .program-plan-week__header .section-kicker {
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+}
+
+.program-detail-page--compact .program-plan-week__header h3 {
+  font-size: 0.96rem;
+}
+
+.program-detail-page--compact .program-plan-day {
+  gap: 5px;
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.program-detail-page--compact .program-plan-day--calendar {
+  min-height: 116px;
+}
+
+.program-detail-page--compact .program-plan-day__label strong {
+  font-size: 0.78rem;
+}
+
+.program-detail-page--compact .program-plan-day__label small {
+  font-size: 0.62rem;
+}
+
+.program-detail-page--compact .program-plan-day__header .button {
+  min-height: 28px;
+  padding: 0 9px;
+  font-size: 0.74rem;
+}
+
+.program-detail-page--compact .program-list-item {
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+
+.program-detail-page--compact .program-list-item__heading {
+  gap: 6px;
+  font-size: 0.84rem;
+}
+
+.program-detail-page--compact .program-list-item__meta {
+  gap: 6px;
+  font-size: 0.72rem;
+}
+
+.program-detail-page--compact .program-list-item__actions {
+  gap: 4px;
+}
+
+.program-detail-page--compact .program-status {
+  min-height: 24px;
+  padding: 0 8px;
+  font-size: 0.68rem;
+}
+
+.program-detail-page--compact .program-action-button {
+  min-height: 26px;
+  min-width: 26px;
+  padding: 0 5px;
+  font-size: 0.72rem;
+}
+
+@media (max-width: 767px) {
+  .session-hero-card--compact {
+    padding: 14px;
+  }
+
+  .session-hero-card--compact .section-kicker {
+    margin-bottom: 2px;
+    font-size: 0.68rem;
+  }
+
+  .sessions-grid--compact-overview,
+  .programs-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .session-card--overview-compact,
+  .program-card--compact {
+    gap: 8px;
+    padding: 12px;
+  }
+
+  .program-detail-actions {
+    width: 100%;
+  }
+
+  .program-summary-strip {
+    min-height: 36px;
+    padding: 0 4px;
+  }
+
+  .program-summary-strip span {
+    padding: 0 4px;
+    font-size: 0.72rem;
+  }
+
+  .program-detail-page--compact .program-next-session-card {
+    padding: 14px;
+  }
+
+  .program-detail-page--compact .program-next-session-card__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .program-detail-page--compact .program-plan-list {
+    gap: 8px;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

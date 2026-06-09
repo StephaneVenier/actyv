@@ -1243,7 +1243,7 @@ export default function ProgramDetailPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page">
+      <section className="sessions-page program-detail-page program-detail-page--compact">
         <Link href="/programs" className="detail-back-link">
           Retour aux programmes
         </Link>
@@ -1263,7 +1263,7 @@ export default function ProgramDetailPage() {
           </div>
         ) : (
           <>
-            <article className="card session-hero-card">
+            <article className="card session-hero-card session-hero-card--compact program-hero-card--compact">
               <div className="session-hero-copy">
                 <div className={getSportBadgeClassName(program.sport, 'badge', 'Sport')}>
                   {formatSportBadgeLabel(program.sport, 'Sport')}
@@ -1272,34 +1272,46 @@ export default function ProgramDetailPage() {
                 <p className="muted">{program.description || 'Programme sans description pour le moment.'}</p>
               </div>
 
-              <div className="session-hero-actions">
-                <Link href={`/programs/${program.id}/edit`} className="button primary">
+              <div className="session-hero-actions session-hero-actions--compact program-detail-actions">
+                <Link href={`/programs/${program.id}/edit`} className="button primary program-detail-actions__primary">
                   Modifier le programme
                 </Link>
-                <button
-                  type="button"
-                  className="button ghost"
-                  onClick={handleDuplicateProgram}
-                  disabled={duplicating}
-                  aria-busy={duplicating}
-                >
-                  {duplicating ? 'Duplication...' : 'Dupliquer le programme'}
-                </button>
-                <Link href="/programs/new" className="button ghost">
-                  Creer un autre programme
-                </Link>
-                <Link href="/sessions" className="button ghost">
-                  Voir mes seances
-                </Link>
-                <button
-                  type="button"
-                  className="button ghost session-delete-button"
-                  onClick={handleDeleteProgram}
-                  disabled={deleting}
-                  aria-busy={deleting}
-                >
-                  {deleting ? 'Suppression...' : 'Supprimer le programme'}
-                </button>
+
+                <div className="program-detail-actions__secondary">
+                  <Link href="/sessions" className="button ghost">
+                    Voir mes seances
+                  </Link>
+
+                  <details className="session-overflow-menu">
+                    <summary className="button ghost session-overflow-menu__trigger" aria-label="Plus d'actions">
+                      ⋮
+                    </summary>
+
+                    <div className="session-overflow-menu__panel">
+                      <button
+                        type="button"
+                        className="session-overflow-menu__item"
+                        onClick={handleDuplicateProgram}
+                        disabled={duplicating}
+                        aria-busy={duplicating}
+                      >
+                        {duplicating ? 'Duplication...' : 'Dupliquer le programme'}
+                      </button>
+                      <Link href="/programs/new" className="session-overflow-menu__item">
+                        Creer un autre programme
+                      </Link>
+                      <button
+                        type="button"
+                        className="session-overflow-menu__item session-overflow-menu__item--danger"
+                        onClick={handleDeleteProgram}
+                        disabled={deleting}
+                        aria-busy={deleting}
+                      >
+                        {deleting ? 'Suppression...' : 'Supprimer le programme'}
+                      </button>
+                    </div>
+                  </details>
+                </div>
               </div>
             </article>
 
@@ -1411,7 +1423,7 @@ export default function ProgramDetailPage() {
               )}
             </article>
 
-            <article className="card session-form-card stack">
+            <article className="card session-form-card session-form-card--program-compact stack">
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Progression</span>
@@ -1424,37 +1436,22 @@ export default function ProgramDetailPage() {
                 <span className="program-progress-track__fill" style={{ width: `${progress}%` }} />
               </div>
 
-              <div className="session-detail-meta">
-                <div className="session-meta-card">
-                  <span>Seances prevues</span>
-                  <strong>{totalSessions}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Seances realisees</span>
-                  <strong>{completedCount}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Progression</span>
-                  <strong>{progress}%</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Semaine actuelle</span>
-                  <strong>
-                    Semaine {currentWeek} / {program.duration_weeks}
-                  </strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Prochaine seance</span>
-                  <strong>{nextProgramSession?.session_name || 'Toutes les seances sont realisees'}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Date de debut</span>
-                  <strong>{formatProgramDate(program.start_date)}</strong>
-                </div>
-                <div className="session-meta-card">
-                  <span>Fin estimee</span>
-                  <strong>{formatProgramEndDate(program.start_date, program.duration_weeks)}</strong>
-                </div>
+              <div className="program-summary-strip" role="list" aria-label="Resume du programme">
+                <span role="listitem">{totalSessions} prevues</span>
+                <span role="listitem">{completedCount} realisees</span>
+                <span role="listitem">{progress}%</span>
+                <span role="listitem">
+                  S{currentWeek}/{program.duration_weeks}
+                </span>
+              </div>
+
+              <div className="program-summary-note program-summary-note--compact">
+                <strong>Prochaine seance</strong>
+                <p>{nextProgramSession?.session_name || 'Toutes les seances sont realisees'}</p>
+                <small>
+                  Debut {formatProgramDate(program.start_date)} · Fin estimee{' '}
+                  {formatProgramEndDate(program.start_date, program.duration_weeks)}
+                </small>
               </div>
 
               <div className="program-summary-note">
@@ -1562,7 +1559,7 @@ export default function ProgramDetailPage() {
               </article>
             )}
 
-            <article className="card session-form-card stack">
+            <article className="card session-form-card session-form-card--program-compact stack">
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Plan du programme</span>

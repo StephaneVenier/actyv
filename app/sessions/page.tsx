@@ -167,8 +167,8 @@ export default function SessionsPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page sessions-page--dark">
-        <article className="card session-hero-card">
+      <section className="sessions-page sessions-page--dark sessions-page--compact-overview">
+        <article className="card session-hero-card session-hero-card--compact">
           <div className="session-hero-copy">
             <span className="section-kicker">Seances</span>
             <h1>Mes seances</h1>
@@ -177,7 +177,7 @@ export default function SessionsPage() {
             </p>
           </div>
 
-          <div className="session-hero-actions">
+          <div className="session-hero-actions session-hero-actions--compact">
             <Link href="/sessions/new" className="button primary">
               Creer une seance
             </Link>
@@ -200,13 +200,13 @@ export default function SessionsPage() {
             </div>
           </div>
         ) : (
-          <div className="sessions-grid">
+          <div className="sessions-grid sessions-grid--compact-overview">
             {sessions.map((session) => {
               const sessionBlocks = blocksBySession.get(session.id) || [];
               const firstBlock = sessionBlocks[0];
 
               return (
-                <article key={session.id} className="session-card session-card--compact">
+                <article key={session.id} className="session-card session-card--compact session-card--overview-compact">
                   <div className="session-card__top">
                     <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                       {formatSportBadgeLabel(session.sport, 'Sport')}
@@ -219,11 +219,11 @@ export default function SessionsPage() {
                     <p>{session.description || 'Seance sans description pour le moment.'}</p>
                   </div>
 
-                  <div className="session-card__meta">
+                  <div className="session-card__meta session-card__meta--compact">
                     <span>{sessionBlocks.length} bloc{sessionBlocks.length > 1 ? 's' : ''}</span>
                     <span>
                       {firstBlock
-                        ? `${firstBlock.name} · ${formatSessionBlockSummary(
+                        ? `Premier: ${firstBlock.name} · ${formatSessionBlockSummary(
                             firstBlock.block_type,
                             firstBlock.target_value,
                             firstBlock.sets_count,
@@ -233,7 +233,7 @@ export default function SessionsPage() {
                     </span>
                   </div>
 
-                  <div className="session-card__actions">
+                  <div className="session-card__actions session-card__actions--compact">
                     <Link href={`/sessions/${session.id}/live`} className="button primary">
                       Lancer
                     </Link>

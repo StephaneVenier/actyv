@@ -128,15 +128,15 @@ export default function ProgramsPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page">
-        <article className="card session-hero-card">
+      <section className="sessions-page sessions-page--compact-programs">
+        <article className="card session-hero-card session-hero-card--compact">
           <div className="session-hero-copy">
             <span className="section-kicker">Programmes</span>
             <h1>Mes programmes</h1>
             <p className="muted">Construis, planifie et partage tes seances sur plusieurs semaines.</p>
           </div>
 
-          <div className="session-hero-actions">
+          <div className="session-hero-actions session-hero-actions--compact">
             <Link href="/programs/new" className="button primary">
               Creer un programme
             </Link>
@@ -146,7 +146,7 @@ export default function ProgramsPage() {
           </div>
         </article>
 
-        <article className="card session-form-card program-placeholder-card">
+        <article className="card session-form-card program-placeholder-card program-placeholder-card--compact">
           <div className="program-placeholder-card__copy">
             <span className="section-kicker">Apercu</span>
             <h2>Programmes</h2>
@@ -178,7 +178,7 @@ export default function ProgramsPage() {
             </div>
           </div>
         ) : (
-          <div className="sessions-grid programs-grid">
+          <div className="sessions-grid programs-grid programs-grid--compact">
             {programsWithChildren.map((program) => {
               const totalSessions = program.sessions.length;
               const completedCount = program.completions.length;
@@ -199,7 +199,7 @@ export default function ProgramsPage() {
                 : null;
 
               return (
-                <article key={program.id} className="session-card program-card">
+                <article key={program.id} className="session-card program-card program-card--compact">
                   <div className="session-card__top">
                     <div className={getSportBadgeClassName(program.sport, 'badge', 'Sport')}>
                       {formatSportBadgeLabel(program.sport, 'Sport')}
@@ -212,20 +212,21 @@ export default function ProgramsPage() {
                     <p>{program.description || 'Programme sans description pour le moment.'}</p>
                   </div>
 
-                  <div className="program-card__facts">
+                  <div className="program-card__facts program-card__facts--compact">
                     <span>{program.sport || 'Sport libre'}</span>
                     <span>
                       {program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}
                     </span>
+                    <span>{totalSessions} seance{totalSessions > 1 ? 's' : ''}</span>
+                    <span>{progress}%</span>
                     <span>Debut {formatProgramDate(program.start_date)}</span>
-                    <span>Cree le {formatProgramDate(program.created_at)}</span>
                   </div>
 
-                  <div className="program-card__summary">
+                  <div className="program-card__summary program-card__summary--compact">
                     <div className="program-progress-track" aria-hidden="true">
                       <span className="program-progress-track__fill" style={{ width: `${progress}%` }} />
                     </div>
-                    <div className="session-card__meta">
+                    <div className="session-card__meta session-card__meta--compact">
                       <span>{formatProgramProgressLabel(completedCount, totalSessions)}</span>
                       <span>
                         Debut {formatProgramDate(program.start_date)} · {program.duration_weeks} semaine
@@ -235,7 +236,7 @@ export default function ProgramsPage() {
                   </div>
 
                   {nextPlannedSession ? (
-                    <div className="program-next-card">
+                    <div className="program-next-card program-next-card--compact">
                       <strong>Prochaine seance</strong>
                       <p>
                         {nextPlannedSession.session_name} ·{' '}
