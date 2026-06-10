@@ -8571,15 +8571,10 @@ img {
 
 .hero-copy-card {
   display: grid;
-  gap: 8px;
-  max-width: 610px;
-  padding: 14px 16px;
-  border-radius: 18px;
-  background:
-    linear-gradient(135deg, rgba(7, 18, 38, 0.76), rgba(7, 18, 38, 0.52)),
-    rgba(7, 18, 38, 0.58);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(8px);
+  gap: 6px;
+  max-width: 430px;
+  padding: 0;
+  text-shadow: 0 3px 16px rgba(7, 18, 38, 0.5);
 }
 
 .section-kicker--hero {
@@ -8588,14 +8583,14 @@ img {
 }
 
 .hero-banner--dashboard .hero-title {
-  max-width: 560px;
+  max-width: 420px;
   font-size: clamp(1.5rem, 3vw, 2.2rem);
   line-height: 1.02;
   text-wrap: balance;
 }
 
 .hero-banner--dashboard .hero-subtitle {
-  max-width: 520px;
+  max-width: 400px;
   margin-top: 2px;
   font-size: 0.92rem;
   line-height: 1.45;
@@ -8847,9 +8842,8 @@ img {
   }
 
   .hero-copy-card {
-    max-width: 100%;
-    padding: 12px 13px;
-    border-radius: 16px;
+    max-width: 270px;
+    gap: 5px;
   }
 
   .hero-banner--dashboard .hero-title {
