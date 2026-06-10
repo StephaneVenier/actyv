@@ -8565,7 +8565,9 @@ img {
   left: 20px;
   right: 20px;
   bottom: 18px;
-  justify-content: flex-start;
+  justify-content: flex-end;
+  align-items: flex-end;
+  flex-direction: column;
   gap: 10px;
 }
 
@@ -8804,6 +8806,9 @@ img {
     left: 16px;
     right: 16px;
     bottom: 14px;
+    justify-content: flex-start;
+    align-items: center;
+    flex-direction: row;
     flex-wrap: wrap;
   }
 
