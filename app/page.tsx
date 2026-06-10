@@ -729,11 +729,21 @@ export default function HomePage() {
       <div className="home-page home-dashboard">
         <section className="hero-banner hero-banner--dashboard">
           <div className="hero-content hero-content--dashboard">
-            <span className="section-kicker section-kicker--hero">Actyv</span>
-            <h1 className="hero-title">Ton dashboard sport, clair et motive.</h1>
-            <p className="hero-subtitle">
-              Seance du jour, progression, programmes et challenges: tout ce qui compte, des l&apos;arrivee.
-            </p>
+            <div className="hero-copy-card">
+              <span className="section-kicker section-kicker--hero">Bougez. Partagez. Progressez.</span>
+              <h1 className="hero-title">
+                Ton dashboard sport,
+                <br />
+                clair et motivant.
+              </h1>
+              <p className="hero-subtitle">
+                Seance du jour, progression,
+                <br />
+                programmes et challenges :
+                <br />
+                tout ce qui compte, des ton arrivee.
+              </p>
+            </div>
           </div>
 
           <div className="hero-actions hero-actions--dashboard">

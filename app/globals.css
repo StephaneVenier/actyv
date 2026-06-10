@@ -8556,7 +8556,7 @@ img {
 }
 
 .hero-banner--dashboard {
-  min-height: 188px;
+  min-height: 196px;
   border-radius: 20px;
   background-position: center 42%;
 }
@@ -8564,26 +8564,42 @@ img {
 .hero-content--dashboard {
   align-items: flex-start;
   justify-content: flex-start;
-  min-height: 188px;
-  padding: 20px 20px 84px;
+  min-height: 196px;
+  padding: 18px 20px 86px;
   text-align: left;
 }
 
+.hero-copy-card {
+  display: grid;
+  gap: 8px;
+  max-width: 610px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(7, 18, 38, 0.76), rgba(7, 18, 38, 0.52)),
+    rgba(7, 18, 38, 0.58);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
 .section-kicker--hero {
-  color: rgba(255, 255, 255, 0.86);
+  color: #86efac;
+  margin-bottom: 0;
 }
 
 .hero-banner--dashboard .hero-title {
-  max-width: 580px;
-  font-size: clamp(1.4rem, 3vw, 2.15rem);
-  line-height: 1.04;
+  max-width: 560px;
+  font-size: clamp(1.5rem, 3vw, 2.2rem);
+  line-height: 1.02;
+  text-wrap: balance;
 }
 
 .hero-banner--dashboard .hero-subtitle {
-  max-width: 620px;
-  margin-top: 8px;
-  font-size: 0.9rem;
-  line-height: 1.42;
+  max-width: 520px;
+  margin-top: 2px;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .hero-actions--dashboard {
@@ -8822,12 +8838,18 @@ img {
 
 @media (max-width: 720px) {
   .hero-banner--dashboard {
-    min-height: 176px;
+    min-height: 206px;
   }
 
   .hero-content--dashboard {
-    min-height: 176px;
-    padding: 18px 16px 78px;
+    min-height: 206px;
+    padding: 16px 16px 92px;
+  }
+
+  .hero-copy-card {
+    max-width: 100%;
+    padding: 12px 13px;
+    border-radius: 16px;
   }
 
   .hero-banner--dashboard .hero-title {
@@ -8835,7 +8857,8 @@ img {
   }
 
   .hero-banner--dashboard .hero-subtitle {
-    font-size: 0.82rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
   }
 
   .hero-actions--dashboard {
@@ -8848,6 +8871,7 @@ img {
   .hero-actions--dashboard .hero-btn {
     min-height: 40px;
     padding: 0 14px;
+    font-size: 0.8rem;
   }
 
   .home-dashboard-hero,
