@@ -8186,6 +8186,155 @@ img {
   }
 }
 
+.compact-accordion {
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.compact-accordion summary {
+  list-style: none;
+}
+
+.compact-accordion summary::-webkit-details-marker {
+  display: none;
+}
+
+.compact-accordion__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 58px;
+  padding: 14px 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.compact-accordion__heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.compact-accordion__copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.compact-accordion__kicker {
+  margin-bottom: 0;
+}
+
+.compact-accordion__title {
+  color: inherit;
+  font-size: 0.98rem;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
+}
+
+.compact-accordion__meta {
+  color: rgba(244, 247, 246, 0.68);
+  font-size: 0.78rem;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.compact-accordion__chevron {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(-45deg);
+  opacity: 0.72;
+  transition: transform 0.18s ease, opacity 0.18s ease;
+}
+
+.compact-accordion[open] .compact-accordion__chevron {
+  transform: rotate(45deg);
+  opacity: 1;
+}
+
+.compact-accordion__trailing {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.compact-accordion__content {
+  display: grid;
+  gap: 12px;
+  padding: 0 16px 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.compact-accordion__content > .profile-section-heading,
+.compact-accordion__content > h2,
+.compact-accordion--session .compact-accordion__content > .session-blocks-header:not(.session-blocks-header--accordion-tools),
+.compact-accordion--program .compact-accordion__content > .session-blocks-header:not(.session-blocks-header--accordion-tools) {
+  display: none;
+}
+
+.compact-accordion__content > .session-blocks-header--accordion-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: -2px;
+}
+
+.compact-accordion__content > .session-blocks-header--accordion-tools > div:first-child {
+  display: none;
+}
+
+.compact-accordion--challenge .compact-accordion__summary {
+  color: #0f172a;
+}
+
+.compact-accordion--challenge .compact-accordion__meta {
+  color: #64748b;
+}
+
+.compact-accordion--challenge .compact-accordion__content {
+  border-top-color: rgba(15, 23, 42, 0.08);
+}
+
+.compact-accordion--profile .compact-accordion__summary,
+.compact-accordion--program .compact-accordion__summary,
+.compact-accordion--session .compact-accordion__summary {
+  color: #f4f7f6;
+}
+
+.compact-accordion--profile .compact-accordion__content,
+.compact-accordion--program .compact-accordion__content,
+.compact-accordion--session .compact-accordion__content {
+  border-top-color: rgba(255, 255, 255, 0.08);
+}
+
+@media (max-width: 767px) {
+  .compact-accordion__summary {
+    min-height: 52px;
+    padding: 12px 13px;
+    gap: 10px;
+  }
+
+  .compact-accordion__title {
+    font-size: 0.92rem;
+  }
+
+  .compact-accordion__meta {
+    font-size: 0.74rem;
+  }
+
+  .compact-accordion__content {
+    gap: 10px;
+    padding: 0 13px 13px;
+  }
+}
+
 /* COMPACT UI PHASE 1.1 */
 
 .home-page,

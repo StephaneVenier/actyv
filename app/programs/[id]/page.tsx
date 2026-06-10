@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { CompactAccordion } from '@/components/CompactAccordion';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
@@ -1423,7 +1424,13 @@ export default function ProgramDetailPage() {
               )}
             </article>
 
-            <article className="card session-form-card session-form-card--program-compact stack">
+            <CompactAccordion
+              className="card session-form-card session-form-card--program-compact compact-accordion--program"
+              kicker="Progression"
+              title="Resume du programme"
+              summary={`${completedCount}/${totalSessions} seance${totalSessions > 1 ? 's' : ''}`}
+              trailing={<span className="session-progress-pill">{formatProgramVisibilityLabel(program.visibility)}</span>}
+            >
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Progression</span>
@@ -1465,7 +1472,7 @@ export default function ProgramDetailPage() {
                   <p>Ajoute une date de debut pour afficher les dates dans le calendrier.</p>
                 ) : null}
               </div>
-            </article>
+            </CompactAccordion>
 
             {canManageSharing ? (
               <article className="card session-form-card stack">
@@ -1559,8 +1566,20 @@ export default function ProgramDetailPage() {
               </article>
             )}
 
-            <article className="card session-form-card session-form-card--program-compact stack">
-              <div className="session-blocks-header">
+            <CompactAccordion
+              className="card session-form-card session-form-card--program-compact compact-accordion--program"
+              kicker="Plan du programme"
+              title={effectivePlanView === 'calendar' ? 'Calendrier des semaines' : 'Liste des seances'}
+              summary={`${programSessions.length} seance${programSessions.length > 1 ? 's' : ''}`}
+              trailing={
+                isMobileProgramLayout ? (
+                  <span className="session-progress-pill">Vue liste</span>
+                ) : (
+                  <span className="session-progress-pill">{planView === 'calendar' ? 'Calendrier' : 'Liste'}</span>
+                )
+              }
+            >
+              <div className="session-blocks-header session-blocks-header--accordion-tools">
                 <div>
                   <span className="section-kicker">Plan du programme</span>
                   <h2>{effectivePlanView === 'calendar' ? 'Calendrier des semaines' : 'Liste des seances'}</h2>
@@ -1898,7 +1917,7 @@ export default function ProgramDetailPage() {
                   );
                 })}
               </div>
-            </article>
+            </CompactAccordion>
 
             {activeSlot ? (
               <div className="program-modal-backdrop" onClick={() => setActiveSlot(null)} role="presentation">

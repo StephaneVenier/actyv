@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
+import { CompactAccordion } from '@/components/CompactAccordion';
 import { CompactExerciseCard, SessionSummaryHeader } from '@/components/session-compact-ui';
 import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import { queuePendingToast } from '@/components/ToastProvider';
@@ -1516,14 +1517,16 @@ export default function SessionDetailPage() {
               )}
             </article>
 
-            <article className="card session-form-card stack">
-              <div className="session-blocks-header">
-                <div>
-                  <span className="section-kicker">Progression</span>
-                  <h2>Progression</h2>
-                </div>
-              </div>
-
+            <CompactAccordion
+              className="card session-form-card compact-accordion--session"
+              kicker="Progression"
+              title="Progression"
+              summary={
+                chartMetricEntries.length < 2 || chartMaxValue <= 0
+                  ? 'Pas encore assez de seances'
+                  : `${chartMetricEntries.length} seance${chartMetricEntries.length > 1 ? 's' : ''}`
+              }
+            >
               {chartMetricEntries.length < 2 || chartMaxValue <= 0 ? (
                 <div className="challenge-state challenge-state--compact">
                   <p>Termine plusieurs fois cette seance pour suivre ta progression.</p>
@@ -1561,9 +1564,14 @@ export default function SessionDetailPage() {
                   </div>
                 </div>
               )}
-            </article>
+            </CompactAccordion>
 
-            <article className="card session-form-card stack">
+            <CompactAccordion
+              className="card session-form-card compact-accordion--session"
+              kicker="Records"
+              title="Records personnels"
+              summary={`${actualPerformanceRecords.length} exercice${actualPerformanceRecords.length > 1 ? 's' : ''}`}
+            >
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Records</span>
@@ -1612,9 +1620,14 @@ export default function SessionDetailPage() {
                   ))}
                 </div>
               )}
-            </article>
+            </CompactAccordion>
 
-            <article className="card session-form-card stack">
+            <CompactAccordion
+              className="card session-form-card compact-accordion--session"
+              kicker="Exercices"
+              title="Progression par exercice"
+              summary={`${exerciseStatsCards.length} exercice${exerciseStatsCards.length > 1 ? 's' : ''}`}
+            >
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Exercices</span>
@@ -1807,10 +1820,20 @@ export default function SessionDetailPage() {
                   ) : null}
                 </div>
               )}
-            </article>
+            </CompactAccordion>
 
-            <article className="card session-form-card stack">
-              <div className="session-blocks-header">
+            <CompactAccordion
+              className="card session-form-card compact-accordion--session"
+              kicker="Performances"
+              title="Historique des performances"
+              summary={`${workoutPerformanceHistoryEntries.length} realisation${workoutPerformanceHistoryEntries.length > 1 ? 's' : ''}`}
+              trailing={
+                remainingWorkoutPerformanceHistoryCount > 0 ? (
+                  <span className="session-progress-pill">+ {remainingWorkoutPerformanceHistoryCount}</span>
+                ) : null
+              }
+            >
+              <div className="session-blocks-header session-blocks-header--accordion-tools">
                 <div>
                   <span className="section-kicker">Performances</span>
                   <h2>Historique des performances</h2>
@@ -1862,9 +1885,14 @@ export default function SessionDetailPage() {
                   ))}
                 </div>
               )}
-            </article>
+            </CompactAccordion>
 
-            <article className="card session-form-card stack">
+            <CompactAccordion
+              className="card session-form-card compact-accordion--session"
+              kicker="Exercices"
+              title="Dernieres performances par bloc"
+              summary={`${repsBlocks.length} bloc${repsBlocks.length > 1 ? 's' : ''} reps`}
+            >
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Exercices</span>
@@ -1918,9 +1946,19 @@ export default function SessionDetailPage() {
                   })}
                 </div>
               )}
-            </article>
+            </CompactAccordion>
 
-            <article className="card session-form-card stack">
+            <CompactAccordion
+              className="card session-form-card compact-accordion--session"
+              kicker="Historique"
+              title="Historique des realisations"
+              summary={`${historyEntries.length} seance${historyEntries.length > 1 ? 's' : ''}`}
+              trailing={
+                remainingSessionHistoryCount > 0 ? (
+                  <span className="session-progress-pill">+ {remainingSessionHistoryCount}</span>
+                ) : null
+              }
+            >
               <div className="session-blocks-header">
                 <div>
                   <span className="section-kicker">Historique</span>
@@ -2052,7 +2090,7 @@ export default function SessionDetailPage() {
                   })}
                 </div>
               )}
-            </article>
+            </CompactAccordion>
 
           </>
         )}

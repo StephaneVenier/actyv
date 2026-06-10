@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
+import { CompactAccordion } from '@/components/CompactAccordion';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
@@ -1169,7 +1170,12 @@ const handleBoost = async (activityId: string) => {
           )}
         </article>
 
-        <section className="challenge-stats-grid">
+        <CompactAccordion
+          className="card compact-accordion--challenge"
+          title="Statistiques detaillees"
+          summary="Distance, duree et repetitions"
+        >
+          <section className="challenge-stats-grid">
           <article className="card stat-card">
             <span className="stat-card-label">Activités</span>
             <strong className="stat-card-value">{totalActivities}</strong>
@@ -1191,10 +1197,18 @@ const handleBoost = async (activityId: string) => {
               {getGoalTypeLabel(effectiveGoalType)}
             </strong>
           </article>
-        </section>
+          </section>
+        </CompactAccordion>
 
-        <section className="card progress-card">
-          <h2>Progression</h2>
+        <CompactAccordion
+          className="card progress-card compact-accordion--challenge"
+          title="Progression"
+          summary={
+            effectiveGoalValue && effectiveGoalValue > 0
+              ? `${(progressPercent || 0).toFixed(1)}%`
+              : 'Aucun objectif defini'
+          }
+        >
 
           {effectiveGoalValue && effectiveGoalValue > 0 ? (
             <>
@@ -1222,10 +1236,13 @@ const handleBoost = async (activityId: string) => {
           ) : (
             <p style={{ marginTop: '1rem' }}>Aucun objectif défini pour ce challenge.</p>
           )}
-        </section>
+        </CompactAccordion>
 
-        <section className="card">
-          <h2>Participants</h2>
+        <CompactAccordion
+          className="card compact-accordion--challenge"
+          title="Participants"
+          summary={`${participants.length} participant${participants.length > 1 ? 's' : ''}`}
+        >
 
           {participantsLoading ? (
             <p style={{ marginTop: '1rem' }}>Chargement des participants...</p>
@@ -1261,10 +1278,13 @@ const handleBoost = async (activityId: string) => {
               ))}
             </div>
           )}
-        </section>
+        </CompactAccordion>
 
-        <section className="card">
-          <h2>Classement</h2>
+        <CompactAccordion
+          className="card compact-accordion--challenge"
+          title="Classement complet"
+          summary={`${leaderboard.length} entree${leaderboard.length > 1 ? 's' : ''}`}
+        >
 
           {leaderboard.length === 0 ? (
             <p style={{ marginTop: '1rem' }}>Aucune activité pour le moment.</p>
@@ -1305,9 +1325,13 @@ const handleBoost = async (activityId: string) => {
               ))}
             </div>
           )}
-        </section>
+        </CompactAccordion>
 
-        <section className="card">
+        <CompactAccordion
+          className="card compact-accordion--challenge"
+          title="Historique des activites"
+          summary={`${activities.length} activite${activities.length > 1 ? 's' : ''}`}
+        >
           <h2 style={{ marginTop: 0 }}>Activités du challenge</h2>
 
           {activitiesLoading ? (
@@ -1410,9 +1434,14 @@ const handleBoost = async (activityId: string) => {
               ))}
             </div>
           )}
-        </section>
+        </CompactAccordion>
 
-        <section className="challenge-stats-grid">
+        <CompactAccordion
+          className="card compact-accordion--challenge"
+          title="Volumes du challenge"
+          summary="Distance, duree et repetitions"
+        >
+          <section className="challenge-stats-grid">
           <article className="card stat-card">
             <span className="stat-card-label">Distance totale</span>
             <strong className="stat-card-value">{formatDistance(totalDistance)}</strong>
@@ -1427,7 +1456,8 @@ const handleBoost = async (activityId: string) => {
             <span className="stat-card-label">Répétitions totales</span>
             <strong className="stat-card-value">{formatReps(totalReps)}</strong>
           </article>
-        </section>
+          </section>
+        </CompactAccordion>
       </section>
     </AppShell>
   );

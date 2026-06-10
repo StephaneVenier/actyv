@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { BadgeArtwork } from '@/components/badge-artwork';
+import { CompactAccordion } from '@/components/CompactAccordion';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
@@ -1218,7 +1219,13 @@ export default function ProfilePage() {
           </div>
         </section>
 
-        <section className="card gamification-card profile-badges-summary-card">
+        <CompactAccordion
+          className="card gamification-card profile-badges-summary-card compact-accordion--profile"
+          kicker="Badges"
+          title="Collection badges"
+          summary={`${badgeCount} / ${totalBadgeCount} debloques`}
+          trailing={<span className="badge">{badgeCount} / {totalBadgeCount}</span>}
+        >
           <div className="profile-section-heading">
             <div>
               <span className="section-kicker">Badges</span>
@@ -1269,7 +1276,7 @@ export default function ProfilePage() {
               Voir tous les badges
             </Link>
           </div>
-        </section>
+        </CompactAccordion>
 
         <section className="profile-stats-grid profile-stats-grid--dashboard">
           <article className="card stat-card">
@@ -1416,7 +1423,12 @@ export default function ProfilePage() {
             </div>
           </article>
 
-          <article className="card profile-history-card">
+          <CompactAccordion
+            className="card profile-history-card compact-accordion--profile"
+            kicker="Activite recente"
+            title="Derniers evenements"
+            summary={`${recentEvents.length} evenement${recentEvents.length > 1 ? 's' : ''}`}
+          >
             <div className="profile-section-heading">
               <div>
                 <span className="section-kicker">Activite recente</span>
@@ -1441,9 +1453,14 @@ export default function ProfilePage() {
                 ))
               )}
             </div>
-          </article>
+          </CompactAccordion>
 
-          <article className="card profile-history-card">
+          <CompactAccordion
+            className="card profile-history-card compact-accordion--profile"
+            kicker="Musculation"
+            title="Mes statistiques"
+            summary={`${workoutGlobalStrengthStats.totalCompletedWorkouts} seance${workoutGlobalStrengthStats.totalCompletedWorkouts > 1 ? 's' : ''}`}
+          >
             <div className="profile-section-heading">
               <div>
                 <span className="section-kicker">Musculation</span>
@@ -1524,9 +1541,14 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
-          </article>
+          </CompactAccordion>
 
-          <article className="card profile-history-card">
+          <CompactAccordion
+            className="card profile-history-card compact-accordion--profile"
+            kicker="Seances"
+            title="Dernieres seances realisees"
+            summary={`${recentWorkoutHistory.length} seance${recentWorkoutHistory.length > 1 ? 's' : ''}`}
+          >
             <div className="profile-section-heading">
               <div>
                 <span className="section-kicker">Seances</span>
@@ -1558,9 +1580,14 @@ export default function ProfilePage() {
                 ))
               )}
             </div>
-          </article>
+          </CompactAccordion>
 
-          <article className="card profile-history-card">
+          <CompactAccordion
+            className="card profile-history-card compact-accordion--profile"
+            kicker="Exercices"
+            title="Top exercices"
+            summary={`${workoutGlobalStrengthStats.topExercises.length} exercice${workoutGlobalStrengthStats.topExercises.length > 1 ? 's' : ''}`}
+          >
             <div className="profile-section-heading">
               <div>
                 <span className="section-kicker">Exercices</span>
@@ -1595,9 +1622,14 @@ export default function ProfilePage() {
                 ))}
               </div>
             )}
-          </article>
+          </CompactAccordion>
 
-          <article className="card profile-history-card">
+          <CompactAccordion
+            className="card profile-history-card compact-accordion--profile"
+            kicker="Profil sportif"
+            title="Resume sportif"
+            summary={`${workoutProfileSummary.totalCompletedWorkouts} seance${workoutProfileSummary.totalCompletedWorkouts > 1 ? 's' : ''}`}
+          >
             <div className="profile-section-heading">
               <div>
                 <span className="section-kicker">Profil sportif</span>
@@ -1637,7 +1669,7 @@ export default function ProfilePage() {
                 </div>
               </div>
             )}
-          </article>
+          </CompactAccordion>
 
           <article className="card profile-history-card">
             <div className="profile-section-heading">
