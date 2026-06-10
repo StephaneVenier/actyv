@@ -8555,6 +8555,51 @@ img {
   gap: 12px;
 }
 
+.hero-banner--dashboard {
+  min-height: 188px;
+  border-radius: 20px;
+  background-position: center 42%;
+}
+
+.hero-content--dashboard {
+  align-items: flex-start;
+  justify-content: flex-start;
+  min-height: 188px;
+  padding: 20px 20px 84px;
+  text-align: left;
+}
+
+.section-kicker--hero {
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.hero-banner--dashboard .hero-title {
+  max-width: 580px;
+  font-size: clamp(1.4rem, 3vw, 2.15rem);
+  line-height: 1.04;
+}
+
+.hero-banner--dashboard .hero-subtitle {
+  max-width: 620px;
+  margin-top: 8px;
+  font-size: 0.9rem;
+  line-height: 1.42;
+}
+
+.hero-actions--dashboard {
+  left: 20px;
+  right: 20px;
+  bottom: 18px;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+.hero-actions--dashboard .hero-btn {
+  min-height: 42px;
+  padding: 0 16px;
+  font-size: 0.84rem;
+}
+
 .home-dashboard-top,
 .home-dashboard-grid {
   display: grid;
@@ -8776,6 +8821,35 @@ img {
 }
 
 @media (max-width: 720px) {
+  .hero-banner--dashboard {
+    min-height: 176px;
+  }
+
+  .hero-content--dashboard {
+    min-height: 176px;
+    padding: 18px 16px 78px;
+  }
+
+  .hero-banner--dashboard .hero-title {
+    font-size: 1.28rem;
+  }
+
+  .hero-banner--dashboard .hero-subtitle {
+    font-size: 0.82rem;
+  }
+
+  .hero-actions--dashboard {
+    left: 16px;
+    right: 16px;
+    bottom: 14px;
+    flex-wrap: wrap;
+  }
+
+  .hero-actions--dashboard .hero-btn {
+    min-height: 40px;
+    padding: 0 14px;
+  }
+
   .home-dashboard-hero,
   .home-dashboard-feature,
   .home-dashboard-panel.home-challenges,
