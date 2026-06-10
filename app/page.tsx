@@ -25,6 +25,8 @@ import {
   TrainingProgramCompletion,
   TrainingProgramSession,
 } from '@/lib/training-programs';
+import { getActyvLevel } from '@/lib/levels';
+import { getUserTotalXp } from '@/lib/gamification';
 
 type Challenge = {
   id: string;
@@ -51,8 +53,10 @@ type Activity = {
 };
 
 type Profile = {
+  id?: string;
   email: string | null;
   username: string | null;
+  total_xp?: number | null;
   level: number | null;
 };
 
@@ -88,6 +92,14 @@ type TrainingSessionSummary = {
   description: string | null;
   visibility: 'private' | 'public' | null;
   created_at: string | null;
+};
+
+type HomeQuickStats = {
+  activities: number;
+  challenges: number;
+  sessions: number;
+  programs: number;
+  badges: number;
 };
 
 function formatDailyDurationLabel(totalSeconds: number | null) {
@@ -166,101 +178,41 @@ function formatReminderPlannedDate(date: Date | null) {
 
 const HOME_ACTIONS = [
   {
-    title: 'Creer un challenge',
-    description: 'Lancer un objectif solo ou collectif.',
-    href: '/challenges/new',
-    emoji: '🏆',
-  },
-  {
-    title: 'Rejoindre un challenge',
-    description: 'Explorer les challenges ouverts.',
-    href: '/challenges',
-    emoji: '🤝',
-  },
-  {
-    title: 'Creer une seance',
-    description: 'Composer une seance personnalisee.',
-    href: '/sessions/new',
-    emoji: '📝',
+    title: 'Ajouter une activite',
+    description: 'Enregistrer une sortie ou un effort du jour.',
+    href: '/activities/new',
+    emoji: '+',
   },
   {
     title: 'Lancer une seance',
-    description: 'Reprendre ton training en mode live.',
+    description: 'Retrouver tes seances et partir en live.',
     href: '/sessions',
-    emoji: '▶️',
+    emoji: '▶',
   },
   {
-    title: 'Voir mes statistiques',
-    description: 'Retrouver progression, records et historique.',
-    href: '/stats',
-    emoji: '📊',
-  },
-  {
-    title: 'Classements',
-    description: 'Comparer l’activite avec ta communaute.',
-    href: '/leaderboard',
-    emoji: '🥇',
-  },
-  {
-    title: 'Badges / XP',
-    description: 'Suivre niveau, badges et progression.',
-    href: '/profile',
-    emoji: '✨',
-  },
-] as const;
-
-const HOME_FEATURE_CARDS = [
-  {
-    title: 'Creer un challenge',
-    description: 'Lance un objectif solo ou collectif.',
-    href: '/challenges/new',
-    emoji: '🏆',
+    title: 'Voir mes programmes',
+    description: 'Suivre la suite de ton cycle en cours.',
+    href: '/programs',
+    emoji: '◫',
   },
   {
     title: 'Rejoindre un challenge',
-    description: 'Participe a des defis ouverts ou prives.',
+    description: 'Explorer les challenges ouverts ou prives.',
     href: '/challenges',
-    emoji: '🤝',
-  },
-  {
-    title: 'Seances',
-    description: 'Cree, lance et suis tes seances.',
-    href: '/sessions',
-    emoji: '🏋️',
-  },
-  {
-    title: 'Programmes',
-    description: 'Planifie tes cycles et suis ta progression.',
-    href: '/programs',
-    emoji: '🗓️',
-  },
-  {
-    title: 'Banque Actyv',
-    description: 'Importe des seances et programmes publics.',
-    href: '/banque',
-    emoji: '📚',
-  },
-  {
-    title: 'Statistiques',
-    description: 'Retrouve ta progression et ton historique.',
-    href: '/stats',
-    emoji: '📊',
-  },
-  {
-    title: 'Classements',
-    description: 'Compare ton activite avec la communaute.',
-    href: '/leaderboard',
-    emoji: '🥇',
-  },
-  {
-    title: 'Badges / XP',
-    description: 'Debloque des badges et gagne de l experience.',
-    href: '/profile',
-    emoji: '✨',
+    emoji: '↗',
   },
 ] as const;
 
 export default function HomePage() {
+  const [dashboardProfile, setDashboardProfile] = useState<Profile | null>(null);
+  const [dashboardXp, setDashboardXp] = useState(0);
+  const [quickStats, setQuickStats] = useState<HomeQuickStats>({
+    activities: 0,
+    challenges: 0,
+    sessions: 0,
+    programs: 0,
+    badges: 0,
+  });
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [dailySession, setDailySession] = useState<DailySession | null>(null);
@@ -274,6 +226,7 @@ export default function HomePage() {
   const [nextProgramSession, setNextProgramSession] = useState<ProgramReminderEntry | null>(null);
   const [participantsCountMap, setParticipantsCountMap] = useState<Record<string, number>>({});
   const [profilesMap, setProfilesMap] = useState<Record<string, SocialProfile>>({});
+  const [loadingDashboard, setLoadingDashboard] = useState(true);
   const [loadingChallenges, setLoadingChallenges] = useState(true);
   const [loadingFeed, setLoadingFeed] = useState(true);
   const [loadingProgramReminders, setLoadingProgramReminders] = useState(true);
@@ -281,6 +234,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const fetchHomeData = async () => {
+      setLoadingDashboard(true);
       setLoadingChallenges(true);
       setLoadingFeed(true);
       setLoadingProgramReminders(true);
@@ -293,6 +247,81 @@ export default function HomePage() {
       const userEmail = user?.email || null;
       const userId = user?.id || null;
       const todayIso = getTodayIsoDate();
+
+      if (userId) {
+        const [profileResponse, activitiesResponse, badgesResponse, workoutHistoryResponse, programsResponse] =
+          await Promise.all([
+            supabase
+              .from('profiles')
+              .select('id, email, username, total_xp, level')
+              .eq('id', userId)
+              .maybeSingle(),
+            userEmail
+              ? supabase.from('activities').select('id').eq('user_email', userEmail)
+              : Promise.resolve({ data: [], error: null }),
+            supabase.from('user_badges').select('badge_code').eq('user_id', userId),
+            supabase.from('workout_sessions_history').select('id').eq('user_id', userId),
+            supabase.from('training_programs').select('id').eq('user_id', userId),
+          ]);
+
+        if (profileResponse.error) {
+          console.error('Erreur chargement profil accueil :', profileResponse.error);
+          setDashboardProfile({
+            id: userId,
+            email: userEmail,
+            username: null,
+            total_xp: 0,
+            level: 1,
+          });
+          setDashboardXp(0);
+        } else {
+          const nextProfile =
+            (profileResponse.data as Profile | null) || {
+              id: userId,
+              email: userEmail,
+              username: null,
+              total_xp: 0,
+              level: 1,
+            };
+          setDashboardProfile(nextProfile);
+
+          const xpResult = await getUserTotalXp(userId, nextProfile.total_xp || 0);
+          setDashboardXp(xpResult.totalXp);
+        }
+
+        if (activitiesResponse.error) {
+          console.error('Erreur chargement compteur activites accueil :', activitiesResponse.error);
+        }
+        if (badgesResponse.error) {
+          console.error('Erreur chargement compteur badges accueil :', badgesResponse.error);
+        }
+        if (workoutHistoryResponse.error) {
+          console.error('Erreur chargement compteur seances accueil :', workoutHistoryResponse.error);
+        }
+        if (programsResponse.error) {
+          console.error('Erreur chargement compteur programmes accueil :', programsResponse.error);
+        }
+
+        setQuickStats((previous) => ({
+          ...previous,
+          activities: ((activitiesResponse.data as Array<{ id: string }> | null) || []).length,
+          sessions: ((workoutHistoryResponse.data as Array<{ id: string }> | null) || []).length,
+          programs: ((programsResponse.data as Array<{ id: string }> | null) || []).length,
+          badges: ((badgesResponse.data as Array<{ badge_code: string }> | null) || []).length,
+        }));
+      } else {
+        setDashboardProfile(null);
+        setDashboardXp(0);
+        setQuickStats({
+          activities: 0,
+          challenges: 0,
+          sessions: 0,
+          programs: 0,
+          badges: 0,
+        });
+      }
+
+      setLoadingDashboard(false);
 
       const nextDailySessionResponse = await supabase
         .from('daily_sessions')
@@ -387,11 +416,8 @@ export default function HomePage() {
             setDailySessionStreakDays(0);
             setDailySessionBestStreakDays(0);
           } else {
-            const streakRows =
-              ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || []);
-            setDailySessionStreakDays(
-              getDailySessionStreakDays(streakRows)
-            );
+            const streakRows = ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || []);
+            setDailySessionStreakDays(getDailySessionStreakDays(streakRows));
             setDailySessionBestStreakDays(getBestDailySessionStreakDays(streakRows));
           }
         }
@@ -469,18 +495,13 @@ export default function HomePage() {
                 })
                 .filter((entry): entry is ProgramReminderEntry => Boolean(entry));
 
-              const remainingEntries = reminderEntries
-                .filter((entry) => entry.status !== 'completed')
-                .sort(compareReminderEntries);
-
+              const remainingEntries = reminderEntries.filter((entry) => entry.status !== 'completed').sort(compareReminderEntries);
               const todayEntries = remainingEntries.filter(
                 (entry) => entry.plannedDate && isSameLocalDay(entry.plannedDate, todayLocal)
               );
-
               const futureEntries = remainingEntries.filter(
                 (entry) => entry.plannedDate && entry.plannedDate.getTime() > todayLocal.getTime()
               );
-
               const undatedEntries = remainingEntries.filter((entry) => !entry.plannedDate);
 
               setTodayProgramSessions(todayEntries);
@@ -506,9 +527,7 @@ export default function HomePage() {
         if (membersError) {
           console.error('Erreur chargement challenge_members :', membersError);
         } else {
-          visibleChallengeIds = (memberRows as ChallengeMember[] | null)?.map(
-            (row) => row.challenge_id
-          ) || [];
+          visibleChallengeIds = (memberRows as ChallengeMember[] | null)?.map((row) => row.challenge_id) || [];
         }
       }
 
@@ -540,22 +559,18 @@ export default function HomePage() {
         console.error('Erreur chargement challenges :', challengesError);
         setChallenges([]);
         setParticipantsCountMap({});
+        setQuickStats((previous) => ({ ...previous, challenges: 0 }));
       } else {
-        const loadedChallenges = challengesData || [];
+        const loadedChallenges = (challengesData as Challenge[] | null) || [];
         setChallenges(loadedChallenges);
+        setQuickStats((previous) => ({ ...previous, challenges: loadedChallenges.length }));
 
         const challengeIds = loadedChallenges.map((challenge) => challenge.id);
 
         if (challengeIds.length > 0) {
           const [membersResponse, participantsResponse] = await Promise.all([
-            supabase
-              .from('challenge_members')
-              .select('challenge_id, user_email')
-              .in('challenge_id', challengeIds),
-            supabase
-              .from('challenge_participants')
-              .select('challenge_id, user_id')
-              .in('challenge_id', challengeIds),
+            supabase.from('challenge_members').select('challenge_id, user_email').in('challenge_id', challengeIds),
+            supabase.from('challenge_participants').select('challenge_id, user_id').in('challenge_id', challengeIds),
           ]);
 
           if (membersResponse.error) {
@@ -581,13 +596,11 @@ export default function HomePage() {
               }
             });
 
-            ((participantsResponse.data as ChallengeParticipant[] | null) || []).forEach(
-              (participant) => {
-                if (participant.challenge_id === challenge.id && participant.user_id) {
-                  keys.add(`user:${participant.user_id}`);
-                }
+            ((participantsResponse.data as ChallengeParticipant[] | null) || []).forEach((participant) => {
+              if (participant.challenge_id === challenge.id && participant.user_id) {
+                keys.add(`user:${participant.user_id}`);
               }
-            );
+            });
 
             nextParticipantsCountMap[challenge.id] = Math.max(keys.size, 1);
           });
@@ -631,7 +644,7 @@ export default function HomePage() {
         return;
       }
 
-      const loadedActivities = feedActivities || [];
+      const loadedActivities = (feedActivities as Activity[] | null) || [];
       setActivities(loadedActivities);
 
       const emails = Array.from(
@@ -679,6 +692,30 @@ export default function HomePage() {
     return Object.fromEntries(challenges.map((challenge) => [challenge.id, challenge]));
   }, [challenges]);
 
+  const dashboardLevel = useMemo(() => getActyvLevel(dashboardXp), [dashboardXp]);
+
+  const dashboardDisplayName = useMemo(() => {
+    const nextName = dashboardProfile?.username?.trim();
+    if (nextName) return nextName;
+
+    if (dashboardProfile?.email) {
+      return dashboardProfile.email.split('@')[0];
+    }
+
+    return 'Athlete';
+  }, [dashboardProfile]);
+
+  const quickStatsEntries = useMemo(
+    () => [
+      { label: 'Activites', value: quickStats.activities, href: '/activities/new' },
+      { label: 'Challenges', value: quickStats.challenges, href: '/challenges' },
+      { label: 'Seances', value: quickStats.sessions, href: '/sessions' },
+      { label: 'Programmes', value: quickStats.programs, href: '/programs' },
+      { label: 'Badges', value: quickStats.badges, href: '/badges' },
+    ],
+    [quickStats]
+  );
+
   const getDisplayProfile = (email: string | null) => {
     if (!email) {
       return { username: 'Utilisateur inconnu', level: 1 };
@@ -689,66 +726,102 @@ export default function HomePage() {
 
   return (
     <AppShell>
-      <div className="home-page">
-        <section className="hero-banner">
-          <div className="hero-actions">
-            <Link
-              href="/challenges/new"
-              className="hero-btn hero-btn--primary hero-btn-left"
-            >
-              Creer un challenge
-            </Link>
-
-            <Link
-              href="/challenges"
-              className="hero-btn hero-btn--secondary hero-btn-right"
-            >
-              Explorer les challenges
-            </Link>
-          </div>
-        </section>
-
-        <section className="home-actions card">
-          <div className="home-challenges__header">
-            <div>
-              <span className="section-kicker">Actyv en ce moment</span>
-              <h2>Ce que tu peux faire sur Actyv</h2>
+      <div className="home-page home-dashboard">
+        <section className="home-dashboard-top">
+          <article className="home-dashboard-hero card">
+            <div className="home-dashboard-hero__copy">
+              <span className="section-kicker">Actyv dashboard</span>
+              <div className="home-dashboard-hero__identity">
+                <div>
+                  <h1>{loadingDashboard ? 'Chargement...' : dashboardDisplayName}</h1>
+                  <p>Tout ton suivi sportif du jour, sans bruit inutile.</p>
+                </div>
+                <UserLevelBadge level={dashboardLevel.level} />
+              </div>
             </div>
-          </div>
 
-          <div className="home-actions-grid">
-            {HOME_FEATURE_CARDS.map((action) => (
-              <Link key={action.title} href={action.href} className="home-action-card">
-                <span className="home-action-card__emoji" aria-hidden="true">
-                  {action.emoji}
+            <div className="home-dashboard-hero__progress">
+              <div className="home-dashboard-hero__progress-head">
+                <div>
+                  <span className="home-dashboard-hero__label">Niveau actuel</span>
+                  <strong>Niveau {dashboardLevel.level}</strong>
+                </div>
+                <div className="home-dashboard-hero__xp">
+                  <span>{dashboardXp} XP</span>
+                  <small>
+                    {dashboardLevel.nextLevelXp === null
+                      ? 'Niveau max atteint'
+                      : `${dashboardLevel.currentLevelXp} / ${dashboardLevel.nextLevelXp} XP`}
+                  </small>
+                </div>
+              </div>
+
+              <div className="progress-bar home-dashboard-hero__bar" aria-hidden="true">
+                <div style={{ width: `${dashboardLevel.progressPercent}%` }} />
+              </div>
+
+              <div className="home-dashboard-hero__meta">
+                <span>{dashboardLevel.progressPercent}% du niveau en cours</span>
+                <span>
+                  {dashboardLevel.nextLevelXp === null
+                    ? 'Progression complete'
+                    : `${dashboardLevel.xpToNextLevel} XP avant le prochain niveau`}
                 </span>
-                <strong>{action.title}</strong>
-                <p>{action.description}</p>
-              </Link>
-            ))}
-          </div>
+              </div>
+            </div>
+
+            <div className="home-dashboard-quick-stats">
+              {quickStatsEntries.map((entry) => (
+                <Link key={entry.label} href={entry.href} className="home-dashboard-stat">
+                  <span>{entry.label}</span>
+                  <strong>{entry.value}</strong>
+                </Link>
+              ))}
+            </div>
+          </article>
+
+          <article className="home-actions card home-dashboard-actions">
+            <div className="home-dashboard-panel__header">
+              <div>
+                <span className="section-kicker">Raccourcis rapides</span>
+                <h2>Agir tout de suite</h2>
+              </div>
+            </div>
+
+            <div className="home-actions-grid home-dashboard-actions__grid">
+              {HOME_ACTIONS.map((action) => (
+                <Link key={action.title} href={action.href} className="home-action-card">
+                  <span className="home-action-card__emoji" aria-hidden="true">
+                    {action.emoji}
+                  </span>
+                  <strong>{action.title}</strong>
+                  <p>{action.description}</p>
+                </Link>
+              ))}
+            </div>
+          </article>
         </section>
 
-        <section className="home-placeholder card home-daily-session">
-          <div className="home-challenges__header">
+        <section className="home-placeholder card home-daily-session home-dashboard-feature">
+          <div className="home-dashboard-panel__header">
             <div>
               <span className="section-kicker">Actyv quotidien</span>
               <p>Ta mission sportive du jour</p>
-              <h2>Séance du jour</h2>
+              <h2>Seance du jour</h2>
             </div>
             <Link href="/session-du-jour" className="home-challenges__link">
-              Ouvrir la page dédiée
+              Ouvrir la page dediee
             </Link>
           </div>
 
           {loadingDailySession ? (
             <div className="challenge-state challenge-state--compact">
-              <p>Chargement de la séance du jour...</p>
+              <p>Chargement de la seance du jour...</p>
             </div>
           ) : !dailySession || !dailySessionTraining ? (
             <div className="home-program-reminder-empty stack">
               <div className="challenge-state challenge-state--compact">
-                <p>Aucune séance du jour disponible pour le moment.</p>
+                <p>Aucune seance du jour disponible pour le moment.</p>
               </div>
               <div className="home-program-reminder-card__actions">
                 <Link href="/banque" className="button ghost">
@@ -774,7 +847,7 @@ export default function HomePage() {
                   {isDailySessionForToday(dailySession.scheduled_for) ? "Seance d'aujourd'hui" : 'Prochaine seance du jour'}
                 </span>
                 <strong>{dailySessionTraining.name}</strong>
-                <p>{dailySessionTraining.description || 'Séance publique prête à lancer.'}</p>
+                <p>{dailySessionTraining.description || 'Seance publique prete a lancer.'}</p>
               </div>
 
               <div className="program-card__facts">
@@ -785,23 +858,21 @@ export default function HomePage() {
               </div>
 
               <div className="daily-session-stats-grid">
-              <p className="daily-session-streak">
-                <span aria-hidden="true">🔥</span> Série actuelle <strong>{dailySessionStreakDays} jour{dailySessionStreakDays > 1 ? 's' : ''}</strong>
-              </p>
+                <p className="daily-session-streak">
+                  <span aria-hidden="true">🔥</span> Serie actuelle <strong>{dailySessionStreakDays} jour{dailySessionStreakDays > 1 ? 's' : ''}</strong>
+                </p>
 
-              <p className="daily-session-streak">
-                <span aria-hidden="true">🏅</span> Meilleure serie <strong>{dailySessionBestStreakDays} jour{dailySessionBestStreakDays > 1 ? 's' : ''}</strong>
-              </p>
+                <p className="daily-session-streak">
+                  <span aria-hidden="true">🏅</span> Meilleure serie <strong>{dailySessionBestStreakDays} jour{dailySessionBestStreakDays > 1 ? 's' : ''}</strong>
+                </p>
               </div>
 
               {dailySessionCompletion ? (
                 <>
-                <p className="daily-session-status">
-                  Deja realisee aujourd&apos;hui. Relance libre, sans XP supplementaire.
-                </p>
-                <p className="form-feedback form-feedback--success">
-                  Bonus du jour déjà récupéré.
-                </p>
+                  <p className="daily-session-status">
+                    Deja realisee aujourd&apos;hui. Relance libre, sans XP supplementaire.
+                  </p>
+                  <p className="form-feedback form-feedback--success">Bonus du jour deja recupere.</p>
                 </>
               ) : (
                 <p className="daily-session-status">
@@ -810,192 +881,190 @@ export default function HomePage() {
               )}
 
               <div className="home-program-reminder-card__actions">
-                <Link
-                  href={`/sessions/${dailySessionTraining.id}/live?dailySessionId=${dailySession.id}`}
-                  className="button primary"
-                >
+                <Link href={`/sessions/${dailySessionTraining.id}/live?dailySessionId=${dailySession.id}`} className="button primary">
                   {dailySessionCompletion ? 'Relancer' : 'Lancer'}
                 </Link>
                 <Link href="/session-du-jour" className="button ghost">
-                  Voir la séance du jour
+                  Voir la seance du jour
                 </Link>
               </div>
             </article>
           )}
         </section>
 
-        <section className="home-placeholder card home-program-reminders">
-          <div className="home-challenges__header">
-            <div>
-              <span className="section-kicker">Programmes</span>
-              <h2>A faire aujourd hui</h2>
+        <div className="home-dashboard-grid">
+          <section className="home-placeholder card home-program-reminders home-dashboard-panel">
+            <div className="home-dashboard-panel__header">
+              <div>
+                <span className="section-kicker">Programmes actifs</span>
+                <h2>A faire aujourd hui</h2>
+              </div>
+              <Link href="/programs" className="home-challenges__link">
+                Voir mes programmes
+              </Link>
             </div>
-            <Link href="/programs" className="home-challenges__link">
-              Voir mes programmes
-            </Link>
-          </div>
 
-          {loadingProgramReminders ? (
-            <div className="challenge-state challenge-state--compact">
-              <p>Chargement de tes seances du jour...</p>
-            </div>
-          ) : todayProgramSessions.length > 0 ? (
-            <div className="home-program-reminder-list">
-              {todayProgramSessions.map((entry) => (
-                <article key={entry.key} className="home-program-reminder-card">
-                  <div className="home-program-reminder-card__top">
-                    <div className={getSportBadgeClassName(entry.session.sport || entry.program.sport, 'badge', 'Sport')}>
-                      {formatSportBadgeLabel(entry.session.sport || entry.program.sport, 'Sport')}
-                    </div>
-                    <span className="session-progress-pill">{formatReminderPlannedDate(entry.plannedDate)}</span>
-                  </div>
-
-                  <div className="home-program-reminder-card__copy">
-                    <strong>{entry.session.session_name}</strong>
-                    <p>{entry.program.name}</p>
-                  </div>
-
-                  <div className="program-card__facts">
-                    <span>{entry.program.name}</span>
-                    <span>{formatProgramDayLabel(entry.program.start_date, entry.session.week_number, entry.session.day_of_week)}</span>
-                    <span>Semaine {entry.session.week_number}</span>
-                  </div>
-
-                  <div className="home-program-reminder-card__actions">
-                    {entry.session.session_id ? (
-                      <Link href={`/sessions/${entry.session.session_id}/live`} className="button primary">
-                        Lancer
-                      </Link>
-                    ) : (
-                      <Link href={`/programs/${entry.program.id}`} className="button primary">
-                        Voir le programme
-                      </Link>
-                    )}
-                    <Link href={`/programs/${entry.program.id}`} className="button ghost">
-                      Voir programme
-                    </Link>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="home-program-reminder-empty stack">
+            {loadingProgramReminders ? (
               <div className="challenge-state challenge-state--compact">
-                <p>Rien de prevu aujourd hui.</p>
+                <p>Chargement de tes seances du jour...</p>
+              </div>
+            ) : todayProgramSessions.length > 0 ? (
+              <div className="home-program-reminder-list">
+                {todayProgramSessions.slice(0, 2).map((entry) => (
+                  <article key={entry.key} className="home-program-reminder-card">
+                    <div className="home-program-reminder-card__top">
+                      <div className={getSportBadgeClassName(entry.session.sport || entry.program.sport, 'badge', 'Sport')}>
+                        {formatSportBadgeLabel(entry.session.sport || entry.program.sport, 'Sport')}
+                      </div>
+                      <span className="session-progress-pill">{formatReminderPlannedDate(entry.plannedDate)}</span>
+                    </div>
+
+                    <div className="home-program-reminder-card__copy">
+                      <strong>{entry.session.session_name}</strong>
+                      <p>{entry.program.name}</p>
+                    </div>
+
+                    <div className="program-card__facts">
+                      <span>{entry.program.name}</span>
+                      <span>{formatProgramDayLabel(entry.program.start_date, entry.session.week_number, entry.session.day_of_week)}</span>
+                      <span>Semaine {entry.session.week_number}</span>
+                    </div>
+
+                    <div className="home-program-reminder-card__actions">
+                      {entry.session.session_id ? (
+                        <Link href={`/sessions/${entry.session.session_id}/live`} className="button primary">
+                          Lancer
+                        </Link>
+                      ) : (
+                        <Link href={`/programs/${entry.program.id}`} className="button primary">
+                          Voir le programme
+                        </Link>
+                      )}
+                      <Link href={`/programs/${entry.program.id}`} className="button ghost">
+                        Voir programme
+                      </Link>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <div className="home-program-reminder-empty stack">
+                <div className="challenge-state challenge-state--compact">
+                  <p>Rien de prevu aujourd hui.</p>
+                </div>
+
+                {nextProgramSession ? (
+                  <article className="home-program-reminder-card home-program-reminder-card--next">
+                    <div className="home-program-reminder-card__top">
+                      <span className="section-kicker">Prochaine seance</span>
+                      <span className="session-progress-pill">{formatReminderPlannedDate(nextProgramSession.plannedDate)}</span>
+                    </div>
+
+                    <div className="home-program-reminder-card__copy">
+                      <strong>{nextProgramSession.session.session_name}</strong>
+                      <p>{nextProgramSession.program.name}</p>
+                    </div>
+
+                    <div className="program-card__facts">
+                      <span>{nextProgramSession.program.sport || 'Sport libre'}</span>
+                      <span>
+                        Semaine {nextProgramSession.session.week_number} •{' '}
+                        {formatProgramDayLabel(
+                          nextProgramSession.program.start_date,
+                          nextProgramSession.session.week_number,
+                          nextProgramSession.session.day_of_week
+                        )}
+                      </span>
+                      {nextProgramSession.program.start_date ? (
+                        <span>Debut {formatProgramDate(nextProgramSession.program.start_date)}</span>
+                      ) : (
+                        <span>Programme sans date de debut</span>
+                      )}
+                    </div>
+
+                    <div className="home-program-reminder-card__actions">
+                      {nextProgramSession.session.session_id ? (
+                        <Link href={`/sessions/${nextProgramSession.session.session_id}/live`} className="button primary">
+                          Lancer
+                        </Link>
+                      ) : (
+                        <Link href={`/programs/${nextProgramSession.program.id}`} className="button primary">
+                          Voir le programme
+                        </Link>
+                      )}
+                      <Link href={`/programs/${nextProgramSession.program.id}`} className="button ghost">
+                        Voir programme
+                      </Link>
+                    </div>
+                  </article>
+                ) : (
+                  <p className="muted">Aucune prochaine seance a afficher pour le moment.</p>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section className="home-challenges card home-dashboard-panel">
+            <div className="home-dashboard-panel__header">
+              <div>
+                <span className="section-kicker">Challenges actifs</span>
+                <h2>Challenges a suivre</h2>
               </div>
 
-              {nextProgramSession ? (
-                <article className="home-program-reminder-card home-program-reminder-card--next">
-                  <div className="home-program-reminder-card__top">
-                    <span className="section-kicker">Prochaine seance</span>
-                    <span className="session-progress-pill">{formatReminderPlannedDate(nextProgramSession.plannedDate)}</span>
-                  </div>
-
-                  <div className="home-program-reminder-card__copy">
-                    <strong>{nextProgramSession.session.session_name}</strong>
-                    <p>{nextProgramSession.program.name}</p>
-                  </div>
-
-                  <div className="program-card__facts">
-                    <span>{nextProgramSession.program.sport || 'Sport libre'}</span>
-                    <span>
-                      Semaine {nextProgramSession.session.week_number} •{' '}
-                      {formatProgramDayLabel(
-                        nextProgramSession.program.start_date,
-                        nextProgramSession.session.week_number,
-                        nextProgramSession.session.day_of_week
-                      )}
-                    </span>
-                    {nextProgramSession.program.start_date ? (
-                      <span>Debut {formatProgramDate(nextProgramSession.program.start_date)}</span>
-                    ) : (
-                      <span>Programme sans date de debut</span>
-                    )}
-                  </div>
-
-                  <div className="home-program-reminder-card__actions">
-                    {nextProgramSession.session.session_id ? (
-                      <Link href={`/sessions/${nextProgramSession.session.session_id}/live`} className="button primary">
-                        Lancer
-                      </Link>
-                    ) : (
-                      <Link href={`/programs/${nextProgramSession.program.id}`} className="button primary">
-                        Voir le programme
-                      </Link>
-                    )}
-                    <Link href={`/programs/${nextProgramSession.program.id}`} className="button ghost">
-                      Voir programme
-                    </Link>
-                  </div>
-                </article>
-              ) : (
-                <p className="muted">Aucune prochaine seance a afficher pour le moment.</p>
-              )}
-            </div>
-          )}
-        </section>
-
-        <section className="home-challenges">
-          <div className="home-challenges__header">
-            <div>
-              <span className="section-kicker">En ce moment</span>
-              <h2>Challenges a suivre</h2>
+              <Link href="/challenges" className="home-challenges__link">
+                Voir tous les challenges
+              </Link>
             </div>
 
-            <Link href="/challenges" className="home-challenges__link">
-              Voir tous les challenges
-            </Link>
-          </div>
+            {loadingChallenges ? (
+              <div className="challenge-state">
+                <p>Chargement des challenges...</p>
+              </div>
+            ) : challenges.length === 0 ? (
+              <div className="challenge-state">
+                <p>Aucun challenge en cours pour le moment.</p>
+              </div>
+            ) : (
+              <div className="challenge-list">
+                {challenges.slice(0, 3).map((challenge) => (
+                  <Link key={challenge.id} href={`/challenges/${challenge.id}`} className="challenge-item">
+                    <div className="challenge-item__top">
+                      <span className={getSportBadgeClassName(challenge.sport, 'challenge-item__pill', 'Sport')}>
+                        {formatSportBadgeLabel(challenge.sport, 'Sport')}
+                      </span>
+                      <span className="challenge-item__pill challenge-item__participants-pill">
+                        {participantsCountMap[challenge.id] || 1} participant
+                        {(participantsCountMap[challenge.id] || 1) > 1 ? 's' : ''}
+                      </span>
+                    </div>
 
-          {loadingChallenges ? (
-            <div className="challenge-state">
-              <p>Chargement des challenges...</p>
-            </div>
-          ) : challenges.length === 0 ? (
-            <div className="challenge-state">
-              <p>Aucun challenge en cours pour le moment.</p>
-            </div>
-          ) : (
-            <div className="challenge-list">
-              {challenges.slice(0, 3).map((challenge) => (
-                <Link
-                  key={challenge.id}
-                  href={`/challenges/${challenge.id}`}
-                  className="challenge-item"
-                >
-                  <div className="challenge-item__top">
-                    <span className={getSportBadgeClassName(challenge.sport, 'challenge-item__pill', 'Sport')}>
-                      {formatSportBadgeLabel(challenge.sport, 'Sport')}
-                    </span>
-                    <span className="challenge-item__pill challenge-item__participants-pill">
-                      {participantsCountMap[challenge.id] || 1} participant
-                      {(participantsCountMap[challenge.id] || 1) > 1 ? 's' : ''}
-                    </span>
-                  </div>
+                    <h3>{challenge.name}</h3>
 
-                  <h3>{challenge.name}</h3>
+                    <p>
+                      {challenge.description?.trim()
+                        ? challenge.description
+                        : challenge.goal_km
+                          ? `Objectif : ${challenge.goal_km} km`
+                          : 'Rejoins ce challenge et commence a faire progresser ton equipe.'}
+                    </p>
 
-                  <p>
-                    {challenge.description?.trim()
-                      ? challenge.description
-                      : challenge.goal_km
-                        ? `Objectif : ${challenge.goal_km} km`
-                        : 'Rejoins ce challenge et commence a faire progresser ton equipe.'}
-                  </p>
+                    <span className="challenge-item__cta">Voir le detail</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        </div>
 
-                  <span className="challenge-item__cta">Voir le detail</span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <section className="home-feed">
-          <div className="home-feed__header">
+        <section className="home-feed card home-dashboard-panel">
+          <div className="home-dashboard-panel__header">
             <div>
               <span className="section-kicker">A suivre</span>
               <h2>Activites recentes</h2>
             </div>
+            <Link href="/activities/new" className="home-challenges__link">
+              Ouvrir les activites
+            </Link>
           </div>
 
           {loadingFeed ? (
@@ -1008,7 +1077,7 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="feed-list">
-              {activities.map((activity) => {
+              {activities.slice(0, 5).map((activity) => {
                 const challenge = challengesMap[activity.challenge_id];
                 const distanceText = formatDistance(activity.distance_km);
                 const durationText = formatDuration(activity.duration_minutes);
@@ -1030,10 +1099,7 @@ export default function HomePage() {
                       </div>
 
                       {challenge && (
-                        <Link
-                          href={`/challenges/${challenge.id}`}
-                          className="feed-item__challenge"
-                        >
+                        <Link href={`/challenges/${challenge.id}`} className="feed-item__challenge">
                           {challenge.name}
                         </Link>
                       )}
@@ -1064,9 +1130,7 @@ export default function HomePage() {
                       )}
                     </div>
 
-                    {activity.comment && (
-                      <p className="feed-item__comment">{activity.comment}</p>
-                    )}
+                    {activity.comment && <p className="feed-item__comment">{activity.comment}</p>}
                   </article>
                 );
               })}
