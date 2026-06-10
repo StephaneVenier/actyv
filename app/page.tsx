@@ -728,24 +728,6 @@ export default function HomePage() {
     <AppShell>
       <div className="home-page home-dashboard">
         <section className="hero-banner hero-banner--dashboard">
-          <div className="hero-content hero-content--dashboard">
-            <div className="hero-copy-card">
-              <span className="section-kicker section-kicker--hero">Bougez. Partagez. Progressez.</span>
-              <h1 className="hero-title">
-                Ton dashboard sport,
-                <br />
-                clair et motivant.
-              </h1>
-              <p className="hero-subtitle">
-                Seance du jour, progression,
-                <br />
-                programmes et challenges :
-                <br />
-                tout ce qui compte, des ton arrivee.
-              </p>
-            </div>
-          </div>
-
           <div className="hero-actions hero-actions--dashboard">
             <Link href="/session-du-jour" className="hero-btn hero-btn--primary hero-btn-left">
               Voir la seance du jour
