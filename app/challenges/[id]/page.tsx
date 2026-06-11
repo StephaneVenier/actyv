@@ -8,6 +8,7 @@ import { CompactAccordion } from '@/components/CompactAccordion';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
 import { UserLevelBadge } from '@/components/user-level-badge';
+import { formatPercent } from '@/lib/display-format';
 import { supabase } from '@/lib/supabase';
 import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 
@@ -1205,7 +1206,7 @@ const handleBoost = async (activityId: string) => {
           title="Progression"
           summary={
             effectiveGoalValue && effectiveGoalValue > 0
-              ? `${(progressPercent || 0).toFixed(1)}%`
+              ? formatPercent(progressPercent || 0)
               : 'Aucun objectif defini'
           }
         >
@@ -1217,7 +1218,7 @@ const handleBoost = async (activityId: string) => {
                   Objectif : {formatGoalValue(effectiveGoalValue, effectiveGoalType)}
                 </span>
                 <span className="progress-percent">
-                  {(progressPercent || 0).toFixed(1)}%
+                  {formatPercent(progressPercent || 0)}
                 </span>
               </div>
 

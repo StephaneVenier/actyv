@@ -25,6 +25,7 @@ import {
   normalizeSessionSetsCount,
 } from '@/lib/session-blocks';
 import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
+import { formatPercent } from '@/lib/display-format';
 import { getActyvLevel, type ActyvLevelProgress } from '@/lib/levels';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
@@ -2143,7 +2144,7 @@ export default function LiveSessionPage() {
               title={session.name}
               elapsedLabel={`Temps : ${formatElapsedDuration(elapsedSeconds)}`}
               currentBlockLabel={`Bloc ${Math.min(currentIndex + 1, blocks.length)} / ${blocks.length}`}
-              progressLabel={`${completedBlocksCount} / ${blocks.length} blocs termines - ${globalProgressPercent}%`}
+              progressLabel={`${completedBlocksCount} / ${blocks.length} blocs termines - ${formatPercent(globalProgressPercent)}`}
               progressMetaLabel={
                 allBlocksCompleted
                   ? skippedBlocksCount > 0
@@ -2214,7 +2215,7 @@ export default function LiveSessionPage() {
                   </div>
                   <div className="session-live-fact">
                     <span>Taux de completion</span>
-                    <strong>{`${completionRate}%`}</strong>
+                    <strong>{formatPercent(completionRate)}</strong>
                   </div>
                 </div>
 

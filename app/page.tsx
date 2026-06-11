@@ -17,6 +17,7 @@ import {
 import { getSessionEstimatedDuration } from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
+import { formatPercent } from '@/lib/display-format';
 import {
   formatProgramDate,
   formatProgramDayLabel,
@@ -773,7 +774,7 @@ export default function HomePage() {
               </div>
 
               <div className="home-dashboard-hero__meta">
-                <span>{dashboardLevel.progressPercent}% du niveau en cours</span>
+                <span>{formatPercent(dashboardLevel.progressPercent)} du niveau en cours</span>
                 <span>
                   {dashboardLevel.nextLevelXp === null
                     ? 'Progression complete'

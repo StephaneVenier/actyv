@@ -22,6 +22,7 @@ import {
 import { XP_RULES } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
+import { formatPercent } from '@/lib/display-format';
 import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
 type TrainingSession = {
@@ -1021,7 +1022,7 @@ export default function SessionDetailPage() {
             ? formatSessionVolumeKg(rawValue)
             : metricKey === 'duration'
               ? formatDurationLabel(rawValue)
-              : `${rawValue}%`,
+              : formatPercent(rawValue),
       };
     });
 
@@ -2017,7 +2018,7 @@ export default function SessionDetailPage() {
                             Volume : <strong>{formatSessionVolumeKg(entry.totalVolumeKg) || '-'}</strong>
                           </p>
                           <p>
-                            Taux de completion : <strong>{entry.completionRate}%</strong>
+                            Taux de completion : <strong>{formatPercent(entry.completionRate)}</strong>
                           </p>
                         </div>
 

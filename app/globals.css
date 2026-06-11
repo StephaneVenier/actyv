@@ -523,6 +523,88 @@ img {
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
 }
 
+/* PREMIUM MICRO-INTERACTIONS */
+
+:is(
+  .card,
+  .challenge-item,
+  .feed-item,
+  .home-action-card,
+  .home-program-reminder-card,
+  .challenge-overview-card,
+  .completed-challenge-item,
+  .achievement-badge-card,
+  .profile-history-item,
+  .activity-item,
+  .session-card,
+  .session-block-card,
+  .banque-card,
+  .badge-collection-card,
+  .leaderboard-item,
+  .quick-menu-item
+) {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    border-color 0.18s ease,
+    filter 0.18s ease,
+    background-color 0.18s ease;
+  will-change: transform;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  :is(
+    .challenge-item,
+    .feed-item,
+    .home-action-card,
+    .home-program-reminder-card,
+    .challenge-overview-card,
+    .completed-challenge-item,
+    .achievement-badge-card,
+    .profile-history-item,
+    .activity-item,
+    .session-card,
+    .session-block-card,
+    .banque-card,
+    .badge-collection-card,
+    .leaderboard-item,
+    .quick-menu-item
+  ):hover {
+    transform: translateY(-2px) scale(1.01);
+    filter: brightness(1.015);
+  }
+
+  :is(
+    .button,
+    .hero-btn,
+    .home-challenges__link,
+    .session-link-button,
+    .reaction-button,
+    .profile-dropdown-link,
+    .profile-dropdown-button
+  ) {
+    transition:
+      transform 0.18s ease,
+      box-shadow 0.18s ease,
+      opacity 0.18s ease,
+      filter 0.18s ease,
+      background-color 0.18s ease,
+      border-color 0.18s ease;
+  }
+
+  :is(
+    .button,
+    .hero-btn,
+    .home-challenges__link,
+    .session-link-button,
+    .reaction-button,
+    .profile-dropdown-link,
+    .profile-dropdown-button
+  ):hover {
+    filter: brightness(1.02);
+  }
+}
+
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.68;
