@@ -42,3 +42,34 @@ activation.
 3. Formaliser les durees de retention par table et par usage.
 4. Documenter la procedure d'exercice des droits utilisateur.
 5. Prevoir un registre simple des sous-traitants et des transferts eventuels.
+
+## Export des donnees utilisateur
+
+Une premiere version de l'export utilisateur est disponible depuis la page
+Profil, dans la section `Confidentialite et donnees`.
+
+### Donnees incluses
+
+- profil
+- activites
+- challenges crees
+- challenges rejoints
+- seances creees
+- programmes crees
+- badges obtenus
+- evenements XP
+- historique d'entrainement et statistiques utilisateur
+
+### Limites de la V1
+
+- export JSON uniquement, telecharge cote navigateur
+- certaines donnees anciennes peuvent dependre du fallback email si elles n'ont
+  pas encore ete migrees vers `user_id`
+- si une source n'est pas disponible pour le compte, l'export reste genere et
+  ajoute une note explicative au lieu d'echouer
+
+### Prochaines etapes
+
+- suppression ou anonymisation du compte
+- procedure utilisateur documentee pour demande d'export et d'effacement
+- verification plus fine du perimetre des tables exportables en production

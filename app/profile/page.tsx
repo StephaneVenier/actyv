@@ -1092,6 +1092,7 @@ export default function ProfilePage() {
     setExportMessage('');
 
     try {
+      const exportNotes: string[] = [];
       const createdChallenges = challenges.filter((challenge) => challenge.created_by === profile.id);
       const joinedChallenges = challenges.filter((challenge) => challenge.created_by !== profile.id);
       const exportedBadges = badges.map((badge) => {
@@ -1100,31 +1101,44 @@ export default function ProfilePage() {
           code: badge.badge_code,
           label: definition?.label || badge.badge_code,
           description: definition?.description || null,
-          unlocked_at: badge.unlocked_at || null,
+          unlockedAt: badge.unlocked_at || null,
         };
       });
 
+      if (activities.length === 0) {
+        exportNotes.push("Aucune activite exportee ou aucune activite accessible pour ce compte.");
+      }
+
+      if (ownedSessions.length === 0) {
+        exportNotes.push("Aucune seance personnelle exportee ou aucune seance accessible pour ce compte.");
+      }
+
+      if (trainingPrograms.filter((program) => !program.copied_from_program_id).length === 0) {
+        exportNotes.push("Aucun programme personnel exporte ou aucune donnee programme accessible pour ce compte.");
+      }
+
       const exportPayload = {
-        exported_at: new Date().toISOString(),
-        user_id: profile.id,
+        exportedAt: new Date().toISOString(),
+        userId: profile.id,
         profile,
         activities,
-        challenges_created: createdChallenges,
-        challenges_joined: joinedChallenges,
-        sessions_created: ownedSessions,
-        programs_created: trainingPrograms.filter((program) => !program.copied_from_program_id),
-        badges_obtained: exportedBadges,
-        xp_events: xpEvents,
-        workout_history: allWorkoutHistory,
-        daily_session_completions: dailyCompletions,
-        daily_steps: dailySteps,
-        user_statistics: {
+        createdChallenges,
+        joinedChallenges,
+        sessions: ownedSessions,
+        programs: trainingPrograms.filter((program) => !program.copied_from_program_id),
+        badges: exportedBadges,
+        xpEvents: xpEvents,
+        workoutHistory: allWorkoutHistory,
+        dailySessionCompletions: dailyCompletions,
+        dailySteps,
+        stats: {
           overview: stats,
           level: levelProgress,
-          daily_summary: dailySummary,
-          workout_profile_summary: workoutProfileSummary,
-          workout_global_strength_stats: workoutGlobalStrengthStats,
+          dailySummary,
+          workoutProfileSummary,
+          workoutGlobalStrengthStats,
         },
+        notes: exportNotes,
       };
 
       const fileDate = new Date().toISOString().slice(0, 10);
