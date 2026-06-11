@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
+import { formatPercent } from '@/lib/display-format';
 import { supabase } from '@/lib/supabase';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -416,7 +417,7 @@ export default function ChallengesPage() {
                     <span className="progress-target">
                       {formatGoal(progress, goalType)}
                     </span>
-                    <span className="progress-percent">{progressPercent.toFixed(1)}%</span>
+                    <span className="progress-percent">{formatPercent(progressPercent)}</span>
                   </div>
                   <div className="progress-track">
                     <div className="progress-fill" style={{ width: `${progressPercent}%` }} />

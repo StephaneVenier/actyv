@@ -18,6 +18,7 @@ import {
 import type { DailySessionCompletion } from '@/lib/daily-sessions';
 import { getUserTotalXp, refreshUserBadges } from '@/lib/gamification';
 import { getActyvLevel } from '@/lib/levels';
+import { formatPercent } from '@/lib/display-format';
 import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
@@ -1187,7 +1188,7 @@ export default function ProfilePage() {
             <article className="profile-summary-card profile-summary-card--wide">
               <div className="profile-summary-card__top">
                 <span className="stat-card-label">Progression XP</span>
-                <strong>{levelProgress.progressPercent.toFixed(0)}%</strong>
+                <strong>{formatPercent(levelProgress.progressPercent, { maximumFractionDigits: 0 })}</strong>
               </div>
               <div className="progress-track">
                 <div
@@ -1752,7 +1753,7 @@ export default function ProfilePage() {
                       <span className="progress-target">
                         {myActivities} activite{myActivities > 1 ? 's' : ''}
                       </span>
-                      <span className="progress-percent">{progressPercent.toFixed(1)}%</span>
+                      <span className="progress-percent">{formatPercent(progressPercent)}</span>
                     </div>
                     <div className="progress-track">
                       <div className="progress-fill" style={{ width: `${progressPercent}%` }} />

@@ -605,6 +605,120 @@ img {
   }
 }
 
+/* FINAL RESPONSIVE CONSISTENCY PASS */
+
+:is(
+  h1,
+  h2,
+  h3,
+  .session-card__content h2,
+  .challenge-item h3,
+  .program-plan-week__header h3,
+  .program-list-item__heading,
+  .home-dashboard-panel__header h2,
+  .profile-section-heading h2,
+  .session-summary-header__copy h1
+) {
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+:is(
+  .home-program-reminder-card__copy,
+  .session-card__content,
+  .program-card__summary,
+  .program-list-item__heading,
+  .challenge-item,
+  .feed-item__identity,
+  .profile-summary-card,
+  .badge-collection-card__copy
+) {
+  min-width: 0;
+}
+
+:is(
+  .profile-actions,
+  .badges-hero-actions,
+  .challenge-hero-actions,
+  .session-hero-actions,
+  .session-summary-actions,
+  .session-empty-actions,
+  .home-program-reminder-card__actions,
+  .program-detail-actions,
+  .program-detail-actions__secondary,
+  .program-list-item__actions,
+  .program-next-session-card__footer,
+  .session-detail-actions__secondary
+) {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+:is(
+  .button,
+  .hero-btn,
+  .program-action-button,
+  .session-link-button,
+  .challenge-filter-button
+) {
+  white-space: normal;
+  text-align: center;
+}
+
+:is(
+  .program-card__facts,
+  .program-card__facts--compact,
+  .program-share-summary__facts,
+  .session-summary-header__stats-bar
+) {
+  min-width: 0;
+}
+
+@media (max-width: 1024px) {
+  .profile-summary-grid,
+  .challenge-meta-grid,
+  .challenge-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sessions-grid,
+  .programs-grid,
+  .sessions-grid--compact-overview,
+  .programs-grid--compact {
+    grid-template-columns: 1fr;
+  }
+
+  .program-detail-page--compact .program-next-session-card__stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .profile-summary-grid,
+  .challenge-meta-grid,
+  .challenge-stats-grid,
+  .program-detail-page--compact .program-next-session-card__stats {
+    grid-template-columns: 1fr;
+  }
+
+  .program-list-item__actions,
+  .program-next-session-card__footer,
+  .program-detail-actions__secondary,
+  .session-detail-actions__secondary,
+  .home-program-reminder-card__actions {
+    width: 100%;
+  }
+
+  .program-list-item__actions .button,
+  .program-next-session-card__footer .button,
+  .program-detail-actions__secondary .button,
+  .session-detail-actions__secondary .button,
+  .home-program-reminder-card__actions .button {
+    flex: 1 1 100%;
+  }
+}
+
 .button:disabled {
   cursor: not-allowed;
   opacity: 0.68;
