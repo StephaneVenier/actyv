@@ -35,6 +35,7 @@
 
   --actyv-gradient: linear-gradient(90deg, #4cd964 0%, #20b7a6 50%, #1e6bd6 100%);
   --actyv-gradient-strong: linear-gradient(135deg, #4cd964 0%, #20b7a6 52%, #1e6bd6 100%);
+  --actyv-accent-title: #86efac;
 }
 
 * {
@@ -8784,6 +8785,38 @@ img {
 .home-dashboard .feed-item__challenge,
 .home-dashboard .challenge-item__cta {
   font-size: 0.76rem;
+}
+
+/* ACTYV TITLE ACCENT SYSTEM */
+
+.section-kicker,
+.home-challenges__header h2,
+.home-feed__header h2,
+.home-dashboard-panel__header h2,
+.challenge-hero-title,
+.activity-page-title,
+.profile-hero-card h1,
+.profile-section-heading h2,
+.gamification-main h2,
+.badges-hero-card h1,
+.leaderboard-hero-card h1,
+.leaderboard-card h2,
+.banque-hero-card h1,
+.daily-session-hero .session-hero-copy h1,
+.daily-session-blocks .home-challenges__header h2,
+.session-hero-card h1,
+.session-form-card h2,
+.session-summary-card h2,
+.session-runner-card h2,
+.session-card__content h2,
+.sessions-page--dark .session-hero-card h1,
+.sessions-page--dark .session-blocks-header h2,
+.program-placeholder-card__copy h2,
+.program-card--compact .session-card__content h2,
+.program-placeholder-card--compact .program-placeholder-card__copy h2,
+.program-plan-week__header h3,
+.program-detail-page--compact .program-plan-week__header h3 {
+  color: var(--actyv-accent-title);
 }
 
 @media (min-width: 920px) {
