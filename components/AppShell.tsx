@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { ToastProvider } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 
@@ -35,6 +36,7 @@ function formatQuickStatsDuration(totalSeconds: number) {
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -153,6 +155,14 @@ export function AppShell({ children }: { children: ReactNode }) {
   };
 
   const profileLabel = username || userEmail || 'Mon profil';
+  const isRouteActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const isQuickMenuActive =
+    isRouteActive('/stats') ||
+    isRouteActive('/leaderboard') ||
+    isRouteActive('/sessions') ||
+    isRouteActive('/programs') ||
+    isRouteActive('/badges') ||
+    isRouteActive('/banque');
 
   return (
     <ToastProvider>
@@ -161,11 +171,25 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="topbar-inner">
             <div className="topbar-left">
               <nav className="nav desktop-nav">
-                <Link href="/">Accueil</Link>
-                <Link href="/challenges/new" className="button primary">
+                <Link href="/" className={isRouteActive('/') ? 'nav-link is-active' : 'nav-link'}>
+                  Accueil
+                </Link>
+                <Link
+                  href="/challenges/new"
+                  className={
+                    isRouteActive('/challenges')
+                      ? 'button primary nav-link nav-link--cta is-active'
+                      : 'button primary nav-link nav-link--cta'
+                  }
+                >
                   Creer un challenge
                 </Link>
-                <Link href="/activities/new">Ajouter une activite</Link>
+                <Link
+                  href="/activities/new"
+                  className={isRouteActive('/activities') ? 'nav-link is-active' : 'nav-link'}
+                >
+                  Ajouter une activite
+                </Link>
               </nav>
             </div>
 
@@ -264,14 +288,22 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="page-content">{children}</main>
 
         <div className="bottom-bar">
-          <Link href="/challenges/new" className="bottom-btn" aria-label="Creer un challenge">
+          <Link
+            href="/challenges/new"
+            className={isRouteActive('/challenges') ? 'bottom-btn is-active' : 'bottom-btn'}
+            aria-label="Creer un challenge"
+          >
             <span className="bottom-btn-icon">🏆</span>
             <span className="bottom-btn-label">Challenge</span>
           </Link>
 
           <div className="bottom-bar-center-space" />
 
-          <Link href="/activities/new" className="bottom-btn" aria-label="Ajouter une activite">
+          <Link
+            href="/activities/new"
+            className={isRouteActive('/activities') ? 'bottom-btn is-active' : 'bottom-btn'}
+            aria-label="Ajouter une activite"
+          >
             <span className="bottom-btn-icon">🏃</span>
             <span className="bottom-btn-label">Activite</span>
           </Link>
@@ -282,7 +314,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <div className="quick-menu-panel">
               <Link
                 href="/stats"
-                className="quick-menu-item quick-menu-item--featured"
+                className={isRouteActive('/stats') ? 'quick-menu-item quick-menu-item--featured is-active' : 'quick-menu-item quick-menu-item--featured'}
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <div className="quick-menu-item__heading">
@@ -301,7 +333,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <Link
                 href="/leaderboard"
-                className="quick-menu-item"
+                className={isRouteActive('/leaderboard') ? 'quick-menu-item is-active' : 'quick-menu-item'}
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <div className="quick-menu-item__heading">
@@ -313,7 +345,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <Link
                 href="/sessions/new"
-                className="quick-menu-item"
+                className={isRouteActive('/sessions') ? 'quick-menu-item is-active' : 'quick-menu-item'}
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <div className="quick-menu-item__heading">
@@ -325,7 +357,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <Link
                 href="/programs"
-                className="quick-menu-item"
+                className={isRouteActive('/programs') ? 'quick-menu-item is-active' : 'quick-menu-item'}
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <div className="quick-menu-item__heading">
@@ -337,7 +369,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <Link
                 href="/badges"
-                className="quick-menu-item"
+                className={isRouteActive('/badges') ? 'quick-menu-item is-active' : 'quick-menu-item'}
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <div className="quick-menu-item__heading">
@@ -349,7 +381,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
               <Link
                 href="/banque"
-                className="quick-menu-item"
+                className={isRouteActive('/banque') ? 'quick-menu-item is-active' : 'quick-menu-item'}
                 onClick={() => setQuickMenuOpen(false)}
               >
                 <div className="quick-menu-item__heading">
@@ -362,7 +394,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           )}
 
           <button
-            className="menu-center-btn"
+            className={quickMenuOpen || isQuickMenuActive ? 'menu-center-btn is-active' : 'menu-center-btn'}
             type="button"
             aria-label="Menu Actyv"
             aria-haspopup="menu"
