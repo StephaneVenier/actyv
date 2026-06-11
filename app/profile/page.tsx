@@ -317,6 +317,9 @@ export default function ProfilePage() {
   const [stepsMessage, setStepsMessage] = useState('');
   const [exportingData, setExportingData] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteAccountMessage, setDeleteAccountMessage] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -1163,6 +1166,53 @@ export default function ProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    if (!profile || deletingAccount) return;
+
+    setDeletingAccount(true);
+    setDeleteAccountMessage('');
+
+    try {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (sessionError || !session?.access_token) {
+        setDeleteAccountMessage('Session invalide. Reconnecte-toi puis reessaie.');
+        setDeletingAccount(false);
+        return;
+      }
+
+      const response = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | { error?: string; success?: boolean }
+        | null;
+
+      if (!response.ok || !payload?.success) {
+        setDeleteAccountMessage(
+          payload?.error || 'Impossible de supprimer le compte pour le moment.'
+        );
+        setDeletingAccount(false);
+        return;
+      }
+
+      setDeleteAccountMessage('Compte supprime. Deconnexion en cours...');
+      await supabase.auth.signOut();
+      window.location.href = '/';
+    } catch (error) {
+      console.error('Erreur suppression compte profil :', error);
+      setDeleteAccountMessage('Impossible de supprimer le compte pour le moment.');
+      setDeletingAccount(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppShell>
@@ -1592,6 +1642,65 @@ export default function ProfilePage() {
                     className={`form-feedback ${exportMessage.includes('Impossible') ? 'form-feedback--error' : 'form-feedback--success'}`}
                   >
                     {exportMessage}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="profile-history-item profile-history-item--danger">
+                <div className="profile-history-item__top">
+                  <strong>Supprimer mon compte</strong>
+                </div>
+                <span>
+                  Cette action est irreversible. L&apos;ensemble de tes donnees
+                  personnelles sera supprime ou anonymise en preservant
+                  l&apos;integrite des challenges et des historiques partages.
+                </span>
+                <div className="profile-steps-input-row">
+                  <button
+                    type="button"
+                    className="button ghost button--danger"
+                    onClick={() => setShowDeleteConfirm((previous) => !previous)}
+                    disabled={deletingAccount}
+                  >
+                    {showDeleteConfirm ? 'Fermer' : 'Supprimer mon compte'}
+                  </button>
+                </div>
+
+                {showDeleteConfirm ? (
+                  <div className="profile-danger-confirm">
+                    <p>Cette action est irreversible.</p>
+                    <p>
+                      L&apos;ensemble de vos donnees personnelles sera supprime ou
+                      anonymise.
+                    </p>
+                    <div className="profile-danger-confirm__actions">
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={deletingAccount}
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        type="button"
+                        className="button button--danger"
+                        onClick={handleDeleteAccount}
+                        disabled={deletingAccount}
+                      >
+                        {deletingAccount
+                          ? 'Suppression...'
+                          : 'Supprimer definitivement mon compte'}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {deleteAccountMessage ? (
+                  <p
+                    className={`form-feedback ${deleteAccountMessage.includes('Impossible') || deleteAccountMessage.includes('manquante') ? 'form-feedback--error' : 'form-feedback--success'}`}
+                  >
+                    {deleteAccountMessage}
                   </p>
                 ) : null}
               </div>

@@ -2179,6 +2179,47 @@ img {
   min-width: 0;
 }
 
+.button.button--danger {
+  border-color: rgba(239, 68, 68, 0.28);
+  background: linear-gradient(135deg, rgba(153, 27, 27, 0.96), rgba(220, 38, 38, 0.92));
+  color: #fff7f7;
+  box-shadow: 0 16px 32px rgba(127, 29, 29, 0.28);
+}
+
+.button.ghost.button--danger {
+  background: rgba(127, 29, 29, 0.14);
+  color: #fecaca;
+}
+
+.profile-history-item--danger {
+  border-color: rgba(248, 113, 113, 0.22);
+  background:
+    linear-gradient(180deg, rgba(48, 12, 14, 0.94), rgba(30, 11, 16, 0.96));
+}
+
+.profile-danger-confirm {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+  border-radius: 14px;
+  background: rgba(17, 24, 39, 0.5);
+}
+
+.profile-danger-confirm p {
+  margin: 0;
+  color: #f8d7da;
+  line-height: 1.5;
+}
+
+.profile-danger-confirm__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-top: 4px;
+}
+
 .profile-badge-preview-card {
   display: grid;
   gap: 8px;

@@ -73,3 +73,37 @@ Profil, dans la section `Confidentialite et donnees`.
 - suppression ou anonymisation du compte
 - procedure utilisateur documentee pour demande d'export et d'effacement
 - verification plus fine du perimetre des tables exportables en production
+
+## Suppression de compte
+
+Une premiere version du droit a l'effacement est exposee depuis la page Profil,
+dans la section `Confidentialite et donnees`.
+
+### Donnees supprimees
+
+- compte Auth Supabase, via API admin cote serveur
+- profil utilisateur
+- badges et evenements XP relies au compte
+- seances, programmes, historiques d'entrainement, donnees quotidiennes et
+  autres donnees strictement personnelles supprimees par cascade ou suppression
+  ciblee
+
+### Donnees anonymisees
+
+- activites conservees pour l'integrite des challenges, avec auteur anonymise
+  et commentaire efface
+- challenges crees conserves, avec `created_by` remis a `null`
+
+### Limites de la V1
+
+- la suppression Auth cote serveur necessite la variable
+  `SUPABASE_SERVICE_ROLE_KEY`
+- certaines tables legacy peuvent etre ignorees proprement si elles ne sont pas
+  presentes sur la base ciblee
+- la suppression agit sur le compte connecte uniquement
+
+### Actions manuelles restantes
+
+- ajouter `SUPABASE_SERVICE_ROLE_KEY` dans l'environnement serveur
+- verifier en production le comportement exact des tables legacy `users`,
+  `challenge_members` et des anciennes donnees email non migrees
