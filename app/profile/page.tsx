@@ -89,8 +89,28 @@ type WorkoutExerciseHistoryEntry = {
 
 type TrainingProgramEntry = {
   id: string;
+  user_id?: string | null;
+  name?: string | null;
+  description?: string | null;
+  sport?: string | null;
+  difficulty?: string | null;
+  duration_weeks?: number | null;
   visibility: string | null;
   copied_from_program_id: string | null;
+  start_date?: string | null;
+  created_at?: string | null;
+};
+
+type TrainingSessionOwnedEntry = {
+  id: string;
+  user_id: string | null;
+  name: string | null;
+  description: string | null;
+  sport: string | null;
+  difficulty: string | null;
+  visibility: string | null;
+  copied_from_session_id: string | null;
+  created_at: string | null;
 };
 
 type XpEventEntry = {
@@ -277,6 +297,7 @@ export default function ProfilePage() {
   const [dailyCompletions, setDailyCompletions] = useState<DailySessionCompletion[]>([]);
   const [xpEvents, setXpEvents] = useState<XpEventEntry[]>([]);
   const [trainingPrograms, setTrainingPrograms] = useState<TrainingProgramEntry[]>([]);
+  const [ownedSessions, setOwnedSessions] = useState<TrainingSessionOwnedEntry[]>([]);
   const [recentWorkoutHistory, setRecentWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [allWorkoutHistory, setAllWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
   const [workoutExerciseHistory, setWorkoutExerciseHistory] = useState<WorkoutExerciseHistoryEntry[]>([]);
@@ -294,6 +315,8 @@ export default function ProfilePage() {
   const [stepsInput, setStepsInput] = useState('0');
   const [savingSteps, setSavingSteps] = useState(false);
   const [stepsMessage, setStepsMessage] = useState('');
+  const [exportingData, setExportingData] = useState(false);
+  const [exportMessage, setExportMessage] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -364,6 +387,7 @@ export default function ProfilePage() {
         dailyCompletionsResponse,
         xpEventsResponse,
         trainingProgramsResponse,
+        trainingSessionsResponse,
         workoutHistoryResponse,
         recentWorkoutHistoryResponse,
         workoutExerciseHistoryResponse,
@@ -395,8 +419,17 @@ export default function ProfilePage() {
             .limit(12),
           supabase
             .from('training_programs')
-            .select('id, visibility, copied_from_program_id')
+            .select(
+              'id, user_id, name, description, sport, difficulty, duration_weeks, visibility, copied_from_program_id, start_date, created_at'
+            )
             .eq('user_id', user.id),
+          supabase
+            .from('training_sessions')
+            .select(
+              'id, user_id, name, description, sport, difficulty, visibility, copied_from_session_id, created_at'
+            )
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false }),
           supabase
             .from('workout_sessions_history')
             .select(
@@ -462,6 +495,13 @@ export default function ProfilePage() {
         setTrainingPrograms([]);
       } else {
         setTrainingPrograms((trainingProgramsResponse.data as TrainingProgramEntry[] | null) || []);
+      }
+
+      if (trainingSessionsResponse.error) {
+        console.error('Erreur chargement seances creees profil :', trainingSessionsResponse.error);
+        setOwnedSessions([]);
+      } else {
+        setOwnedSessions((trainingSessionsResponse.data as TrainingSessionOwnedEntry[] | null) || []);
       }
 
       if (workoutHistoryResponse.error) {
@@ -1045,6 +1085,70 @@ export default function ProfilePage() {
     }
   };
 
+  const handleExportPersonalData = async () => {
+    if (!profile || exportingData) return;
+
+    setExportingData(true);
+    setExportMessage('');
+
+    try {
+      const createdChallenges = challenges.filter((challenge) => challenge.created_by === profile.id);
+      const joinedChallenges = challenges.filter((challenge) => challenge.created_by !== profile.id);
+      const exportedBadges = badges.map((badge) => {
+        const definition = getBadgeByCode(badge.badge_code);
+        return {
+          code: badge.badge_code,
+          label: definition?.label || badge.badge_code,
+          description: definition?.description || null,
+          unlocked_at: badge.unlocked_at || null,
+        };
+      });
+
+      const exportPayload = {
+        exported_at: new Date().toISOString(),
+        user_id: profile.id,
+        profile,
+        activities,
+        challenges_created: createdChallenges,
+        challenges_joined: joinedChallenges,
+        sessions_created: ownedSessions,
+        programs_created: trainingPrograms.filter((program) => !program.copied_from_program_id),
+        badges_obtained: exportedBadges,
+        xp_events: xpEvents,
+        workout_history: allWorkoutHistory,
+        daily_session_completions: dailyCompletions,
+        daily_steps: dailySteps,
+        user_statistics: {
+          overview: stats,
+          level: levelProgress,
+          daily_summary: dailySummary,
+          workout_profile_summary: workoutProfileSummary,
+          workout_global_strength_stats: workoutGlobalStrengthStats,
+        },
+      };
+
+      const fileDate = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([JSON.stringify(exportPayload, null, 2)], {
+        type: 'application/json;charset=utf-8',
+      });
+      const objectUrl = window.URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = objectUrl;
+      anchor.download = `actyv-export-${fileDate}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(objectUrl);
+
+      setExportMessage('Export genere et telecharge.');
+    } catch (error) {
+      console.error('Erreur export donnees personnelles :', error);
+      setExportMessage("Impossible de generer l'export pour le moment.");
+    } finally {
+      setExportingData(false);
+    }
+  };
+
   if (loading) {
     return (
       <AppShell>
@@ -1437,6 +1541,45 @@ export default function ProfilePage() {
                     {stepsMessage}
                   </p>
                 )}
+              </div>
+            </div>
+          </article>
+
+          <article className="card profile-history-card profile-history-card--daily">
+            <div className="profile-section-heading">
+              <div>
+                <span className="section-kicker">RGPD</span>
+                <h2>Confidentialite et donnees</h2>
+              </div>
+            </div>
+
+            <div className="profile-history-list">
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Exporter mes donnees</strong>
+                </div>
+                <span>
+                  Telecharge un fichier JSON contenant tes donnees personnelles Actyv :
+                  profil, activites, challenges, seances, programmes, badges, XP et
+                  statistiques.
+                </span>
+                <div className="profile-steps-input-row">
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={handleExportPersonalData}
+                    disabled={exportingData}
+                  >
+                    {exportingData ? 'Generation...' : 'Exporter mes donnees'}
+                  </button>
+                </div>
+                {exportMessage ? (
+                  <p
+                    className={`form-feedback ${exportMessage.includes('Impossible') ? 'form-feedback--error' : 'form-feedback--success'}`}
+                  >
+                    {exportMessage}
+                  </p>
+                ) : null}
               </div>
             </div>
           </article>
