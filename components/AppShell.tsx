@@ -285,7 +285,19 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="page-content">{children}</main>
+        <main className="page-content">
+          {children}
+          <footer className="site-footer" aria-label="Informations legales">
+            <div className="site-footer__inner">
+              <span className="site-footer__brand">Actyv</span>
+              <nav className="site-footer__nav">
+                <Link href="/legal/mentions-legales">Mentions legales</Link>
+                <Link href="/legal/confidentialite">Confidentialite</Link>
+                <Link href="/legal/cookies">Cookies</Link>
+              </nav>
+            </div>
+          </footer>
+        </main>
 
         <div className="bottom-bar">
           <Link
