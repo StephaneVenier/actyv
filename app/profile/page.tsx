@@ -36,6 +36,7 @@ type Profile = {
 type Activity = {
   id: string;
   challenge_id: string;
+  user_id?: string | null;
   user_email: string | null;
   sport: string | null;
   distance_km: number | null;
@@ -60,6 +61,7 @@ type Challenge = {
 
 type ChallengeMember = {
   challenge_id: string;
+  user_id?: string | null;
 };
 
 type ActivityInteraction = {
@@ -370,12 +372,12 @@ export default function ProfilePage() {
           supabase
             .from('activities')
             .select(
-              'id, challenge_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, comment, created_at'
+              'id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, unit_type, unit_value, comment, created_at'
             )
-            .eq('user_email', user.email)
+            .or(`user_id.eq.${user.id}${user.email ? `,user_email.eq.${user.email}` : ''}`)
             .order('created_at', { ascending: false }),
-          user.email
-            ? supabase.from('challenge_members').select('challenge_id').eq('user_email', user.email)
+          user.id
+            ? supabase.from('challenge_members').select('challenge_id').eq('user_id', user.id)
             : Promise.resolve({ data: [], error: null }),
           supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
           supabase.from('user_badges').select('badge_code, unlocked_at').eq('user_id', user.id),
@@ -515,9 +517,24 @@ export default function ProfilePage() {
         setWorkoutSportsById({});
       }
 
-      const memberIds = ((membersResponse.data as ChallengeMember[] | null) || []).map(
+      let memberIds = ((membersResponse.data as ChallengeMember[] | null) || []).map(
         (row) => row.challenge_id
       );
+
+      if (memberIds.length === 0 && user.email) {
+        const { data: legacyMembersData, error: legacyMembersError } = await supabase
+          .from('challenge_members')
+          .select('challenge_id')
+          .eq('user_email', user.email);
+
+        if (legacyMembersError) {
+          console.error('Erreur chargement challenge_members legacy profil :', legacyMembersError);
+        } else {
+          memberIds = ((legacyMembersData as ChallengeMember[] | null) || []).map(
+            (row) => row.challenge_id
+          );
+        }
+      }
       const participantIds = ((participantsResponse.data as ChallengeMember[] | null) || []).map(
         (row) => row.challenge_id
       );

@@ -406,8 +406,8 @@ export async function checkAndAwardBadges(userId: string) {
         .from('challenge_participants')
         .select('id')
         .eq('user_id', userId),
-      userEmail
-        ? supabase.from('challenge_members').select('id').eq('user_email', userEmail)
+      userId
+        ? supabase.from('challenge_members').select('id').eq('user_id', userId)
         : Promise.resolve({ data: [], error: null }),
       supabase
         .from('activity_interactions')
@@ -455,10 +455,26 @@ export async function checkAndAwardBadges(userId: string) {
     return { awarded: [], error: firstError };
   }
 
+  let normalizedMembersData = (membersResponse.data as Array<{ id: string }> | null) || [];
+
+  if (normalizedMembersData.length === 0 && userEmail) {
+    const legacyMembersResponse = await supabase
+      .from('challenge_members')
+      .select('id')
+      .eq('user_email', userEmail);
+
+    if (legacyMembersResponse.error) {
+      console.error('BADGES ERROR:', legacyMembersResponse.error);
+      return { awarded: [], error: legacyMembersResponse.error };
+    }
+
+    normalizedMembersData = (legacyMembersResponse.data as Array<{ id: string }> | null) || [];
+  }
+
   const activities = (activitiesResponse.data as BadgeActivityRow[] | null) || [];
   const createdChallenges = challengesResponse.data || [];
   const joinedChallenges = participantsResponse.data || [];
-  const joinedMembers = membersResponse.data || [];
+  const joinedMembers = normalizedMembersData;
   const interactions = interactionsResponse.data || [];
   const workoutHistory = workoutHistoryResponse.data || [];
   const trainingPrograms = (trainingProgramsResponse.data as BadgeTrainingProgramRow[] | null) || [];

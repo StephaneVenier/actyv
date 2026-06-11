@@ -291,3 +291,70 @@ Cela signifie que la protection de `profiles.email` ne suffit pas a elle seule p
 2. Remplacer progressivement les usages metier de `user_email` par `user_id`.
 3. Eviter tout fallback visuel public base sur l'email.
 4. Prevoir une migration progressive des anciennes activites qui n'auraient pas encore `user_id`.
+
+## Migration progressive email vers user_id
+
+### Usages `user_email` identifies
+
+Les usages metier encore presents dans le code ou les migrations concernent surtout:
+
+- `activities.user_email`
+- `challenge_members.user_email`
+- quelques lectures legacy dans:
+  - accueil
+  - challenges
+  - detail challenge
+  - classement
+  - statistiques
+  - profil
+  - gamification / badges
+
+### Colonnes `user_id` ajoutees ou confirmees
+
+- `activities.user_id`
+- `challenge_members.user_id`
+
+Le patch ajoute une migration defensive:
+
+- ajout de colonne si absente
+- index `user_id`
+- backfill exact depuis `profiles.email` quand la correspondance existe
+
+### Code modifie
+
+Le code privilegie maintenant `user_id` en priorite pour:
+
+- les nouvelles activites
+- les requetes profil
+- les requetes accueil
+- les listes challenges
+- le detail challenge
+- le classement
+- les statistiques
+- la logique badges / gamification
+
+### Fallback conserve
+
+Le fallback `user_email` reste conserve pour:
+
+- les anciennes lignes `activities`
+- les anciennes lignes `challenge_members`
+- les invitations challenge avant creation de compte
+
+La logique attendue est maintenant:
+
+- `user_id` si disponible
+- `user_email` seulement pour compatibilite legacy
+
+### Policies / RLS
+
+Les policies challenge/activity sont mises a jour pour:
+
+- verifier `auth.uid() = user_id` en priorite
+- conserver la compatibilite email tant que les anciennes donnees existent
+
+### Points restant a migrer
+
+1. Remplacer a terme les lectures communautaires basees sur `activity.user_email` quand `user_id` est absent.
+2. Rattacher les invitations `challenge_members.user_email` a `user_id` quand l'utilisateur cree son compte ou rejoint un challenge.
+3. Resynchroniser `supabase/schema.sql` avec le schema reel pour lever l'ambiguite sur ces colonnes.

@@ -33,6 +33,7 @@ type Activity = {
 
 type ChallengeMember = {
   challenge_id: string;
+  user_id?: string | null;
   user_email?: string | null;
 };
 
@@ -117,37 +118,53 @@ export default function ChallengesPage() {
       const userId = user?.id || null;
       let visibleChallengeIds: string[] = [];
 
-      if (userEmail) {
-        const { data: memberRows, error: membersError } = await supabase
-          .from('challenge_members')
-          .select('challenge_id')
-          .eq('user_email', userEmail);
+      const [memberRowsResponse, legacyMemberRowsResponse, participantRowsResponse] = await Promise.all([
+        userId
+          ? supabase
+              .from('challenge_members')
+              .select('challenge_id, user_id, user_email')
+              .eq('user_id', userId)
+          : Promise.resolve({ data: [], error: null }),
+        userEmail
+          ? supabase
+              .from('challenge_members')
+              .select('challenge_id, user_id, user_email')
+              .eq('user_email', userEmail)
+          : Promise.resolve({ data: [], error: null }),
+        userId
+          ? supabase
+              .from('challenge_participants')
+              .select('challenge_id')
+              .eq('user_id', userId)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
 
-        if (membersError) {
-          console.error('Erreur chargement challenge_members :', membersError);
-        } else {
-          visibleChallengeIds = ((memberRows as ChallengeMember[] | null) || []).map(
-            (row) => row.challenge_id
-          );
-        }
+      if (memberRowsResponse.error) {
+        console.error('Erreur chargement challenge_members :', memberRowsResponse.error);
+      } else {
+        visibleChallengeIds = ((memberRowsResponse.data as ChallengeMember[] | null) || []).map((row) => row.challenge_id);
       }
 
-      if (userId) {
-        const { data: participantRows, error: participantsError } = await supabase
-          .from('challenge_participants')
-          .select('challenge_id')
-          .eq('user_id', userId);
+      if (legacyMemberRowsResponse.error) {
+        console.error('Erreur chargement challenge_members legacy :', legacyMemberRowsResponse.error);
+      } else {
+        visibleChallengeIds = [
+          ...visibleChallengeIds,
+          ...(((legacyMemberRowsResponse.data as ChallengeMember[] | null) || []).map(
+            (row) => row.challenge_id
+          )),
+        ];
+      }
 
-        if (participantsError) {
-          console.error('Erreur chargement challenge_participants :', participantsError);
-        } else {
-          visibleChallengeIds = [
-            ...visibleChallengeIds,
-            ...(((participantRows as ChallengeParticipant[] | null) || []).map(
-              (row) => row.challenge_id
-            )),
-          ];
-        }
+      if (participantRowsResponse.error) {
+        console.error('Erreur chargement challenge_participants :', participantRowsResponse.error);
+      } else {
+        visibleChallengeIds = [
+          ...visibleChallengeIds,
+          ...(((participantRowsResponse.data as ChallengeParticipant[] | null) || []).map(
+            (row) => row.challenge_id
+          )),
+        ];
       }
 
       visibleChallengeIds = Array.from(new Set(visibleChallengeIds));
@@ -206,7 +223,7 @@ export default function ChallengesPage() {
             .in('challenge_id', challengeIds),
           supabase
             .from('challenge_members')
-            .select('challenge_id, user_email')
+            .select('challenge_id, user_id, user_email')
             .in('challenge_id', challengeIds),
           supabase
             .from('challenge_participants')

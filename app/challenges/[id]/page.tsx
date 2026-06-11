@@ -70,6 +70,7 @@ type ChallengeParticipant = {
 
 type ChallengeMember = {
   challenge_id: string;
+  user_id?: string | null;
   user_email: string | null;
 };
 
@@ -306,6 +307,21 @@ setShareMessage('');
     hasAccess = Boolean(memberData);
   }
 
+  if (!hasAccess && user?.id) {
+    const { data: memberData, error: memberError } = await supabase
+      .from('challenge_members')
+      .select('id')
+      .eq('challenge_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (memberError) {
+      console.error('Erreur verification acces challenge_members user_id :', memberError);
+    }
+
+    hasAccess = Boolean(memberData);
+  }
+
   if (!hasAccess && user?.email) {
     const { data: memberData, error: memberError } = await supabase
       .from('challenge_members')
@@ -355,7 +371,7 @@ setShareMessage('');
 
       supabase
         .from('challenge_members')
-        .select('challenge_id, user_email')
+        .select('challenge_id, user_id, user_email')
         .eq('challenge_id', id),
 
       supabase

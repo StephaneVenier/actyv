@@ -30,6 +30,7 @@ type Challenge = {
 
 type ChallengeMember = {
   challenge_id: string;
+  user_id?: string | null;
   user_email: string | null;
 };
 
@@ -98,12 +99,20 @@ export default function LeaderboardPage() {
       const userId = user?.id || null;
       let joinedChallengeIds: string[] = [];
 
-      if (userEmail) {
-        const [membersResponse, participantsResponse] = await Promise.all([
-          supabase
-            .from('challenge_members')
-            .select('challenge_id')
-            .eq('user_email', userEmail),
+      if (userId || userEmail) {
+        const [membersResponse, legacyMembersResponse, participantsResponse] = await Promise.all([
+          userId
+            ? supabase
+                .from('challenge_members')
+                .select('challenge_id')
+                .eq('user_id', userId)
+            : Promise.resolve({ data: [], error: null }),
+          userEmail
+            ? supabase
+                .from('challenge_members')
+                .select('challenge_id')
+                .eq('user_email', userEmail)
+            : Promise.resolve({ data: [], error: null }),
           userId
             ? supabase
                 .from('challenge_participants')
@@ -127,10 +136,17 @@ export default function LeaderboardPage() {
           ...(((membersResponse.data as { challenge_id: string }[] | null) || []).map(
             (row) => row.challenge_id
           )),
+          ...(((legacyMembersResponse.data as { challenge_id: string }[] | null) || []).map(
+            (row) => row.challenge_id
+          )),
           ...(((participantsResponse.data as { challenge_id: string }[] | null) || []).map(
             (row) => row.challenge_id
           )),
         ];
+
+        if (legacyMembersResponse.error) {
+          console.error('Erreur chargement challenge_members legacy leaderboard :', legacyMembersResponse.error);
+        }
       }
 
       joinedChallengeIds = Array.from(new Set(joinedChallengeIds));

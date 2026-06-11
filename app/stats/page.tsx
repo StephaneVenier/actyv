@@ -163,7 +163,7 @@ export default function StatsPage() {
           return;
         }
 
-        const [profileResponse, workoutHistoryResponse, exerciseHistoryResponse, challengesResponse, membersResponse, participantsResponse] =
+        const [profileResponse, workoutHistoryResponse, exerciseHistoryResponse, challengesResponse, membersResponse, legacyMembersResponse, participantsResponse] =
           await Promise.all([
             supabase.from('profiles').select('id, email, username, level').eq('id', user.id).maybeSingle(),
             supabase
@@ -181,8 +181,11 @@ export default function StatsPage() {
               .eq('user_id', user.id)
               .order('completed_at', { ascending: true }),
             supabase.from('challenges').select('id, created_by').eq('created_by', user.id).eq('is_deleted', false),
+            user.id
+              ? supabase.from('challenge_members').select('challenge_id, user_id, user_email').eq('user_id', user.id)
+              : Promise.resolve({ data: [], error: null }),
             user.email
-              ? supabase.from('challenge_members').select('challenge_id').eq('user_email', user.email)
+              ? supabase.from('challenge_members').select('challenge_id, user_id, user_email').eq('user_email', user.email)
               : Promise.resolve({ data: [], error: null }),
             supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
           ]);
@@ -224,12 +227,25 @@ export default function StatsPage() {
         if (membersResponse.error) {
           console.error('Erreur chargement challenge_members statistiques :', membersResponse.error);
         }
+        if (legacyMembersResponse.error) {
+          console.error('Erreur chargement challenge_members legacy statistiques :', legacyMembersResponse.error);
+        }
         if (participantsResponse.error) {
           console.error('Erreur chargement challenge_participants statistiques :', participantsResponse.error);
         }
 
+        let joinedChallengeIdsFromMembers =
+          ((membersResponse.data as ChallengeLink[] | null) || []).map((entry) => entry.challenge_id);
+
+        joinedChallengeIdsFromMembers = [
+          ...joinedChallengeIdsFromMembers,
+          ...(((legacyMembersResponse.data as ChallengeLink[] | null) || []).map(
+            (entry) => entry.challenge_id
+          )),
+        ];
+
         const joinedChallengeIds = new Set<string>([
-          ...(((membersResponse.data as ChallengeLink[] | null) || []).map((entry) => entry.challenge_id)),
+          ...joinedChallengeIdsFromMembers,
           ...(((participantsResponse.data as ChallengeLink[] | null) || []).map((entry) => entry.challenge_id)),
         ]);
         setJoinedChallengesCount(joinedChallengeIds.size);
