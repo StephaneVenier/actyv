@@ -238,3 +238,56 @@ Si oui:
 5. C non invite ne voit pas le challenge prive.
 6. Activites d'un challenge prive visibles seulement par createur/participants/invites.
 7. Likes/boosts possibles seulement sur des activites visibles.
+
+## Profiles et donnees personnelles
+
+### Champs publics identifies
+
+Ces champs peuvent rester visibles via une surface publique dediee:
+
+- `id`
+- `username`
+- `level`
+- `total_xp` si necessaire aux classements
+
+### Champs prives identifies
+
+Ces champs doivent rester reserves au proprietaire:
+
+- `email`
+- toute preference de compte
+- toute information personnelle supplementaire stockee plus tard dans `profiles`
+- toute donnee interne de gestion de compte
+
+### Corrections realisees
+
+- activation RLS explicite sur `public.profiles`
+- lecture du profil complet limitee a l'utilisateur proprietaire
+- insertion / mise a jour / suppression limitees a l'utilisateur proprietaire
+- creation d'une vue publique `public.public_profiles` n'exposant que:
+  - `id`
+  - `username`
+  - `level`
+  - `total_xp`
+- bascule des lectures communautaires de `profiles` vers `public_profiles` pour:
+  - l'accueil / feed
+  - les classements
+  - le detail challenge
+  - la Banque Actyv
+  - les programmes publics partages
+
+### Risques trouves
+
+Le repo utilise encore des champs historiques bases sur l'email dans d'autres tables, notamment:
+
+- `activities.user_email`
+- `challenge_members.user_email`
+
+Cela signifie que la protection de `profiles.email` ne suffit pas a elle seule pour clore tout le sujet RGPD.
+
+### Recommandations RGPD
+
+1. Considerer `public_profiles` comme unique surface publique du profil.
+2. Remplacer progressivement les usages metier de `user_email` par `user_id`.
+3. Eviter tout fallback visuel public base sur l'email.
+4. Prevoir une migration progressive des anciennes activites qui n'auraient pas encore `user_id`.

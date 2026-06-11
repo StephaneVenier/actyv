@@ -21,7 +21,6 @@ type SharedProgramRecord = TrainingProgram & {
 
 type CreatorProfile = {
   username: string | null;
-  email: string | null;
 };
 
 type JoinProgramErrorDetails = {
@@ -149,7 +148,7 @@ export default function JoinSharedProgramPage() {
             .order('week_number', { ascending: true })
             .order('day_of_week', { ascending: true })
             .order('order_index', { ascending: true }),
-          supabase.from('profiles').select('username, email').eq('id', programRow.user_id).maybeSingle(),
+          supabase.from('public_profiles').select('username').eq('id', programRow.user_id).maybeSingle(),
         ]);
 
         if (sessionsError) {
@@ -339,8 +338,8 @@ export default function JoinSharedProgramPage() {
                   </span>
                   <span>Date de debut: {formatProgramDate(program.start_date)}</span>
                   <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''} prevue{plannedSessionsCount > 1 ? 's' : ''}</span>
-                  {creatorProfile?.username || creatorProfile?.email ? (
-                    <span>Par {creatorProfile.username || creatorProfile.email}</span>
+                  {creatorProfile?.username ? (
+                    <span>Par {creatorProfile.username}</span>
                   ) : null}
                 </div>
 
@@ -361,7 +360,7 @@ export default function JoinSharedProgramPage() {
                   </article>
                   <article className="program-share-stat">
                     <small>Createur</small>
-                    <strong>{creatorProfile?.username || creatorProfile?.email || 'Actyv'}</strong>
+                    <strong>{creatorProfile?.username || 'Actyv'}</strong>
                   </article>
                 </div>
 
@@ -374,8 +373,8 @@ export default function JoinSharedProgramPage() {
                     <span>{program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}</span>
                     <span>{plannedSessionsCount} seance{plannedSessionsCount > 1 ? 's' : ''}</span>
                     <span>{program.sport || 'Sport libre'}</span>
-                    {creatorProfile?.username || creatorProfile?.email ? (
-                      <span>Par {creatorProfile.username || creatorProfile.email}</span>
+                    {creatorProfile?.username ? (
+                      <span>Par {creatorProfile.username}</span>
                     ) : null}
                   </div>
                 </div>

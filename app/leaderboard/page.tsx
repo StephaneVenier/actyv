@@ -7,7 +7,6 @@ import { supabase } from '@/lib/supabase';
 
 type Profile = {
   id: string;
-  email: string | null;
   username: string | null;
   total_xp: number | null;
   level: number | null;
@@ -57,7 +56,6 @@ const COMMUNITY_VISIBILITIES = ['public', 'community'];
 
 function getActivityActorKey(activity: Activity) {
   if (activity.user_id) return `user:${activity.user_id}`;
-  if (activity.user_email) return `email:${activity.user_email.toLowerCase()}`;
   return null;
 }
 
@@ -211,8 +209,6 @@ export default function LeaderboardPage() {
       }
 
       const allowedUserIds = new Set<string>();
-      const allowedEmails = new Set<string>();
-
       visibleChallenges.forEach((challenge) => {
         if (challenge.created_by) {
           allowedUserIds.add(challenge.created_by);
@@ -225,19 +221,9 @@ export default function LeaderboardPage() {
         }
       });
 
-      ((membersResponse.data as ChallengeMember[] | null) || []).forEach((member) => {
-        if (member.user_email) {
-          allowedEmails.add(member.user_email.toLowerCase());
-        }
-      });
-
       (((activitiesResponse.data as Activity[]) || [])).forEach((activity) => {
         if (activity.user_id) {
           allowedUserIds.add(activity.user_id);
-        }
-
-        if (activity.user_email) {
-          allowedEmails.add(activity.user_email.toLowerCase());
         }
       });
 
@@ -245,29 +231,12 @@ export default function LeaderboardPage() {
 
       if (allowedUserIds.size > 0) {
         const { data, error } = await supabase
-          .from('profiles')
-          .select('id, email, username, total_xp, level')
+          .from('public_profiles')
+          .select('id, username, total_xp, level')
           .in('id', Array.from(allowedUserIds));
 
         if (error) {
           console.error('Erreur chargement profils leaderboard par id :', error);
-        } else {
-          loadedProfiles = [...loadedProfiles, ...((data as Profile[]) || [])];
-        }
-      }
-
-      const missingEmails = Array.from(allowedEmails).filter((email) => {
-        return !loadedProfiles.some((profile) => profile.email?.toLowerCase() === email);
-      });
-
-      if (missingEmails.length > 0) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, email, username, total_xp, level')
-          .in('email', missingEmails);
-
-        if (error) {
-          console.error('Erreur chargement profils leaderboard par email :', error);
         } else {
           loadedProfiles = [...loadedProfiles, ...((data as Profile[]) || [])];
         }
@@ -289,7 +258,7 @@ export default function LeaderboardPage() {
     const byKey = new Map<string, Identity>();
 
     profiles.forEach((profile) => {
-      const label = profile.username || profile.email || 'Utilisateur';
+      const label = profile.username || 'Utilisateur';
       const identity = {
         key: `user:${profile.id}`,
         label,
@@ -297,10 +266,6 @@ export default function LeaderboardPage() {
       };
 
       byKey.set(identity.key, identity);
-
-      if (profile.email) {
-        byKey.set(`email:${profile.email.toLowerCase()}`, identity);
-      }
     });
 
     return byKey;
@@ -310,7 +275,7 @@ export default function LeaderboardPage() {
     return profiles
       .map((profile) => ({
         key: `user:${profile.id}`,
-        label: profile.username || profile.email || 'Utilisateur',
+        label: profile.username || 'Utilisateur',
         level: profile.level,
         value: Number(profile.total_xp || 0),
         meta: `${Number(profile.total_xp || 0)} XP`,
@@ -333,7 +298,7 @@ export default function LeaderboardPage() {
       const identity = identities.get(key);
       const current = totals.get(key) || {
         key,
-        label: identity?.label || activity.user_email || 'Utilisateur',
+        label: identity?.label || 'Utilisateur',
         level: identity?.level ?? 1,
         value: 0,
         meta: '',
@@ -359,7 +324,7 @@ export default function LeaderboardPage() {
       const identity = identities.get(key);
       const current = totals.get(key) || {
         key,
-        label: identity?.label || activity.user_email || 'Utilisateur',
+        label: identity?.label || 'Utilisateur',
         level: identity?.level ?? 1,
         value: 0,
         meta: '',
@@ -388,7 +353,7 @@ export default function LeaderboardPage() {
       const identity = identities.get(key);
       const current = totals.get(key) || {
         key,
-        label: identity?.label || activity.user_email || 'Utilisateur',
+        label: identity?.label || 'Utilisateur',
         level: identity?.level ?? 1,
         value: 0,
         meta: '',

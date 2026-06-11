@@ -25,7 +25,7 @@ export type PublicTrainingProgram = TrainingProgram;
 export type PublicCreatorProfile = {
   id: string;
   username: string | null;
-  email: string | null;
+  level?: number | null;
 };
 
 export async function fetchPublicTrainingSessions() {
@@ -128,8 +128,8 @@ export async function fetchPublicCreatorProfiles(userIds: string[]) {
   }
 
   const { data, error } = await supabase
-    .from('profiles')
-    .select('id, username, email')
+    .from('public_profiles')
+    .select('id, username, level')
     .in('id', userIds);
 
   return {

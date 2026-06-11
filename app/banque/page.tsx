@@ -646,7 +646,7 @@ export default function BanqueActyvPage() {
                       <span>{estimatedDuration || 'Durée libre'}</span>
                       <span>{blocks.length} bloc{blocks.length > 1 ? 's' : ''}</span>
                       <span className={getDifficultyBadgeClassName(session.difficulty)}>{difficultyLabel}</span>
-                      <span>{creator?.username || creator?.email || 'Createur Actyv'}</span>
+                      <span>{creator?.username || 'Createur Actyv'}</span>
                     </div>
 
                     <div className="session-card__actions">
@@ -718,7 +718,7 @@ export default function BanqueActyvPage() {
                     <span>{program.duration_weeks} semaine{program.duration_weeks > 1 ? 's' : ''}</span>
                     <span className={getDifficultyBadgeClassName(program.difficulty)}>{difficultyLabel}</span>
                     <span>{totalDuration || 'Durée à découvrir'}</span>
-                    <span>{creator?.username || creator?.email || 'Createur Actyv'}</span>
+                    <span>{creator?.username || 'Createur Actyv'}</span>
                   </div>
 
                   <div className="session-card__actions">

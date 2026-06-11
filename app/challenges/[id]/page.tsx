@@ -51,7 +51,6 @@ type Activity = {
 
 type Profile = {
   id: string;
-  email: string | null;
   username: string | null;
   level: number | null;
 };
@@ -233,7 +232,6 @@ export default function ChallengeDetailPage() {
   const [memberRows, setMemberRows] = useState<ChallengeMember[]>([]);
   const [interactions, setInteractions] = useState<ActivityInteraction[]>([]);
   const [profilesById, setProfilesById] = useState<Record<string, SocialProfile>>({});
-  const [profilesByEmail, setProfilesByEmail] = useState<Record<string, SocialProfile>>({});
   const [loading, setLoading] = useState(true);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [participantsLoading, setParticipantsLoading] = useState(true);
@@ -412,21 +410,16 @@ setShareMessage('');
     .map((activity) => activity.user_id)
     .filter((value): value is string => Boolean(value));
 
-  const emailsFromActivities = loadedActivities
-    .map((activity) => activity.user_email)
-    .filter((value): value is string => Boolean(value));
-
   const uniqueUserIds = Array.from(
     new Set([...userIdsFromParticipants, ...userIdsFromActivities])
   );
-  const uniqueEmails = Array.from(new Set(emailsFromActivities));
 
   let profilesData: Profile[] = [];
 
   if (uniqueUserIds.length > 0) {
     const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, username, level')
+      .from('public_profiles')
+      .select('id, username, level')
       .in('id', uniqueUserIds);
 
     if (error) {
@@ -436,45 +429,20 @@ setShareMessage('');
     }
   }
 
-  const missingEmails = uniqueEmails.filter((email) => {
-    return !profilesData.some(
-      (profile) => profile.email?.toLowerCase() === email.toLowerCase()
-    );
-  });
-
-  if (missingEmails.length > 0) {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, email, username, level')
-      .in('email', missingEmails);
-
-    if (error) {
-      console.error('Erreur chargement profils par email :', error);
-    } else {
-      profilesData = [...profilesData, ...((data as Profile[]) || [])];
-    }
-  }
-
   const nextProfilesById: Record<string, SocialProfile> = {};
-  const nextProfilesByEmail: Record<string, SocialProfile> = {};
 
   profilesData.forEach((profile) => {
     const profileSummary = {
-      username: profile.username || profile.email || 'Utilisateur inconnu',
+      username: profile.username || 'Utilisateur',
       level: profile.level,
     };
 
     if (profile.id) {
       nextProfilesById[profile.id] = profileSummary;
     }
-
-    if (profile.email) {
-      nextProfilesByEmail[profile.email.toLowerCase()] = profileSummary;
-    }
   });
 
   setProfilesById(nextProfilesById);
-  setProfilesByEmail(nextProfilesByEmail);
 
   setActivitiesLoading(false);
   setParticipantsLoading(false);
@@ -515,16 +483,9 @@ useEffect(() => {
     email: string | null | undefined
   ) => {
     if (userId && profilesById[userId]) return profilesById[userId];
-    if (email && profilesByEmail[email.toLowerCase()]) return profilesByEmail[email.toLowerCase()];
-    if (email) {
-      return {
-        username: email,
-        level: 1,
-      };
-    }
 
     return {
-      username: 'Utilisateur inconnu',
+      username: 'Utilisateur',
       level: 1,
     };
   };
@@ -657,7 +618,7 @@ useEffect(() => {
 
       return a.displayName.localeCompare(b.displayName, 'fr');
     });
-  }, [normalizedActivities, profilesById, profilesByEmail, effectiveGoalType]);
+  }, [normalizedActivities, profilesById, effectiveGoalType]);
 
   const progressPercent =
     effectiveGoalValue && effectiveGoalValue > 0

@@ -45,6 +45,7 @@ type Challenge = {
 type Activity = {
   id: string;
   challenge_id: string;
+  user_id: string | null;
   user_email: string | null;
   sport: string | null;
   distance_km: number | null;
@@ -58,6 +59,12 @@ type Profile = {
   email: string | null;
   username: string | null;
   total_xp?: number | null;
+  level: number | null;
+};
+
+type PublicProfile = {
+  id: string;
+  username: string | null;
   level: number | null;
 };
 
@@ -632,7 +639,7 @@ export default function HomePage() {
 
       const { data: feedActivities, error: feedError } = await supabase
         .from('activities')
-        .select('id, challenge_id, user_email, sport, distance_km, duration_minutes, comment, created_at')
+        .select('id, challenge_id, user_id, user_email, sport, distance_km, duration_minutes, comment, created_at')
         .in('challenge_id', joinedChallengeIds)
         .order('created_at', { ascending: false })
         .limit(8);
@@ -648,19 +655,19 @@ export default function HomePage() {
       const loadedActivities = (feedActivities as Activity[] | null) || [];
       setActivities(loadedActivities);
 
-      const emails = Array.from(
+      const userIds = Array.from(
         new Set(
           loadedActivities
-            .map((activity) => activity.user_email)
-            .filter((email): email is string => Boolean(email))
+            .map((activity) => activity.user_id)
+            .filter((userId): userId is string => Boolean(userId))
         )
       );
 
-      if (emails.length > 0) {
+      if (userIds.length > 0) {
         const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('email, username, level')
-          .in('email', emails);
+          .from('public_profiles')
+          .select('id, username, level')
+          .in('id', userIds);
 
         if (profilesError) {
           console.error('Erreur chargement profils :', profilesError);
@@ -668,10 +675,10 @@ export default function HomePage() {
         } else {
           const nextProfilesMap: Record<string, SocialProfile> = {};
 
-          (profilesData as Profile[] | null)?.forEach((profile) => {
-            if (profile.email) {
-              nextProfilesMap[profile.email] = {
-                username: profile.username || profile.email,
+          (profilesData as PublicProfile[] | null)?.forEach((profile) => {
+            if (profile.id) {
+              nextProfilesMap[profile.id] = {
+                username: profile.username || 'Utilisateur',
                 level: profile.level,
               };
             }
@@ -717,12 +724,12 @@ export default function HomePage() {
     [quickStats]
   );
 
-  const getDisplayProfile = (email: string | null) => {
-    if (!email) {
+  const getDisplayProfile = (userId: string | null) => {
+    if (!userId) {
       return { username: 'Utilisateur inconnu', level: 1 };
     }
 
-    return profilesMap[email] || { username: email, level: 1 };
+    return profilesMap[userId] || { username: 'Utilisateur', level: 1 };
   };
 
   return (
@@ -1094,7 +1101,7 @@ export default function HomePage() {
                 const challenge = challengesMap[activity.challenge_id];
                 const distanceText = formatDistance(activity.distance_km);
                 const durationText = formatDuration(activity.duration_minutes);
-                const activityProfile = getDisplayProfile(activity.user_email);
+                const activityProfile = getDisplayProfile(activity.user_id);
 
                 return (
                   <article key={activity.id} className="feed-item">
