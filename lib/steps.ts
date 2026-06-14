@@ -6,6 +6,10 @@ export type DailyStepsEntry = {
   step_date: string;
   steps_count: number;
   source: string | null;
+  synced_at: string | null;
+  distance_meters: number | null;
+  walk_run_distance_meters: number | null;
+  bike_distance_meters: number | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -43,7 +47,9 @@ export async function getTodaySteps(userId: string) {
   const today = getLocalIsoDate();
   const { data, error } = await supabase
     .from('daily_steps')
-    .select('id, user_id, step_date, steps_count, source, created_at, updated_at')
+    .select(
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+    )
     .eq('user_id', userId)
     .eq('step_date', today)
     .maybeSingle();
@@ -53,8 +59,28 @@ export async function getTodaySteps(userId: string) {
 }
 
 export async function upsertTodaySteps(userId: string, steps: number) {
+  return upsertDailyStepsEntry(userId, {
+    stepsCount: steps,
+    source: 'manual',
+    syncedAt: null,
+    distanceMeters: null,
+    walkRunDistanceMeters: null,
+    bikeDistanceMeters: null,
+  });
+}
+
+export type UpsertDailyStepsInput = {
+  stepsCount: number;
+  source: 'manual' | 'health_connect';
+  syncedAt: string | null;
+  distanceMeters: number | null;
+  walkRunDistanceMeters: number | null;
+  bikeDistanceMeters: number | null;
+};
+
+export async function upsertDailyStepsEntry(userId: string, input: UpsertDailyStepsInput) {
   const today = getLocalIsoDate();
-  const normalizedSteps = normalizeStepsCount(steps);
+  const normalizedSteps = normalizeStepsCount(input.stepsCount);
   const { data, error } = await supabase
     .from('daily_steps')
     .upsert(
@@ -62,14 +88,20 @@ export async function upsertTodaySteps(userId: string, steps: number) {
         user_id: userId,
         step_date: today,
         steps_count: normalizedSteps,
-        source: 'manual',
+        source: input.source,
+        synced_at: input.syncedAt,
+        distance_meters: input.distanceMeters,
+        walk_run_distance_meters: input.walkRunDistanceMeters,
+        bike_distance_meters: input.bikeDistanceMeters,
         updated_at: new Date().toISOString(),
       },
       {
         onConflict: 'user_id,step_date',
       }
     )
-    .select('id, user_id, step_date, steps_count, source, created_at, updated_at')
+    .select(
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+    )
     .single();
 
   if (error) throw error;
@@ -80,7 +112,9 @@ export async function getWeeklySteps(userId: string): Promise<StepsPeriodSummary
   const fromDate = getWeekStartIsoDate();
   const { data, error } = await supabase
     .from('daily_steps')
-    .select('id, user_id, step_date, steps_count, source, created_at, updated_at')
+    .select(
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+    )
     .eq('user_id', userId)
     .gte('step_date', fromDate)
     .order('step_date', { ascending: false });
@@ -98,7 +132,9 @@ export async function getMonthlySteps(userId: string): Promise<StepsPeriodSummar
   const fromDate = getMonthStartIsoDate();
   const { data, error } = await supabase
     .from('daily_steps')
-    .select('id, user_id, step_date, steps_count, source, created_at, updated_at')
+    .select(
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+    )
     .eq('user_id', userId)
     .gte('step_date', fromDate)
     .order('step_date', { ascending: false });

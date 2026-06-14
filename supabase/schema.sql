@@ -1744,6 +1744,10 @@ create table if not exists public.daily_steps (
   step_date date not null,
   steps_count integer not null default 0 check (steps_count >= 0),
   source text not null default 'manual',
+  synced_at timestamptz,
+  distance_meters double precision,
+  walk_run_distance_meters double precision,
+  bike_distance_meters double precision,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

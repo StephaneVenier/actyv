@@ -74,6 +74,39 @@ Profil, dans la section `Confidentialite et donnees`.
 - procedure utilisateur documentee pour demande d'export et d'effacement
 - verification plus fine du perimetre des tables exportables en production
 
+## Synchronisation Android Health Connect
+
+Une premiere base de synchronisation Android est disponible dans la section
+`Sante et synchronisation` de la page Profil.
+
+### Donnees lues de Health Connect
+
+- pas du jour
+- distance totale du jour si disponible
+- distance marche/course si disponible
+- distance velo si disponible
+
+### Nature de la V1
+
+- integration optionnelle et limitee a Android
+- aucune synchronisation automatique sans autorisation utilisateur
+- si Health Connect n'est pas disponible, la saisie manuelle reste active
+- les donnees synchronisees sont enregistrees dans `daily_steps` avec
+  `source = health_connect`
+
+### Limites de la V1
+
+- lecture uniquement des donnees du jour
+- pas de synchronisation continue en arriere-plan
+- pas de synchronisation iOS
+- les permissions Health Connect restent revocables depuis Android
+
+### Prochaines etapes
+
+- envisager la lecture de series temporelles plus larges
+- documenter les durees de retention des donnees d'activite synchronisees
+- verifier la politique produit si d'autres types de donnees s'ajoutent
+
 ## Suppression de compte
 
 Une premiere version du droit a l'effacement est exposee depuis la page Profil,

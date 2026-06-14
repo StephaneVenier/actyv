@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Actyv</string>
+    <string name="title_activity_main">Actyv</string>
+    <string name="package_name">fr.actyv.app</string>
+    <string name="custom_url_scheme">fr.actyv.app</string>
+</resources>
