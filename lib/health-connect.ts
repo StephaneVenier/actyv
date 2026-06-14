@@ -54,6 +54,8 @@ export type HealthConnectSyncResult = HealthConnectStepsData & {
   awardedBadgeCodes: string[];
 };
 
+let hasLoggedCapacitorPlugins = false;
+
 function getRuntimeCapacitor(): RuntimeCapacitor | null {
   if (typeof window === 'undefined') {
     return null;
@@ -82,7 +84,20 @@ function getHealthConnectPlugin() {
   }
 
   const runtime = getRuntimeCapacitor();
-  return runtime.Plugins?.HealthConnect || null;
+  const plugins = runtime?.Plugins || {};
+
+  if (!hasLoggedCapacitorPlugins) {
+    console.log('Capacitor plugins:', Object.keys(plugins));
+    hasLoggedCapacitorPlugins = true;
+  }
+
+  return (
+    plugins.HealthConnect ||
+    plugins.HealthConnectPlugin ||
+    plugins.healthConnect ||
+    plugins.healthconnect ||
+    null
+  );
 }
 
 function createHealthData(
