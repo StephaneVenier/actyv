@@ -266,7 +266,7 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       status: 'permissions_granted',
       available: true,
       granted: true,
-      message: 'Synchronisation Health Connect terminee.',
+      message: 'Pas synchronisés avec succès.',
       syncedAt: savedEntry.synced_at || syncedAt,
       savedEntry,
       awardedBadgeCodes: badgeResult.awarded || [],
@@ -275,7 +275,7 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
     console.error('Health Connect sync failed:', error);
     return {
       ...readResult,
-      message: error instanceof Error ? error.message : 'Impossible de synchroniser Health Connect pour le moment.',
+      message: error instanceof Error ? error.message : 'Impossible de synchroniser pour le moment. Réessaie plus tard.',
       savedEntry: null,
       awardedBadgeCodes: [],
     };

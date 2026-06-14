@@ -337,6 +337,26 @@ img {
   color: #15803d;
 }
 
+.badge--success {
+  background: rgba(34, 197, 94, 0.16);
+  color: #86efac;
+}
+
+.badge--warning {
+  background: rgba(245, 158, 11, 0.16);
+  color: #fcd34d;
+}
+
+.badge--neutral {
+  background: rgba(59, 130, 246, 0.12);
+  color: #93c5fd;
+}
+
+.badge--muted {
+  background: rgba(148, 163, 184, 0.16);
+  color: #cbd5e1;
+}
+
 .mini-level-badge {
   display: inline-flex;
   align-items: center;

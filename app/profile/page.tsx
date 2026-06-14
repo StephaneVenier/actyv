@@ -211,51 +211,78 @@ function formatSessionVolumeLabel(volumeKg: number | null | undefined) {
   return `${Number(volumeKg).toLocaleString('fr-FR')} kg`;
 }
 
-function formatSyncTime(dateString: string | null) {
-  if (!dateString) return '-';
-
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return '-';
-
-  return date.toLocaleTimeString('fr-FR', {
-    hour: '2-digit',
-    minute: '2-digit',
-  });
+function formatHealthConnectSteps(value: number) {
+  return `${new Intl.NumberFormat('fr-FR').format(Math.max(0, Math.trunc(value)))} pas`;
 }
 
-function getHealthConnectStatusLabel(status: HealthConnectStatus, checking: boolean) {
-  if (checking) return 'Verification...';
+function formatHealthConnectSyncLabel(dateString: string | null) {
+  if (!dateString) return 'Jamais synchronisé';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Jamais synchronisé';
+
+  const now = new Date();
+  const sameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+
+  if (sameDay) {
+    return `Aujourd'hui à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+  }
+
+  return `Le ${date.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })} à ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
+}
+
+function getHealthConnectStatusBadgeLabel(status: HealthConnectStatus, checking: boolean) {
+  if (checking) return 'Vérification';
 
   switch (status) {
-    case 'web_unavailable':
-      return 'Non disponible';
-    case 'android_detected':
-      return 'A configurer';
-    case 'health_connect_plugin_missing':
-      return 'Plugin manquant';
-    case 'health_connect_available':
-      return 'Disponible';
     case 'permissions_granted':
-      return 'Connecte';
+      return 'Connecté';
+    case 'android_detected':
+      return 'Non connecté';
+    case 'health_connect_available':
+      return 'Permission requise';
+    case 'health_connect_plugin_missing':
+      return 'Indisponible';
+    case 'web_unavailable':
     default:
-      return 'Non disponible';
+      return 'Indisponible';
+  }
+}
+
+function getHealthConnectStatusBadgeClassName(status: HealthConnectStatus, checking: boolean) {
+  if (checking) return 'badge badge--muted';
+
+  switch (status) {
+    case 'permissions_granted':
+      return 'badge badge--success';
+    case 'health_connect_available':
+      return 'badge badge--warning';
+    case 'android_detected':
+      return 'badge badge--neutral';
+    case 'health_connect_plugin_missing':
+    case 'web_unavailable':
+    default:
+      return 'badge badge--muted';
   }
 }
 
 function getHealthConnectStatusMessage(status: HealthConnectStatus) {
   switch (status) {
     case 'web_unavailable':
-      return 'Synchronisation Android a venir.';
+      return 'Health Connect indisponible sur cet appareil.';
     case 'android_detected':
-      return 'Application Android detectee. Connexion Health Connect a configurer.';
+      return 'Android détecté. Connecte Health Connect pour lire les pas.';
     case 'health_connect_plugin_missing':
-      return 'Application Android detectee. Plugin Health Connect a brancher.';
+      return 'Health Connect indisponible sur cette version.';
     case 'health_connect_available':
-      return 'Health Connect disponible.';
+      return 'Permission requise pour lire les pas.';
     case 'permissions_granted':
-      return 'Health Connect connecte.';
+      return 'Synchronisation prête.';
     default:
-      return 'Synchronisation Android a venir.';
+      return 'Health Connect indisponible sur cet appareil.';
   }
 }
 
@@ -1288,13 +1315,13 @@ export default function ProfilePage() {
         }
       }
 
-      setHealthConnectMessage(result.message || 'Synchronisation Health Connect terminee.');
+      setHealthConnectMessage(result.message || 'Pas synchronisés avec succès.');
     } catch (error) {
       console.error('Erreur synchronisation Health Connect :', error);
       setHealthConnectMessage(
         error instanceof Error
-          ? error.stack || error.message || 'Impossible de synchroniser Health Connect pour le moment.'
-          : String(error || 'Impossible de synchroniser Health Connect pour le moment.')
+          ? error.stack || error.message || 'Impossible de synchroniser pour le moment. Réessaie plus tard.'
+          : String(error || 'Impossible de synchroniser pour le moment. Réessaie plus tard.')
       );
     } finally {
       setHealthConnectSyncing(false);
@@ -1850,8 +1877,8 @@ export default function ProfilePage() {
               <div className="profile-history-item">
                 <div className="profile-history-item__top">
                   <strong>Statut Android</strong>
-                  <span className="profile-history-item__date">
-                    {getHealthConnectStatusLabel(healthConnectStatus, healthConnectChecking)}
+                  <span className={getHealthConnectStatusBadgeClassName(healthConnectStatus, healthConnectChecking)}>
+                    {getHealthConnectStatusBadgeLabel(healthConnectStatus, healthConnectChecking)}
                   </span>
                 </div>
                 <span>
@@ -1867,7 +1894,7 @@ export default function ProfilePage() {
                 </div>
                 <span>
                   {healthConnectStatus === 'permissions_granted'
-                    ? `${dailySteps.todaySteps.toLocaleString('fr-FR')} pas`
+                    ? formatHealthConnectSteps(dailySteps.todaySteps)
                     : 'Connecte Health Connect pour afficher les pas du jour.'}
                 </span>
               </div>
@@ -1877,7 +1904,9 @@ export default function ProfilePage() {
                   <strong>Derniere synchronisation</strong>
                 </div>
                 <span>
-                  {healthConnectStatus === 'permissions_granted' ? formatSyncTime(dailySteps.syncedAt) : 'Jamais synchronise'}
+                  {healthConnectStatus === 'permissions_granted'
+                    ? formatHealthConnectSyncLabel(dailySteps.syncedAt)
+                    : 'Jamais synchronisé'}
                 </span>
               </div>
 
