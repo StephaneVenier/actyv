@@ -8,9 +8,6 @@ type HealthConnectPluginResult = {
   message?: string | null;
   stepsCount?: number;
   syncedAt?: string | null;
-  androidError?: string | null;
-  jsError?: string | null;
-  supabaseError?: string | null;
   status?:
     | 'web_unavailable'
     | 'android_detected'
@@ -44,13 +41,6 @@ export type HealthConnectStatus =
   | 'health_connect_available'
   | 'permissions_granted';
 
-export type HealthConnectDebugInfo = {
-  readTodayStepsResponse: string | null;
-  androidError: string | null;
-  jsError: string | null;
-  supabaseError: string | null;
-};
-
 export type HealthConnectStepsData = {
   status: HealthConnectStatus;
   available: boolean;
@@ -58,40 +48,12 @@ export type HealthConnectStepsData = {
   message: string | null;
   stepsCount: number;
   syncedAt: string | null;
-  debug: HealthConnectDebugInfo;
 };
 
 export type HealthConnectSyncResult = HealthConnectStepsData & {
   savedEntry: DailyStepsEntry | null;
   awardedBadgeCodes: string[];
 };
-
-let hasLoggedCapacitorPlugins = false;
-
-function createDebugInfo(overrides: Partial<HealthConnectDebugInfo> = {}): HealthConnectDebugInfo {
-  return {
-    readTodayStepsResponse: overrides.readTodayStepsResponse ?? null,
-    androidError: overrides.androidError ?? null,
-    jsError: overrides.jsError ?? null,
-    supabaseError: overrides.supabaseError ?? null,
-  };
-}
-
-function serializeDebugValue(value: unknown) {
-  if (value === null || value === undefined) {
-    return null;
-  }
-
-  if (typeof value === 'string') {
-    return value;
-  }
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch (error) {
-    return String(value);
-  }
-}
 
 function getRuntimeCapacitor(): RuntimeCapacitor | null {
   if (typeof window === 'undefined') {
@@ -123,11 +85,6 @@ function getHealthConnectPlugin() {
   const runtime = getRuntimeCapacitor();
   const plugins = runtime?.Plugins || {};
 
-  if (!hasLoggedCapacitorPlugins) {
-    console.log('Capacitor plugins:', Object.keys(plugins));
-    hasLoggedCapacitorPlugins = true;
-  }
-
   return (
     plugins.HealthConnect ||
     plugins.HealthConnectPlugin ||
@@ -140,8 +97,7 @@ function getHealthConnectPlugin() {
 function createHealthData(
   status: HealthConnectStatus,
   message: string,
-  overrides: Partial<Pick<HealthConnectStepsData, 'available' | 'granted' | 'stepsCount' | 'syncedAt'>> = {},
-  debugOverrides: Partial<HealthConnectDebugInfo> = {}
+  overrides: Partial<Pick<HealthConnectStepsData, 'available' | 'granted' | 'stepsCount' | 'syncedAt'>> = {}
 ): HealthConnectStepsData {
   return {
     status,
@@ -154,7 +110,6 @@ function createHealthData(
     message,
     stepsCount: overrides.stepsCount ?? 0,
     syncedAt: overrides.syncedAt ?? null,
-    debug: createDebugInfo(debugOverrides),
   };
 }
 
@@ -176,11 +131,6 @@ function normalizeHealthData(
     message: result?.message || null,
     stepsCount: Math.max(0, Math.trunc(Number(result?.stepsCount || 0))),
     syncedAt: result?.syncedAt || null,
-    debug: createDebugInfo({
-      androidError: result?.androidError || null,
-      jsError: result?.jsError || null,
-      supabaseError: result?.supabaseError || null,
-    }),
   };
 }
 
@@ -223,9 +173,7 @@ async function callPluginMethod(
     console.error(`Health Connect ${String(methodName)} failed:`, error);
     return createHealthData(
       'health_connect_plugin_missing',
-      'Application Android detectee. Connexion Health Connect a configurer.',
-      {},
-      { jsError: serializeDebugValue(error) }
+      error instanceof Error ? error.message : String(error)
     );
   }
 }
@@ -259,9 +207,7 @@ export async function isHealthConnectAvailable(): Promise<HealthConnectStepsData
     console.error('Health Connect availability check failed:', error);
     return createHealthData(
       'health_connect_plugin_missing',
-      'Application Android detectee. Connexion Health Connect a configurer.',
-      {},
-      { jsError: serializeDebugValue(error) }
+      error instanceof Error ? error.message : 'Application Android detectee. Connexion Health Connect a configurer.'
     );
   }
 }
@@ -275,20 +221,11 @@ export async function readTodaySteps(): Promise<HealthConnectStepsData> {
 }
 
 export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncResult> {
-  console.log('syncTodayHealthData called');
-  console.log('user id =', userId);
   const readResult = await callPluginMethod('readTodaySteps', 'health_connect_available');
-  console.log('plugin response =', readResult);
-  const rawReadTodayStepsResponse = serializeDebugValue(readResult);
-  const debug = {
-    ...readResult.debug,
-    readTodayStepsResponse: rawReadTodayStepsResponse,
-  };
 
   if (readResult.status === 'web_unavailable' || readResult.status === 'health_connect_plugin_missing') {
     return {
       ...readResult,
-      debug,
       savedEntry: null,
       awardedBadgeCodes: [],
     };
@@ -297,7 +234,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
   if (readResult.status === 'android_detected') {
     return {
       ...readResult,
-      debug,
       savedEntry: null,
       awardedBadgeCodes: [],
     };
@@ -306,7 +242,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
   if (!readResult.granted) {
     return {
       ...readResult,
-      debug,
       message: readResult.message || 'Permissions Health Connect manquantes.',
       savedEntry: null,
       awardedBadgeCodes: [],
@@ -316,8 +251,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
   const syncedAt = readResult.syncedAt || new Date().toISOString();
 
   try {
-    console.log('steps received =', readResult.stepsCount);
-    console.log('upsert daily_steps started');
     const savedEntry = await upsertDailyStepsEntry(userId, {
       stepsCount: readResult.stepsCount,
       source: 'health_connect',
@@ -326,17 +259,10 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       walkRunDistanceMeters: null,
       bikeDistanceMeters: null,
     });
-    console.log('upsert daily_steps success =', savedEntry);
     const badgeResult = await refreshUserBadges(userId);
-
-    console.log('Health Connect disponible');
-    console.log('Permissions accordees');
-    console.log(`Pas recuperes: ${savedEntry.steps_count}`);
-    console.log('Synchronisation reussie');
 
     return {
       ...readResult,
-      debug,
       status: 'permissions_granted',
       available: true,
       granted: true,
@@ -346,16 +272,10 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       awardedBadgeCodes: badgeResult.awarded || [],
     };
   } catch (error) {
-    const supabaseError = serializeDebugValue(error);
-    console.error('upsert daily_steps error =', error);
     console.error('Health Connect sync failed:', error);
     return {
       ...readResult,
-      debug: {
-        ...debug,
-        supabaseError,
-      },
-      message: 'Impossible de synchroniser Health Connect pour le moment.',
+      message: error instanceof Error ? error.message : 'Impossible de synchroniser Health Connect pour le moment.',
       savedEntry: null,
       awardedBadgeCodes: [],
     };

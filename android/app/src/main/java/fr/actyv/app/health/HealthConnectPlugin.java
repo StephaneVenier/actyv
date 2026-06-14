@@ -52,7 +52,6 @@ public class HealthConnectPlugin extends Plugin {
     @Override
     public void load() {
         super.load();
-        Log.i(TAG, "HealthConnectPlugin loaded");
         registerPermissionLauncher();
     }
 
@@ -68,10 +67,6 @@ public class HealthConnectPlugin extends Plugin {
 
     @PluginMethod
     public void requestPermissions(PluginCall call) {
-        Log.i(TAG, "requestPermissions called");
-        Log.i(TAG, "permissions declared: READ_STEPS=" + READ_STEPS_PERMISSION);
-        Log.i(TAG, "Health Connect SDK status=" + HealthConnectClient.getSdkStatus(getContext(), HEALTH_CONNECT_PACKAGE));
-
         if (!isHealthConnectSdkAvailable()) {
             call.resolve(createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer."));
             return;
@@ -89,7 +84,6 @@ public class HealthConnectPlugin extends Plugin {
         }
 
         pendingPermissionCall = call;
-        Log.i(TAG, "permission launcher opened");
         permissionLauncher.launch(Collections.singleton(READ_STEPS_PERMISSION));
     }
 
@@ -129,7 +123,6 @@ public class HealthConnectPlugin extends Plugin {
             Intent intent = new Intent(HealthConnectClient.getHealthConnectSettingsAction());
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             getContext().startActivity(intent);
-            Log.i(TAG, "Health Connect settings opened");
             JSObject result = createHealthConnectAvailableResult("Health Connect ouvert.");
             result.put("opened", true);
             call.resolve(result);
@@ -151,10 +144,7 @@ public class HealthConnectPlugin extends Plugin {
 
         ComponentActivity activity = (ComponentActivity) getActivity();
         permissionLauncher = activity.registerForActivityResult(permissionRequestContract, grantedPermissions -> {
-            Log.i(TAG, "permission result received");
-
             boolean granted = grantedPermissions != null && grantedPermissions.contains(READ_STEPS_PERMISSION);
-            Log.i(TAG, "permissions granted = " + granted);
 
             PluginCall call = pendingPermissionCall;
             pendingPermissionCall = null;
@@ -172,7 +162,6 @@ public class HealthConnectPlugin extends Plugin {
         });
 
         launcherRegistered.set(true);
-        Log.i(TAG, "permission launcher registered");
     }
 
     @NonNull
@@ -194,9 +183,7 @@ public class HealthConnectPlugin extends Plugin {
 
     @NonNull
     private JSObject readTodayStepsResult() {
-        Log.i(TAG, "readTodaySteps called");
         boolean permissionGranted = hasReadPermission();
-        Log.i(TAG, "permissions currently granted = " + permissionGranted);
 
         if (!isHealthConnectSdkAvailable()) {
             return createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer.");
@@ -213,16 +200,10 @@ public class HealthConnectPlugin extends Plugin {
             result.put("stepsCount", stepsCount);
             result.put("syncedAt", Instant.now().toString());
 
-            Log.i(TAG, "Steps read: " + stepsCount);
             return result;
         } catch (Exception error) {
             Log.e(TAG, "Impossible de lire les pas Health Connect", error);
-            Log.e(TAG, "Health Connect readTodaySteps error message=" + error.getMessage(), error);
-            JSObject output = createHealthConnectAvailableResult("Impossible de lire les pas Health Connect.");
-            output.put("androidError", error.toString());
-            output.put("jsError", null);
-            output.put("supabaseError", null);
-            return output;
+            return createHealthConnectAvailableResult("Impossible de lire les pas Health Connect.");
         }
     }
 
@@ -252,9 +233,6 @@ public class HealthConnectPlugin extends Plugin {
         Instant startInstant = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant();
         Instant now = Instant.now();
 
-        Log.i(TAG, "startTime = " + startInstant);
-        Log.i(TAG, "endTime = " + now);
-
         Set<AggregateMetric<?>> metrics = new HashSet<>();
         metrics.add(StepsRecord.COUNT_TOTAL);
 
@@ -264,8 +242,6 @@ public class HealthConnectPlugin extends Plugin {
             Collections.<DataOrigin>emptySet()
         );
 
-        Log.i(TAG, "aggregate request started");
-
         AggregationResult aggregationResult = runBlocking(new Function2<CoroutineScope, Continuation<? super AggregationResult>, Object>() {
             @Override
             public Object invoke(CoroutineScope scope, Continuation<? super AggregationResult> continuation) {
@@ -273,12 +249,8 @@ public class HealthConnectPlugin extends Plugin {
             }
         });
 
-        Log.i(TAG, "aggregate result = " + aggregationResult);
-
         Long steps = aggregationResult.get(StepsRecord.COUNT_TOTAL);
-        long totalSteps = steps == null ? 0L : Math.max(0L, steps);
-        Log.i(TAG, "steps total = " + totalSteps);
-        return totalSteps;
+        return steps == null ? 0L : Math.max(0L, steps);
     }
 
     private <T> T runBlocking(Function2<CoroutineScope, Continuation<? super T>, Object> block) {
