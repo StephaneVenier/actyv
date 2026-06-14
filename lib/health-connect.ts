@@ -17,6 +17,7 @@ type HealthConnectPluginResult = {
 };
 
 type HealthConnectPluginApi = {
+  isAvailable?(): Promise<HealthConnectPluginResult>;
   isHealthConnectAvailable(): Promise<HealthConnectPluginResult>;
   requestPermissions(): Promise<HealthConnectPluginResult>;
   readTodaySteps(): Promise<HealthConnectPluginResult>;
@@ -190,7 +191,8 @@ export async function isHealthConnectAvailable(): Promise<HealthConnectStepsData
   }
 
   try {
-    const result = await plugin.isHealthConnectAvailable();
+    const availabilityMethod = plugin.isAvailable || plugin.isHealthConnectAvailable;
+    const result = await availabilityMethod.call(plugin);
     return normalizeHealthData(result, result?.available ? 'health_connect_available' : 'android_detected');
   } catch (error) {
     console.error('Health Connect availability check failed:', error);

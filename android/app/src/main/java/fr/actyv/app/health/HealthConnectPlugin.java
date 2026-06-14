@@ -37,6 +37,11 @@ public class HealthConnectPlugin extends Plugin {
     private final ActivityResultContract permissionRequestContract = PermissionController.createRequestPermissionResultContract();
 
     @PluginMethod
+    public void isAvailable(PluginCall call) {
+        isHealthConnectAvailable(call);
+    }
+
+    @PluginMethod
     public void isHealthConnectAvailable(PluginCall call) {
         JSObject result = new JSObject();
         int sdkStatus = HealthConnectClient.getSdkStatus(getContext(), HEALTH_CONNECT_PACKAGE);
@@ -74,6 +79,21 @@ public class HealthConnectPlugin extends Plugin {
     @PluginMethod
     public void readTodaySteps(PluginCall call) {
         call.resolve(readTodayStepsResult());
+    }
+
+    @PluginMethod
+    public void requestHealthPermissions(PluginCall call) {
+        requestPermissions(call);
+    }
+
+    @PluginMethod
+    public void readTodayHealthData(PluginCall call) {
+        readTodaySteps(call);
+    }
+
+    @PluginMethod
+    public void syncTodayHealthData(PluginCall call) {
+        syncTodaySteps(call);
     }
 
     @PluginMethod
