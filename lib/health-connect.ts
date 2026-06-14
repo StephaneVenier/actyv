@@ -1,4 +1,3 @@
-import { Capacitor } from '@capacitor/core';
 import { refreshUserBadges } from '@/lib/gamification';
 import { upsertDailyStepsEntry } from '@/lib/steps';
 import type { DailyStepsEntry } from '@/lib/steps';
@@ -33,10 +32,6 @@ type RuntimeCapacitor = {
   Plugins?: Record<string, HealthConnectPluginApi | undefined>;
 };
 
-type CapacitorWindow = Window & {
-  Capacitor?: RuntimeCapacitor;
-};
-
 export type HealthConnectStatus =
   | 'web_unavailable'
   | 'android_detected'
@@ -58,23 +53,22 @@ export type HealthConnectSyncResult = HealthConnectStepsData & {
   awardedBadgeCodes: string[];
 };
 
-function getRuntimeCapacitor(): RuntimeCapacitor {
+function getRuntimeCapacitor(): RuntimeCapacitor | null {
   if (typeof window === 'undefined') {
-    return Capacitor as unknown as RuntimeCapacitor;
+    return null;
   }
 
-  const capacitorWindow = window as CapacitorWindow;
-  return capacitorWindow.Capacitor || (Capacitor as unknown as RuntimeCapacitor);
+  return (window as any).Capacitor || null;
 }
 
 function getPlatform() {
   const runtime = getRuntimeCapacitor();
-  return runtime.getPlatform?.() || Capacitor.getPlatform?.() || 'web';
+  return runtime?.getPlatform?.() || 'web';
 }
 
 function isNativePlatform() {
   const runtime = getRuntimeCapacitor();
-  if (typeof runtime.isNativePlatform === 'function') {
+  if (typeof runtime?.isNativePlatform === 'function') {
     return runtime.isNativePlatform();
   }
 
@@ -138,7 +132,11 @@ async function callPluginMethod(
     return createHealthData('web_unavailable', 'Health Connect est disponible uniquement sur Android.');
   }
 
-  if (!isNativePlatform()) {
+  const capacitor = (window as any).Capacitor;
+  const platform = capacitor?.getPlatform?.();
+  const isNative = Boolean(capacitor?.isNativePlatform?.());
+
+  if (!capacitor || (!isNative && platform !== 'android')) {
     return createHealthData('web_unavailable', 'Health Connect est disponible uniquement sur Android.');
   }
 
@@ -171,7 +169,15 @@ async function callPluginMethod(
 }
 
 export async function isHealthConnectAvailable(): Promise<HealthConnectStepsData> {
-  if (typeof window === 'undefined' || !isNativePlatform()) {
+  if (typeof window === 'undefined') {
+    return createHealthData('web_unavailable', 'Health Connect est disponible uniquement sur Android.');
+  }
+
+  const capacitor = (window as any).Capacitor;
+  const platform = capacitor?.getPlatform?.();
+  const isNative = Boolean(capacitor?.isNativePlatform?.());
+
+  if (!capacitor || (!isNative && platform !== 'android')) {
     return createHealthData('web_unavailable', 'Health Connect est disponible uniquement sur Android.');
   }
 
