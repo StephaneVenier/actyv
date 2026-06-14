@@ -1,4 +1,3 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
 import { refreshUserBadges } from '@/lib/gamification';
 import type { DailyStepsEntry, UpsertDailyStepsInput } from '@/lib/steps';
 import { upsertDailyStepsEntry } from '@/lib/steps';
@@ -39,10 +38,42 @@ export type HealthConnectSyncResult = HealthConnectTodayData & {
   awardedBadgeCodes: string[];
 };
 
-const HealthConnectPlugin = registerPlugin<HealthConnectPluginApi>('HealthConnect');
+type CapacitorCoreModule = typeof import('@capacitor/core');
 
-function isAndroidPlatform() {
-  return Capacitor.getPlatform() === 'android';
+let capacitorCorePromise: Promise<CapacitorCoreModule | null> | null = null;
+let registeredHealthConnectPlugin: HealthConnectPluginApi | null = null;
+
+async function getCapacitorCore() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  if (!capacitorCorePromise) {
+    capacitorCorePromise = import('@capacitor/core').catch((error) => {
+      console.error('Failed to load Capacitor core:', error);
+      return null;
+    });
+  }
+
+  return capacitorCorePromise;
+}
+
+async function getHealthConnectPlugin() {
+  if (registeredHealthConnectPlugin) {
+    return registeredHealthConnectPlugin;
+  }
+
+  const capacitorCore = await getCapacitorCore();
+  if (!capacitorCore) {
+    return null;
+  }
+
+  if (capacitorCore.Capacitor.getPlatform() !== 'android') {
+    return null;
+  }
+
+  registeredHealthConnectPlugin = capacitorCore.registerPlugin<HealthConnectPluginApi>('HealthConnect');
+  return registeredHealthConnectPlugin;
 }
 
 function normalizeHealthData(result: HealthConnectPluginResult | null | undefined): HealthConnectTodayData {
@@ -81,12 +112,13 @@ function createUnavailableHealthData(message: string): HealthConnectTodayData {
 }
 
 export async function isHealthConnectAvailable(): Promise<HealthConnectTodayData> {
-  if (!isAndroidPlatform()) {
+  const plugin = await getHealthConnectPlugin();
+  if (!plugin) {
     return createUnavailableHealthData('Health Connect est disponible uniquement sur Android.');
   }
 
   try {
-    const result = await HealthConnectPlugin.isHealthConnectAvailable();
+    const result = await plugin.isHealthConnectAvailable();
     return normalizeHealthData(result);
   } catch (error) {
     console.error('Health Connect availability check failed:', error);
@@ -95,12 +127,13 @@ export async function isHealthConnectAvailable(): Promise<HealthConnectTodayData
 }
 
 export async function requestHealthPermissions(): Promise<HealthConnectTodayData> {
-  if (!isAndroidPlatform()) {
+  const plugin = await getHealthConnectPlugin();
+  if (!plugin) {
     return createUnavailableHealthData('Health Connect est disponible uniquement sur Android.');
   }
 
   try {
-    const result = await HealthConnectPlugin.requestHealthPermissions();
+    const result = await plugin.requestHealthPermissions();
     return normalizeHealthData(result);
   } catch (error) {
     console.error('Health Connect permission request failed:', error);
@@ -109,12 +142,13 @@ export async function requestHealthPermissions(): Promise<HealthConnectTodayData
 }
 
 export async function readTodayHealthData(): Promise<HealthConnectTodayData> {
-  if (!isAndroidPlatform()) {
+  const plugin = await getHealthConnectPlugin();
+  if (!plugin) {
     return createUnavailableHealthData('Health Connect est disponible uniquement sur Android.');
   }
 
   try {
-    const result = await HealthConnectPlugin.readTodayHealthData();
+    const result = await plugin.readTodayHealthData();
     return normalizeHealthData(result);
   } catch (error) {
     console.error('Health Connect read failed:', error);
