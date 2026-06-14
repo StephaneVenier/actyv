@@ -218,7 +218,11 @@ public class HealthConnectPlugin extends Plugin {
         } catch (Exception error) {
             Log.e(TAG, "Impossible de lire les pas Health Connect", error);
             Log.e(TAG, "Health Connect readTodaySteps error message=" + error.getMessage(), error);
-            return createHealthConnectAvailableResult("Impossible de lire les pas Health Connect.");
+            JSObject output = createHealthConnectAvailableResult("Impossible de lire les pas Health Connect.");
+            output.put("androidError", error.toString());
+            output.put("jsError", null);
+            output.put("supabaseError", null);
+            return output;
         }
     }
 

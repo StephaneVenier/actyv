@@ -24,6 +24,7 @@ import {
   requestPermissions,
   openHealthConnectSettings,
   syncTodaySteps,
+  type HealthConnectDebugInfo,
   type HealthConnectStatus,
 } from '@/lib/health-connect';
 import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
@@ -164,6 +165,13 @@ type DailyStepsCardState = {
   hasTodayEntry: boolean;
   source: string | null;
   syncedAt: string | null;
+};
+
+const EMPTY_HEALTH_CONNECT_DEBUG: HealthConnectDebugInfo = {
+  readTodayStepsResponse: null,
+  androidError: null,
+  jsError: null,
+  supabaseError: null,
 };
 
 type UserChallengeSummary = {
@@ -381,6 +389,7 @@ export default function ProfilePage() {
   const [healthConnectMessage, setHealthConnectMessage] = useState('');
   const [healthConnectStatus, setHealthConnectStatus] = useState<HealthConnectStatus>('web_unavailable');
   const [healthConnectPluginKeys, setHealthConnectPluginKeys] = useState<string[]>([]);
+  const [healthConnectDebug, setHealthConnectDebug] = useState<HealthConnectDebugInfo>(EMPTY_HEALTH_CONNECT_DEBUG);
   const [exportingData, setExportingData] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1201,6 +1210,7 @@ export default function ProfilePage() {
 
     setHealthConnectSyncing(true);
     setHealthConnectMessage('');
+    setHealthConnectDebug(EMPTY_HEALTH_CONNECT_DEBUG);
 
     try {
       const permissionStatus = healthConnectPermissionGranted
@@ -1209,11 +1219,13 @@ export default function ProfilePage() {
             granted: true,
             message: null,
             status: 'permissions_granted' as HealthConnectStatus,
+            debug: EMPTY_HEALTH_CONNECT_DEBUG,
           }
         : await requestPermissions();
       setHealthConnectAvailable(permissionStatus.available);
       setHealthConnectPermissionGranted(permissionStatus.granted);
       setHealthConnectStatus(permissionStatus.status || 'web_unavailable');
+      setHealthConnectDebug(permissionStatus.debug || EMPTY_HEALTH_CONNECT_DEBUG);
 
       if (permissionStatus.status === 'web_unavailable') {
         setHealthConnectMessage(permissionStatus.message || 'Health Connect indisponible sur cet appareil.');
@@ -1242,6 +1254,7 @@ export default function ProfilePage() {
       setHealthConnectStatus(result.status);
       setHealthConnectAvailable(result.available);
       setHealthConnectPermissionGranted(result.granted);
+      setHealthConnectDebug(result.debug || EMPTY_HEALTH_CONNECT_DEBUG);
 
       if (result.status === 'web_unavailable' || result.status === 'health_connect_plugin_missing') {
         setHealthConnectMessage(result.message || 'Health Connect indisponible sur cet appareil.');
@@ -1301,7 +1314,15 @@ export default function ProfilePage() {
       setHealthConnectMessage(result.message || 'Synchronisation Health Connect terminee.');
     } catch (error) {
       console.error('Erreur synchronisation Health Connect :', error);
-      setHealthConnectMessage("Impossible de synchroniser Health Connect pour le moment.");
+      setHealthConnectDebug({
+        ...EMPTY_HEALTH_CONNECT_DEBUG,
+        jsError: error instanceof Error ? error.stack || error.message : String(error),
+      });
+      setHealthConnectMessage(
+        error instanceof Error
+          ? error.stack || error.message || 'Impossible de synchroniser Health Connect pour le moment.'
+          : String(error || 'Impossible de synchroniser Health Connect pour le moment.')
+      );
     } finally {
       setHealthConnectSyncing(false);
     }
@@ -1936,6 +1957,42 @@ export default function ProfilePage() {
                   {healthConnectMessage}
                 </p>
               ) : null}
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Health Connect response</strong>
+                </div>
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                  {healthConnectDebug.readTodayStepsResponse || '—'}
+                </pre>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Health Connect error</strong>
+                </div>
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                  {healthConnectDebug.androidError || '—'}
+                </pre>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>JS error</strong>
+                </div>
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                  {healthConnectDebug.jsError || '—'}
+                </pre>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Supabase error</strong>
+                </div>
+                <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', margin: 0 }}>
+                  {healthConnectDebug.supabaseError || '—'}
+                </pre>
+              </div>
 
               <div className="profile-history-item">
                 <div className="profile-history-item__top">
