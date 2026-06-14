@@ -22,6 +22,7 @@ import { formatPercent } from '@/lib/display-format';
 import {
   isHealthConnectAvailable,
   requestPermissions,
+  openHealthConnectSettings,
   syncTodaySteps,
   type HealthConnectStatus,
 } from '@/lib/health-connect';
@@ -1230,7 +1231,10 @@ export default function ProfilePage() {
       }
 
       if (!permissionStatus.granted) {
-        setHealthConnectMessage(permissionStatus.message || 'Permissions Health Connect refusees.');
+        setHealthConnectMessage(
+          permissionStatus.message ||
+            'Permission refusee ou non accordee. Ouvre Health Connect pour autoriser Actyv a lire les pas.'
+        );
         return;
       }
 
@@ -1250,7 +1254,10 @@ export default function ProfilePage() {
       }
 
       if (!result.granted) {
-        setHealthConnectMessage(result.message || 'Permissions Health Connect manquantes.');
+        setHealthConnectMessage(
+          result.message ||
+            'Permission refusee ou non accordee. Ouvre Health Connect pour autoriser Actyv a lire les pas.'
+        );
         return;
       }
 
@@ -1297,6 +1304,19 @@ export default function ProfilePage() {
       setHealthConnectMessage("Impossible de synchroniser Health Connect pour le moment.");
     } finally {
       setHealthConnectSyncing(false);
+    }
+  };
+
+  const handleOpenHealthConnectSettings = async () => {
+    try {
+      const result = await openHealthConnectSettings();
+      setHealthConnectStatus(result.status);
+      setHealthConnectAvailable(result.available);
+      setHealthConnectPermissionGranted(result.granted);
+      setHealthConnectMessage(result.message || 'Health Connect ouvert.');
+    } catch (error) {
+      console.error('Erreur ouverture Health Connect :', error);
+      setHealthConnectMessage("Impossible d'ouvrir les parametres Health Connect.");
     }
   };
 
@@ -1891,6 +1911,16 @@ export default function ProfilePage() {
                             ? 'Synchroniser maintenant'
                             : 'Connecter Health Connect'}
                 </button>
+                {healthConnectStatus === 'health_connect_available' && !healthConnectPermissionGranted ? (
+                  <button
+                    type="button"
+                    className="button ghost"
+                    onClick={handleOpenHealthConnectSettings}
+                    disabled={healthConnectChecking || healthConnectSyncing}
+                  >
+                    Ouvrir Health Connect
+                  </button>
+                ) : null}
               </div>
 
               {healthConnectMessage ? (

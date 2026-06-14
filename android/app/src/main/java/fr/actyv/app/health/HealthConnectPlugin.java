@@ -2,7 +2,7 @@ package fr.actyv.app.health;
 
 import android.content.Intent;
 import android.util.Log;
-import androidx.activity.result.ActivityResult;
+import androidx.activity.ComponentActivity;
 import androidx.activity.result.contract.ActivityResultContract;
 import androidx.annotation.NonNull;
 import androidx.health.connect.client.HealthConnectClient;
@@ -18,7 +18,6 @@ import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
-import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -26,12 +25,14 @@ import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import kotlin.coroutines.Continuation;
 import kotlin.coroutines.EmptyCoroutineContext;
 import kotlin.jvm.JvmClassMappingKt;
 import kotlin.jvm.functions.Function2;
 import kotlinx.coroutines.BuildersKt;
 import kotlinx.coroutines.CoroutineScope;
+import androidx.activity.result.ActivityResultLauncher;
 
 @CapacitorPlugin(name = "HealthConnect")
 public class HealthConnectPlugin extends Plugin {
@@ -39,14 +40,20 @@ public class HealthConnectPlugin extends Plugin {
     private static final String HEALTH_CONNECT_PACKAGE = "com.google.android.apps.healthdata";
     private static final String READ_STEPS_PERMISSION =
         HealthPermission.getReadPermission(JvmClassMappingKt.getKotlinClass(StepsRecord.class));
+    private static final String DENIED_MESSAGE =
+        "Permission refusee ou non accordee. Ouvre Health Connect pour autoriser Actyv a lire les pas.";
 
     private final ActivityResultContract<Set<String>, Set<String>> permissionRequestContract =
         PermissionController.createRequestPermissionResultContract();
+    private ActivityResultLauncher<Set<String>> permissionLauncher;
+    private PluginCall pendingPermissionCall;
+    private final AtomicBoolean launcherRegistered = new AtomicBoolean(false);
 
     @Override
     public void load() {
         super.load();
         Log.i(TAG, "HealthConnectPlugin loaded");
+        registerPermissionLauncher();
     }
 
     @PluginMethod
@@ -61,13 +68,27 @@ public class HealthConnectPlugin extends Plugin {
 
     @PluginMethod
     public void requestPermissions(PluginCall call) {
+        Log.i(TAG, "requestPermissions called");
+
         if (!isHealthConnectSdkAvailable()) {
             call.resolve(createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer."));
             return;
         }
 
-        Intent intent = permissionRequestContract.createIntent(getContext(), Collections.singleton(READ_STEPS_PERMISSION));
-        startActivityForResult(call, intent, "onPermissionResult");
+        registerPermissionLauncher();
+        if (permissionLauncher == null) {
+            call.resolve(createHealthConnectAvailableResult("Impossible d'ouvrir la demande de permissions Health Connect."));
+            return;
+        }
+
+        if (pendingPermissionCall != null) {
+            Log.w(TAG, "Une demande de permission est deja en cours.");
+            pendingPermissionCall.reject("Une demande de permission est deja en cours.");
+        }
+
+        pendingPermissionCall = call;
+        Log.i(TAG, "permission launcher opened");
+        permissionLauncher.launch(Collections.singleton(READ_STEPS_PERMISSION));
     }
 
     @PluginMethod
@@ -95,28 +116,61 @@ public class HealthConnectPlugin extends Plugin {
         call.resolve(readTodayStepsResult());
     }
 
-    @ActivityCallback
-    private void onPermissionResult(PluginCall call, ActivityResult result) {
-        if (call == null) {
+    @PluginMethod
+    public void openHealthConnectSettings(PluginCall call) {
+        if (!isHealthConnectSdkAvailable()) {
+            call.resolve(createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer."));
             return;
         }
 
-        boolean granted = false;
         try {
-            @SuppressWarnings("unchecked")
-            Set<String> grantedPermissions = (Set<String>) permissionRequestContract.parseResult(result.getResultCode(), result.getData());
-            granted = grantedPermissions != null && grantedPermissions.contains(READ_STEPS_PERMISSION);
+            Intent intent = new Intent(HealthConnectClient.getHealthConnectSettingsAction());
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            getContext().startActivity(intent);
+            Log.i(TAG, "Health Connect settings opened");
+            JSObject result = createHealthConnectAvailableResult("Health Connect ouvert.");
+            result.put("opened", true);
+            call.resolve(result);
         } catch (Exception error) {
-            Log.e(TAG, "Impossible de lire le resultat des permissions Health Connect", error);
+            Log.e(TAG, "Impossible d'ouvrir les parametres Health Connect", error);
+            call.resolve(createHealthConnectAvailableResult("Impossible d'ouvrir les parametres Health Connect."));
+        }
+    }
+
+    private void registerPermissionLauncher() {
+        if (launcherRegistered.get()) {
+            return;
         }
 
-        JSObject output = granted
-            ? createPermissionsGrantedResult("Permissions accordees.")
-            : createHealthConnectAvailableResult("Permissions Health Connect refusees.");
-        output.put("granted", granted);
+        if (!(getActivity() instanceof ComponentActivity)) {
+            Log.w(TAG, "Impossible d'enregistrer le launcher Health Connect: activity indisponible.");
+            return;
+        }
 
-        Log.i(TAG, granted ? "Health permissions granted" : "Permissions Health Connect refusees");
-        call.resolve(output);
+        ComponentActivity activity = (ComponentActivity) getActivity();
+        permissionLauncher = activity.registerForActivityResult(permissionRequestContract, grantedPermissions -> {
+            Log.i(TAG, "permission result received");
+
+            boolean granted = grantedPermissions != null && grantedPermissions.contains(READ_STEPS_PERMISSION);
+            Log.i(TAG, "permissions granted = " + granted);
+
+            PluginCall call = pendingPermissionCall;
+            pendingPermissionCall = null;
+
+            if (call == null) {
+                Log.w(TAG, "Aucune call en attente pour le retour Health Connect.");
+                return;
+            }
+
+            JSObject output = granted
+                ? createPermissionsGrantedResult("Permissions accordees.")
+                : createHealthConnectAvailableResult(DENIED_MESSAGE);
+            output.put("granted", granted);
+            call.resolve(output);
+        });
+
+        launcherRegistered.set(true);
+        Log.i(TAG, "permission launcher registered");
     }
 
     @NonNull
@@ -143,7 +197,7 @@ public class HealthConnectPlugin extends Plugin {
         }
 
         if (!hasReadPermission()) {
-            return createHealthConnectAvailableResult("Permissions Health Connect manquantes.");
+            return createHealthConnectAvailableResult(DENIED_MESSAGE);
         }
 
         try {

@@ -25,6 +25,7 @@ type HealthConnectPluginApi = {
   requestHealthPermissions?(): Promise<HealthConnectPluginResult>;
   readTodayHealthData?(): Promise<HealthConnectPluginResult>;
   syncTodayHealthData?(): Promise<HealthConnectPluginResult>;
+  openHealthConnectSettings?(): Promise<HealthConnectPluginResult>;
 };
 
 type RuntimeCapacitor = {
@@ -291,6 +292,10 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       awardedBadgeCodes: [],
     };
   }
+}
+
+export async function openHealthConnectSettings(): Promise<HealthConnectStepsData> {
+  return callPluginMethod('openHealthConnectSettings', 'health_connect_available');
 }
 
 export const requestHealthPermissions = requestPermissions;
