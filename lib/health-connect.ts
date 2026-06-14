@@ -38,42 +38,29 @@ export type HealthConnectSyncResult = HealthConnectTodayData & {
   awardedBadgeCodes: string[];
 };
 
-type CapacitorCoreModule = typeof import('@capacitor/core');
+type CapacitorWindow = Window & {
+  Capacitor?: {
+    getPlatform?: () => string;
+    Plugins?: Record<string, HealthConnectPluginApi | undefined>;
+  };
+};
 
-let capacitorCorePromise: Promise<CapacitorCoreModule | null> | null = null;
-let registeredHealthConnectPlugin: HealthConnectPluginApi | null = null;
-
-async function getCapacitorCore() {
+function getHealthConnectPlugin() {
   if (typeof window === 'undefined') {
     return null;
   }
 
-  if (!capacitorCorePromise) {
-    capacitorCorePromise = import('@capacitor/core').catch((error) => {
-      console.error('Failed to load Capacitor core:', error);
-      return null;
-    });
-  }
-
-  return capacitorCorePromise;
-}
-
-async function getHealthConnectPlugin() {
-  if (registeredHealthConnectPlugin) {
-    return registeredHealthConnectPlugin;
-  }
-
-  const capacitorCore = await getCapacitorCore();
-  if (!capacitorCore) {
+  const capacitorWindow = window as CapacitorWindow;
+  const capacitor = capacitorWindow.Capacitor;
+  if (!capacitor || typeof capacitor.getPlatform !== 'function') {
     return null;
   }
 
-  if (capacitorCore.Capacitor.getPlatform() !== 'android') {
+  if (capacitor.getPlatform() !== 'android') {
     return null;
   }
 
-  registeredHealthConnectPlugin = capacitorCore.registerPlugin<HealthConnectPluginApi>('HealthConnect');
-  return registeredHealthConnectPlugin;
+  return capacitor.Plugins?.HealthConnect || null;
 }
 
 function normalizeHealthData(result: HealthConnectPluginResult | null | undefined): HealthConnectTodayData {
@@ -112,7 +99,7 @@ function createUnavailableHealthData(message: string): HealthConnectTodayData {
 }
 
 export async function isHealthConnectAvailable(): Promise<HealthConnectTodayData> {
-  const plugin = await getHealthConnectPlugin();
+  const plugin = getHealthConnectPlugin();
   if (!plugin) {
     return createUnavailableHealthData('Health Connect est disponible uniquement sur Android.');
   }
@@ -127,7 +114,7 @@ export async function isHealthConnectAvailable(): Promise<HealthConnectTodayData
 }
 
 export async function requestHealthPermissions(): Promise<HealthConnectTodayData> {
-  const plugin = await getHealthConnectPlugin();
+  const plugin = getHealthConnectPlugin();
   if (!plugin) {
     return createUnavailableHealthData('Health Connect est disponible uniquement sur Android.');
   }
@@ -142,7 +129,7 @@ export async function requestHealthPermissions(): Promise<HealthConnectTodayData
 }
 
 export async function readTodayHealthData(): Promise<HealthConnectTodayData> {
-  const plugin = await getHealthConnectPlugin();
+  const plugin = getHealthConnectPlugin();
   if (!plugin) {
     return createUnavailableHealthData('Health Connect est disponible uniquement sur Android.');
   }
