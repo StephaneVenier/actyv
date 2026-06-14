@@ -228,7 +228,10 @@ export async function readTodaySteps(): Promise<HealthConnectStepsData> {
 }
 
 export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncResult> {
+  console.log('syncTodayHealthData called');
+  console.log('user id =', userId);
   const readResult = await callPluginMethod('syncTodaySteps', 'health_connect_available');
+  console.log('plugin response =', readResult);
 
   if (readResult.status === 'web_unavailable' || readResult.status === 'health_connect_plugin_missing') {
     return {
@@ -258,6 +261,8 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
   const syncedAt = readResult.syncedAt || new Date().toISOString();
 
   try {
+    console.log('steps received =', readResult.stepsCount);
+    console.log('upsert daily_steps started');
     const savedEntry = await upsertDailyStepsEntry(userId, {
       stepsCount: readResult.stepsCount,
       source: 'health_connect',
@@ -266,6 +271,7 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       walkRunDistanceMeters: null,
       bikeDistanceMeters: null,
     });
+    console.log('upsert daily_steps success =', savedEntry);
     const badgeResult = await refreshUserBadges(userId);
 
     console.log('Health Connect disponible');
@@ -284,6 +290,7 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       awardedBadgeCodes: badgeResult.awarded || [],
     };
   } catch (error) {
+    console.error('upsert daily_steps error =', error);
     console.error('Health Connect sync failed:', error);
     return {
       ...readResult,

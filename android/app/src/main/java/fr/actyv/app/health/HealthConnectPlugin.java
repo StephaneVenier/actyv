@@ -194,11 +194,15 @@ public class HealthConnectPlugin extends Plugin {
 
     @NonNull
     private JSObject readTodayStepsResult() {
+        Log.i(TAG, "readTodaySteps called");
+        boolean permissionGranted = hasReadPermission();
+        Log.i(TAG, "permissions currently granted = " + permissionGranted);
+
         if (!isHealthConnectSdkAvailable()) {
             return createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer.");
         }
 
-        if (!hasReadPermission()) {
+        if (!permissionGranted) {
             return createHealthConnectAvailableResult(DENIED_MESSAGE);
         }
 
@@ -213,6 +217,7 @@ public class HealthConnectPlugin extends Plugin {
             return result;
         } catch (Exception error) {
             Log.e(TAG, "Impossible de lire les pas Health Connect", error);
+            Log.e(TAG, "Health Connect readTodaySteps error message=" + error.getMessage(), error);
             return createHealthConnectAvailableResult("Impossible de lire les pas Health Connect.");
         }
     }
@@ -243,6 +248,9 @@ public class HealthConnectPlugin extends Plugin {
         Instant startInstant = LocalDate.now(zoneId).atStartOfDay(zoneId).toInstant();
         Instant now = Instant.now();
 
+        Log.i(TAG, "startTime = " + startInstant);
+        Log.i(TAG, "endTime = " + now);
+
         Set<AggregateMetric<?>> metrics = new HashSet<>();
         metrics.add(StepsRecord.COUNT_TOTAL);
 
@@ -252,6 +260,8 @@ public class HealthConnectPlugin extends Plugin {
             Collections.<DataOrigin>emptySet()
         );
 
+        Log.i(TAG, "aggregate request started");
+
         AggregationResult aggregationResult = runBlocking(new Function2<CoroutineScope, Continuation<? super AggregationResult>, Object>() {
             @Override
             public Object invoke(CoroutineScope scope, Continuation<? super AggregationResult> continuation) {
@@ -259,8 +269,12 @@ public class HealthConnectPlugin extends Plugin {
             }
         });
 
+        Log.i(TAG, "aggregate result = " + aggregationResult);
+
         Long steps = aggregationResult.get(StepsRecord.COUNT_TOTAL);
-        return steps == null ? 0L : Math.max(0L, steps);
+        long totalSteps = steps == null ? 0L : Math.max(0L, steps);
+        Log.i(TAG, "steps total = " + totalSteps);
+        return totalSteps;
     }
 
     private <T> T runBlocking(Function2<CoroutineScope, Continuation<? super T>, Object> block) {
