@@ -19,6 +19,13 @@ export type StepsPeriodSummary = {
   entries: DailyStepsEntry[];
 };
 
+export type StepsRecordSummary = {
+  stepsCount: number;
+  stepDate: string | null;
+  syncedAt: string | null;
+  source: string | null;
+};
+
 function getLocalIsoDate(date = new Date()) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -145,6 +152,26 @@ export async function getMonthlySteps(userId: string): Promise<StepsPeriodSummar
   return {
     totalSteps: entries.reduce((total, entry) => total + normalizeStepsCount(entry.steps_count), 0),
     entries,
+  };
+}
+
+export async function getBestDailySteps(userId: string): Promise<StepsRecordSummary> {
+  const { data, error } = await supabase
+    .from('daily_steps')
+    .select('step_date, steps_count, synced_at, source')
+    .eq('user_id', userId)
+    .order('steps_count', { ascending: false })
+    .order('step_date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+
+  return {
+    stepsCount: normalizeStepsCount((data as DailyStepsEntry | null)?.steps_count ?? 0),
+    stepDate: (data as DailyStepsEntry | null)?.step_date || null,
+    syncedAt: (data as DailyStepsEntry | null)?.synced_at || null,
+    source: (data as DailyStepsEntry | null)?.source || null,
   };
 }
 

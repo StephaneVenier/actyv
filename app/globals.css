@@ -2276,6 +2276,12 @@ img {
   white-space: nowrap;
 }
 
+.profile-history-item__meta {
+  color: #94a3b8;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
 .session-records-list {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -8379,6 +8385,7 @@ img {
 @media (max-width: 767px) {
   .home-actions,
   .home-placeholder,
+  .home-dashboard-steps,
   .home-feed,
   .profile-hero-card,
   .profile-history-card,
@@ -9013,6 +9020,62 @@ img {
 .home-dashboard-panel.home-feed {
   padding: 15px;
   border-radius: 18px;
+}
+
+.home-dashboard-steps {
+  display: grid;
+  gap: 10px;
+  padding: 14px 15px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(8, 23, 42, 0.96), rgba(9, 28, 44, 0.96)),
+    rgba(8, 18, 36, 0.92);
+  border: 1px solid rgba(53, 230, 107, 0.16);
+}
+
+.home-steps-card__value-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.home-steps-card__value-row strong {
+  color: #f8fafc;
+  font-size: 1.12rem;
+  line-height: 1;
+}
+
+.home-steps-card__value-row span,
+.home-steps-card__footnote {
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.home-steps-card__bar {
+  min-height: 8px;
+}
+
+.home-steps-card__meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 10px;
+}
+
+.home-steps-card__meta span {
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.home-steps-card__meta strong {
+  color: #f8fafc;
+}
+
+.home-steps-card__footnote {
+  margin: 0;
 }
 
 .home-dashboard-feature {

@@ -26,7 +26,7 @@ import {
   syncTodaySteps,
   type HealthConnectStatus,
 } from '@/lib/health-connect';
-import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
+import { getBestDailySteps, getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
@@ -161,6 +161,8 @@ type DailyStepsCardState = {
   todaySteps: number;
   weeklySteps: number;
   monthlySteps: number;
+  recordSteps: number;
+  recordDate: string | null;
   hasTodayEntry: boolean;
   source: string | null;
   syncedAt: string | null;
@@ -213,6 +215,23 @@ function formatSessionVolumeLabel(volumeKg: number | null | undefined) {
 
 function formatHealthConnectSteps(value: number) {
   return `${new Intl.NumberFormat('fr-FR').format(Math.max(0, Math.trunc(value)))} pas`;
+}
+
+function formatStepsNumber(value: number) {
+  return new Intl.NumberFormat('fr-FR').format(Math.max(0, Math.trunc(value)));
+}
+
+function formatStepsDateLabel(dateString: string | null) {
+  if (!dateString) return 'Jamais';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Jamais';
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
 }
 
 function formatHealthConnectSyncLabel(dateString: string | null) {
@@ -394,6 +413,8 @@ export default function ProfilePage() {
     todaySteps: 0,
     weeklySteps: 0,
     monthlySteps: 0,
+    recordSteps: 0,
+    recordDate: null,
     hasTodayEntry: false,
     source: null,
     syncedAt: null,
@@ -454,12 +475,15 @@ export default function ProfilePage() {
           getWeeklySteps(user.id),
           getMonthlySteps(user.id),
         ]);
+        const bestDailySteps = await getBestDailySteps(user.id);
 
         const todayStepsCount = todayStepsEntry?.steps_count || 0;
         setDailySteps({
           todaySteps: todayStepsCount,
           weeklySteps: weeklyStepsSummary.totalSteps,
           monthlySteps: monthlyStepsSummary.totalSteps,
+          recordSteps: bestDailySteps.stepsCount,
+          recordDate: bestDailySteps.stepDate,
           hasTodayEntry: Boolean(todayStepsEntry),
           source: todayStepsEntry?.source || null,
           syncedAt: todayStepsEntry?.synced_at || null,
@@ -471,6 +495,8 @@ export default function ProfilePage() {
           todaySteps: 0,
           weeklySteps: 0,
           monthlySteps: 0,
+          recordSteps: 0,
+          recordDate: null,
           hasTodayEntry: false,
           source: null,
           syncedAt: null,
@@ -1806,7 +1832,7 @@ export default function ProfilePage() {
                   <strong>Pas du jour</strong>
                   <span className="profile-history-item__date">{stepsProgressPercent}%</span>
                 </div>
-                <span>{dailySteps.todaySteps.toLocaleString('fr-FR')} / {stepsGoal.toLocaleString('fr-FR')} pas</span>
+                <span>{formatStepsNumber(dailySteps.todaySteps)} / {stepsGoal.toLocaleString('fr-FR')} pas</span>
                 <div className="progress-track">
                   <div className="progress-fill" style={{ width: `${stepsProgressPercent}%` }} />
                 </div>
@@ -1827,6 +1853,16 @@ export default function ProfilePage() {
                   <strong>Ce mois</strong>
                 </div>
                 <span>{dailySteps.monthlySteps.toLocaleString('fr-FR')} pas</span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Record journalier</strong>
+                </div>
+                <span>{formatHealthConnectSteps(dailySteps.recordSteps)}</span>
+                <span className="profile-history-item__meta">
+                  {dailySteps.recordDate ? `Le ${formatStepsDateLabel(dailySteps.recordDate)}` : 'Jamais'}
+                </span>
               </div>
 
               <div className="profile-history-item">

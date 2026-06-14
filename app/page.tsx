@@ -15,6 +15,7 @@ import {
   type DailySessionCompletion,
 } from '@/lib/daily-sessions';
 import { getSessionEstimatedDuration } from '@/lib/session-blocks';
+import { getBestDailySteps, getMonthlySteps, getTodaySteps, getWeeklySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
 import { formatPercent } from '@/lib/display-format';
@@ -111,6 +112,16 @@ type HomeQuickStats = {
   badges: number;
 };
 
+type HomeStepsState = {
+  todaySteps: number;
+  weeklySteps: number;
+  monthlySteps: number;
+  recordSteps: number;
+  recordDate: string | null;
+  syncedAt: string | null;
+  source: string | null;
+};
+
 function formatDailyDurationLabel(totalSeconds: number | null) {
   if (!Number.isFinite(Number(totalSeconds)) || Number(totalSeconds) <= 0) {
     return 'Duree libre';
@@ -185,6 +196,23 @@ function formatReminderPlannedDate(date: Date | null) {
   });
 }
 
+function formatStepsCount(value: number) {
+  return new Intl.NumberFormat('fr-FR').format(Math.max(0, Math.trunc(value)));
+}
+
+function formatStepsDateLabel(dateString: string | null) {
+  if (!dateString) return 'Jamais';
+
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'Jamais';
+
+  return new Intl.DateTimeFormat('fr-FR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date);
+}
+
 const HOME_ACTIONS = [
   {
     title: 'Ajouter une activite',
@@ -222,6 +250,15 @@ export default function HomePage() {
     programs: 0,
     badges: 0,
   });
+  const [stepsSummary, setStepsSummary] = useState<HomeStepsState>({
+    todaySteps: 0,
+    weeklySteps: 0,
+    monthlySteps: 0,
+    recordSteps: 0,
+    recordDate: null,
+    syncedAt: null,
+    source: null,
+  });
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [dailySession, setDailySession] = useState<DailySession | null>(null);
@@ -258,6 +295,23 @@ export default function HomePage() {
       const todayIso = getTodayIsoDate();
 
       if (userId) {
+        const [todayStepsEntry, weeklyStepsSummary, monthlyStepsSummary, bestDailySteps] = await Promise.all([
+          getTodaySteps(userId),
+          getWeeklySteps(userId),
+          getMonthlySteps(userId),
+          getBestDailySteps(userId),
+        ]);
+
+        setStepsSummary({
+          todaySteps: todayStepsEntry?.steps_count || 0,
+          weeklySteps: weeklyStepsSummary.totalSteps,
+          monthlySteps: monthlyStepsSummary.totalSteps,
+          recordSteps: bestDailySteps.stepsCount,
+          recordDate: bestDailySteps.stepDate,
+          syncedAt: todayStepsEntry?.synced_at || null,
+          source: todayStepsEntry?.source || null,
+        });
+
         const [profileResponse, activitiesResponse, badgesResponse, workoutHistoryResponse, programsResponse] =
           await Promise.all([
             supabase
@@ -522,6 +576,16 @@ export default function HomePage() {
           }
         }
       } else {
+        setStepsSummary({
+          todaySteps: 0,
+          weeklySteps: 0,
+          monthlySteps: 0,
+          recordSteps: 0,
+          recordDate: null,
+          syncedAt: null,
+          source: null,
+        });
+
         setTodayProgramSessions([]);
         setNextProgramSession(null);
       }
@@ -843,6 +907,54 @@ export default function HomePage() {
               ))}
             </div>
           </article>
+        </section>
+
+        <section className="home-dashboard-steps card">
+          <div className="home-dashboard-panel__header">
+            <div>
+              <span className="section-kicker">Pas</span>
+              <h2>Pas aujourd&apos;hui</h2>
+            </div>
+            <span className="badge badge--neutral">Actyv Quotidien</span>
+          </div>
+
+          <div className="home-steps-card__value-row">
+            <strong>
+              {formatStepsCount(stepsSummary.todaySteps)} / 10 000
+            </strong>
+            <span>
+              {stepsSummary.todaySteps > 0 ? 'Objectif journalier en cours' : 'Aucun pas synchronisé'}
+            </span>
+          </div>
+
+          <div className="progress-bar home-steps-card__bar" aria-hidden="true">
+            <div style={{ width: `${Math.min(100, Math.round((stepsSummary.todaySteps / 10000) * 100))}%` }} />
+          </div>
+
+          <div className="home-steps-card__meta">
+            <span>
+              Aujourd&apos;hui : <strong>{formatStepsCount(stepsSummary.todaySteps)} pas</strong>
+            </span>
+            <span>
+              Cette semaine : <strong>{formatStepsCount(stepsSummary.weeklySteps)} pas</strong>
+            </span>
+            <span>
+              Ce mois : <strong>{formatStepsCount(stepsSummary.monthlySteps)} pas</strong>
+            </span>
+            <span>
+              Record journalier : <strong>{formatStepsCount(stepsSummary.recordSteps)} pas</strong>
+            </span>
+          </div>
+
+          <p className="home-steps-card__footnote">
+            {stepsSummary.recordDate && stepsSummary.syncedAt
+              ? `Meilleur score le ${formatStepsDateLabel(stepsSummary.recordDate)} · Dernière synchro le ${formatStepsDateLabel(stepsSummary.syncedAt)}`
+              : stepsSummary.recordDate
+                ? `Meilleur score le ${formatStepsDateLabel(stepsSummary.recordDate)}`
+                : stepsSummary.syncedAt
+                  ? `Dernière synchro le ${formatStepsDateLabel(stepsSummary.syncedAt)}`
+              : 'Synchronisation Android à venir.'}
+          </p>
         </section>
 
         <section className="home-placeholder card home-daily-session home-dashboard-feature">
