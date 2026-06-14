@@ -69,6 +69,8 @@ public class HealthConnectPlugin extends Plugin {
     @PluginMethod
     public void requestPermissions(PluginCall call) {
         Log.i(TAG, "requestPermissions called");
+        Log.i(TAG, "permissions declared: READ_STEPS=" + READ_STEPS_PERMISSION);
+        Log.i(TAG, "Health Connect SDK status=" + HealthConnectClient.getSdkStatus(getContext(), HEALTH_CONNECT_PACKAGE));
 
         if (!isHealthConnectSdkAvailable()) {
             call.resolve(createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer."));
