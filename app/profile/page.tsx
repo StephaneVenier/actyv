@@ -379,6 +379,7 @@ export default function ProfilePage() {
   const [healthConnectSyncing, setHealthConnectSyncing] = useState(false);
   const [healthConnectMessage, setHealthConnectMessage] = useState('');
   const [healthConnectStatus, setHealthConnectStatus] = useState<HealthConnectStatus>('web_unavailable');
+  const [healthConnectPluginKeys, setHealthConnectPluginKeys] = useState<string[]>([]);
   const [exportingData, setExportingData] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -707,6 +708,15 @@ export default function ProfilePage() {
 
     const checkHealthConnect = async () => {
       setHealthConnectChecking(true);
+
+      if (typeof window !== 'undefined') {
+        const capacitor = (window as any).Capacitor || null;
+        const pluginKeys = Object.keys(capacitor?.Plugins || {});
+        console.log('window.Capacitor', capacitor);
+        console.log('window.Capacitor?.Plugins', capacitor?.Plugins);
+        console.log('Object.keys(window.Capacitor?.Plugins || {})', pluginKeys);
+        setHealthConnectPluginKeys(pluginKeys);
+      }
 
       const status = await isHealthConnectAvailable();
       if (!isActive) return;
@@ -1896,6 +1906,17 @@ export default function ProfilePage() {
                   {healthConnectMessage}
                 </p>
               ) : null}
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Plugins detectes</strong>
+                </div>
+                <span>
+                  {healthConnectPluginKeys.length > 0
+                    ? `[${healthConnectPluginKeys.join(', ')}]`
+                    : '[aucun plugin Capacitor detecte]'}
+                </span>
+              </div>
             </div>
           </article>
 
