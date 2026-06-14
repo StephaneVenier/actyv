@@ -10,38 +10,46 @@ create table if not exists public.users (
 
 create table if not exists public.challenges (
   id uuid primary key default gen_random_uuid(),
-  title text not null,
+  name text not null,
   description text,
-  sport_type text not null,
+  sport text,
   start_date date not null,
-  target_date date,
-  invitation_code text unique not null,
+  end_date date,
+  goal_km numeric,
+  goal_type text,
+  goal_value numeric,
+  visibility text not null default 'private',
+  invite_code text unique,
   created_by uuid,
+  is_deleted boolean not null default false,
   created_at timestamptz default now()
 );
 
 create table if not exists public.challenge_members (
   id uuid primary key default gen_random_uuid(),
   challenge_id uuid not null references public.challenges(id) on delete cascade,
-  user_id uuid not null,
+  user_id uuid references auth.users(id) on delete set null,
+  user_email text,
   role text not null default 'member',
   status text not null default 'active',
   joined_at timestamptz default now(),
-  unique (challenge_id, user_id)
+  unique (challenge_id, user_id, user_email)
 );
 
 create table if not exists public.activities (
   id uuid primary key default gen_random_uuid(),
-  user_id uuid not null,
+  user_id uuid references auth.users(id) on delete set null,
+  user_email text,
   challenge_id uuid references public.challenges(id) on delete set null,
-  sport_type text not null,
+  sport text,
   distance_km numeric(6,2),
   duration_minutes integer,
-  activity_date date not null,
-  effort_level text,
+  unit_type text,
+  unit_value numeric,
+  exercise_type text,
   comment text,
-  source text not null default 'manual',
-  external_id text,
+  likes_count integer not null default 0,
+  boosts_count integer not null default 0,
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );
@@ -89,6 +97,18 @@ alter table if exists public.profiles
   add column if not exists total_xp integer not null default 0,
   add column if not exists level integer not null default 1;
 
+create or replace view public.public_profiles as
+select
+  id,
+  nullif(trim(username), '') as username,
+  avatar_url,
+  level,
+  total_xp
+from public.profiles;
+
+grant select on public.public_profiles to anon;
+grant select on public.public_profiles to authenticated;
+
 create table if not exists public.challenge_participants (
   id uuid primary key default gen_random_uuid(),
   challenge_id uuid not null references public.challenges(id) on delete cascade,
@@ -110,22 +130,22 @@ create table if not exists public.activity_interactions (
 create table if not exists public.xp_events (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  source text not null,
-  xp integer not null default 0,
-  metadata jsonb not null default '{}'::jsonb,
+  event_type text not null,
+  xp_amount integer not null default 0,
+  target_id text,
   created_at timestamptz not null default now()
 );
 
 create index if not exists xp_events_user_source_created_idx
-  on public.xp_events (user_id, source, created_at);
+  on public.xp_events (user_id, event_type, created_at);
 
 create unique index if not exists xp_events_once_per_target_idx
   on public.xp_events (
     user_id,
-    source,
-    ((metadata ->> 'target_id'))
+    event_type,
+    target_id
   )
-  where metadata ? 'target_id';
+  where target_id is not null;
 
 create table if not exists public.user_badges (
   id uuid primary key default gen_random_uuid(),
@@ -235,7 +255,7 @@ begin
     select count(*) into daily_count
     from public.xp_events
     where user_id = p_user_id
-      and source = p_source
+      and event_type = p_source
       and created_at >= date_trunc('day', now());
 
     if (p_source = 'challenge_created' and daily_count >= 2)
@@ -245,10 +265,10 @@ begin
   end if;
 
   if p_source in ('like_received', 'boost_received') then
-    select coalesce(sum(xp), 0) into daily_xp
+    select coalesce(sum(xp_amount), 0) into daily_xp
     from public.xp_events
     where user_id = p_user_id
-      and source = p_source
+      and event_type = p_source
       and created_at >= date_trunc('day', now());
 
     if (p_source = 'like_received' and daily_xp + reward_xp > 20)
@@ -257,15 +277,12 @@ begin
     end if;
   end if;
 
-  insert into public.xp_events (user_id, source, xp, metadata)
+  insert into public.xp_events (user_id, event_type, xp_amount, target_id)
   values (
     p_user_id,
     p_source,
     reward_xp,
-    case
-      when p_target_id is null then '{}'::jsonb
-      else jsonb_build_object('target_id', p_target_id)
-    end
+    p_target_id
   )
   on conflict do nothing;
 
@@ -357,7 +374,7 @@ begin
     select count(*) into daily_count
     from public.xp_events
     where user_id = p_user_id
-      and source = p_source
+      and event_type = p_source
       and created_at >= date_trunc('day', now());
 
     if (p_source = 'challenge_created' and daily_count >= 2)
@@ -367,10 +384,10 @@ begin
   end if;
 
   if p_source in ('like_received', 'boost_received') then
-    select coalesce(sum(xp), 0) into daily_xp
+    select coalesce(sum(xp_amount), 0) into daily_xp
     from public.xp_events
     where user_id = p_user_id
-      and source = p_source
+      and event_type = p_source
       and created_at >= date_trunc('day', now());
 
     if (p_source = 'like_received' and daily_xp + reward_xp > 20)
@@ -379,15 +396,12 @@ begin
     end if;
   end if;
 
-  insert into public.xp_events (user_id, source, xp, metadata)
+  insert into public.xp_events (user_id, event_type, xp_amount, target_id)
   values (
     p_user_id,
     p_source,
     reward_xp,
-    case
-      when p_target_id is null then '{}'::jsonb
-      else jsonb_build_object('target_id', p_target_id)
-    end
+    p_target_id
   )
   on conflict do nothing;
 
