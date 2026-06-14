@@ -21,8 +21,8 @@ import { getActyvLevel } from '@/lib/levels';
 import { formatPercent } from '@/lib/display-format';
 import {
   isHealthConnectAvailable,
-  requestHealthPermissions,
-  syncTodayHealthData,
+  requestPermissions,
+  syncTodaySteps,
 } from '@/lib/health-connect';
 import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
@@ -162,9 +162,6 @@ type DailyStepsCardState = {
   hasTodayEntry: boolean;
   source: string | null;
   syncedAt: string | null;
-  distanceMeters: number | null;
-  walkRunDistanceMeters: number | null;
-  bikeDistanceMeters: number | null;
 };
 
 type UserChallengeSummary = {
@@ -212,18 +209,16 @@ function formatSessionVolumeLabel(volumeKg: number | null | undefined) {
   return `${Number(volumeKg).toLocaleString('fr-FR')} kg`;
 }
 
-function formatHealthDistanceLabel(distanceMeters: number | null | undefined) {
-  if (distanceMeters === null || distanceMeters === undefined) return '-';
+function formatSyncTime(dateString: string | null) {
+  if (!dateString) return '-';
 
-  const value = Number(distanceMeters);
-  if (!Number.isFinite(value) || value <= 0) return '-';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
 
-  if (value >= 1000) {
-    const kilometers = value / 1000;
-    return `${kilometers >= 10 ? kilometers.toFixed(0) : kilometers.toFixed(1)} km`;
-  }
-
-  return `${Math.round(value)} m`;
+  return date.toLocaleTimeString('fr-FR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 }
 
 function formatProfileRelativeDate(dateString: string | null) {
@@ -337,9 +332,6 @@ export default function ProfilePage() {
     hasTodayEntry: false,
     source: null,
     syncedAt: null,
-    distanceMeters: null,
-    walkRunDistanceMeters: null,
-    bikeDistanceMeters: null,
   });
   const [stepsInput, setStepsInput] = useState('0');
   const [savingSteps, setSavingSteps] = useState(false);
@@ -405,9 +397,6 @@ export default function ProfilePage() {
           hasTodayEntry: Boolean(todayStepsEntry),
           source: todayStepsEntry?.source || null,
           syncedAt: todayStepsEntry?.synced_at || null,
-          distanceMeters: todayStepsEntry?.distance_meters ?? null,
-          walkRunDistanceMeters: todayStepsEntry?.walk_run_distance_meters ?? null,
-          bikeDistanceMeters: todayStepsEntry?.bike_distance_meters ?? null,
         });
         setStepsInput(String(todayStepsCount));
       } catch (error) {
@@ -419,9 +408,6 @@ export default function ProfilePage() {
           hasTodayEntry: false,
           source: null,
           syncedAt: null,
-          distanceMeters: null,
-          walkRunDistanceMeters: null,
-          bikeDistanceMeters: null,
         });
         setStepsInput('0');
       }
@@ -946,11 +932,11 @@ export default function ProfilePage() {
     Math.max(0, Math.round((dailySteps.todaySteps / stepsGoal) * 100))
   );
   const stepsSupportMessage =
-    healthConnectAvailable
-      ? 'Synchronisation Android Health Connect disponible.'
-      : dailySteps.hasTodayEntry || dailySteps.weeklySteps > 0 || dailySteps.monthlySteps > 0
-        ? 'Saisie manuelle temporaire active.'
-        : 'Synchronisation Android a venir';
+    healthConnectPermissionGranted
+      ? 'Health Connect est connecte.'
+      : healthConnectAvailable
+        ? 'Connecte Health Connect pour synchroniser automatiquement tes pas.'
+        : 'Synchronisation Android a venir.';
 
   const dailySummary = useMemo(() => {
     const currentStreak = getDailySessionStreakDays(dailyCompletions);
@@ -1127,9 +1113,6 @@ export default function ProfilePage() {
         hasTodayEntry: true,
         source: savedEntry.source || 'manual',
         syncedAt: savedEntry.synced_at || null,
-        distanceMeters: savedEntry.distance_meters ?? null,
-        walkRunDistanceMeters: savedEntry.walk_run_distance_meters ?? null,
-        bikeDistanceMeters: savedEntry.bike_distance_meters ?? null,
       });
       setStepsInput(String(savedEntry.steps_count));
 
@@ -1173,7 +1156,9 @@ export default function ProfilePage() {
     setHealthConnectMessage('');
 
     try {
-      const permissionStatus = await requestHealthPermissions();
+      const permissionStatus = healthConnectPermissionGranted
+        ? { available: healthConnectAvailable, granted: true, message: null }
+        : await requestPermissions();
       setHealthConnectAvailable(permissionStatus.available);
       setHealthConnectPermissionGranted(permissionStatus.granted);
 
@@ -1187,7 +1172,7 @@ export default function ProfilePage() {
         return;
       }
 
-      const result = await syncTodayHealthData(profile.id);
+      const result = await syncTodaySteps(profile.id);
 
       if (!result.available) {
         setHealthConnectMessage(result.message || 'Health Connect indisponible sur cet appareil.');
@@ -1211,9 +1196,6 @@ export default function ProfilePage() {
           hasTodayEntry: true,
           source: savedEntry.source || 'health_connect',
           syncedAt: savedEntry.synced_at || result.syncedAt || null,
-          distanceMeters: savedEntry.distance_meters ?? null,
-          walkRunDistanceMeters: savedEntry.walk_run_distance_meters ?? null,
-          bikeDistanceMeters: savedEntry.bike_distance_meters ?? null,
         });
         setStepsInput(String(savedEntry.steps_count));
       }
@@ -1790,22 +1772,19 @@ export default function ProfilePage() {
                 </div>
                 <span>
                   {healthConnectAvailable
-                    ? 'Health Connect est disponible pour la synchronisation.'
+                    ? 'Health Connect est disponible pour la synchronisation des pas.'
                     : 'Synchronisation Android a venir.'}
                 </span>
               </div>
 
               <div className="profile-history-item">
                 <div className="profile-history-item__top">
-                  <strong>Pas et distances du jour</strong>
+                  <strong>Pas aujourd&apos;hui</strong>
                 </div>
                 <span>
-                  {dailySteps.todaySteps.toLocaleString('fr-FR')} pas · Total{' '}
-                  {formatHealthDistanceLabel(dailySteps.distanceMeters)}
-                </span>
-                <span>
-                  Marche/course {formatHealthDistanceLabel(dailySteps.walkRunDistanceMeters)} · Vélo{' '}
-                  {formatHealthDistanceLabel(dailySteps.bikeDistanceMeters)}
+                  {healthConnectPermissionGranted
+                    ? `${dailySteps.todaySteps.toLocaleString('fr-FR')} pas`
+                    : 'Connecte Health Connect pour afficher les pas du jour.'}
                 </span>
               </div>
 
@@ -1814,7 +1793,7 @@ export default function ProfilePage() {
                   <strong>Derniere synchronisation</strong>
                 </div>
                 <span>
-                  {dailySteps.syncedAt ? formatProfileRelativeDate(dailySteps.syncedAt) : 'Jamais synchronise'}
+                  {healthConnectPermissionGranted ? formatSyncTime(dailySteps.syncedAt) : 'Jamais synchronise'}
                 </span>
               </div>
 
@@ -1833,7 +1812,7 @@ export default function ProfilePage() {
                         ? 'Synchronisation...'
                         : healthConnectPermissionGranted
                           ? 'Synchroniser maintenant'
-                          : 'Autoriser Health Connect'}
+                          : 'Connecter Health Connect'}
                 </button>
               </div>
 
@@ -2299,6 +2278,7 @@ export default function ProfilePage() {
     </AppShell>
   );
 }
+
 
 
 
