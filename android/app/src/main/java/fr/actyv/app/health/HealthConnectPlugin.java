@@ -12,6 +12,12 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 public class HealthConnectPlugin extends Plugin {
     private static final String TAG = "HealthConnect";
 
+    @Override
+    public void load() {
+        super.load();
+        Log.i(TAG, "HealthConnectPlugin loaded");
+    }
+
     @PluginMethod
     public void isAvailable(PluginCall call) {
         call.resolve(createAndroidDetectedResult("Application Android detectee. Plugin Health Connect branche."));
