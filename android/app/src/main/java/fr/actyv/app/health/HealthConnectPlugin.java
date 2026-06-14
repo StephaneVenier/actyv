@@ -41,17 +41,21 @@ public class HealthConnectPlugin extends Plugin {
         JSObject result = new JSObject();
         int sdkStatus = HealthConnectClient.getSdkStatus(getContext(), HEALTH_CONNECT_PACKAGE);
         boolean available = sdkStatus == HealthConnectClient.SDK_AVAILABLE;
+        String status = available ? "health_connect_available" : "android_detected";
 
         result.put("available", available);
         result.put("granted", false);
+        result.put("status", status);
         result.put("stepsCount", 0);
         result.put("syncedAt", null);
         result.put(
             "message",
-            available ? "Health Connect disponible sur cet appareil." : "Health Connect est disponible uniquement sur Android."
+            available
+                ? "Health Connect disponible."
+                : "Application Android detectee. Connexion Health Connect a configurer."
         );
 
-        Log.i(TAG, available ? "Health Connect disponible" : "Health Connect indisponible");
+        Log.i(TAG, available ? "Health Connect disponible" : "Application Android detectee");
         call.resolve(result);
     }
 
@@ -59,7 +63,7 @@ public class HealthConnectPlugin extends Plugin {
     public void requestPermissions(PluginCall call) {
         int sdkStatus = HealthConnectClient.getSdkStatus(getContext(), HEALTH_CONNECT_PACKAGE);
         if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
-            call.resolve(createUnavailableResult("Health Connect est disponible uniquement sur Android."));
+            call.resolve(createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer."));
             return;
         }
 
@@ -99,6 +103,7 @@ public class HealthConnectPlugin extends Plugin {
         JSObject output = new JSObject();
         output.put("available", true);
         output.put("granted", granted);
+        output.put("status", granted ? "permissions_granted" : "health_connect_available");
         output.put("stepsCount", 0);
         output.put("syncedAt", null);
         output.put(
@@ -115,6 +120,7 @@ public class HealthConnectPlugin extends Plugin {
         JSObject result = new JSObject();
         result.put("available", false);
         result.put("granted", false);
+        result.put("status", "web_unavailable");
         result.put("message", message);
         result.put("stepsCount", 0);
         result.put("syncedAt", null);
@@ -122,10 +128,11 @@ public class HealthConnectPlugin extends Plugin {
     }
 
     @NonNull
-    private JSObject createPermissionMissingResult(String message) {
+    private JSObject createAndroidDetectedResult(String message) {
         JSObject result = new JSObject();
         result.put("available", true);
         result.put("granted", false);
+        result.put("status", "android_detected");
         result.put("message", message);
         result.put("stepsCount", 0);
         result.put("syncedAt", null);
@@ -136,7 +143,7 @@ public class HealthConnectPlugin extends Plugin {
     private JSObject readTodayStepsResult() {
         int sdkStatus = HealthConnectClient.getSdkStatus(getContext(), HEALTH_CONNECT_PACKAGE);
         if (sdkStatus != HealthConnectClient.SDK_AVAILABLE) {
-            return createUnavailableResult("Health Connect est disponible uniquement sur Android.");
+            return createAndroidDetectedResult("Application Android detectee. Connexion Health Connect a configurer.");
         }
 
         try {
@@ -156,6 +163,7 @@ public class HealthConnectPlugin extends Plugin {
             JSObject result = new JSObject();
             result.put("available", true);
             result.put("granted", true);
+            result.put("status", "permissions_granted");
             result.put("message", "Pas recuperes.");
             result.put("stepsCount", stepsCount);
             result.put("syncedAt", Instant.now().toString());
@@ -164,16 +172,29 @@ public class HealthConnectPlugin extends Plugin {
             return result;
         } catch (SecurityException error) {
             Log.w(TAG, "Permissions Health Connect manquantes", error);
-            return createPermissionMissingResult("Permissions Health Connect manquantes.");
+            return createHealthConnectAvailableResult("Permissions Health Connect manquantes.");
         } catch (Exception error) {
             Log.e(TAG, "Impossible de lire les pas Health Connect", error);
             JSObject result = new JSObject();
             result.put("available", true);
             result.put("granted", false);
+            result.put("status", "health_connect_available");
             result.put("message", "Impossible de lire les pas Health Connect.");
             result.put("stepsCount", 0);
             result.put("syncedAt", null);
             return result;
         }
+    }
+
+    @NonNull
+    private JSObject createHealthConnectAvailableResult(String message) {
+        JSObject result = new JSObject();
+        result.put("available", true);
+        result.put("granted", false);
+        result.put("status", "health_connect_available");
+        result.put("message", message);
+        result.put("stepsCount", 0);
+        result.put("syncedAt", null);
+        return result;
     }
 }

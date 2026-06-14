@@ -23,6 +23,7 @@ import {
   isHealthConnectAvailable,
   requestPermissions,
   syncTodaySteps,
+  type HealthConnectStatus,
 } from '@/lib/health-connect';
 import { getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
@@ -221,6 +222,42 @@ function formatSyncTime(dateString: string | null) {
   });
 }
 
+function getHealthConnectStatusLabel(status: HealthConnectStatus, checking: boolean) {
+  if (checking) return 'Verification...';
+
+  switch (status) {
+    case 'web_unavailable':
+      return 'Non disponible';
+    case 'android_detected':
+      return 'A configurer';
+    case 'health_connect_plugin_missing':
+      return 'Plugin manquant';
+    case 'health_connect_available':
+      return 'Disponible';
+    case 'permissions_granted':
+      return 'Connecte';
+    default:
+      return 'Non disponible';
+  }
+}
+
+function getHealthConnectStatusMessage(status: HealthConnectStatus) {
+  switch (status) {
+    case 'web_unavailable':
+      return 'Synchronisation Android a venir.';
+    case 'android_detected':
+      return 'Application Android detectee. Connexion Health Connect a configurer.';
+    case 'health_connect_plugin_missing':
+      return 'Application Android detectee. Plugin Health Connect a brancher.';
+    case 'health_connect_available':
+      return 'Health Connect disponible.';
+    case 'permissions_granted':
+      return 'Health Connect connecte.';
+    default:
+      return 'Synchronisation Android a venir.';
+  }
+}
+
 function formatProfileRelativeDate(dateString: string | null) {
   if (!dateString) return 'recentement';
 
@@ -341,6 +378,7 @@ export default function ProfilePage() {
   const [healthConnectPermissionGranted, setHealthConnectPermissionGranted] = useState(false);
   const [healthConnectSyncing, setHealthConnectSyncing] = useState(false);
   const [healthConnectMessage, setHealthConnectMessage] = useState('');
+  const [healthConnectStatus, setHealthConnectStatus] = useState<HealthConnectStatus>('web_unavailable');
   const [exportingData, setExportingData] = useState(false);
   const [exportMessage, setExportMessage] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -674,6 +712,8 @@ export default function ProfilePage() {
       if (!isActive) return;
 
       setHealthConnectAvailable(status.available);
+      setHealthConnectStatus(status.status);
+      setHealthConnectPermissionGranted(status.status === 'permissions_granted');
       setHealthConnectMessage(status.message || '');
       setHealthConnectChecking(false);
     };
@@ -686,10 +726,8 @@ export default function ProfilePage() {
   }, []);
 
   useEffect(() => {
-    if (dailySteps.source === 'health_connect') {
-      setHealthConnectPermissionGranted(true);
-    }
-  }, [dailySteps.source]);
+    setHealthConnectPermissionGranted(healthConnectStatus === 'permissions_granted');
+  }, [healthConnectStatus]);
 
   const stats = useMemo(() => {
     const totalActivities = activities.length;
@@ -932,11 +970,9 @@ export default function ProfilePage() {
     Math.max(0, Math.round((dailySteps.todaySteps / stepsGoal) * 100))
   );
   const stepsSupportMessage =
-    healthConnectPermissionGranted
+    healthConnectStatus === 'permissions_granted'
       ? 'Health Connect est connecte.'
-      : healthConnectAvailable
-        ? 'Connecte Health Connect pour synchroniser automatiquement tes pas.'
-        : 'Synchronisation Android a venir.';
+      : getHealthConnectStatusMessage(healthConnectStatus);
 
   const dailySummary = useMemo(() => {
     const currentStreak = getDailySessionStreakDays(dailyCompletions);
@@ -1157,13 +1193,29 @@ export default function ProfilePage() {
 
     try {
       const permissionStatus = healthConnectPermissionGranted
-        ? { available: healthConnectAvailable, granted: true, message: null }
+        ? {
+            available: healthConnectAvailable,
+            granted: true,
+            message: null,
+            status: 'permissions_granted' as HealthConnectStatus,
+          }
         : await requestPermissions();
       setHealthConnectAvailable(permissionStatus.available);
       setHealthConnectPermissionGranted(permissionStatus.granted);
+      setHealthConnectStatus(permissionStatus.status || 'web_unavailable');
 
-      if (!permissionStatus.available) {
+      if (permissionStatus.status === 'web_unavailable') {
         setHealthConnectMessage(permissionStatus.message || 'Health Connect indisponible sur cet appareil.');
+        return;
+      }
+
+      if (permissionStatus.status === 'health_connect_plugin_missing') {
+        setHealthConnectMessage(permissionStatus.message || 'Application Android detectee. Connexion Health Connect a configurer.');
+        return;
+      }
+
+      if (permissionStatus.status === 'android_detected') {
+        setHealthConnectMessage(permissionStatus.message || 'Application Android detectee. Connexion Health Connect a configurer.');
         return;
       }
 
@@ -1173,9 +1225,17 @@ export default function ProfilePage() {
       }
 
       const result = await syncTodaySteps(profile.id);
+      setHealthConnectStatus(result.status);
+      setHealthConnectAvailable(result.available);
+      setHealthConnectPermissionGranted(result.granted);
 
-      if (!result.available) {
+      if (result.status === 'web_unavailable' || result.status === 'health_connect_plugin_missing') {
         setHealthConnectMessage(result.message || 'Health Connect indisponible sur cet appareil.');
+        return;
+      }
+
+      if (result.status === 'android_detected') {
+        setHealthConnectMessage(result.message || 'Application Android detectee. Connexion Health Connect a configurer.');
         return;
       }
 
@@ -1767,13 +1827,13 @@ export default function ProfilePage() {
                 <div className="profile-history-item__top">
                   <strong>Statut Android</strong>
                   <span className="profile-history-item__date">
-                    {healthConnectChecking ? 'Verification...' : healthConnectAvailable ? 'Prêt' : 'Non disponible'}
+                    {getHealthConnectStatusLabel(healthConnectStatus, healthConnectChecking)}
                   </span>
                 </div>
                 <span>
-                  {healthConnectAvailable
-                    ? 'Health Connect est disponible pour la synchronisation des pas.'
-                    : 'Synchronisation Android a venir.'}
+                  {healthConnectChecking
+                    ? 'Verification de la plateforme...'
+                    : getHealthConnectStatusMessage(healthConnectStatus)}
                 </span>
               </div>
 
@@ -1782,7 +1842,7 @@ export default function ProfilePage() {
                   <strong>Pas aujourd&apos;hui</strong>
                 </div>
                 <span>
-                  {healthConnectPermissionGranted
+                  {healthConnectStatus === 'permissions_granted'
                     ? `${dailySteps.todaySteps.toLocaleString('fr-FR')} pas`
                     : 'Connecte Health Connect pour afficher les pas du jour.'}
                 </span>
@@ -1793,7 +1853,7 @@ export default function ProfilePage() {
                   <strong>Derniere synchronisation</strong>
                 </div>
                 <span>
-                  {healthConnectPermissionGranted ? formatSyncTime(dailySteps.syncedAt) : 'Jamais synchronise'}
+                  {healthConnectStatus === 'permissions_granted' ? formatSyncTime(dailySteps.syncedAt) : 'Jamais synchronise'}
                 </span>
               </div>
 
@@ -1802,17 +1862,24 @@ export default function ProfilePage() {
                   type="button"
                   className="button primary"
                   onClick={handleHealthConnectSync}
-                  disabled={!healthConnectAvailable || healthConnectChecking || healthConnectSyncing}
+                  disabled={
+                    healthConnectChecking ||
+                    healthConnectSyncing ||
+                    healthConnectStatus === 'web_unavailable' ||
+                    healthConnectStatus === 'health_connect_plugin_missing'
+                  }
                 >
                   {healthConnectChecking
                     ? 'Verification...'
-                    : !healthConnectAvailable
+                    : healthConnectStatus === 'web_unavailable'
                       ? 'Android uniquement'
-                      : healthConnectSyncing
-                        ? 'Synchronisation...'
-                        : healthConnectPermissionGranted
-                          ? 'Synchroniser maintenant'
-                          : 'Connecter Health Connect'}
+                      : healthConnectStatus === 'health_connect_plugin_missing'
+                        ? 'Health Connect a configurer'
+                        : healthConnectSyncing
+                          ? 'Synchronisation...'
+                          : healthConnectStatus === 'permissions_granted'
+                            ? 'Synchroniser maintenant'
+                            : 'Connecter Health Connect'}
                 </button>
               </div>
 
