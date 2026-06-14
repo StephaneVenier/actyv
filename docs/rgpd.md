@@ -79,6 +79,9 @@ Profil, dans la section `Confidentialite et donnees`.
 Une premiere base de synchronisation Android est disponible dans la section
 `Sante et synchronisation` de la page Profil.
 
+> Note technique: Health Connect requiert Android 8.0 / API 26 minimum pour
+> l'application Android Actyv.
+
 ### Donnees lues de Health Connect
 
 - pas du jour
