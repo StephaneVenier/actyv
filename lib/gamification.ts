@@ -16,8 +16,7 @@ export type XpSource =
   | 'program_completed'
   | 'program_created'
   | 'program_shared'
-  | 'daily_session_completed'
-  | 'steps';
+  | 'daily_session_completed';
 
 export type XpRule = {
   xp: number;
@@ -74,7 +73,6 @@ export const XP_RULES: Record<XpSource, XpRule> = {
   program_created: { xp: 10 },
   program_shared: { xp: 15 },
   daily_session_completed: { xp: 25 },
-  steps: { xp: 1, dailyLimit: 20 },
 };
 
 export { BADGES, getBadgeByCode, normalizeBadgeCode };

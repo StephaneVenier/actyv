@@ -1,5 +1,5 @@
 import { refreshUserBadges } from '@/lib/gamification';
-import { awardDailyStepsXp, upsertDailyStepsEntry } from '@/lib/steps';
+import { upsertDailyStepsEntry } from '@/lib/steps';
 import type { DailyStepsEntry } from '@/lib/steps';
 
 type HealthConnectPluginResult = {
@@ -53,8 +53,6 @@ export type HealthConnectStepsData = {
 export type HealthConnectSyncResult = HealthConnectStepsData & {
   savedEntry: DailyStepsEntry | null;
   awardedBadgeCodes: string[];
-  awardedStepsXp: number;
-  totalStepsXpToday: number;
 };
 
 function getRuntimeCapacitor(): RuntimeCapacitor | null {
@@ -230,8 +228,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       ...readResult,
       savedEntry: null,
       awardedBadgeCodes: [],
-      awardedStepsXp: 0,
-      totalStepsXpToday: 0,
     };
   }
 
@@ -240,8 +236,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       ...readResult,
       savedEntry: null,
       awardedBadgeCodes: [],
-      awardedStepsXp: 0,
-      totalStepsXpToday: 0,
     };
   }
 
@@ -251,8 +245,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       message: readResult.message || 'Permissions Health Connect manquantes.',
       savedEntry: null,
       awardedBadgeCodes: [],
-      awardedStepsXp: 0,
-      totalStepsXpToday: 0,
     };
   }
 
@@ -267,12 +259,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       walkRunDistanceMeters: null,
       bikeDistanceMeters: null,
     });
-    const stepsXpResult = await awardDailyStepsXp(
-      userId,
-      savedEntry.step_date,
-      savedEntry.steps_count,
-      savedEntry.xp_awarded || 0
-    );
     const badgeResult = await refreshUserBadges(userId);
 
     return {
@@ -283,8 +269,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       message: 'Pas synchronisés avec succès.',
       syncedAt: savedEntry.synced_at || syncedAt,
       savedEntry,
-      awardedStepsXp: stepsXpResult.awardedXp,
-      totalStepsXpToday: stepsXpResult.totalAwardedXp,
       awardedBadgeCodes: badgeResult.awarded || [],
     };
   } catch (error) {
@@ -294,8 +278,6 @@ export async function syncTodaySteps(userId: string): Promise<HealthConnectSyncR
       message: error instanceof Error ? error.message : 'Impossible de synchroniser pour le moment. Réessaie plus tard.',
       savedEntry: null,
       awardedBadgeCodes: [],
-      awardedStepsXp: 0,
-      totalStepsXpToday: 0,
     };
   }
 }

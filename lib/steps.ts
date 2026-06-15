@@ -1,4 +1,3 @@
-import { awardXp } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 
 export type DailyStepsEntry = {
@@ -6,7 +5,6 @@ export type DailyStepsEntry = {
   user_id: string;
   step_date: string;
   steps_count: number;
-  xp_awarded: number | null;
   source: string | null;
   synced_at: string | null;
   distance_meters: number | null;
@@ -26,12 +24,6 @@ export type StepsRecordSummary = {
   stepDate: string | null;
   syncedAt: string | null;
   source: string | null;
-};
-
-export type AwardDailyStepsXpResult = {
-  allowedXp: number;
-  awardedXp: number;
-  totalAwardedXp: number;
 };
 
 function getLocalIsoDate(date = new Date()) {
@@ -58,10 +50,6 @@ function normalizeStepsCount(steps: number) {
   return Math.max(0, Math.trunc(Number(steps)));
 }
 
-export function calculateDailyStepsXp(stepsCount: number) {
-  return Math.min(20, Math.max(0, Math.floor(normalizeStepsCount(stepsCount) / 1000)));
-}
-
 function getLocalDateKey(date: Date) {
   const year = date.getFullYear();
   const month = `${date.getMonth() + 1}`.padStart(2, '0');
@@ -80,7 +68,7 @@ export async function getTodaySteps(userId: string) {
   const { data, error } = await supabase
     .from('daily_steps')
     .select(
-      'id, user_id, step_date, steps_count, xp_awarded, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
     )
     .eq('user_id', userId)
     .eq('step_date', today)
@@ -132,7 +120,7 @@ export async function upsertDailyStepsEntry(userId: string, input: UpsertDailySt
       }
     )
     .select(
-      'id, user_id, step_date, steps_count, xp_awarded, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
     )
     .single();
 
@@ -145,7 +133,7 @@ export async function getWeeklySteps(userId: string): Promise<StepsPeriodSummary
   const { data, error } = await supabase
     .from('daily_steps')
     .select(
-      'id, user_id, step_date, steps_count, xp_awarded, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
     )
     .eq('user_id', userId)
     .gte('step_date', fromDate)
@@ -165,7 +153,7 @@ export async function getMonthlySteps(userId: string): Promise<StepsPeriodSummar
   const { data, error } = await supabase
     .from('daily_steps')
     .select(
-      'id, user_id, step_date, steps_count, xp_awarded, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
+      'id, user_id, step_date, steps_count, source, synced_at, distance_meters, walk_run_distance_meters, bike_distance_meters, created_at, updated_at'
     )
     .eq('user_id', userId)
     .gte('step_date', fromDate)
@@ -197,62 +185,6 @@ export async function getBestDailySteps(userId: string): Promise<StepsRecordSumm
     stepDate: (data as DailyStepsEntry | null)?.step_date || null,
     syncedAt: (data as DailyStepsEntry | null)?.synced_at || null,
     source: (data as DailyStepsEntry | null)?.source || null,
-  };
-}
-
-export async function awardDailyStepsXp(
-  userId: string,
-  stepDate: string,
-  stepsCount: number,
-  currentAwardedXp = 0
-): Promise<AwardDailyStepsXpResult> {
-  const allowedXp = calculateDailyStepsXp(stepsCount);
-  const normalizedCurrentAwardedXp = Math.max(0, Math.trunc(Number(currentAwardedXp) || 0));
-  const targetAwardedXp = Math.max(normalizedCurrentAwardedXp, allowedXp);
-  const deltaXp = targetAwardedXp - normalizedCurrentAwardedXp;
-
-  if (deltaXp <= 0) {
-    return {
-      allowedXp,
-      awardedXp: 0,
-      totalAwardedXp: normalizedCurrentAwardedXp,
-    };
-  }
-
-  const awardResult = await awardXp({
-    userId,
-    source: 'steps',
-    xpOverride: deltaXp,
-    metadata: {
-      target_id: `steps:${stepDate}:${targetAwardedXp}`,
-    },
-  });
-
-  if (!awardResult.awarded && awardResult.reason !== 'xp_event_already_exists') {
-    return {
-      allowedXp,
-      awardedXp: 0,
-      totalAwardedXp: normalizedCurrentAwardedXp,
-    };
-  }
-
-  const { error: updateError } = await supabase
-    .from('daily_steps')
-    .update({
-      xp_awarded: targetAwardedXp,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', userId)
-    .eq('step_date', stepDate);
-
-  if (updateError) {
-    throw updateError;
-  }
-
-  return {
-    allowedXp,
-    awardedXp: deltaXp,
-    totalAwardedXp: targetAwardedXp,
   };
 }
 
