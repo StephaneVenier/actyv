@@ -52,6 +52,7 @@ type BadgeDailySessionCompletionRow = {
 type BadgeDailyStepsRow = {
   step_date: string;
   steps_count: number | null;
+  source?: string | null;
 };
 
 export const LEVEL_XP_TABLE = [
@@ -432,10 +433,9 @@ export async function checkAndAwardBadges(userId: string) {
         .limit(120),
       supabase
         .from('daily_steps')
-        .select('step_date, steps_count')
+        .select('step_date, steps_count, source')
         .eq('user_id', userId)
-        .order('step_date', { ascending: false })
-        .limit(7),
+        .order('step_date', { ascending: false }),
     ]);
 
   const firstError =
@@ -519,13 +519,20 @@ export async function checkAndAwardBadges(userId: string) {
   const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
   const dailySessionCount = dailySessionCompletions.length;
   const dailySessionStreak = getDailySessionStreakDays(dailySessionCompletions);
+  const totalStepsCount = dailySteps.reduce((total, entry) => {
+    const steps = Number(entry.steps_count || 0);
+    return total + (Number.isFinite(steps) ? steps : 0);
+  }, 0);
   const bestDailySteps = dailySteps.reduce((best, entry) => {
     const steps = Number(entry.steps_count || 0);
     return Math.max(best, Number.isFinite(steps) ? steps : 0);
   }, 0);
-  const rollingWeeklySteps = dailySteps.reduce((total, entry) => {
+  const rollingWeeklySteps = dailySteps.slice(0, 7).reduce((total, entry) => {
     const steps = Number(entry.steps_count || 0);
     return total + (Number.isFinite(steps) ? steps : 0);
+  }, 0);
+  const firstHealthConnectSyncCount = dailySteps.reduce((count, entry) => {
+    return count + (entry.source === 'health_connect' ? 1 : 0);
   }, 0);
 
   const badgesToAward: BadgeCode[] = [];
@@ -563,6 +570,11 @@ export async function checkAndAwardBadges(userId: string) {
   if (dailySessionStreak >= 3) badgesToAward.push('daily_streak_3');
   if (dailySessionStreak >= 7) badgesToAward.push('daily_streak_7');
   if (dailySessionStreak >= 30) badgesToAward.push('daily_streak_30');
+
+  if (firstHealthConnectSyncCount >= 1) badgesToAward.push('first_health_connect_sync');
+  if (totalStepsCount >= 10000) badgesToAward.push('steps_10000_total');
+  if (totalStepsCount >= 50000) badgesToAward.push('steps_50000_total');
+  if (totalStepsCount >= 100000) badgesToAward.push('steps_100000_total');
 
   if (bestDailySteps > 0) badgesToAward.push('steps_first');
   if (bestDailySteps >= 5000) badgesToAward.push('steps_5000');

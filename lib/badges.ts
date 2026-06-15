@@ -1,4 +1,8 @@
 export type BadgeCode =
+  | 'first_health_connect_sync'
+  | 'steps_10000_total'
+  | 'steps_50000_total'
+  | 'steps_100000_total'
   | 'steps_first'
   | 'steps_5000'
   | 'steps_10000'
@@ -52,6 +56,10 @@ export type UserBadge = {
 };
 
 const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
+  first_health_connect_sync: 'first_health_connect_sync',
+  steps_10000_total: 'steps_10000_total',
+  steps_50000_total: 'steps_50000_total',
+  steps_100000_total: 'steps_100000_total',
   steps_first: 'steps_first',
   steps_5000: 'steps_5000',
   steps_10000: 'steps_10000',
@@ -86,6 +94,42 @@ const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
 };
 
 export const BADGES: BadgeDefinition[] = [
+  {
+    code: 'first_health_connect_sync',
+    name: 'Premier pas connecté',
+    label: 'Premier pas connecté',
+    description: 'Premiere synchronisation Health Connect reussie.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#35e66b',
+  },
+  {
+    code: 'steps_10000_total',
+    name: 'Marcheur',
+    label: 'Marcheur',
+    description: 'Cumuler 10 000 pas au total.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#20b7a6',
+  },
+  {
+    code: 'steps_50000_total',
+    name: 'Randonneur',
+    label: 'Randonneur',
+    description: 'Cumuler 50 000 pas au total.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#4db3ff',
+  },
+  {
+    code: 'steps_100000_total',
+    name: 'Explorateur',
+    label: 'Explorateur',
+    description: 'Cumuler 100 000 pas au total.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#b084ff',
+  },
   {
     code: 'steps_first',
     name: 'Premier pas',

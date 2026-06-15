@@ -510,8 +510,10 @@ declare
   distinct_sports_count integer := 0;
   daily_session_count integer := 0;
   daily_session_streak integer := 0;
+  total_steps_count bigint := 0;
   best_daily_steps integer := 0;
   rolling_weekly_steps integer := 0;
+  first_health_connect_sync_count integer := 0;
   ordered_daily_dates date[];
   streak_date date;
 begin
@@ -614,8 +616,13 @@ begin
   from public.daily_session_completions
   where user_id = p_user_id;
 
-  select coalesce(max(steps_count), 0)
-  into best_daily_steps
+  select
+    coalesce(sum(steps_count), 0),
+    coalesce(max(steps_count), 0),
+    coalesce(count(*) filter (where source = 'health_connect'), 0)
+  into total_steps_count,
+    best_daily_steps,
+    first_health_connect_sync_count
   from public.daily_steps
   where user_id = p_user_id;
 
@@ -759,6 +766,22 @@ begin
 
   if daily_session_streak >= 30 then
     perform public.grant_user_badge(p_user_id, 'daily_streak_30');
+  end if;
+
+  if first_health_connect_sync_count >= 1 then
+    perform public.grant_user_badge(p_user_id, 'first_health_connect_sync');
+  end if;
+
+  if total_steps_count >= 10000 then
+    perform public.grant_user_badge(p_user_id, 'steps_10000_total');
+  end if;
+
+  if total_steps_count >= 50000 then
+    perform public.grant_user_badge(p_user_id, 'steps_50000_total');
+  end if;
+
+  if total_steps_count >= 100000 then
+    perform public.grant_user_badge(p_user_id, 'steps_100000_total');
   end if;
 
   if best_daily_steps > 0 then

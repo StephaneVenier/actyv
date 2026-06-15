@@ -214,8 +214,8 @@ export function getActiveStepStreak(entries: DailyStepsEntry[], minimumSteps = 5
 }
 
 export const FUTURE_STEP_BADGE_CODES = [
-  'steps_5000',
-  'steps_10000',
-  'steps_20000',
-  'weekly_steps_50000',
+  'first_health_connect_sync',
+  'steps_10000_total',
+  'steps_50000_total',
+  'steps_100000_total',
 ] as const;
