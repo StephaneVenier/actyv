@@ -50,6 +50,19 @@ function normalizeStepsCount(steps: number) {
   return Math.max(0, Math.trunc(Number(steps)));
 }
 
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, '0');
+  const day = `${date.getDate()}`.padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function addLocalDays(date: Date, days: number) {
+  const nextDate = new Date(date);
+  nextDate.setDate(nextDate.getDate() + days);
+  return nextDate;
+}
+
 export async function getTodaySteps(userId: string) {
   const today = getLocalIsoDate();
   const { data, error } = await supabase
@@ -173,6 +186,31 @@ export async function getBestDailySteps(userId: string): Promise<StepsRecordSumm
     syncedAt: (data as DailyStepsEntry | null)?.synced_at || null,
     source: (data as DailyStepsEntry | null)?.source || null,
   };
+}
+
+export function getActiveStepStreak(entries: DailyStepsEntry[], minimumSteps = 5000) {
+  const stepsByDate = new Map<string, number>();
+
+  for (const entry of entries) {
+    stepsByDate.set(entry.step_date, normalizeStepsCount(entry.steps_count));
+  }
+
+  let streakDays = 0;
+  let cursor = new Date();
+
+  while (true) {
+    const dateKey = getLocalDateKey(cursor);
+    const stepsCount = stepsByDate.get(dateKey) || 0;
+
+    if (stepsCount < minimumSteps) {
+      break;
+    }
+
+    streakDays += 1;
+    cursor = addLocalDays(cursor, -1);
+  }
+
+  return streakDays;
 }
 
 export const FUTURE_STEP_BADGE_CODES = [

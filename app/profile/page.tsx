@@ -26,7 +26,14 @@ import {
   syncTodaySteps,
   type HealthConnectStatus,
 } from '@/lib/health-connect';
-import { getBestDailySteps, getMonthlySteps, getTodaySteps, getWeeklySteps, upsertTodaySteps } from '@/lib/steps';
+import {
+  getActiveStepStreak,
+  getBestDailySteps,
+  getMonthlySteps,
+  getTodaySteps,
+  getWeeklySteps,
+  upsertTodaySteps,
+} from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
@@ -163,6 +170,7 @@ type DailyStepsCardState = {
   monthlySteps: number;
   recordSteps: number;
   recordDate: string | null;
+  activeStreakDays: number;
   hasTodayEntry: boolean;
   source: string | null;
   syncedAt: string | null;
@@ -415,6 +423,7 @@ export default function ProfilePage() {
     monthlySteps: 0,
     recordSteps: 0,
     recordDate: null,
+    activeStreakDays: 0,
     hasTodayEntry: false,
     source: null,
     syncedAt: null,
@@ -484,6 +493,7 @@ export default function ProfilePage() {
           monthlySteps: monthlyStepsSummary.totalSteps,
           recordSteps: bestDailySteps.stepsCount,
           recordDate: bestDailySteps.stepDate,
+          activeStreakDays: getActiveStepStreak(monthlyStepsSummary.entries),
           hasTodayEntry: Boolean(todayStepsEntry),
           source: todayStepsEntry?.source || null,
           syncedAt: todayStepsEntry?.synced_at || null,
@@ -497,6 +507,7 @@ export default function ProfilePage() {
           monthlySteps: 0,
           recordSteps: 0,
           recordDate: null,
+          activeStreakDays: 0,
           hasTodayEntry: false,
           source: null,
           syncedAt: null,
@@ -1195,11 +1206,15 @@ export default function ProfilePage() {
       const savedEntry = await upsertTodaySteps(profile.id, normalizedSteps);
       const weeklySummary = await getWeeklySteps(profile.id);
       const monthlySummary = await getMonthlySteps(profile.id);
+      const bestDailySteps = await getBestDailySteps(profile.id);
 
       setDailySteps({
         todaySteps: savedEntry.steps_count,
         weeklySteps: weeklySummary.totalSteps,
         monthlySteps: monthlySummary.totalSteps,
+        recordSteps: bestDailySteps.stepsCount,
+        recordDate: bestDailySteps.stepDate,
+        activeStreakDays: getActiveStepStreak(monthlySummary.entries),
         hasTodayEntry: true,
         source: savedEntry.source || 'manual',
         syncedAt: savedEntry.synced_at || null,
@@ -1308,11 +1323,15 @@ export default function ProfilePage() {
       if (savedEntry) {
         const weeklySummary = await getWeeklySteps(profile.id);
         const monthlySummary = await getMonthlySteps(profile.id);
+        const bestDailySteps = await getBestDailySteps(profile.id);
 
         setDailySteps({
           todaySteps: savedEntry.steps_count,
           weeklySteps: weeklySummary.totalSteps,
           monthlySteps: monthlySummary.totalSteps,
+          recordSteps: bestDailySteps.stepsCount,
+          recordDate: bestDailySteps.stepDate,
+          activeStreakDays: getActiveStepStreak(monthlySummary.entries),
           hasTodayEntry: true,
           source: savedEntry.source || 'health_connect',
           syncedAt: savedEntry.synced_at || result.syncedAt || null,
@@ -1862,6 +1881,17 @@ export default function ProfilePage() {
                 <span>{formatHealthConnectSteps(dailySteps.recordSteps)}</span>
                 <span className="profile-history-item__meta">
                   {dailySteps.recordDate ? `Le ${formatStepsDateLabel(dailySteps.recordDate)}` : 'Jamais'}
+                </span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>Serie active</strong>
+                </div>
+                <span>
+                  {dailySteps.activeStreakDays >= 3
+                    ? `🔥 ${dailySteps.activeStreakDays} jour${dailySteps.activeStreakDays > 1 ? 's' : ''} consécutifs à 5 000 pas ou plus`
+                    : 'Aucune serie active pour le moment.'}
                 </span>
               </div>
 

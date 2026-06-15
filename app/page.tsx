@@ -15,7 +15,7 @@ import {
   type DailySessionCompletion,
 } from '@/lib/daily-sessions';
 import { getSessionEstimatedDuration } from '@/lib/session-blocks';
-import { getBestDailySteps, getMonthlySteps, getTodaySteps, getWeeklySteps } from '@/lib/steps';
+import { getActiveStepStreak, getBestDailySteps, getMonthlySteps, getTodaySteps, getWeeklySteps } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
 import { formatPercent } from '@/lib/display-format';
@@ -120,6 +120,7 @@ type HomeStepsState = {
   recordDate: string | null;
   syncedAt: string | null;
   source: string | null;
+  activeStreakDays: number;
 };
 
 function formatDailyDurationLabel(totalSeconds: number | null) {
@@ -258,6 +259,7 @@ export default function HomePage() {
     recordDate: null,
     syncedAt: null,
     source: null,
+    activeStreakDays: 0,
   });
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -310,6 +312,7 @@ export default function HomePage() {
           recordDate: bestDailySteps.stepDate,
           syncedAt: todayStepsEntry?.synced_at || null,
           source: todayStepsEntry?.source || null,
+          activeStreakDays: getActiveStepStreak(monthlyStepsSummary.entries),
         });
 
         const [profileResponse, activitiesResponse, badgesResponse, workoutHistoryResponse, programsResponse] =
@@ -584,6 +587,7 @@ export default function HomePage() {
           recordDate: null,
           syncedAt: null,
           source: null,
+          activeStreakDays: 0,
         });
 
         setTodayProgramSessions([]);
@@ -915,16 +919,12 @@ export default function HomePage() {
               <span className="section-kicker">Pas</span>
               <h2>Pas aujourd&apos;hui</h2>
             </div>
-            <span className="badge badge--neutral">Actyv Quotidien</span>
+            <span className="badge badge--neutral">{Math.min(100, Math.round((stepsSummary.todaySteps / 10000) * 100))}%</span>
           </div>
 
           <div className="home-steps-card__value-row">
-            <strong>
-              {formatStepsCount(stepsSummary.todaySteps)} / 10 000
-            </strong>
-            <span>
-              {stepsSummary.todaySteps > 0 ? 'Objectif journalier en cours' : 'Aucun pas synchronisé'}
-            </span>
+            <strong>{formatStepsCount(stepsSummary.todaySteps)} pas</strong>
+            <span>Objectif : 10 000 pas</span>
           </div>
 
           <div className="progress-bar home-steps-card__bar" aria-hidden="true">
@@ -945,6 +945,12 @@ export default function HomePage() {
               Record journalier : <strong>{formatStepsCount(stepsSummary.recordSteps)} pas</strong>
             </span>
           </div>
+
+          <p className="home-steps-card__footnote">
+            {stepsSummary.activeStreakDays >= 3
+              ? `🔥 Série active : ${stepsSummary.activeStreakDays} jours consécutifs à 5 000 pas ou plus`
+              : 'Objectif quotidien simple pour suivre ta progression.'}
+          </p>
 
           <p className="home-steps-card__footnote">
             {stepsSummary.recordDate && stepsSummary.syncedAt
