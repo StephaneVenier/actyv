@@ -15,7 +15,13 @@ import {
   type DailySessionCompletion,
 } from '@/lib/daily-sessions';
 import { getSessionEstimatedDuration } from '@/lib/session-blocks';
-import { getActiveStepStreak, getBestDailySteps, getMonthlySteps, getTodaySteps, getWeeklySteps } from '@/lib/steps';
+import {
+  getActiveStepStreak,
+  getBestDailySteps,
+  getMonthlySteps,
+  getTodaySteps,
+  getWeeklySteps,
+} from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks } from '@/lib/training-session-blocks-db';
 import { formatPercent } from '@/lib/display-format';
@@ -121,6 +127,7 @@ type HomeStepsState = {
   syncedAt: string | null;
   source: string | null;
   activeStreakDays: number;
+  xpAwardedToday: number;
 };
 
 function formatDailyDurationLabel(totalSeconds: number | null) {
@@ -260,6 +267,7 @@ export default function HomePage() {
     syncedAt: null,
     source: null,
     activeStreakDays: 0,
+    xpAwardedToday: 0,
   });
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -313,6 +321,7 @@ export default function HomePage() {
           syncedAt: todayStepsEntry?.synced_at || null,
           source: todayStepsEntry?.source || null,
           activeStreakDays: getActiveStepStreak(monthlyStepsSummary.entries),
+          xpAwardedToday: Math.max(0, Math.trunc(todayStepsEntry?.xp_awarded || 0)),
         });
 
         const [profileResponse, activitiesResponse, badgesResponse, workoutHistoryResponse, programsResponse] =
@@ -588,6 +597,7 @@ export default function HomePage() {
           syncedAt: null,
           source: null,
           activeStreakDays: 0,
+          xpAwardedToday: 0,
         });
 
         setTodayProgramSessions([]);
@@ -943,6 +953,9 @@ export default function HomePage() {
             </span>
             <span>
               Record journalier : <strong>{formatStepsCount(stepsSummary.recordSteps)} pas</strong>
+            </span>
+            <span>
+              XP gagné aujourd&apos;hui : <strong>{stepsSummary.xpAwardedToday} XP</strong>
             </span>
           </div>
 

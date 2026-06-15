@@ -27,6 +27,7 @@ import {
   type HealthConnectStatus,
 } from '@/lib/health-connect';
 import {
+  awardDailyStepsXp,
   getActiveStepStreak,
   getBestDailySteps,
   getMonthlySteps,
@@ -171,6 +172,7 @@ type DailyStepsCardState = {
   recordSteps: number;
   recordDate: string | null;
   activeStreakDays: number;
+  xpAwardedToday: number;
   hasTodayEntry: boolean;
   source: string | null;
   syncedAt: string | null;
@@ -354,6 +356,7 @@ function getXpEventLabel(eventType: string | null) {
     program_created: { title: 'XP gagnee', subtitle: 'Programme cree' },
     program_shared: { title: 'XP gagnee', subtitle: 'Programme partage' },
     program_completed: { title: 'XP gagnee', subtitle: 'Programme termine' },
+    steps: { title: 'XP gagnee', subtitle: 'Pas synchronises' },
   };
 
   return labels[eventType || ''] || { title: 'XP gagnee', subtitle: 'Evenement Actyv' };
@@ -424,6 +427,7 @@ export default function ProfilePage() {
     recordSteps: 0,
     recordDate: null,
     activeStreakDays: 0,
+    xpAwardedToday: 0,
     hasTodayEntry: false,
     source: null,
     syncedAt: null,
@@ -494,6 +498,7 @@ export default function ProfilePage() {
           recordSteps: bestDailySteps.stepsCount,
           recordDate: bestDailySteps.stepDate,
           activeStreakDays: getActiveStepStreak(monthlyStepsSummary.entries),
+          xpAwardedToday: Math.max(0, Math.trunc(todayStepsEntry?.xp_awarded || 0)),
           hasTodayEntry: Boolean(todayStepsEntry),
           source: todayStepsEntry?.source || null,
           syncedAt: todayStepsEntry?.synced_at || null,
@@ -508,6 +513,7 @@ export default function ProfilePage() {
           recordSteps: 0,
           recordDate: null,
           activeStreakDays: 0,
+          xpAwardedToday: 0,
           hasTodayEntry: false,
           source: null,
           syncedAt: null,
@@ -1207,6 +1213,7 @@ export default function ProfilePage() {
       const weeklySummary = await getWeeklySteps(profile.id);
       const monthlySummary = await getMonthlySteps(profile.id);
       const bestDailySteps = await getBestDailySteps(profile.id);
+      const xpResult = await awardDailyStepsXp(profile.id, savedEntry.step_date, savedEntry.steps_count, savedEntry.xp_awarded || 0);
 
       setDailySteps({
         todaySteps: savedEntry.steps_count,
@@ -1215,6 +1222,7 @@ export default function ProfilePage() {
         recordSteps: bestDailySteps.stepsCount,
         recordDate: bestDailySteps.stepDate,
         activeStreakDays: getActiveStepStreak(monthlySummary.entries),
+        xpAwardedToday: xpResult.totalAwardedXp,
         hasTodayEntry: true,
         source: savedEntry.source || 'manual',
         syncedAt: savedEntry.synced_at || null,
@@ -1246,6 +1254,12 @@ export default function ProfilePage() {
       }
 
       setStepsMessage('Pas du jour mis a jour.');
+      if (xpResult.awardedXp > 0) {
+        queuePendingToast({
+          message: `+${xpResult.awardedXp} XP grâce à tes pas`,
+          tone: 'info',
+        });
+      }
     } catch (error) {
       console.error('Erreur enregistrement daily_steps profil :', error);
       setStepsMessage("Impossible d'enregistrer les pas du jour.");
@@ -1332,11 +1346,19 @@ export default function ProfilePage() {
           recordSteps: bestDailySteps.stepsCount,
           recordDate: bestDailySteps.stepDate,
           activeStreakDays: getActiveStepStreak(monthlySummary.entries),
+          xpAwardedToday: result.totalStepsXpToday,
           hasTodayEntry: true,
           source: savedEntry.source || 'health_connect',
           syncedAt: savedEntry.synced_at || result.syncedAt || null,
         });
         setStepsInput(String(savedEntry.steps_count));
+
+        if (result.awardedStepsXp > 0) {
+          queuePendingToast({
+            message: `+${result.awardedStepsXp} XP grâce à tes pas`,
+            tone: 'info',
+          });
+        }
       }
 
       if (result.awardedBadgeCodes.length > 0) {
@@ -1882,6 +1904,13 @@ export default function ProfilePage() {
                 <span className="profile-history-item__meta">
                   {dailySteps.recordDate ? `Le ${formatStepsDateLabel(dailySteps.recordDate)}` : 'Jamais'}
                 </span>
+              </div>
+
+              <div className="profile-history-item">
+                <div className="profile-history-item__top">
+                  <strong>XP generee par les pas</strong>
+                </div>
+                <span>{dailySteps.xpAwardedToday} XP aujourd&apos;hui</span>
               </div>
 
               <div className="profile-history-item">

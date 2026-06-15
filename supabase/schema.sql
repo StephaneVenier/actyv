@@ -1743,6 +1743,7 @@ create table if not exists public.daily_steps (
   user_id uuid not null references auth.users(id) on delete cascade,
   step_date date not null,
   steps_count integer not null default 0 check (steps_count >= 0),
+  xp_awarded integer not null default 0 check (xp_awarded >= 0),
   source text not null default 'manual',
   synced_at timestamptz,
   distance_meters double precision,
