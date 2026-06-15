@@ -283,6 +283,18 @@ begin
     perform public.grant_user_badge(p_user_id, 'first_health_connect_sync');
   end if;
 
+  if best_daily_steps >= 5000 then
+    perform public.grant_user_badge(p_user_id, 'steps_5000_day');
+  end if;
+
+  if best_daily_steps >= 10000 then
+    perform public.grant_user_badge(p_user_id, 'steps_10000_day');
+  end if;
+
+  if best_daily_steps >= 20000 then
+    perform public.grant_user_badge(p_user_id, 'steps_20000_day');
+  end if;
+
   if total_steps_count >= 10000 then
     perform public.grant_user_badge(p_user_id, 'steps_10000_total');
   end if;
@@ -297,18 +309,6 @@ begin
 
   if best_daily_steps > 0 then
     perform public.grant_user_badge(p_user_id, 'steps_first');
-  end if;
-
-  if best_daily_steps >= 5000 then
-    perform public.grant_user_badge(p_user_id, 'steps_5000');
-  end if;
-
-  if best_daily_steps >= 10000 then
-    perform public.grant_user_badge(p_user_id, 'steps_10000');
-  end if;
-
-  if best_daily_steps >= 20000 then
-    perform public.grant_user_badge(p_user_id, 'steps_20000');
   end if;
 
   if rolling_weekly_steps >= 50000 then

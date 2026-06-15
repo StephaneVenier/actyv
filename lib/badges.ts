@@ -4,9 +4,9 @@ export type BadgeCode =
   | 'steps_50000_total'
   | 'steps_100000_total'
   | 'steps_first'
-  | 'steps_5000'
-  | 'steps_10000'
-  | 'steps_20000'
+  | 'steps_5000_day'
+  | 'steps_10000_day'
+  | 'steps_20000_day'
   | 'weekly_steps_50000'
   | 'first_activity'
   | 'five_activities'
@@ -57,13 +57,16 @@ export type UserBadge = {
 
 const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
   first_health_connect_sync: 'first_health_connect_sync',
+  steps_5000: 'steps_5000_day',
+  steps_10000: 'steps_10000_day',
+  steps_20000: 'steps_20000_day',
+  steps_5000_day: 'steps_5000_day',
+  steps_10000_day: 'steps_10000_day',
+  steps_20000_day: 'steps_20000_day',
   steps_10000_total: 'steps_10000_total',
   steps_50000_total: 'steps_50000_total',
   steps_100000_total: 'steps_100000_total',
   steps_first: 'steps_first',
-  steps_5000: 'steps_5000',
-  steps_10000: 'steps_10000',
-  steps_20000: 'steps_20000',
   weekly_steps_50000: 'weekly_steps_50000',
   'first-step': 'first_activity',
   'actyv-regular': 'five_activities',
@@ -104,9 +107,36 @@ export const BADGES: BadgeDefinition[] = [
     color: '#35e66b',
   },
   {
-    code: 'steps_10000_total',
+    code: 'steps_5000_day',
     name: 'Marcheur',
     label: 'Marcheur',
+    description: 'Atteindre 5 000 pas en une journee.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#20b7a6',
+  },
+  {
+    code: 'steps_10000_day',
+    name: 'Randonneur',
+    label: 'Randonneur',
+    description: 'Atteindre 10 000 pas en une journee.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#4db3ff',
+  },
+  {
+    code: 'steps_20000_day',
+    name: 'Explorateur',
+    label: 'Explorateur',
+    description: 'Atteindre 20 000 pas en une journee.',
+    category: 'steps',
+    icon: 'Footprints',
+    color: '#b084ff',
+  },
+  {
+    code: 'steps_10000_total',
+    name: 'Marcheur total',
+    label: 'Marcheur total',
     description: 'Cumuler 10 000 pas au total.',
     category: 'steps',
     icon: 'Footprints',
@@ -114,8 +144,8 @@ export const BADGES: BadgeDefinition[] = [
   },
   {
     code: 'steps_50000_total',
-    name: 'Randonneur',
-    label: 'Randonneur',
+    name: 'Randonneur total',
+    label: 'Randonneur total',
     description: 'Cumuler 50 000 pas au total.',
     category: 'steps',
     icon: 'Footprints',
@@ -123,8 +153,8 @@ export const BADGES: BadgeDefinition[] = [
   },
   {
     code: 'steps_100000_total',
-    name: 'Explorateur',
-    label: 'Explorateur',
+    name: 'Explorateur total',
+    label: 'Explorateur total',
     description: 'Cumuler 100 000 pas au total.',
     category: 'steps',
     icon: 'Footprints',
@@ -138,33 +168,6 @@ export const BADGES: BadgeDefinition[] = [
     category: 'steps',
     icon: 'Footprints',
     color: '#35e66b',
-  },
-  {
-    code: 'steps_5000',
-    name: '5 000 pas',
-    label: '5 000 pas',
-    description: 'Atteindre 5 000 pas en une journee.',
-    category: 'steps',
-    icon: 'Footprints',
-    color: '#20b7a6',
-  },
-  {
-    code: 'steps_10000',
-    name: 'Objectif 10 000',
-    label: 'Objectif 10 000',
-    description: 'Atteindre 10 000 pas en une journee.',
-    category: 'steps',
-    icon: 'Footprints',
-    color: '#4db3ff',
-  },
-  {
-    code: 'steps_20000',
-    name: 'Grosse journee',
-    label: 'Grosse journee',
-    description: 'Atteindre 20 000 pas en une journee.',
-    category: 'steps',
-    icon: 'Footprints',
-    color: '#b084ff',
   },
   {
     code: 'weekly_steps_50000',

@@ -523,7 +523,7 @@ export async function checkAndAwardBadges(userId: string) {
     const steps = Number(entry.steps_count || 0);
     return total + (Number.isFinite(steps) ? steps : 0);
   }, 0);
-  const bestDailySteps = dailySteps.reduce((best, entry) => {
+  const maxDailySteps = dailySteps.reduce((best, entry) => {
     const steps = Number(entry.steps_count || 0);
     return Math.max(best, Number.isFinite(steps) ? steps : 0);
   }, 0);
@@ -531,7 +531,7 @@ export async function checkAndAwardBadges(userId: string) {
     const steps = Number(entry.steps_count || 0);
     return total + (Number.isFinite(steps) ? steps : 0);
   }, 0);
-  const firstHealthConnectSyncCount = dailySteps.reduce((count, entry) => {
+  const healthConnectSyncCount = dailySteps.reduce((count, entry) => {
     return count + (entry.source === 'health_connect' ? 1 : 0);
   }, 0);
 
@@ -571,19 +571,27 @@ export async function checkAndAwardBadges(userId: string) {
   if (dailySessionStreak >= 7) badgesToAward.push('daily_streak_7');
   if (dailySessionStreak >= 30) badgesToAward.push('daily_streak_30');
 
-  if (firstHealthConnectSyncCount >= 1) badgesToAward.push('first_health_connect_sync');
+  if (healthConnectSyncCount >= 1) badgesToAward.push('first_health_connect_sync');
+  if (maxDailySteps >= 5000) badgesToAward.push('steps_5000_day');
+  if (maxDailySteps >= 10000) badgesToAward.push('steps_10000_day');
+  if (maxDailySteps >= 20000) badgesToAward.push('steps_20000_day');
   if (totalStepsCount >= 10000) badgesToAward.push('steps_10000_total');
   if (totalStepsCount >= 50000) badgesToAward.push('steps_50000_total');
   if (totalStepsCount >= 100000) badgesToAward.push('steps_100000_total');
 
-  if (bestDailySteps > 0) badgesToAward.push('steps_first');
-  if (bestDailySteps >= 5000) badgesToAward.push('steps_5000');
-  if (bestDailySteps >= 10000) badgesToAward.push('steps_10000');
-  if (bestDailySteps >= 20000) badgesToAward.push('steps_20000');
+  if (maxDailySteps > 0) badgesToAward.push('steps_first');
   if (rollingWeeklySteps >= 50000) badgesToAward.push('weekly_steps_50000');
 
   if (distinctSportsCount >= 3) badgesToAward.push('three_sports');
   if (distinctSportsCount >= 5) badgesToAward.push('five_sports');
+
+  console.log('STEP BADGES DEBUG', {
+    userId,
+    totalStepsCount,
+    maxDailySteps,
+    healthConnectSyncCount,
+    eligibleBadgeCodes: badgesToAward,
+  });
 
   const awarded = [];
 
@@ -624,6 +632,11 @@ export async function refreshUserBadges(userId: string) {
     const beforeSet = getCanonicalBadgeSet(
       ((beforeBadges as { badge_code: string }[] | null) || [])
     );
+
+    console.log('STEP BADGES DEBUG existing', {
+      userId,
+      alreadyUnlockedBadgeCodes: Array.from(beforeSet),
+    });
 
     const { data, error } = await supabase.rpc('refresh_user_badges', {
       p_user_id: userId,
