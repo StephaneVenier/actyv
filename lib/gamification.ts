@@ -55,6 +55,13 @@ type BadgeDailyStepsRow = {
   source?: string | null;
 };
 
+type BadgeAwardResult = {
+  badgeCode: BadgeCode;
+  data: unknown | null;
+  error: unknown | null;
+  skipped?: boolean;
+};
+
 export const LEVEL_XP_TABLE = [
   0, 75, 175, 325, 525, 800, 1150, 1575, 2075, 2650,
   3300, 4050, 4900, 5850, 6900, 8300, 10000, 12000, 14500, 17500,
@@ -535,6 +542,17 @@ export async function checkAndAwardBadges(userId: string) {
     return count + (entry.source === 'health_connect' ? 1 : 0);
   }, 0);
 
+  const stepBadgeSlugs = {
+    firstHealthConnectSync: 'first_health_connect_sync',
+    daily5000: 'steps_5000_day',
+    daily10000: 'steps_10000_day',
+    daily20000: 'steps_20000_day',
+    total10000: 'steps_10000_total',
+    total50000: 'steps_50000_total',
+    total100000: 'steps_100000_total',
+    firstStep: 'steps_first',
+  } as const;
+
   const badgesToAward: BadgeCode[] = [];
 
   if (activities.length >= 1) badgesToAward.push('first_activity');
@@ -571,15 +589,15 @@ export async function checkAndAwardBadges(userId: string) {
   if (dailySessionStreak >= 7) badgesToAward.push('daily_streak_7');
   if (dailySessionStreak >= 30) badgesToAward.push('daily_streak_30');
 
-  if (healthConnectSyncCount >= 1) badgesToAward.push('first_health_connect_sync');
-  if (maxDailySteps >= 5000) badgesToAward.push('steps_5000_day');
-  if (maxDailySteps >= 10000) badgesToAward.push('steps_10000_day');
-  if (maxDailySteps >= 20000) badgesToAward.push('steps_20000_day');
-  if (totalStepsCount >= 10000) badgesToAward.push('steps_10000_total');
-  if (totalStepsCount >= 50000) badgesToAward.push('steps_50000_total');
-  if (totalStepsCount >= 100000) badgesToAward.push('steps_100000_total');
+  if (healthConnectSyncCount >= 1) badgesToAward.push(stepBadgeSlugs.firstHealthConnectSync);
+  if (maxDailySteps >= 5000) badgesToAward.push(stepBadgeSlugs.daily5000);
+  if (maxDailySteps >= 10000) badgesToAward.push(stepBadgeSlugs.daily10000);
+  if (maxDailySteps >= 20000) badgesToAward.push(stepBadgeSlugs.daily20000);
+  if (totalStepsCount >= 10000) badgesToAward.push(stepBadgeSlugs.total10000);
+  if (totalStepsCount >= 50000) badgesToAward.push(stepBadgeSlugs.total50000);
+  if (totalStepsCount >= 100000) badgesToAward.push(stepBadgeSlugs.total100000);
 
-  if (maxDailySteps > 0) badgesToAward.push('steps_first');
+  if (maxDailySteps > 0) badgesToAward.push(stepBadgeSlugs.firstStep);
   if (rollingWeeklySteps >= 50000) badgesToAward.push('weekly_steps_50000');
 
   if (distinctSportsCount >= 3) badgesToAward.push('three_sports');
@@ -590,24 +608,38 @@ export async function checkAndAwardBadges(userId: string) {
     totalStepsCount,
     maxDailySteps,
     healthConnectSyncCount,
+    stepBadgeSlugs,
     eligibleBadgeCodes: badgesToAward,
   });
 
-  const awarded = [];
+  const awarded: BadgeAwardResult[] = [];
 
   for (const badgeCode of badgesToAward) {
     const result = await awardBadge(userId, badgeCode);
-    awarded.push(result);
+    console.log('STEP BADGES INSERT RESULT', {
+      userId,
+      badgeCode,
+      result,
+    });
+    awarded.push({
+      badgeCode,
+      data: result.data ?? null,
+      error: result.error ?? null,
+      skipped: result.skipped,
+    });
   }
 
   const unlockedCodes = awarded
     .filter((entry) => !entry.error && !entry.skipped)
     .map((entry) => entry.badgeCode);
 
+  const insertErrors = awarded.filter((entry) => Boolean(entry.error));
+
   const result = {
     table: 'user_badges',
     columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
     awarded,
+    insertErrors,
   };
 
   return result;
@@ -650,6 +682,13 @@ export async function refreshUserBadges(userId: string) {
 
     if (localResult.error) {
       return { awarded: [], error: localResult.error, data: localResult };
+    }
+
+    if (Array.isArray((localResult as { insertErrors?: unknown[] }).insertErrors) && (localResult as { insertErrors?: unknown[] }).insertErrors.length > 0) {
+      console.error('STEP BADGES DEBUG insert errors', {
+        userId,
+        insertErrors: (localResult as { insertErrors?: unknown[] }).insertErrors,
+      });
     }
 
     const { data: afterBadges, error: afterError } = await supabase
