@@ -1232,17 +1232,17 @@ export default function ProfilePage() {
             tone: 'celebrate',
           });
         });
+      }
 
-        const { data: badgeRows, error: badgesError } = await supabase
-          .from('user_badges')
-          .select('badge_code, unlocked_at')
-          .eq('user_id', profile.id);
+      const { data: badgeRows, error: badgesError } = await supabase
+        .from('user_badges')
+        .select('badge_code, unlocked_at')
+        .eq('user_id', profile.id);
 
-        if (badgesError) {
-          console.error('Erreur rechargement badges profil apres pas :', badgesError);
-        } else {
-          setBadges((badgeRows as UserBadge[] | null) || []);
-        }
+      if (badgesError) {
+        console.error('Erreur rechargement badges profil apres pas :', badgesError);
+      } else {
+        setBadges((badgeRows as UserBadge[] | null) || []);
       }
 
       setStepsMessage('Pas du jour mis a jour.');
@@ -1353,17 +1353,17 @@ export default function ProfilePage() {
             tone: 'celebrate',
           });
         });
+      }
 
-        const { data: badgeRows, error: badgesError } = await supabase
-          .from('user_badges')
-          .select('badge_code, unlocked_at')
-          .eq('user_id', profile.id);
+      const { data: badgeRows, error: badgesError } = await supabase
+        .from('user_badges')
+        .select('badge_code, unlocked_at')
+        .eq('user_id', profile.id);
 
-        if (badgesError) {
-          console.error('Erreur rechargement badges profil apres Health Connect :', badgesError);
-        } else {
-          setBadges((badgeRows as UserBadge[] | null) || []);
-        }
+      if (badgesError) {
+        console.error('Erreur rechargement badges profil apres Health Connect :', badgesError);
+      } else {
+        setBadges((badgeRows as UserBadge[] | null) || []);
       }
 
       setHealthConnectMessage(result.message || 'Pas synchronisés avec succès.');
