@@ -55,6 +55,14 @@ type BadgeDailyStepsRow = {
   source?: string | null;
 };
 
+type DailyStepBadgeStats = {
+  totalStepsCount: number;
+  maxDailySteps: number;
+  rollingWeeklySteps: number;
+  healthConnectSyncCount: number;
+  orderedDailySteps: BadgeDailyStepsRow[];
+};
+
 type BadgeAwardResult = {
   badgeCode: BadgeCode;
   data: unknown | null;
@@ -92,6 +100,50 @@ function getCanonicalBadgeSet(badgeRows: Array<{ badge_code: string }>) {
       .map((badge) => normalizeBadgeCode(badge.badge_code))
       .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
   );
+}
+
+function normalizeDailyStepsRows(dailySteps: BadgeDailyStepsRow[]) {
+  return [...dailySteps].sort((left, right) => {
+    const leftDate = new Date(left.step_date).getTime();
+    const rightDate = new Date(right.step_date).getTime();
+
+    if (Number.isNaN(leftDate) && Number.isNaN(rightDate)) return 0;
+    if (Number.isNaN(leftDate)) return 1;
+    if (Number.isNaN(rightDate)) return -1;
+
+    return rightDate - leftDate;
+  });
+}
+
+function getDailyStepBadgeStats(dailySteps: BadgeDailyStepsRow[]): DailyStepBadgeStats {
+  const orderedDailySteps = normalizeDailyStepsRows(dailySteps);
+
+  const totalStepsCount = orderedDailySteps.reduce((total, entry) => {
+    const steps = Number(entry.steps_count || 0);
+    return total + (Number.isFinite(steps) ? steps : 0);
+  }, 0);
+
+  const maxDailySteps = orderedDailySteps.reduce((best, entry) => {
+    const steps = Number(entry.steps_count || 0);
+    return Math.max(best, Number.isFinite(steps) ? steps : 0);
+  }, 0);
+
+  const rollingWeeklySteps = orderedDailySteps.slice(0, 7).reduce((total, entry) => {
+    const steps = Number(entry.steps_count || 0);
+    return total + (Number.isFinite(steps) ? steps : 0);
+  }, 0);
+
+  const healthConnectSyncCount = orderedDailySteps.reduce((count, entry) => {
+    return count + (entry.source === 'health_connect' ? 1 : 0);
+  }, 0);
+
+  return {
+    totalStepsCount,
+    maxDailySteps,
+    rollingWeeklySteps,
+    healthConnectSyncCount,
+    orderedDailySteps,
+  };
 }
 
 export function calculateLevel(totalXp: number) {
@@ -526,21 +578,13 @@ export async function checkAndAwardBadges(userId: string) {
   const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
   const dailySessionCount = dailySessionCompletions.length;
   const dailySessionStreak = getDailySessionStreakDays(dailySessionCompletions);
-  const totalStepsCount = dailySteps.reduce((total, entry) => {
-    const steps = Number(entry.steps_count || 0);
-    return total + (Number.isFinite(steps) ? steps : 0);
-  }, 0);
-  const maxDailySteps = dailySteps.reduce((best, entry) => {
-    const steps = Number(entry.steps_count || 0);
-    return Math.max(best, Number.isFinite(steps) ? steps : 0);
-  }, 0);
-  const rollingWeeklySteps = dailySteps.slice(0, 7).reduce((total, entry) => {
-    const steps = Number(entry.steps_count || 0);
-    return total + (Number.isFinite(steps) ? steps : 0);
-  }, 0);
-  const healthConnectSyncCount = dailySteps.reduce((count, entry) => {
-    return count + (entry.source === 'health_connect' ? 1 : 0);
-  }, 0);
+  const {
+    totalStepsCount,
+    maxDailySteps,
+    rollingWeeklySteps,
+    healthConnectSyncCount,
+    orderedDailySteps,
+  } = getDailyStepBadgeStats(dailySteps);
 
   const stepBadgeSlugs = {
     firstHealthConnectSync: 'first_health_connect_sync',
@@ -609,6 +653,8 @@ export async function checkAndAwardBadges(userId: string) {
     maxDailySteps,
     healthConnectSyncCount,
     stepBadgeSlugs,
+    stepColumns: ['step_date', 'steps_count', 'source'],
+    orderedStepDates: orderedDailySteps.map((entry) => entry.step_date),
     eligibleBadgeCodes: badgesToAward,
   });
 
