@@ -1,5 +1,5 @@
 import { supabase } from '@/lib/supabase';
-import { BADGES, getBadgeByCode, normalizeBadgeCode } from '@/lib/badges';
+import { BADGES, STEP_BADGE_CODES, getBadgeByCode, normalizeBadgeCode } from '@/lib/badges';
 import type { BadgeCode } from '@/lib/badges';
 import { getDailySessionStreakDays } from '@/lib/daily-sessions';
 
@@ -587,14 +587,14 @@ export async function checkAndAwardBadges(userId: string) {
   } = getDailyStepBadgeStats(dailySteps);
 
   const stepBadgeSlugs = {
-    firstHealthConnectSync: 'first_health_connect_sync',
-    daily5000: 'steps_5000_day',
-    daily10000: 'steps_10000_day',
-    daily20000: 'steps_20000_day',
-    total10000: 'steps_10000_total',
-    total50000: 'steps_50000_total',
-    total100000: 'steps_100000_total',
-    firstStep: 'steps_first',
+    firstHealthConnectSync: STEP_BADGE_CODES.firstHealthConnectSync,
+    daily5000: STEP_BADGE_CODES.steps5000Day,
+    daily10000: STEP_BADGE_CODES.steps10000Day,
+    daily20000: STEP_BADGE_CODES.steps20000Day,
+    total10000: STEP_BADGE_CODES.steps10000Total,
+    total50000: STEP_BADGE_CODES.steps50000Total,
+    total100000: STEP_BADGE_CODES.steps100000Total,
+    firstStep: STEP_BADGE_CODES.stepsFirst,
   } as const;
 
   const badgesToAward: BadgeCode[] = [];
@@ -642,7 +642,7 @@ export async function checkAndAwardBadges(userId: string) {
   if (totalStepsCount >= 100000) badgesToAward.push(stepBadgeSlugs.total100000);
 
   if (maxDailySteps > 0) badgesToAward.push(stepBadgeSlugs.firstStep);
-  if (rollingWeeklySteps >= 50000) badgesToAward.push('weekly_steps_50000');
+  if (rollingWeeklySteps >= 50000) badgesToAward.push(STEP_BADGE_CODES.weekly50000);
 
   if (distinctSportsCount >= 3) badgesToAward.push('three_sports');
   if (distinctSportsCount >= 5) badgesToAward.push('five_sports');

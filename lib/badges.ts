@@ -55,19 +55,31 @@ export type UserBadge = {
   unlocked_at?: string | null;
 };
 
+export const STEP_BADGE_CODES = {
+  firstHealthConnectSync: 'first_health_connect_sync',
+  stepsFirst: 'steps_first',
+  steps5000Day: 'steps_5000_day',
+  steps10000Day: 'steps_10000_day',
+  steps20000Day: 'steps_20000_day',
+  steps10000Total: 'steps_10000_total',
+  steps50000Total: 'steps_50000_total',
+  steps100000Total: 'steps_100000_total',
+  weekly50000: 'weekly_steps_50000',
+} as const;
+
 const LEGACY_BADGE_CODE_MAP: Record<string, BadgeCode> = {
-  first_health_connect_sync: 'first_health_connect_sync',
+  first_health_connect_sync: STEP_BADGE_CODES.firstHealthConnectSync,
   steps_5000: 'steps_5000_day',
   steps_10000: 'steps_10000_day',
   steps_20000: 'steps_20000_day',
-  steps_5000_day: 'steps_5000_day',
-  steps_10000_day: 'steps_10000_day',
-  steps_20000_day: 'steps_20000_day',
-  steps_10000_total: 'steps_10000_total',
-  steps_50000_total: 'steps_50000_total',
-  steps_100000_total: 'steps_100000_total',
-  steps_first: 'steps_first',
-  weekly_steps_50000: 'weekly_steps_50000',
+  steps_5000_day: STEP_BADGE_CODES.steps5000Day,
+  steps_10000_day: STEP_BADGE_CODES.steps10000Day,
+  steps_20000_day: STEP_BADGE_CODES.steps20000Day,
+  steps_10000_total: STEP_BADGE_CODES.steps10000Total,
+  steps_50000_total: STEP_BADGE_CODES.steps50000Total,
+  steps_100000_total: STEP_BADGE_CODES.steps100000Total,
+  steps_first: STEP_BADGE_CODES.stepsFirst,
+  weekly_steps_50000: STEP_BADGE_CODES.weekly50000,
   'first-step': 'first_activity',
   'actyv-regular': 'five_activities',
   'actyv-motivated': 'ten_activities',
