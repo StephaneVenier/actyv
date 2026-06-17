@@ -201,58 +201,144 @@ function getMonthStartIsoDate(date = new Date()) {
   return getLocalIsoDate(new Date(date.getFullYear(), date.getMonth(), 1));
 }
 
+type SafeQueryResult<T> = {
+  data: T | null;
+  error: unknown | null;
+};
+
+async function safeQuery<T>(
+  label: string,
+  promise: Promise<{ data: T | null; error: unknown | null }>,
+  fallback: T | null = null
+): Promise<SafeQueryResult<T>> {
+  try {
+    const result = await promise;
+    if (result.error) {
+      console.error(`Erreur statistiques ${label} :`, result.error);
+    }
+
+    return {
+      data: (result.data as T | null) ?? fallback,
+      error: result.error,
+    };
+  } catch (error) {
+    console.error(`Exception statistiques ${label} :`, error);
+    return {
+      data: fallback,
+      error,
+    };
+  }
+}
+
 /**
  * Centralise les statistiques utilisateur pour servir la page Statistiques
  * et, à terme, les futures règles de badges sans recalcule par écran.
  */
 export async function loadUserStatistics(userId: string, userEmail: string | null) {
-  const [profileResponse, activitiesResponse, interactionsGivenResponse, challengesResponse, participantsResponse, membersResponse, workoutHistoryResponse, trainingProgramsResponse, trainingProgramCompletionsResponse, trainingSessionsResponse, dailyStepsResponse, xpEventsResponse] =
-    await Promise.all([
-      supabase.from('profiles').select('id, email, username, level, total_xp').eq('id', userId).maybeSingle(),
+  const [
+    profileResponse,
+    activitiesResponse,
+    interactionsGivenResponse,
+    challengesResponse,
+    participantsResponse,
+    membersResponse,
+    workoutHistoryResponse,
+    trainingProgramsResponse,
+    trainingProgramCompletionsResponse,
+    trainingSessionsResponse,
+    dailyStepsResponse,
+    dailySessionCompletionsResponse,
+    xpEventsResponse,
+  ] = await Promise.all([
+    safeQuery('profiles', supabase.from('profiles').select('id, email, username, level, total_xp').eq('id', userId).maybeSingle()),
+    safeQuery(
+      'activities',
       supabase
         .from('activities')
         .select('id, sport, distance_km, duration_minutes, unit_type, unit_value, created_at')
         .or(`user_id.eq.${userId}${userEmail ? `,user_email.eq.${userEmail}` : ''}`),
+      []
+    ),
+    safeQuery(
+      'activity_interactions',
       supabase
         .from('activity_interactions')
         .select('id, type, created_at')
         .eq('user_id', userId)
         .in('type', ['like', 'boost']),
-      supabase.from('challenges').select('id, created_by, is_deleted').eq('created_by', userId),
+      []
+    ),
+    safeQuery('challenges', supabase.from('challenges').select('id, created_by, is_deleted').eq('created_by', userId), []),
+    safeQuery(
+      'challenge_participants',
       supabase.from('challenge_participants').select('challenge_id, joined_at').eq('user_id', userId),
-      userEmail
-        ? supabase.from('challenge_members').select('challenge_id, user_id, user_email, joined_at').or(`user_id.eq.${userId},user_email.eq.${userEmail}`)
-        : supabase.from('challenge_members').select('challenge_id, user_id, user_email, joined_at').eq('user_id', userId),
+      []
+    ),
+    userEmail
+      ? safeQuery(
+          'challenge_members',
+          supabase
+            .from('challenge_members')
+            .select('challenge_id, user_id, user_email, joined_at')
+            .or(`user_id.eq.${userId},user_email.eq.${userEmail}`),
+          []
+        )
+      : safeQuery(
+          'challenge_members',
+          supabase.from('challenge_members').select('challenge_id, user_id, user_email, joined_at').eq('user_id', userId),
+          []
+        ),
+    safeQuery(
+      'workout_sessions_history',
       supabase
         .from('workout_sessions_history')
         .select('id, workout_name, completed_at, duration_seconds, estimated_calories, total_volume, completed_exercises')
         .eq('user_id', userId)
         .order('completed_at', { ascending: false }),
-      supabase
-        .from('training_programs')
-        .select('id, copied_from_program_id, visibility, created_at')
-        .eq('user_id', userId),
+      []
+    ),
+    safeQuery(
+      'training_programs',
+      supabase.from('training_programs').select('id, copied_from_program_id, visibility, created_at').eq('user_id', userId),
+      []
+    ),
+    safeQuery(
+      'training_program_completions',
       supabase
         .from('training_program_completions')
         .select('id, program_id, program_session_id, session_id, completed_at')
         .eq('user_id', userId),
-      supabase.from('training_sessions').select('id, created_at').eq('user_id', userId),
+      []
+    ),
+    safeQuery('training_sessions', supabase.from('training_sessions').select('id, created_at').eq('user_id', userId), []),
+    safeQuery(
+      'daily_steps',
       supabase
         .from('daily_steps')
         .select('step_date, steps_count, source, synced_at')
         .eq('user_id', userId)
         .order('step_date', { ascending: false }),
+      []
+    ),
+    safeQuery(
+      'daily_session_completions',
       supabase
         .from('daily_session_completions')
         .select('scheduled_for')
         .eq('user_id', userId)
         .order('scheduled_for', { ascending: false }),
+      []
+    ),
+    safeQuery(
+      'xp_events',
       supabase
         .from('xp_events')
         .select('event_type, created_at')
         .eq('user_id', userId)
         .in('event_type', ['challenge_completed', 'program_completed']),
-    ]);
+      []
+    ),
+  ]);
 
   const profile = profileResponse.data as ProfileRow | null;
   const activities = (activitiesResponse.data as ActivityRow[] | null) || [];
