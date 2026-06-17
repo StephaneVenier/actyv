@@ -9,7 +9,7 @@ import {
   formatDailySessionDateLabel,
   getBestDailySessionStreakDays,
   getDailySessionStreakDays,
-  getTodayIsoDate,
+  getOrCreateDailySessionForDate,
   isDailySessionForToday,
   type DailySession,
   type DailySessionCompletion,
@@ -300,8 +300,6 @@ export default function HomePage() {
 
       const userEmail = user?.email || null;
       const userId = user?.id || null;
-      const todayIso = getTodayIsoDate();
-
       if (userId) {
         const [todayStepsEntry, weeklyStepsSummary, monthlyStepsSummary, bestDailySteps] = await Promise.all([
           getTodaySteps(userId),
@@ -398,16 +396,10 @@ export default function HomePage() {
 
       setLoadingDashboard(false);
 
-      const nextDailySessionResponse = await supabase
-        .from('daily_sessions')
-        .select('id, session_id, scheduled_for, bonus_xp, created_at')
-        .gte('scheduled_for', todayIso)
-        .order('scheduled_for', { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const dailySessionResult = await getOrCreateDailySessionForDate();
 
-      if (nextDailySessionResponse.error) {
-        console.error('Erreur chargement seance du jour accueil :', nextDailySessionResponse.error);
+      if (dailySessionResult.error) {
+        console.error('Erreur chargement seance du jour accueil :', dailySessionResult.error);
         setDailySession(null);
         setDailySessionTraining(null);
         setDailySessionCompletion(null);
@@ -416,7 +408,7 @@ export default function HomePage() {
         setDailySessionStreakDays(0);
         setDailySessionBestStreakDays(0);
       } else {
-        const nextDailySession = (nextDailySessionResponse.data as DailySession | null) || null;
+        const nextDailySession = dailySessionResult.dailySession;
         setDailySession(nextDailySession);
 
         if (!nextDailySession) {
@@ -426,6 +418,9 @@ export default function HomePage() {
           setDailySessionEstimatedDuration(null);
           setDailySessionStreakDays(0);
           setDailySessionBestStreakDays(0);
+          if (dailySessionResult.message) {
+            console.warn('Séance du jour indisponible:', dailySessionResult.message);
+          }
         } else {
           const [{ data: sessionRow, error: sessionError }, completionResponse, streakResponse] = await Promise.all([
             supabase

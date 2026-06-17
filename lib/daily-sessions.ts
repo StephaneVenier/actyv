@@ -1,3 +1,5 @@
+import { supabase } from '@/lib/supabase';
+
 export type DailySession = {
   id: string;
   session_id: string;
@@ -15,6 +17,13 @@ export type DailySessionCompletion = {
   scheduled_for: string;
   completed_at: string;
   created_at: string | null;
+};
+
+export type DailySessionLookupResult = {
+  dailySession: DailySession | null;
+  created: boolean;
+  message: string | null;
+  error: unknown | null;
 };
 
 export function getTodayIsoDate() {
@@ -43,6 +52,63 @@ export function formatDailySessionDateLabel(dateString: string | null | undefine
 
 export function isDailySessionForToday(dateString: string | null | undefined) {
   return dateString === getTodayIsoDate();
+}
+
+export async function getOrCreateDailySessionForDate(
+  scheduledFor: string = getTodayIsoDate()
+): Promise<DailySessionLookupResult> {
+  const existingResponse = await supabase
+    .from('daily_sessions')
+    .select('id, session_id, scheduled_for, bonus_xp, created_at')
+    .eq('scheduled_for', scheduledFor)
+    .maybeSingle();
+
+  if (existingResponse.error) {
+    return {
+      dailySession: null,
+      created: false,
+      message: null,
+      error: existingResponse.error,
+    };
+  }
+
+  if (existingResponse.data) {
+    return {
+      dailySession: existingResponse.data as DailySession,
+      created: false,
+      message: null,
+      error: null,
+    };
+  }
+
+  const { data, error } = await supabase.rpc('ensure_daily_session_for_date', {
+    p_scheduled_for: scheduledFor,
+  });
+
+  if (error) {
+    return {
+      dailySession: null,
+      created: false,
+      message: null,
+      error,
+    };
+  }
+
+  if (!data) {
+    return {
+      dailySession: null,
+      created: false,
+      message: "Aucune seance disponible pour generer la seance du jour.",
+      error: null,
+    };
+  }
+
+  return {
+    dailySession: data as DailySession,
+    created: true,
+    message: null,
+    error: null,
+  };
 }
 
 function parseIsoLocalDate(dateString: string | null | undefined) {

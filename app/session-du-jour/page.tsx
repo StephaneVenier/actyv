@@ -10,7 +10,7 @@ import {
   formatDailySessionDateLabel,
   getBestDailySessionStreakDays,
   getDailySessionStreakDays,
-  getTodayIsoDate,
+  getOrCreateDailySessionForDate,
   isDailySessionForToday,
   type DailySession,
   type DailySessionCompletion,
@@ -53,40 +53,17 @@ export default function DailySessionPage() {
       setMessage(null);
 
       try {
-        const todayIso = getTodayIsoDate();
         const {
           data: { user },
         } = await supabase.auth.getUser();
 
-        let selectedDailySession: DailySession | null = null;
+        const dailySessionResult = await getOrCreateDailySessionForDate();
 
-        const todayResponse = await supabase
-          .from('daily_sessions')
-          .select('id, session_id, scheduled_for, bonus_xp, created_at')
-          .eq('scheduled_for', todayIso)
-          .maybeSingle();
-
-        if (todayResponse.error) {
-          console.error('Erreur chargement seance du jour :', todayResponse.error);
-        } else {
-          selectedDailySession = (todayResponse.data as DailySession | null) || null;
+        if (dailySessionResult.error) {
+          console.error('Erreur chargement seance du jour :', dailySessionResult.error);
         }
 
-        if (!selectedDailySession) {
-          const nextResponse = await supabase
-            .from('daily_sessions')
-            .select('id, session_id, scheduled_for, bonus_xp, created_at')
-            .gte('scheduled_for', todayIso)
-            .order('scheduled_for', { ascending: true })
-            .limit(1)
-            .maybeSingle();
-
-          if (nextResponse.error) {
-            console.error('Erreur chargement prochaine seance du jour :', nextResponse.error);
-          } else {
-            selectedDailySession = (nextResponse.data as DailySession | null) || null;
-          }
-        }
+        const selectedDailySession = dailySessionResult.dailySession;
 
         if (!selectedDailySession) {
           setDailySession(null);
@@ -95,7 +72,7 @@ export default function DailySessionPage() {
           setCompletion(null);
           setStreakDays(0);
           setBestStreakDays(0);
-          setMessage("Aucune seance du jour n'est programmee pour le moment.");
+          setMessage(dailySessionResult.message || "Aucune seance du jour n'est programmee pour le moment.");
           return;
         }
 
