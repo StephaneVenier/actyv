@@ -427,6 +427,15 @@ img {
   --sport-dark-border: rgba(253, 230, 138, 0.2);
 }
 
+.sport-badge--musculation {
+  --sport-bg: rgba(71, 85, 105, 0.14);
+  --sport-color: #334155;
+  --sport-border: rgba(71, 85, 105, 0.18);
+  --sport-dark-bg: rgba(148, 163, 184, 0.16);
+  --sport-dark-color: #e2e8f0;
+  --sport-dark-border: rgba(203, 213, 225, 0.2);
+}
+
 .sport-badge--fitness {
   --sport-bg: rgba(30, 107, 214, 0.12);
   --sport-color: #1d4ed8;

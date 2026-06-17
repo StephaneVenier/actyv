@@ -5,10 +5,11 @@ export const sports = [
   'Marche',
   'Vélo',
   'Fitness',
+  'Musculation',
   'Trail',
   'Randonnée',
   'Natation',
-  'Autre'
+  'Autre',
 ];
 
 export const sampleChallenges = [
@@ -21,7 +22,7 @@ export const sampleChallenges = [
     sessions: 68,
     progress: 72,
     nextSession: 'Footing 35 min en endurance',
-    code: 'ACTYV45'
+    code: 'ACTYV45',
   },
   {
     id: 'marche-bureau',
@@ -32,8 +33,8 @@ export const sampleChallenges = [
     sessions: 42,
     progress: 61,
     nextSession: 'Marche active 30 min',
-    code: 'MIDI30'
-  }
+    code: 'MIDI30',
+  },
 ];
 
 export const sampleFeed = [
@@ -41,20 +42,20 @@ export const sampleFeed = [
     author: 'Julie',
     activity: '5,2 km · 33 min',
     text: 'Sortie difficile mais faite 💪',
-    reactions: '👍 3 · 🔥 1'
+    reactions: '👍 3 · 🔥 1',
   },
   {
     author: 'Karim',
     activity: 'Renforcement · 20 min',
     text: 'Séance maison validée',
-    reactions: '👏 2'
+    reactions: '👏 2',
   },
   {
     author: 'Sophie',
     activity: '4,1 km · 28 min',
     text: 'Jambes lourdes mais ça avance.',
-    reactions: '👍 1 · 💪 2'
-  }
+    reactions: '👍 1 · 💪 2',
+  },
 ];
 
 export function formatSportLabel(sport: string | null | undefined, fallback = 'Sport') {

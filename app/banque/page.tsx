@@ -28,6 +28,7 @@ type BanqueTab = 'sessions' | 'programmes';
 type BanqueSportFilter =
   | 'Tous'
   | 'Fitness'
+  | 'Musculation'
   | 'Renforcement'
   | 'Course'
   | 'Trail'
@@ -43,6 +44,7 @@ type BanqueDifficultyFilter = 'Toutes' | 'Débutant' | 'Intermédiaire' | 'Avanc
 const SPORT_FILTER_OPTIONS: BanqueSportFilter[] = [
   'Tous',
   'Fitness',
+  'Musculation',
   'Renforcement',
   'Course',
   'Trail',
@@ -76,7 +78,26 @@ function getSportFilterValue(sport: string | null | undefined): BanqueSportFilte
 
   if (!normalized) return 'Autre';
   if (normalized.includes('mobilit')) return 'Mobilite';
-  if (normalized.includes('renforcement') || normalized.includes('muscu') || normalized.includes('musculation') || normalized.includes('force')) {
+  if (
+    normalized.includes('muscul') ||
+    normalized.includes('muscu') ||
+    normalized.includes('force') ||
+    normalized.includes('strength') ||
+    normalized.includes('halt') ||
+    normalized.includes('halter') ||
+    normalized.includes('barre') ||
+    normalized.includes('machine') ||
+    normalized.includes('salle') ||
+    normalized.includes('charges')
+  ) {
+    return 'Musculation';
+  }
+  if (
+    normalized.includes('renforcement') ||
+    normalized.includes('renfo') ||
+    normalized.includes('conditioning') ||
+    normalized.includes('circuit')
+  ) {
     return 'Renforcement';
   }
   if (normalized.includes('fitness')) return 'Fitness';

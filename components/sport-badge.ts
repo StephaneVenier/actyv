@@ -3,6 +3,7 @@ type SportBadgeTone =
   | 'marche'
   | 'velo'
   | 'renforcement'
+  | 'musculation'
   | 'fitness'
   | 'hiit'
   | 'mobilite'
@@ -24,7 +25,8 @@ type SportBadgeConfig = {
 };
 
 const sportBadgeConfigs: SportBadgeConfig[] = [
-  { aliases: ['renforcement', 'muscu', 'musculation', 'force'], icon: '🏋', tone: 'renforcement' },
+  { aliases: ['renforcement', 'renfo', 'conditioning', 'circuit training'], icon: '💪', tone: 'renforcement' },
+  { aliases: ['musculation', 'muscu', 'force', 'strength', 'salle'], icon: '🏋', tone: 'musculation' },
   { aliases: ['fitness'], icon: '✦', tone: 'fitness' },
   { aliases: ['hiit'], icon: '⚡', tone: 'hiit' },
   { aliases: ['mobilite', 'mobilite douce'], icon: '✧', tone: 'mobilite' },
@@ -67,7 +69,7 @@ export function getSportBadgeMeta(sport: string | null | undefined, fallback = '
   }
 
   return {
-    icon: '◎',
+    icon: '◌',
     label,
     tone: 'other',
   };

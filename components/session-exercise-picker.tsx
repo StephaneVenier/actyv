@@ -182,7 +182,7 @@ export function SessionExercisePicker({
           <div className="session-exercise-picker-modal">
             <div className="session-exercise-picker-header">
               <div>
-                <span className="section-kicker">Banque fitness</span>
+                <span className="section-kicker">Banque d'exercices</span>
                 <h3>Choisir un exercice</h3>
               </div>
               <button type="button" className="button ghost" onClick={() => setIsOpen(false)}>
