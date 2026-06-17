@@ -1,145 +1,111 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { UserLevelBadge } from '@/components/user-level-badge';
-import {
-  formatEstimatedWorkoutCalories,
-  formatSessionVolumeKg,
-  getEstimatedWorkoutCalories,
-} from '@/lib/session-blocks';
 import { supabase } from '@/lib/supabase';
+import { loadUserStatistics, type UserStatisticsSummary } from '@/lib/user-statistics';
 
-type Profile = {
-  id: string;
-  email: string | null;
-  username: string | null;
-  level: number | null;
-};
-
-type WorkoutHistoryEntry = {
-  id: string;
-  workout_id: string | null;
-  workout_name: string;
-  completed_at: string;
-  duration_seconds: number | null;
-  estimated_calories: number | null;
-  total_volume: number | null;
-  completed_exercises: number | null;
-};
-
-type WorkoutExerciseHistoryEntry = {
-  id: string;
-  workout_id: string;
-  exercise_name: string;
-  block_type: 'reps' | 'duration' | 'distance' | 'free' | null;
-  sets_count: number | null;
-  reps: number | null;
-  duration_seconds: number | null;
-  distance: number | null;
-  charge_kg: number | null;
-  volume: number | null;
-  completed_at: string;
-};
-
-type Challenge = {
-  id: string;
-  created_by: string | null;
-};
-
-type ChallengeLink = {
-  challenge_id: string;
-};
-
-type ExerciseStatsCard = {
-  exerciseName: string;
-  completedCount: number;
-  lastCompletedAt: string | null;
-  maxChargeKg: number | null;
-  bestVolumeKg: number | null;
-  maxReps: number | null;
-  bestDurationSeconds: number | null;
-  progressionEntries: Array<{
-    id: string;
-    label: string;
-    rawValue: number;
-    formattedValue: string | null;
-  }>;
-  progressionMetricLabel: string | null;
-};
-
-function formatRelativeDate(dateString: string | null) {
-  if (!dateString) return 'recentement';
-
-  const date = new Date(dateString);
-  if (Number.isNaN(date.getTime())) return 'recentement';
-
-  const diffHours = Math.round((date.getTime() - Date.now()) / (1000 * 60 * 60));
-  const formatter = new Intl.RelativeTimeFormat('fr', { numeric: 'auto' });
-
-  if (Math.abs(diffHours) < 24) {
-    return formatter.format(diffHours, 'hour');
-  }
-
-  return formatter.format(Math.round(diffHours / 24), 'day');
+function formatNumber(value: number) {
+  return new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 0,
+  }).format(Math.max(0, Math.round(value || 0)));
 }
 
-function formatDurationLabel(durationSeconds: number | null | undefined) {
-  const normalizedSeconds = Number(durationSeconds);
-
-  if (!Number.isFinite(normalizedSeconds) || normalizedSeconds <= 0) {
-    return null;
-  }
-
-  const totalSeconds = Math.floor(normalizedSeconds);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return `${hours} h ${minutes.toString().padStart(2, '0')} min`;
-  }
-
-  if (minutes > 0) {
-    return `${minutes} min ${seconds.toString().padStart(2, '0')} sec`;
-  }
-
-  return `${seconds} sec`;
+function formatDistance(value: number) {
+  return `${new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits: 1,
+  }).format(Math.max(0, value || 0))} km`;
 }
 
-function formatChartDayLabel(dateString: string) {
-  const date = new Date(dateString);
-
-  if (Number.isNaN(date.getTime())) {
-    return '-';
+function formatDuration(totalMinutes: number) {
+  const normalizedMinutes = Math.max(0, Math.round(totalMinutes || 0));
+  if (normalizedMinutes < 60) {
+    return `${formatNumber(normalizedMinutes)} min`;
   }
 
+  const hours = Math.floor(normalizedMinutes / 60);
+  const minutes = normalizedMinutes % 60;
+  return `${hours} h ${minutes > 0 ? `${minutes.toString().padStart(2, '0')} min` : ''}`.trim();
+}
+
+function formatDurationFromSeconds(totalSeconds: number) {
+  return formatDuration((totalSeconds || 0) / 60);
+}
+
+function formatSteps(steps: number) {
+  return `${formatNumber(steps)} pas`;
+}
+
+function formatDateLabel(dateString: string) {
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return '-';
   return date.toLocaleDateString('fr-FR', {
     day: '2-digit',
-    month: '2-digit',
+    month: 'short',
   });
 }
 
-function buildChartPath(points: Array<{ x: number; y: number }>) {
-  if (points.length === 0) return '';
+function StatTile({
+  label,
+  value,
+  helper,
+}: {
+  label: string;
+  value: string;
+  helper?: string;
+}) {
+  return (
+    <article className="stats-metric-card">
+      <span>{label}</span>
+      <strong>{value}</strong>
+      {helper ? <small>{helper}</small> : null}
+    </article>
+  );
+}
 
-  return points
-    .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
-    .join(' ');
+function StatsSection({
+  kicker,
+  title,
+  subtitle,
+  children,
+}: {
+  kicker: string;
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+}) {
+  return (
+    <article className="card stats-section-card">
+      <div className="stats-section-header">
+        <div>
+          <span className="section-kicker">{kicker}</span>
+          <h2>{title}</h2>
+          {subtitle ? <p className="muted">{subtitle}</p> : null}
+        </div>
+      </div>
+      {children}
+    </article>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="challenge-state challenge-state--compact">
+      <p>{message}</p>
+    </div>
+  );
 }
 
 export default function StatsPage() {
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [workoutHistory, setWorkoutHistory] = useState<WorkoutHistoryEntry[]>([]);
-  const [exerciseHistory, setExerciseHistory] = useState<WorkoutExerciseHistoryEntry[]>([]);
-  const [createdChallengesCount, setCreatedChallengesCount] = useState(0);
-  const [joinedChallengesCount, setJoinedChallengesCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
-  const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
+  const [summary, setSummary] = useState<UserStatisticsSummary | null>(null);
 
   useEffect(() => {
+    let isActive = true;
+
     const loadStats = async () => {
       setLoading(true);
       setMessage(null);
@@ -150,678 +116,278 @@ export default function StatsPage() {
           error: userError,
         } = await supabase.auth.getUser();
 
+        if (!isActive) return;
+
         if (userError || !user) {
           if (userError) {
             console.error('Erreur chargement user statistiques :', userError);
           }
+          setSummary(null);
           setMessage('Connecte-toi pour voir tes statistiques.');
-          setProfile(null);
-          setWorkoutHistory([]);
-          setExerciseHistory([]);
-          setCreatedChallengesCount(0);
-          setJoinedChallengesCount(0);
           return;
         }
 
-        const [profileResponse, workoutHistoryResponse, exerciseHistoryResponse, challengesResponse, membersResponse, legacyMembersResponse, participantsResponse] =
-          await Promise.all([
-            supabase.from('profiles').select('id, email, username, level').eq('id', user.id).maybeSingle(),
-            supabase
-              .from('workout_sessions_history')
-              .select(
-                'id, workout_id, workout_name, completed_at, duration_seconds, estimated_calories, total_volume, completed_exercises'
-              )
-              .eq('user_id', user.id)
-              .order('completed_at', { ascending: false }),
-            supabase
-              .from('workout_exercise_history')
-              .select(
-                'id, workout_id, exercise_name, block_type, sets_count, reps, duration_seconds, distance, charge_kg, volume, completed_at'
-              )
-              .eq('user_id', user.id)
-              .order('completed_at', { ascending: true }),
-            supabase.from('challenges').select('id, created_by').eq('created_by', user.id).eq('is_deleted', false),
-            user.id
-              ? supabase.from('challenge_members').select('challenge_id, user_id, user_email').eq('user_id', user.id)
-              : Promise.resolve({ data: [], error: null }),
-            user.email
-              ? supabase.from('challenge_members').select('challenge_id, user_id, user_email').eq('user_email', user.email)
-              : Promise.resolve({ data: [], error: null }),
-            supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
-          ]);
+        const result = await loadUserStatistics(user.id, user.email || null);
+        if (!isActive) return;
 
-        if (profileResponse.error) {
-          console.error('Erreur chargement profil statistiques :', profileResponse.error);
-        }
-
-        setProfile(
-          (profileResponse.data as Profile | null) || {
-            id: user.id,
-            email: user.email || null,
-            username: null,
-            level: 1,
-          }
-        );
-
-        if (workoutHistoryResponse.error) {
-          console.error('Erreur chargement historique seances statistiques :', workoutHistoryResponse.error);
-          setWorkoutHistory([]);
-        } else {
-          setWorkoutHistory((workoutHistoryResponse.data as WorkoutHistoryEntry[] | null) || []);
-        }
-
-        if (exerciseHistoryResponse.error) {
-          console.error('Erreur chargement historique exercices statistiques :', exerciseHistoryResponse.error);
-          setExerciseHistory([]);
-        } else {
-          setExerciseHistory((exerciseHistoryResponse.data as WorkoutExerciseHistoryEntry[] | null) || []);
-        }
-
-        if (challengesResponse.error) {
-          console.error('Erreur chargement challenges crees statistiques :', challengesResponse.error);
-          setCreatedChallengesCount(0);
-        } else {
-          setCreatedChallengesCount(((challengesResponse.data as Challenge[] | null) || []).length);
-        }
-
-        if (membersResponse.error) {
-          console.error('Erreur chargement challenge_members statistiques :', membersResponse.error);
-        }
-        if (legacyMembersResponse.error) {
-          console.error('Erreur chargement challenge_members legacy statistiques :', legacyMembersResponse.error);
-        }
-        if (participantsResponse.error) {
-          console.error('Erreur chargement challenge_participants statistiques :', participantsResponse.error);
-        }
-
-        let joinedChallengeIdsFromMembers =
-          ((membersResponse.data as ChallengeLink[] | null) || []).map((entry) => entry.challenge_id);
-
-        joinedChallengeIdsFromMembers = [
-          ...joinedChallengeIdsFromMembers,
-          ...(((legacyMembersResponse.data as ChallengeLink[] | null) || []).map(
-            (entry) => entry.challenge_id
-          )),
-        ];
-
-        const joinedChallengeIds = new Set<string>([
-          ...joinedChallengeIdsFromMembers,
-          ...(((participantsResponse.data as ChallengeLink[] | null) || []).map((entry) => entry.challenge_id)),
-        ]);
-        setJoinedChallengesCount(joinedChallengeIds.size);
+        setSummary(result);
+      } catch (error) {
+        console.error('Erreur chargement statistiques :', error);
+        if (!isActive) return;
+        setSummary(null);
+        setMessage('Impossible de charger tes statistiques pour le moment.');
       } finally {
-        setLoading(false);
+        if (isActive) {
+          setLoading(false);
+        }
       }
     };
 
     loadStats();
-  }, []);
 
-  const totalWorkouts = workoutHistory.length;
-  const totalDurationSeconds = workoutHistory.reduce(
-    (sum, entry) => sum + (Number.isFinite(Number(entry.duration_seconds)) ? Number(entry.duration_seconds) : 0),
-    0
-  );
-  const totalCalories = workoutHistory.reduce(
-    (sum, entry) => sum + (Number.isFinite(Number(entry.estimated_calories)) ? Number(entry.estimated_calories) : 0),
-    0
-  );
-  const totalVolume = workoutHistory.reduce(
-    (sum, entry) => sum + (Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0),
-    0
-  );
-
-  const progressionData = useMemo(() => {
-    const sortedEntries = [...workoutHistory]
-      .sort((left, right) => new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime())
-      .slice(-10);
-
-    const metricCandidates = sortedEntries.map((entry) => ({
-      id: entry.id,
-      label: formatChartDayLabel(entry.completed_at),
-      volume: Number.isFinite(Number(entry.total_volume)) ? Number(entry.total_volume) : 0,
-      duration: Number.isFinite(Number(entry.duration_seconds)) ? Number(entry.duration_seconds) : 0,
-      calories:
-        Number.isFinite(Number(entry.estimated_calories)) && Number(entry.estimated_calories) > 0
-          ? Number(entry.estimated_calories)
-          : 0,
-    }));
-
-    const metricKey = metricCandidates.some((entry) => entry.volume > 0)
-      ? 'volume'
-      : metricCandidates.some((entry) => entry.duration > 0)
-        ? 'duration'
-        : metricCandidates.some((entry) => entry.calories > 0)
-          ? 'calories'
-          : null;
-
-    if (!metricKey) {
-      return { entries: [] as Array<{ id: string; label: string; rawValue: number; formattedValue: string | null }>, metricLabel: null as string | null };
-    }
-
-    return {
-      entries: metricCandidates.map((entry) => {
-        const rawValue =
-          metricKey === 'volume' ? entry.volume : metricKey === 'duration' ? entry.duration : entry.calories;
-        return {
-          id: entry.id,
-          label: entry.label,
-          rawValue,
-          formattedValue:
-            metricKey === 'volume'
-              ? formatSessionVolumeKg(rawValue)
-              : metricKey === 'duration'
-                ? formatDurationLabel(rawValue)
-                : formatEstimatedWorkoutCalories(rawValue),
-        };
-      }),
-      metricLabel:
-        metricKey === 'volume' ? 'Volume total' : metricKey === 'duration' ? 'Duree totale' : 'Calories estimees',
+    return () => {
+      isActive = false;
     };
-  }, [workoutHistory]);
-
-  const chartMetricEntries = progressionData.entries;
-  const chartMaxValue = useMemo(
-    () => Math.max(...chartMetricEntries.map((entry) => entry.rawValue), 0),
-    [chartMetricEntries]
-  );
-  const chartPoints = useMemo(() => {
-    if (chartMetricEntries.length < 2 || chartMaxValue <= 0) {
-      return [] as Array<{ x: number; y: number; label: string; formattedValue: string | null }>;
-    }
-
-    const stepX = chartMetricEntries.length === 1 ? 50 : 100 / (chartMetricEntries.length - 1);
-    return chartMetricEntries.map((entry, index) => ({
-      x: Number((index * stepX).toFixed(2)),
-      y: Number((100 - (entry.rawValue / chartMaxValue) * 100).toFixed(2)),
-      label: entry.label,
-      formattedValue: entry.formattedValue,
-    }));
-  }, [chartMetricEntries, chartMaxValue]);
-  const chartPath = useMemo(() => buildChartPath(chartPoints), [chartPoints]);
-
-  const exerciseStatsCards = useMemo<ExerciseStatsCard[]>(() => {
-    if (exerciseHistory.length === 0) {
-      return [];
-    }
-
-    const groupedEntries = new Map<string, WorkoutExerciseHistoryEntry[]>();
-    exerciseHistory.forEach((entry) => {
-      const exerciseName = entry.exercise_name.trim();
-      if (!exerciseName) return;
-      const key = exerciseName.toLowerCase();
-      const currentEntries = groupedEntries.get(key) || [];
-      currentEntries.push(entry);
-      groupedEntries.set(key, currentEntries);
-    });
-
-    return [...groupedEntries.entries()]
-      .map(([, entries]) => {
-        const sortedEntries = [...entries].sort(
-          (left, right) => new Date(left.completed_at).getTime() - new Date(right.completed_at).getTime()
-        );
-        const latestEntry = sortedEntries[sortedEntries.length - 1] || null;
-        const exerciseName = latestEntry?.exercise_name || entries[0]?.exercise_name || 'Exercice';
-        const maxChargeKg = sortedEntries.reduce((best, entry) => Math.max(best, Number(entry.charge_kg || 0)), 0);
-        const bestVolumeKg = sortedEntries.reduce((best, entry) => Math.max(best, Number(entry.volume || 0)), 0);
-        const maxReps = sortedEntries.reduce((best, entry) => Math.max(best, Number(entry.reps || 0)), 0);
-        const bestDurationSeconds = sortedEntries.reduce(
-          (best, entry) => Math.max(best, Number(entry.duration_seconds || 0)),
-          0
-        );
-
-        const progressionCandidates = sortedEntries.slice(-10).map((entry) => ({
-          id: entry.id,
-          label: formatChartDayLabel(entry.completed_at),
-          volume: Number(entry.volume || 0),
-          charge: Number(entry.charge_kg || 0),
-          reps: Number(entry.reps || 0),
-          duration: Number(entry.duration_seconds || 0),
-        }));
-
-        const metricKey = progressionCandidates.some((entry) => entry.volume > 0)
-          ? 'volume'
-          : progressionCandidates.some((entry) => entry.charge > 0)
-            ? 'charge'
-            : progressionCandidates.some((entry) => entry.reps > 0)
-              ? 'reps'
-              : progressionCandidates.some((entry) => entry.duration > 0)
-                ? 'duration'
-                : null;
-
-        return {
-          exerciseName,
-          completedCount: sortedEntries.length,
-          lastCompletedAt: latestEntry?.completed_at || null,
-          maxChargeKg: maxChargeKg > 0 ? maxChargeKg : null,
-          bestVolumeKg: bestVolumeKg > 0 ? bestVolumeKg : null,
-          maxReps: maxReps > 0 ? maxReps : null,
-          bestDurationSeconds: bestDurationSeconds > 0 ? bestDurationSeconds : null,
-          progressionEntries:
-            metricKey === null
-              ? []
-              : progressionCandidates.map((entry) => {
-                  const rawValue =
-                    metricKey === 'volume'
-                      ? entry.volume
-                      : metricKey === 'charge'
-                        ? entry.charge
-                        : metricKey === 'reps'
-                          ? entry.reps
-                          : entry.duration;
-
-                  return {
-                    id: entry.id,
-                    label: entry.label,
-                    rawValue,
-                    formattedValue:
-                      metricKey === 'volume'
-                        ? formatSessionVolumeKg(rawValue)
-                        : metricKey === 'charge'
-                          ? `${rawValue} kg`
-                          : metricKey === 'reps'
-                            ? `${rawValue} reps`
-                            : formatDurationLabel(rawValue),
-                  };
-                }),
-          progressionMetricLabel:
-            metricKey === 'volume'
-              ? 'Volume'
-              : metricKey === 'charge'
-                ? 'Charge'
-                : metricKey === 'reps'
-                  ? 'Reps'
-                  : metricKey === 'duration'
-                    ? 'Duree'
-                    : null,
-        };
-      })
-      .sort((left, right) => left.exerciseName.localeCompare(right.exerciseName, 'fr'));
-  }, [exerciseHistory]);
-
-  useEffect(() => {
-    if (exerciseStatsCards.length === 0) {
-      setSelectedExerciseName(null);
-      return;
-    }
-
-    if (!selectedExerciseName || !exerciseStatsCards.some((entry) => entry.exerciseName === selectedExerciseName)) {
-      setSelectedExerciseName(exerciseStatsCards[0].exerciseName);
-    }
-  }, [exerciseStatsCards, selectedExerciseName]);
-
-  const selectedExerciseStats =
-    exerciseStatsCards.find((entry) => entry.exerciseName === selectedExerciseName) || exerciseStatsCards[0] || null;
-  const selectedExerciseChartEntries = selectedExerciseStats?.progressionEntries || [];
-  const selectedExerciseSingleEntry =
-    selectedExerciseChartEntries.length === 1 ? selectedExerciseChartEntries[0] : null;
-  const selectedExerciseChartMaxValue = useMemo(
-    () => Math.max(...selectedExerciseChartEntries.map((entry) => entry.rawValue), 0),
-    [selectedExerciseChartEntries]
-  );
-  const selectedExerciseChartPoints = useMemo(() => {
-    if (selectedExerciseChartEntries.length < 2 || selectedExerciseChartMaxValue <= 0) {
-      return [] as Array<{ x: number; y: number; label: string; formattedValue: string | null }>;
-    }
-
-    const stepX = selectedExerciseChartEntries.length === 1 ? 50 : 100 / (selectedExerciseChartEntries.length - 1);
-    return selectedExerciseChartEntries.map((entry, index) => ({
-      x: Number((index * stepX).toFixed(2)),
-      y: Number((100 - (entry.rawValue / selectedExerciseChartMaxValue) * 100).toFixed(2)),
-      label: entry.label,
-      formattedValue: entry.formattedValue,
-    }));
-  }, [selectedExerciseChartEntries, selectedExerciseChartMaxValue]);
-  const selectedExerciseChartPath = useMemo(
-    () => buildChartPath(selectedExerciseChartPoints),
-    [selectedExerciseChartPoints]
-  );
-
-  const recentWorkouts = workoutHistory.slice(0, 8);
-  const topPersonalRecords = exerciseStatsCards.slice(0, 8);
+  }, []);
 
   if (loading) {
     return (
       <AppShell>
-        <div className="card">
-          <h1>Statistiques</h1>
-          <p>Chargement...</p>
+        <div className="stats-page">
+          <section className="card stats-hero-card">
+            <span className="section-kicker">Statistiques</span>
+            <h1>Mes statistiques</h1>
+            <p className="muted">Chargement de tes donnees d'entrainement...</p>
+          </section>
         </div>
       </AppShell>
     );
   }
 
-  return (
-    <AppShell>
-      <div className="profile-page">
-        <section className="card profile-hero-card">
-          <div className="profile-hero-main">
-            <div className="profile-hero-copy">
+  if (!summary) {
+    return (
+      <AppShell>
+        <div className="stats-page">
+          <section className="card stats-hero-card">
+            <div className="stats-hero-copy">
               <span className="section-kicker">Statistiques</span>
-              <div className="profile-hero-heading">
+              <div className="stats-hero-title-row">
                 <h1>Mes statistiques</h1>
-                <UserLevelBadge level={profile?.level} />
+                <UserLevelBadge level={1} />
               </div>
               <p className="muted">
-                Toutes tes donnees d&apos;entrainement, tes records et ta progression au meme endroit.
+                Toutes tes donnees d'entrainement, tes pas, tes programmes et tes challenges au meme endroit.
               </p>
             </div>
+          </section>
 
-            <div className="profile-actions">
-              <Link href="/profile" className="button ghost">
-                Retour au profil
-              </Link>
-              <Link href="/sessions" className="button primary">
-                Voir mes seances
-              </Link>
+          {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
+          {!message ? <EmptyState message="Aucune statistique disponible pour le moment." /> : null}
+        </div>
+      </AppShell>
+    );
+  }
+
+  const todayProgress = Math.min((summary.movement.todaySteps / 10000) * 100, 100);
+
+  return (
+    <AppShell>
+      <div className="stats-page">
+        <section className="card stats-hero-card">
+          <div className="stats-hero-copy">
+            <span className="section-kicker">Statistiques</span>
+            <div className="stats-hero-title-row">
+              <h1>Mes statistiques</h1>
+              <UserLevelBadge level={summary.profile.level} />
             </div>
+            <p className="muted">
+              Vue compacte de toute ton activite Actyv. Cette page sert maintenant de base de lecture pour les
+              prochains badges.
+            </p>
+          </div>
+
+          <div className="stats-hero-meta">
+            <div className="stats-hero-meta__chip">
+              <span>XP total</span>
+              <strong>{formatNumber(summary.profile.totalXp)} XP</strong>
+            </div>
+            <div className="stats-hero-meta__chip">
+              <span>Niveau</span>
+              <strong>{summary.profile.level}</strong>
+            </div>
+            <div className="stats-hero-meta__chip">
+              <span>XP vers suivant</span>
+              <strong>{formatNumber(summary.profile.nextLevelXp)} XP</strong>
+            </div>
+            <div className="stats-hero-meta__chip">
+              <span>Jours actifs</span>
+              <strong>{formatNumber(summary.overview.activeDays)}</strong>
+            </div>
+          </div>
+
+          <div className="stats-hero-actions">
+            <Link href="/profile" className="button ghost">
+              Retour au profil
+            </Link>
+            <Link href="/sessions" className="button primary">
+              Voir mes seances
+            </Link>
           </div>
         </section>
 
-        {message && <p className="form-feedback form-feedback--error">{message}</p>}
+        {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
 
-        <section className="profile-stats-grid">
-          <article className="card stat-card">
-            <span className="stat-card-label">Seances realisees</span>
-            <strong className="stat-card-value">{totalWorkouts}</strong>
-          </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Duree totale</span>
-            <strong className="stat-card-value">{formatDurationLabel(totalDurationSeconds) || '-'}</strong>
-          </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Calories totales</span>
-            <strong className="stat-card-value">{formatEstimatedWorkoutCalories(totalCalories) || '-'}</strong>
-          </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Volume total</span>
-            <strong className="stat-card-value">{formatSessionVolumeKg(totalVolume) || '-'}</strong>
-          </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Challenges crees</span>
-            <strong className="stat-card-value">{createdChallengesCount}</strong>
-          </article>
-          <article className="card stat-card">
-            <span className="stat-card-label">Challenges rejoints</span>
-            <strong className="stat-card-value">{joinedChallengesCount}</strong>
-          </article>
-        </section>
+        <StatsSection
+          kicker="Vue globale"
+          title="Tableau de bord"
+          subtitle="Les indicateurs essentiels regroupes en un seul coup d'oeil."
+        >
+          <div className="stats-metric-grid">
+            <StatTile label="Activites" value={formatNumber(summary.overview.totalActivities)} helper="Publiees" />
+            <StatTile label="Distance" value={formatDistance(summary.overview.totalDistanceKm)} helper="Totale" />
+            <StatTile label="Duree" value={formatDuration(summary.overview.totalDurationMinutes)} helper="Totale" />
+            <StatTile label="Reps" value={formatNumber(summary.overview.totalReps)} helper="Activites" />
+            <StatTile label="Seances" value={formatNumber(summary.sessions.completedWorkouts)} helper="Validees" />
+            <StatTile
+              label="Challenges"
+              value={formatNumber(summary.challenges.createdChallenges + summary.challenges.joinedChallenges)}
+              helper="Creees et rejoints"
+            />
+          </div>
+        </StatsSection>
 
-        <article className="card session-form-card stack">
-          <div className="session-blocks-header">
-            <div>
-              <span className="section-kicker">Progression</span>
-              <h2>Vue d&apos;ensemble</h2>
-            </div>
+        <StatsSection
+          kicker="Mouvement"
+          title="Pas et activite quotidienne"
+          subtitle="Les donnees Health Connect et les tendances principales."
+        >
+          <div className="stats-metric-grid">
+            <StatTile label="Aujourd'hui" value={formatSteps(summary.movement.todaySteps)} helper="Objectif 10 000" />
+            <StatTile label="Cette semaine" value={formatSteps(summary.movement.weeklySteps)} helper="Somme 7 jours" />
+            <StatTile label="Ce mois-ci" value={formatSteps(summary.movement.monthlySteps)} helper="Somme mensuelle" />
+            <StatTile label="Record journalier" value={formatSteps(summary.movement.bestDailySteps)} helper="Meilleure journee" />
+            <StatTile label="Moyenne" value={formatSteps(summary.movement.averageDailySteps)} helper="Par jour actif" />
+            <StatTile label="Sync Health Connect" value={formatNumber(summary.movement.healthConnectSyncs)} helper="Synchronisations" />
           </div>
 
-          {chartMetricEntries.length === 0 || chartMaxValue <= 0 ? (
-            <div className="challenge-state challenge-state--compact">
-              <p>Pas encore assez de donnees.</p>
+          <div className="stats-progress-card">
+            <div className="stats-progress-card__top">
+              <span>Progression vers 10 000 pas</span>
+              <strong>{formatNumber(todayProgress)} %</strong>
             </div>
-          ) : chartMetricEntries.length === 1 ? (
-            <div className="session-progress-chart session-progress-chart--single">
-              <div className="session-progress-chart__header">
-                <span>{progressionData.metricLabel}</span>
-                <strong>1 seance</strong>
-              </div>
-              <article className="session-block-card">
-                <div className="session-block-card__top">
-                  <div className="session-block-check__label">
-                    <strong>{chartMetricEntries[0].formattedValue || '-'}</strong>
-                    <small>{chartMetricEntries[0].label}</small>
-                  </div>
-                </div>
-              </article>
+            <div className="progress-bar stats-progress-card__bar" aria-hidden="true">
+              <span className="progress-fill" style={{ width: `${todayProgress}%` }} />
             </div>
-          ) : (
-            <div className="session-progress-chart">
-              <div className="session-progress-chart__header">
-                <span>{progressionData.metricLabel || 'Progression'}</span>
-                <strong>{chartMetricEntries.length} dernieres seances</strong>
-              </div>
-              <div className="session-progress-chart__svg-wrap">
-                <svg viewBox="0 0 100 100" className="session-progress-chart__svg" preserveAspectRatio="none">
-                  <path d="M 0 100 L 100 100" className="session-progress-chart__axis" />
-                  <path d={chartPath} className="session-progress-chart__line" />
-                  {chartPoints.map((point) => (
-                    <circle
-                      key={point.label + point.x}
-                      cx={point.x}
-                      cy={point.y}
-                      r="2.8"
-                      className="session-progress-chart__point"
-                    />
-                  ))}
-                </svg>
+            <p className="muted">
+              {summary.movement.todaySteps > 0
+                ? `${formatSteps(summary.movement.todaySteps)} aujourd'hui.`
+                : "Aucun pas synchronise aujourd'hui."}
+            </p>
+          </div>
+        </StatsSection>
 
-                <div className="session-progress-chart__labels">
-                  {chartMetricEntries.map((entry) => (
-                    <div key={entry.id} className="session-progress-chart__label-item">
-                      <strong>{entry.formattedValue || '-'}</strong>
-                      <span>{entry.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </article>
-
-        <article className="card session-form-card stack">
-          <div className="session-blocks-header">
-            <div>
-              <span className="section-kicker">Records</span>
-              <h2>Records personnels</h2>
-            </div>
+        <StatsSection
+          kicker="Activites"
+          title="Activites sportives"
+          subtitle="Repartition par sport et volume global des activites."
+        >
+          <div className="stats-metric-grid">
+            <StatTile
+              label="Sport le plus pratique"
+              value={summary.overview.activitiesBySport[0]?.sport || 'Aucune donnee'}
+              helper="Par activite"
+            />
+            <StatTile label="Activites total" value={formatNumber(summary.overview.totalActivities)} helper="Toutes confondues" />
+            <StatTile label="Distance totale" value={formatDistance(summary.overview.totalDistanceKm)} helper="Activites" />
+            <StatTile label="Duree totale" value={formatDuration(summary.overview.totalDurationMinutes)} helper="Activites" />
           </div>
 
-          {topPersonalRecords.length === 0 ? (
-            <div className="challenge-state challenge-state--compact">
-              <p>Aucun record personnel pour le moment.</p>
-            </div>
+          {summary.overview.activitiesBySport.length === 0 ? (
+            <EmptyState message="Aucune activite par sport pour le moment." />
           ) : (
-            <div className="session-records-list">
-              {topPersonalRecords.map((record) => (
-                <article key={record.exerciseName} className="session-block-card session-record-card">
-                  <div className="session-block-card__top">
-                    <div className="session-block-check__label">
-                      <strong>{record.exerciseName}</strong>
-                      <small>🏆 Record personnel</small>
-                    </div>
+            <div className="stats-sport-list">
+              {summary.overview.activitiesBySport.slice(0, 6).map((sport) => (
+                <article key={sport.sport} className="stats-sport-item">
+                  <div>
+                    <strong>{sport.sport}</strong>
+                    <span>{formatNumber(sport.count)} activite{sport.count > 1 ? 's' : ''}</span>
                   </div>
-                  <div className="session-record-lines">
-                    {record.maxChargeKg ? (
-                      <p>Charge max : <strong>{record.maxChargeKg} kg</strong></p>
-                    ) : null}
-                    {record.bestVolumeKg ? (
-                      <p>Meilleur volume : <strong>{formatSessionVolumeKg(record.bestVolumeKg)}</strong></p>
-                    ) : null}
-                    {record.maxReps ? (
-                      <p>Meilleur reps : <strong>{record.maxReps} reps</strong></p>
-                    ) : null}
-                    {record.bestDurationSeconds ? (
-                      <p>Meilleur temps : <strong>{formatDurationLabel(record.bestDurationSeconds)}</strong></p>
-                    ) : null}
+                  <div className="stats-sport-item__meta">
+                    {sport.distanceKm > 0 ? <span>{formatDistance(sport.distanceKm)}</span> : null}
+                    {sport.durationMinutes > 0 ? <span>{formatDuration(sport.durationMinutes)}</span> : null}
                   </div>
                 </article>
               ))}
             </div>
           )}
-        </article>
+        </StatsSection>
 
-        <article className="card session-form-card stack">
-          <div className="session-blocks-header">
-            <div>
-              <span className="section-kicker">Exercices</span>
-              <h2>Stats par exercice</h2>
-            </div>
+        <StatsSection
+          kicker="Seances"
+          title="Seances et validation"
+          subtitle="Creation, validation, volume et historique recent."
+        >
+          <div className="stats-metric-grid">
+            <StatTile label="Crees" value={formatNumber(summary.sessions.createdSessions)} helper="Seances perso" />
+            <StatTile label="Validees" value={formatNumber(summary.sessions.completedWorkouts)} helper="Historique" />
+            <StatTile label="Duree" value={formatDuration(summary.sessions.totalWorkoutDurationMinutes)} helper="Totale" />
+            <StatTile label="Volume" value={`${formatNumber(summary.sessions.totalVolumeKg)} kg`} helper="Total" />
+            <StatTile label="Calories" value={`${formatNumber(summary.sessions.totalCalories)} kcal`} helper="Estimees" />
+            <StatTile label="Exercices" value={formatNumber(summary.sessions.totalExercisesCompleted)} helper="Comptabilises" />
           </div>
 
-          {exerciseStatsCards.length === 0 ? (
-            <div className="challenge-state challenge-state--compact">
-              <p>Pas encore assez de donnees par exercice.</p>
-            </div>
+          {summary.sessions.recentWorkouts.length === 0 ? (
+            <EmptyState message="Aucune seance realisee pour le moment." />
           ) : (
-            <div className="stack">
-              <div className="session-records-list">
-                {exerciseStatsCards.map((entry) => (
-                  <button
-                    key={entry.exerciseName}
-                    type="button"
-                    className={`session-block-card session-record-card session-exercise-stat-card${
-                      selectedExerciseStats?.exerciseName === entry.exerciseName ? ' is-active' : ''
-                    }`}
-                    onClick={() => setSelectedExerciseName(entry.exerciseName)}
-                  >
-                    <div className="session-block-card__top">
-                      <div className="session-block-check__label">
-                        <strong>{entry.exerciseName}</strong>
-                        <small>{entry.completedCount} fois realise</small>
-                      </div>
-                    </div>
-                    <div className="session-record-lines">
-                      <p>Derniere fois : <strong>{entry.lastCompletedAt ? formatRelativeDate(entry.lastCompletedAt) : '-'}</strong></p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              {selectedExerciseStats ? (
-                <article className="session-block-card session-exercise-stat-detail">
-                  <div className="session-block-card__top">
-                    <div className="session-block-check__label">
-                      <strong>{selectedExerciseStats.exerciseName}</strong>
-                      <small>Detail et progression</small>
-                    </div>
-                    <span className="session-block-chip">{selectedExerciseStats.progressionMetricLabel || 'Stats'}</span>
+            <div className="stats-workout-list">
+              {summary.sessions.recentWorkouts.map((workout) => (
+                <article key={workout.id} className="stats-workout-item">
+                  <div className="stats-workout-item__head">
+                    <strong>{workout.workoutName}</strong>
+                    <span>{formatDateLabel(workout.completedAt)}</span>
                   </div>
-
-                  <div className="session-detail-meta">
-                    <div className="session-meta-card">
-                      <span>Realisations</span>
-                      <strong>{selectedExerciseStats.completedCount}</strong>
-                    </div>
-                    <div className="session-meta-card">
-                      <span>Derniere fois</span>
-                      <strong>{selectedExerciseStats.lastCompletedAt ? formatRelativeDate(selectedExerciseStats.lastCompletedAt) : '-'}</strong>
-                    </div>
-                    <div className="session-meta-card">
-                      <span>Charge max</span>
-                      <strong>{selectedExerciseStats.maxChargeKg ? `${selectedExerciseStats.maxChargeKg} kg` : '-'}</strong>
-                    </div>
-                    <div className="session-meta-card">
-                      <span>Volume max</span>
-                      <strong>{selectedExerciseStats.bestVolumeKg ? formatSessionVolumeKg(selectedExerciseStats.bestVolumeKg) : '-'}</strong>
-                    </div>
-                    <div className="session-meta-card">
-                      <span>Reps max</span>
-                      <strong>{selectedExerciseStats.maxReps ? `${selectedExerciseStats.maxReps} reps` : '-'}</strong>
-                    </div>
-                    <div className="session-meta-card">
-                      <span>Duree max</span>
-                      <strong>{selectedExerciseStats.bestDurationSeconds ? formatDurationLabel(selectedExerciseStats.bestDurationSeconds) : '-'}</strong>
-                    </div>
+                  <div className="stats-workout-item__meta">
+                    <span>{formatDurationFromSeconds(workout.durationSeconds)}</span>
+                    <span>{formatNumber(workout.completedExercises)} exercice{workout.completedExercises > 1 ? 's' : ''}</span>
+                    <span>{formatNumber(workout.totalVolume)} kg</span>
+                    {workout.estimatedCalories > 0 ? <span>{formatNumber(workout.estimatedCalories)} kcal</span> : null}
                   </div>
-
-                  {selectedExerciseChartEntries.length === 0 ? (
-                    <div className="challenge-state challenge-state--compact">
-                      <p>Pas encore de progression chiffree pour cet exercice.</p>
-                    </div>
-                  ) : selectedExerciseSingleEntry ? (
-                    <div className="session-progress-chart session-progress-chart--single">
-                      <div className="session-progress-chart__header">
-                        <span>{selectedExerciseStats.progressionMetricLabel}</span>
-                        <strong>1 seance</strong>
-                      </div>
-                      <article className="session-block-card">
-                        <div className="session-block-card__top">
-                          <div className="session-block-check__label">
-                            <strong>{selectedExerciseSingleEntry.formattedValue || '-'}</strong>
-                            <small>{selectedExerciseSingleEntry.label}</small>
-                          </div>
-                        </div>
-                      </article>
-                    </div>
-                  ) : (
-                    <div className="session-progress-chart">
-                      <div className="session-progress-chart__header">
-                        <span>{selectedExerciseStats.progressionMetricLabel || 'Progression'}</span>
-                        <strong>{selectedExerciseChartEntries.length} dernieres seances</strong>
-                      </div>
-                      <div className="session-progress-chart__svg-wrap">
-                        <svg viewBox="0 0 100 100" className="session-progress-chart__svg" preserveAspectRatio="none">
-                          <path d="M 0 100 L 100 100" className="session-progress-chart__axis" />
-                          <path d={selectedExerciseChartPath} className="session-progress-chart__line" />
-                          {selectedExerciseChartPoints.map((point) => (
-                            <circle
-                              key={point.label + point.x}
-                              cx={point.x}
-                              cy={point.y}
-                              r="2.8"
-                              className="session-progress-chart__point"
-                            />
-                          ))}
-                        </svg>
-                        <div className="session-progress-chart__labels">
-                          {selectedExerciseChartEntries.map((entry) => (
-                            <div key={entry.id} className="session-progress-chart__label-item">
-                              <strong>{entry.formattedValue || '-'}</strong>
-                              <span>{entry.label}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </article>
-              ) : null}
-            </div>
-          )}
-        </article>
-
-        <article className="card session-form-card stack">
-          <div className="session-blocks-header">
-            <div>
-              <span className="section-kicker">Historique</span>
-              <h2>Derniers entrainements</h2>
-            </div>
-          </div>
-
-          {recentWorkouts.length === 0 ? (
-            <div className="challenge-state challenge-state--compact">
-              <p>Aucune seance realisee pour le moment.</p>
-            </div>
-          ) : (
-            <div className="session-block-list">
-              {recentWorkouts.map((entry) => (
-                <article key={entry.id} className="session-block-card">
-                  <div className="session-block-card__top">
-                    <div className="session-block-check__label">
-                      <strong>{entry.workout_name}</strong>
-                      <small>{new Date(entry.completed_at).toLocaleDateString('fr-FR')}</small>
-                    </div>
-                  </div>
-
-                  <p className="session-block-preview">
-                    {formatDurationLabel(entry.duration_seconds) || '-'} • {entry.completed_exercises || 0} exercice
-                    {(entry.completed_exercises || 0) > 1 ? 's' : ''}
-                  </p>
-
-                  {entry.total_volume ? (
-                    <p className="session-block-volume">Volume : {formatSessionVolumeKg(entry.total_volume)}</p>
-                  ) : null}
-
-                  {(Number(entry.estimated_calories || 0) > 0) ? (
-                    <p className="session-block-preview">
-                      Calories estimees : {formatEstimatedWorkoutCalories(entry.estimated_calories)}
-                    </p>
-                  ) : null}
                 </article>
               ))}
             </div>
           )}
-        </article>
+        </StatsSection>
+
+        <StatsSection
+          kicker="Programmes"
+          title="Programmes et progression"
+          subtitle="Creation, imports et seances de programme realisees."
+        >
+          <div className="stats-metric-grid">
+            <StatTile label="Crees" value={formatNumber(summary.programs.createdPrograms)} helper="Programmation perso" />
+            <StatTile label="Rejoints" value={formatNumber(summary.programs.joinedPrograms)} helper="Depuis la banque" />
+            <StatTile label="Termines" value={formatNumber(summary.programs.completedPrograms)} helper="Programme complet" />
+            <StatTile label="Seances programme" value={formatNumber(summary.programs.completedProgramSessions)} helper="Realisees" />
+            <StatTile label="Seances planifiees" value={formatNumber(summary.programs.totalProgramSessions)} helper="Dans tes programmes" />
+          </div>
+        </StatsSection>
+
+        <StatsSection kicker="Challenges" title="Challenges" subtitle="Ce que tu as cree, rejoint et termine.">
+          <div className="stats-metric-grid">
+            <StatTile label="Crees" value={formatNumber(summary.challenges.createdChallenges)} helper="Challenges perso" />
+            <StatTile label="Rejoints" value={formatNumber(summary.challenges.joinedChallenges)} helper="Participation" />
+            <StatTile label="Termines" value={formatNumber(summary.challenges.completedChallenges)} helper="XP challenge_completed" />
+          </div>
+        </StatsSection>
+
+        <StatsSection kicker="Social" title="Likes et boosts" subtitle="Les interactions sociales du compte.">
+          <div className="stats-metric-grid">
+            <StatTile label="Likes donnes" value={formatNumber(summary.social.likesGiven)} helper="Interactions" />
+            <StatTile label="Likes recus" value={formatNumber(summary.social.likesReceived)} helper="Sur tes activites" />
+            <StatTile label="Boosts donnes" value={formatNumber(summary.social.boostsGiven)} helper="Interactions" />
+            <StatTile label="Boosts recus" value={formatNumber(summary.social.boostsReceived)} helper="Sur tes activites" />
+          </div>
+        </StatsSection>
       </div>
     </AppShell>
   );
