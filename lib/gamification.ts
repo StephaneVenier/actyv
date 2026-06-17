@@ -1,7 +1,6 @@
 import { supabase } from '@/lib/supabase';
 import { BADGES, STEP_BADGE_CODES, getBadgeByCode, normalizeBadgeCode } from '@/lib/badges';
 import type { BadgeCode } from '@/lib/badges';
-import { getDailySessionStreakDays } from '@/lib/daily-sessions';
 
 export type XpSource =
   | 'challenge_created'
@@ -22,45 +21,6 @@ export type XpRule = {
   xp: number;
   dailyLimit?: number;
   dailySourceLimit?: number;
-};
-
-type BadgeActivityRow = {
-  id: string;
-  user_id: string | null;
-  user_email?: string | null;
-  sport?: string | null;
-  challenge_id?: string | null;
-  distance_km: number | null;
-  unit_type: string | null;
-  unit_value: number | null;
-};
-
-type BadgeTrainingProgramRow = {
-  id: string;
-  visibility: string | null;
-  copied_from_program_id: string | null;
-};
-
-type BadgeXpEventRow = {
-  event_type: string | null;
-};
-
-type BadgeDailySessionCompletionRow = {
-  scheduled_for: string;
-};
-
-type BadgeDailyStepsRow = {
-  step_date: string;
-  steps_count: number | null;
-  source?: string | null;
-};
-
-type DailyStepBadgeStats = {
-  totalStepsCount: number;
-  maxDailySteps: number;
-  rollingWeeklySteps: number;
-  healthConnectSyncCount: number;
-  orderedDailySteps: BadgeDailyStepsRow[];
 };
 
 type BadgeAwardResult = {
@@ -100,50 +60,6 @@ function getCanonicalBadgeSet(badgeRows: Array<{ badge_code: string }>) {
       .map((badge) => normalizeBadgeCode(badge.badge_code))
       .filter((badgeCode): badgeCode is BadgeCode => Boolean(badgeCode))
   );
-}
-
-function normalizeDailyStepsRows(dailySteps: BadgeDailyStepsRow[]) {
-  return [...dailySteps].sort((left, right) => {
-    const leftDate = new Date(left.step_date).getTime();
-    const rightDate = new Date(right.step_date).getTime();
-
-    if (Number.isNaN(leftDate) && Number.isNaN(rightDate)) return 0;
-    if (Number.isNaN(leftDate)) return 1;
-    if (Number.isNaN(rightDate)) return -1;
-
-    return rightDate - leftDate;
-  });
-}
-
-function getDailyStepBadgeStats(dailySteps: BadgeDailyStepsRow[]): DailyStepBadgeStats {
-  const orderedDailySteps = normalizeDailyStepsRows(dailySteps);
-
-  const totalStepsCount = orderedDailySteps.reduce((total, entry) => {
-    const steps = Number(entry.steps_count || 0);
-    return total + (Number.isFinite(steps) ? steps : 0);
-  }, 0);
-
-  const maxDailySteps = orderedDailySteps.reduce((best, entry) => {
-    const steps = Number(entry.steps_count || 0);
-    return Math.max(best, Number.isFinite(steps) ? steps : 0);
-  }, 0);
-
-  const rollingWeeklySteps = orderedDailySteps.slice(0, 7).reduce((total, entry) => {
-    const steps = Number(entry.steps_count || 0);
-    return total + (Number.isFinite(steps) ? steps : 0);
-  }, 0);
-
-  const healthConnectSyncCount = orderedDailySteps.reduce((count, entry) => {
-    return count + (entry.source === 'health_connect' ? 1 : 0);
-  }, 0);
-
-  return {
-    totalStepsCount,
-    maxDailySteps,
-    rollingWeeklySteps,
-    healthConnectSyncCount,
-    orderedDailySteps,
-  };
 }
 
 export function calculateLevel(totalXp: number) {
@@ -191,51 +107,6 @@ async function resolveUserIdFromEmail(email: string | null | undefined) {
   return data?.id || null;
 }
 
-async function fetchTrainingProgramsForBadges(userId: string) {
-  const primaryResponse = await supabase
-    .from('training_programs')
-    .select('id, visibility, copied_from_program_id')
-    .eq('user_id', userId);
-
-  if (!primaryResponse.error) {
-    return {
-      data: ((primaryResponse.data as BadgeTrainingProgramRow[] | null) || []).map((program) => ({
-        ...program,
-        copied_from_program_id: program.copied_from_program_id ?? null,
-      })),
-      error: null,
-    };
-  }
-
-  const message = (primaryResponse.error.message || '').toLowerCase();
-  const missingCopiedFromColumn =
-    primaryResponse.error.code === '42703' ||
-    (message.includes('copied_from_program_id') && message.includes('column'));
-
-  if (!missingCopiedFromColumn) {
-    return { data: null, error: primaryResponse.error };
-  }
-
-  const fallbackResponse = await supabase
-    .from('training_programs')
-    .select('id, visibility')
-    .eq('user_id', userId);
-
-  if (fallbackResponse.error) {
-    return { data: null, error: fallbackResponse.error };
-  }
-
-  return {
-    data: (((fallbackResponse.data as Array<{ id: string; visibility: string | null }> | null) || []).map(
-      (program) => ({
-        id: program.id,
-        visibility: program.visibility,
-        copied_from_program_id: null,
-      })
-    ) as BadgeTrainingProgramRow[]),
-    error: null,
-  };
-}
 
 export async function getUserTotalXp(
   userId: string | null | undefined,
@@ -432,343 +303,198 @@ export async function awardBadge(userId: string, badgeCode: string) {
   return { data, error, badgeCode: normalizedCode };
 }
 
-export async function checkAndAwardBadges(userId: string) {
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('email')
-    .eq('id', userId)
-    .maybeSingle();
-
-  const userEmail = (profileData as { email?: string | null } | null)?.email || null;
-
-  const [
-    activitiesResponse,
-    challengesResponse,
-    participantsResponse,
-    membersResponse,
-    interactionsResponse,
-    workoutHistoryResponse,
-    trainingProgramsResponse,
-    xpEventsResponse,
-    dailySessionCompletionsResponse,
-    dailyStepsResponse,
-  ] = await Promise.all([
-      supabase
-        .from('activities')
-        .select('id, user_id, user_email, sport, challenge_id, distance_km, unit_type, unit_value')
-        .or(`user_id.eq.${userId}${userEmail ? `,user_email.eq.${userEmail}` : ''}`),
-      supabase
-        .from('challenges')
-        .select('id')
-        .eq('created_by', userId)
-        .eq('is_deleted', false),
-      supabase
-        .from('challenge_participants')
-        .select('id')
-        .eq('user_id', userId),
-      userId
-        ? supabase.from('challenge_members').select('id').eq('user_id', userId)
-        : Promise.resolve({ data: [], error: null }),
-      supabase
-        .from('activity_interactions')
-        .select('id, type')
-        .eq('user_id', userId)
-        .in('type', ['like', 'boost']),
-      supabase
-        .from('workout_sessions_history')
-        .select('id')
-        .eq('user_id', userId),
-      fetchTrainingProgramsForBadges(userId),
-      supabase
-        .from('xp_events')
-        .select('event_type')
-        .eq('user_id', userId)
-        .in('event_type', ['challenge_completed', 'program_completed']),
-      supabase
-        .from('daily_session_completions')
-        .select('scheduled_for')
-        .eq('user_id', userId)
-        .order('scheduled_for', { ascending: false })
-        .limit(120),
-      supabase
-        .from('daily_steps')
-        .select('step_date, steps_count, source')
-        .eq('user_id', userId)
-        .order('step_date', { ascending: false }),
-    ]);
-
-  const firstError =
-    activitiesResponse.error ||
-    challengesResponse.error ||
-    participantsResponse.error ||
-    membersResponse.error ||
-    interactionsResponse.error ||
-    workoutHistoryResponse.error ||
-    trainingProgramsResponse.error ||
-    xpEventsResponse.error ||
-    dailySessionCompletionsResponse.error ||
-    dailyStepsResponse.error;
-
-  if (firstError) {
-    console.error('BADGES ERROR:', firstError);
-    return { awarded: [], error: firstError };
-  }
-
-  let normalizedMembersData = (membersResponse.data as Array<{ id: string }> | null) || [];
-
-  if (normalizedMembersData.length === 0 && userEmail) {
-    const legacyMembersResponse = await supabase
-      .from('challenge_members')
-      .select('id')
-      .eq('user_email', userEmail);
-
-    if (legacyMembersResponse.error) {
-      console.error('BADGES ERROR:', legacyMembersResponse.error);
-      return { awarded: [], error: legacyMembersResponse.error };
-    }
-
-    normalizedMembersData = (legacyMembersResponse.data as Array<{ id: string }> | null) || [];
-  }
-
-  const activities = (activitiesResponse.data as BadgeActivityRow[] | null) || [];
-  const createdChallenges = challengesResponse.data || [];
-  const joinedChallenges = participantsResponse.data || [];
-  const joinedMembers = normalizedMembersData;
-  const interactions = interactionsResponse.data || [];
-  const workoutHistory = workoutHistoryResponse.data || [];
-  const trainingPrograms = (trainingProgramsResponse.data as BadgeTrainingProgramRow[] | null) || [];
-  const xpEvents = (xpEventsResponse.data as BadgeXpEventRow[] | null) || [];
-  const dailySessionCompletions =
-    (dailySessionCompletionsResponse.data as BadgeDailySessionCompletionRow[] | null) || [];
-  const dailySteps = (dailyStepsResponse.data as BadgeDailyStepsRow[] | null) || [];
-
-  const ownedActivityIds = activities.map((activity) => activity.id);
-  const reactionsReceivedResponse =
-    ownedActivityIds.length > 0
-      ? await supabase
-          .from('activity_interactions')
-          .select('id')
-          .in('activity_id', ownedActivityIds)
-      : { data: [], error: null };
-
-  if (reactionsReceivedResponse.error) {
-    console.error('BADGES ERROR:', reactionsReceivedResponse.error);
-    return { awarded: [], error: reactionsReceivedResponse.error };
-  }
-
-  const reactionsReceived = reactionsReceivedResponse.data || [];
-
-  const totalDistance = activities.reduce((sum, activity) => {
-    const isDistance =
-      (activity.unit_type || (activity.distance_km !== null ? 'distance' : null)) === 'distance';
-    if (!isDistance) return sum;
-    return sum + Number(activity.unit_value ?? activity.distance_km ?? 0);
-  }, 0);
-
-  const distinctSportsCount = new Set(
-    activities
-      .map((activity) => (activity.sport || '').trim().toLowerCase())
-      .filter(Boolean)
-  ).size;
-
-  const completedSessionsCount = workoutHistory.length;
-  const createdPrograms = trainingPrograms.filter((program) => !program.copied_from_program_id);
-  const sharedProgramsCount = createdPrograms.filter((program) => program.visibility === 'shared').length;
-  const challengeCompletedCount = xpEvents.filter((event) => event.event_type === 'challenge_completed').length;
-  const programCompletedCount = xpEvents.filter((event) => event.event_type === 'program_completed').length;
-  const dailySessionCount = dailySessionCompletions.length;
-  const dailySessionStreak = getDailySessionStreakDays(dailySessionCompletions);
-  const {
-    totalStepsCount,
-    maxDailySteps,
-    rollingWeeklySteps,
-    healthConnectSyncCount,
-    orderedDailySteps,
-  } = getDailyStepBadgeStats(dailySteps);
-
-  const stepBadgeSlugs = {
-    firstHealthConnectSync: STEP_BADGE_CODES.firstHealthConnectSync,
-    daily5000: STEP_BADGE_CODES.steps5000Day,
-    daily10000: STEP_BADGE_CODES.steps10000Day,
-    daily20000: STEP_BADGE_CODES.steps20000Day,
-    total10000: STEP_BADGE_CODES.steps10000Total,
-    total50000: STEP_BADGE_CODES.steps50000Total,
-    total100000: STEP_BADGE_CODES.steps100000Total,
-    firstStep: STEP_BADGE_CODES.stepsFirst,
-  } as const;
-
-  const badgesToAward: BadgeCode[] = [];
-
-  if (activities.length >= 1) badgesToAward.push('first_activity');
-  if (activities.length >= 5) badgesToAward.push('five_activities');
-  if (activities.length >= 10) badgesToAward.push('ten_activities');
-  if (activities.length >= 50) badgesToAward.push('fifty_activities');
-  if (activities.length >= 100) badgesToAward.push('hundred_activities');
-
-  if (createdChallenges.length >= 1) badgesToAward.push('first_challenge');
-  if (createdChallenges.length >= 5) badgesToAward.push('five_challenges');
-  if (joinedChallenges.length + joinedMembers.length >= 1) badgesToAward.push('first_joined_challenge');
-  if (challengeCompletedCount >= 1) badgesToAward.push('challenge_completed');
-
-  if (totalDistance >= 10) badgesToAward.push('distance_10');
-  if (totalDistance >= 50) badgesToAward.push('distance_50');
-  if (totalDistance >= 100) badgesToAward.push('distance_100');
-  if (totalDistance >= 500) badgesToAward.push('distance_500');
-
-  if (interactions.length >= 1) badgesToAward.push('first_like');
-  if (reactionsReceived.length >= 10) badgesToAward.push('ten_likes_received');
-  if (reactionsReceived.length >= 50) badgesToAward.push('fifty_likes_received');
-
-  if (completedSessionsCount >= 1) badgesToAward.push('first_session_completed');
-  if (completedSessionsCount >= 5) badgesToAward.push('five_sessions_completed');
-  if (completedSessionsCount >= 10) badgesToAward.push('ten_sessions_completed');
-  if (completedSessionsCount >= 50) badgesToAward.push('fifty_sessions_completed');
-
-  if (createdPrograms.length >= 1) badgesToAward.push('first_program_created');
-  if (sharedProgramsCount >= 1) badgesToAward.push('program_shared');
-  if (programCompletedCount >= 1) badgesToAward.push('program_completed');
-
-  if (dailySessionCount >= 1) badgesToAward.push('first_daily_session');
-  if (dailySessionStreak >= 3) badgesToAward.push('daily_streak_3');
-  if (dailySessionStreak >= 7) badgesToAward.push('daily_streak_7');
-  if (dailySessionStreak >= 30) badgesToAward.push('daily_streak_30');
-
-  if (healthConnectSyncCount >= 1) badgesToAward.push(stepBadgeSlugs.firstHealthConnectSync);
-  if (maxDailySteps >= 5000) badgesToAward.push(stepBadgeSlugs.daily5000);
-  if (maxDailySteps >= 10000) badgesToAward.push(stepBadgeSlugs.daily10000);
-  if (maxDailySteps >= 20000) badgesToAward.push(stepBadgeSlugs.daily20000);
-  if (totalStepsCount >= 10000) badgesToAward.push(stepBadgeSlugs.total10000);
-  if (totalStepsCount >= 50000) badgesToAward.push(stepBadgeSlugs.total50000);
-  if (totalStepsCount >= 100000) badgesToAward.push(stepBadgeSlugs.total100000);
-
-  if (maxDailySteps > 0) badgesToAward.push(stepBadgeSlugs.firstStep);
-  if (rollingWeeklySteps >= 50000) badgesToAward.push(STEP_BADGE_CODES.weekly50000);
-
-  if (distinctSportsCount >= 3) badgesToAward.push('three_sports');
-  if (distinctSportsCount >= 5) badgesToAward.push('five_sports');
-
-  console.log('STEP BADGES DEBUG', {
-    userId,
-    totalStepsCount,
-    maxDailySteps,
-    healthConnectSyncCount,
-    stepBadgeSlugs,
-    stepColumns: ['step_date', 'steps_count', 'source'],
-    orderedStepDates: orderedDailySteps.map((entry) => entry.step_date),
-    eligibleBadgeCodes: badgesToAward,
-  });
-
-  const awarded: BadgeAwardResult[] = [];
-
-  for (const badgeCode of badgesToAward) {
-    const result = await awardBadge(userId, badgeCode);
-    console.log('STEP BADGES INSERT RESULT', {
-      userId,
-      badgeCode,
-      result,
-    });
-    awarded.push({
-      badgeCode,
-      data: result.data ?? null,
-      error: result.error ?? null,
-      skipped: result.skipped,
-    });
-  }
-
-  const unlockedCodes = awarded
-    .filter((entry) => !entry.error && !entry.skipped)
-    .map((entry) => entry.badgeCode);
-
-  const insertErrors = awarded.filter((entry) => Boolean(entry.error));
-
-  const result = {
-    table: 'user_badges',
-    columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
-    awarded,
-    insertErrors,
+function buildBadgeCodesFromStats(summary: {
+  overview: {
+    totalActivities: number;
+    totalDistanceKm: number;
+    activitiesBySport: Array<{ sport: string; count: number }>;
   };
+  movement: {
+    totalStepsForBadges: number;
+    maxDailyStepsForBadges: number;
+    weeklySteps: number;
+    activeStepDays: number;
+    healthConnectSyncs: number;
+  };
+  sessions: {
+    completedWorkouts: number;
+  };
+  dailySessions: {
+    completedCount: number;
+    currentStreak: number;
+    bestStreak: number;
+  };
+  programs: {
+    createdPrograms: number;
+    sharedPrograms: number;
+    completedPrograms: number;
+    completedProgramSessions: number;
+  };
+  challenges: {
+    createdChallenges: number;
+    joinedChallenges: number;
+    completedChallenges: number;
+  };
+  social: {
+    likesGiven: number;
+    likesReceived: number;
+    boostsGiven: number;
+    boostsReceived: number;
+  };
+}) {
+  const badgeCodes: BadgeCode[] = [];
+  const distinctSportsCount = summary.overview.activitiesBySport.length;
 
-  return result;
+  if (summary.overview.totalActivities >= 1) badgeCodes.push('first_activity');
+  if (summary.overview.totalActivities >= 5) badgeCodes.push('five_activities');
+  if (summary.overview.totalActivities >= 10) badgeCodes.push('ten_activities');
+  if (summary.overview.totalActivities >= 50) badgeCodes.push('fifty_activities');
+  if (summary.overview.totalActivities >= 100) badgeCodes.push('hundred_activities');
+
+  if (summary.challenges.createdChallenges >= 1) badgeCodes.push('first_challenge');
+  if (summary.challenges.createdChallenges >= 5) badgeCodes.push('five_challenges');
+  if (summary.challenges.joinedChallenges >= 1) badgeCodes.push('first_joined_challenge');
+  if (summary.challenges.completedChallenges >= 1) badgeCodes.push('challenge_completed');
+
+  if (summary.overview.totalDistanceKm >= 10) badgeCodes.push('distance_10');
+  if (summary.overview.totalDistanceKm >= 50) badgeCodes.push('distance_50');
+  if (summary.overview.totalDistanceKm >= 100) badgeCodes.push('distance_100');
+  if (summary.overview.totalDistanceKm >= 500) badgeCodes.push('distance_500');
+
+  if (summary.social.likesGiven >= 1 || summary.social.boostsGiven >= 1) badgeCodes.push('first_like');
+  if (summary.social.likesReceived >= 10) badgeCodes.push('ten_likes_received');
+  if (summary.social.likesReceived >= 50) badgeCodes.push('fifty_likes_received');
+
+  if (summary.sessions.completedWorkouts >= 1) badgeCodes.push('first_session_completed');
+  if (summary.sessions.completedWorkouts >= 5) badgeCodes.push('five_sessions_completed');
+  if (summary.sessions.completedWorkouts >= 10) badgeCodes.push('ten_sessions_completed');
+  if (summary.sessions.completedWorkouts >= 50) badgeCodes.push('fifty_sessions_completed');
+
+  if (summary.programs.createdPrograms >= 1) badgeCodes.push('first_program_created');
+  if (summary.programs.sharedPrograms >= 1) badgeCodes.push('program_shared');
+  if (summary.programs.completedPrograms >= 1) badgeCodes.push('program_completed');
+
+  if (summary.dailySessions.completedCount >= 1) badgeCodes.push('first_daily_session');
+  if (summary.dailySessions.currentStreak >= 3) badgeCodes.push('daily_streak_3');
+  if (summary.dailySessions.currentStreak >= 7) badgeCodes.push('daily_streak_7');
+  if (summary.dailySessions.currentStreak >= 30) badgeCodes.push('daily_streak_30');
+
+  if (summary.movement.healthConnectSyncs >= 1) badgeCodes.push(STEP_BADGE_CODES.firstHealthConnectSync);
+  if (summary.movement.maxDailyStepsForBadges >= 5000) badgeCodes.push(STEP_BADGE_CODES.steps5000Day);
+  if (summary.movement.maxDailyStepsForBadges >= 10000) badgeCodes.push(STEP_BADGE_CODES.steps10000Day);
+  if (summary.movement.maxDailyStepsForBadges >= 20000) badgeCodes.push(STEP_BADGE_CODES.steps20000Day);
+  if (summary.movement.totalStepsForBadges >= 10000) badgeCodes.push(STEP_BADGE_CODES.steps10000Total);
+  if (summary.movement.totalStepsForBadges >= 50000) badgeCodes.push(STEP_BADGE_CODES.steps50000Total);
+  if (summary.movement.totalStepsForBadges >= 100000) badgeCodes.push(STEP_BADGE_CODES.steps100000Total);
+  if (summary.movement.totalStepsForBadges > 0) badgeCodes.push(STEP_BADGE_CODES.stepsFirst);
+  if (summary.movement.weeklySteps >= 50000) {
+    badgeCodes.push(STEP_BADGE_CODES.weekly50000);
+  }
+
+  if (distinctSportsCount >= 3) badgeCodes.push('three_sports');
+  if (distinctSportsCount >= 5) badgeCodes.push('five_sports');
+
+  return badgeCodes;
 }
 
-export async function refreshUserBadges(userId: string) {
+export async function checkAndUnlockBadgesFromStats(userId: string) {
   if (!userId) {
     return { awarded: [], error: null, data: null };
   }
 
   try {
-    const { data: beforeBadges, error: beforeError } = await supabase
+    const { data: profileData, error: profileError } = await supabase
+      .from('profiles')
+      .select('email')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error('BADGES DEBUG profile lookup error:', profileError);
+    }
+
+    const userEmail = (profileData as { email?: string | null } | null)?.email || null;
+    const { loadUserStatistics } = await import('@/lib/user-statistics');
+    const stats = await loadUserStatistics(userId, userEmail);
+
+    const { data: existingBadgesData, error: existingBadgesError } = await supabase
       .from('user_badges')
       .select('badge_code')
       .eq('user_id', userId);
 
-    if (beforeError) {
-      console.error('Erreur lecture badges avant refresh :', beforeError);
-      return { awarded: [], error: beforeError, data: null };
+    if (existingBadgesError) {
+      console.error('BADGES DEBUG existing badges read error:', existingBadgesError);
+      return { awarded: [], error: existingBadgesError, data: stats };
     }
 
-    const beforeSet = getCanonicalBadgeSet(
-      ((beforeBadges as { badge_code: string }[] | null) || [])
+    const existingBadgeCodes = getCanonicalBadgeSet(
+      ((existingBadgesData as { badge_code: string }[] | null) || [])
     );
 
-    console.log('STEP BADGES DEBUG existing', {
+    const badgeCodesToUnlock = buildBadgeCodesFromStats(stats).filter(
+      (badgeCode) => !existingBadgeCodes.has(badgeCode)
+    );
+
+    console.log('BADGES DEBUG stats summary', {
       userId,
-      alreadyUnlockedBadgeCodes: Array.from(beforeSet),
+      totalActivities: stats.overview.totalActivities,
+      totalDistanceKm: stats.overview.totalDistanceKm,
+      completedWorkouts: stats.sessions.completedWorkouts,
+      createdPrograms: stats.programs.createdPrograms,
+      sharedPrograms: stats.programs.sharedPrograms,
+      createdChallenges: stats.challenges.createdChallenges,
+      joinedChallenges: stats.challenges.joinedChallenges,
+      likesGiven: stats.social.likesGiven,
+      likesReceived: stats.social.likesReceived,
+      boostsGiven: stats.social.boostsGiven,
+      boostsReceived: stats.social.boostsReceived,
+      totalStepsForBadges: stats.movement.totalStepsForBadges,
+      maxDailyStepsForBadges: stats.movement.maxDailyStepsForBadges,
+      weeklySteps: stats.movement.weeklySteps,
+      healthConnectSyncs: stats.movement.healthConnectSyncs,
+      dailySessionCount: stats.dailySessions.completedCount,
+      dailySessionStreak: stats.dailySessions.currentStreak,
+      existingBadgeCodes: Array.from(existingBadgeCodes),
+      badgeCodesToUnlock,
     });
 
-    const { data, error } = await supabase.rpc('refresh_user_badges', {
-      p_user_id: userId,
-    });
+    const awarded: BadgeAwardResult[] = [];
 
-    if (error) {
-      console.error('BADGES ERROR:', error);
-    }
-
-    const localResult = await checkAndAwardBadges(userId);
-
-    if (localResult.error) {
-      return { awarded: [], error: localResult.error, data: localResult };
-    }
-
-    if (Array.isArray((localResult as { insertErrors?: unknown[] }).insertErrors) && (localResult as { insertErrors?: unknown[] }).insertErrors.length > 0) {
-      console.error('STEP BADGES DEBUG insert errors', {
+    for (const badgeCode of badgeCodesToUnlock) {
+      const result = await awardBadge(userId, badgeCode);
+      console.log('BADGES DEBUG insert result', {
         userId,
-        insertErrors: (localResult as { insertErrors?: unknown[] }).insertErrors,
+        badgeCode,
+        result,
+      });
+      awarded.push({
+        badgeCode,
+        data: result.data ?? null,
+        error: result.error ?? null,
+        skipped: result.skipped,
       });
     }
 
-    const { data: afterBadges, error: afterError } = await supabase
-      .from('user_badges')
-      .select('badge_code')
-      .eq('user_id', userId);
+    const insertErrors = awarded.filter((entry) => Boolean(entry.error));
 
-    if (afterError) {
-      console.error('Erreur lecture badges apres refresh :', afterError);
-      return { awarded: [], error: afterError, data: localResult };
-    }
-
-    const afterSet = getCanonicalBadgeSet(
-      ((afterBadges as { badge_code: string }[] | null) || [])
-    );
-
-    const awarded = Array.from(afterSet).filter((badgeCode) => !beforeSet.has(badgeCode));
-
-    const result = {
-      rpc: 'refresh_user_badges',
+    return {
       table: 'user_badges',
       columns: ['id', 'user_id', 'badge_code', 'unlocked_at'],
-      data: {
-        rpcResult: data,
-        rpcError: error,
-        localResult,
-      },
       awarded,
-      error: null,
+      insertErrors,
+      data: stats,
+      error: insertErrors[0]?.error || null,
     };
-
-    return result;
   } catch (error) {
-    console.error('BADGES ERROR:', error);
+    console.error('BADGES DEBUG stats unlock failure:', error);
     return { awarded: [], error, data: null };
   }
+}
+
+export async function checkAndAwardBadges(userId: string) {
+  return checkAndUnlockBadgesFromStats(userId);
+}
+
+export async function refreshUserBadges(userId: string) {
+  return checkAndUnlockBadgesFromStats(userId);
 }

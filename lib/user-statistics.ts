@@ -1,5 +1,6 @@
 import { getLevelProgress, getUserTotalXp } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
+import { getBestDailySessionStreakDays, getDailySessionStreakDays } from '@/lib/daily-sessions';
 
 type ProfileRow = {
   id: string;
@@ -73,6 +74,10 @@ type TrainingProgramCompletionRow = {
   completed_at: string;
 };
 
+type DailySessionCompletionRow = {
+  scheduled_for: string;
+};
+
 type DailyStepsRow = {
   step_date: string;
   steps_count: number | null;
@@ -135,9 +140,15 @@ export type UserStatisticsSummary = {
     totalExercisesCompleted: number;
     recentWorkouts: UserStatisticsWorkoutRow[];
   };
+  dailySessions: {
+    completedCount: number;
+    currentStreak: number;
+    bestStreak: number;
+  };
   programs: {
     createdPrograms: number;
     joinedPrograms: number;
+    sharedPrograms: number;
     completedPrograms: number;
     completedProgramSessions: number;
     totalProgramSessions: number;
@@ -232,6 +243,11 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
         .eq('user_id', userId)
         .order('step_date', { ascending: false }),
       supabase
+        .from('daily_session_completions')
+        .select('scheduled_for')
+        .eq('user_id', userId)
+        .order('scheduled_for', { ascending: false }),
+      supabase
         .from('xp_events')
         .select('event_type, created_at')
         .eq('user_id', userId)
@@ -249,6 +265,7 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
   const trainingProgramCompletions = (trainingProgramCompletionsResponse.data as TrainingProgramCompletionRow[] | null) || [];
   const trainingSessions = (trainingSessionsResponse.data as Array<{ id: string; created_at: string | null }> | null) || [];
   const dailySteps = (dailyStepsResponse.data as DailyStepsRow[] | null) || [];
+  const dailySessionCompletions = (dailySessionCompletionsResponse.data as DailySessionCompletionRow[] | null) || [];
   const xpEvents = (xpEventsResponse.data as XpEventRow[] | null) || [];
 
   const activityRows = activities.map((activity) => ({
@@ -328,6 +345,9 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
 
   const createdPrograms = trainingPrograms.filter((program) => !program.copied_from_program_id).length;
   const joinedPrograms = trainingPrograms.filter((program) => Boolean(program.copied_from_program_id)).length;
+  const sharedPrograms = trainingPrograms.filter(
+    (program) => !program.copied_from_program_id && program.visibility === 'shared'
+  ).length;
   const completedPrograms = xpEvents.filter((event) => event.event_type === 'program_completed').length;
   const completedProgramSessions = trainingProgramCompletions.length;
   const totalProgramSessions = trainingSessions.length;
@@ -376,11 +396,14 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
   const monthlySteps = dailySteps
     .filter((entry) => entry.step_date >= monthStartIso && entry.step_date <= todayIso)
     .reduce((sum, entry) => sum + normalizeNumber(entry.steps_count), 0);
+  const dailySessionStreak = getDailySessionStreakDays(dailySessionCompletions);
+  const bestDailySessionStreak = getBestDailySessionStreakDays(dailySessionCompletions);
 
   const activeDays = countDistinct([
     ...activityRows.map((entry) => normalizeDateKey(entry.created_at)),
     ...workoutHistory.map((entry) => normalizeDateKey(entry.completed_at)),
     ...dailySteps.map((entry) => entry.step_date),
+    ...dailySessionCompletions.map((entry) => entry.scheduled_for),
     ...trainingProgramCompletions.map((entry) => normalizeDateKey(entry.completed_at)),
     ...participants.map((entry) => normalizeDateKey(entry.joined_at)),
     ...members.map((entry) => normalizeDateKey(entry.joined_at)),
@@ -424,9 +447,15 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
       totalExercisesCompleted,
       recentWorkouts,
     },
+    dailySessions: {
+      completedCount: dailySessionCompletions.length,
+      currentStreak: dailySessionStreak,
+      bestStreak: bestDailySessionStreak,
+    },
     programs: {
       createdPrograms,
       joinedPrograms,
+      sharedPrograms,
       completedPrograms,
       completedProgramSessions,
       totalProgramSessions,
