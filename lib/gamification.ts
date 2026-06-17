@@ -287,20 +287,24 @@ export async function awardBadge(userId: string, badgeCode: string) {
     return { data: null, error: null, badgeCode: normalizedCode, skipped: true };
   }
 
-  const { data, error } = await supabase
-    .from('user_badges')
-    .insert({
-      user_id: userId,
-      badge_code: normalizedCode,
-      unlocked_at: new Date().toISOString(),
-    })
-    .select('id, user_id, badge_code, unlocked_at');
+  const { data, error } = await supabase.rpc('grant_user_badge', {
+    p_user_id: userId,
+    p_badge_code: normalizedCode,
+  });
 
   if (error) {
     console.error('badge insert error', error);
   }
 
-  return { data, error, badgeCode: normalizedCode };
+  return {
+    data:
+      data ?? {
+        user_id: userId,
+        badge_code: normalizedCode,
+      },
+    error,
+    badgeCode: normalizedCode,
+  };
 }
 
 function buildBadgeCodesFromStats(summary: {
