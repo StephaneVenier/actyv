@@ -9,6 +9,9 @@
     "lint": "eslint . --ext .js,.jsx,.ts,.tsx"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.8",
     "next": "^16.2.1",
@@ -16,6 +19,7 @@
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@types/node": "^22.13.10",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",

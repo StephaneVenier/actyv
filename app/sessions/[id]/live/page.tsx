@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { BadgeArtwork } from '@/components/badge-artwork';
@@ -23,6 +23,7 @@ import {
   getSessionBlockVolumeKg,
   getSessionEstimatedDuration,
   normalizeSessionSetsCount,
+  type SessionBlockType,
 } from '@/lib/session-blocks';
 import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { formatPercent } from '@/lib/display-format';
@@ -46,13 +47,28 @@ type ActualPerformanceDraft = {
   actualChargeKg: number | null;
 };
 
+type LivePerformanceLineDraft = {
+  id: string;
+  setsCount: number;
+  targetValue: number | null;
+  chargeKg: number | null;
+  note: string;
+};
+
+type LivePerformanceDraft = {
+  lines: LivePerformanceLineDraft[];
+  freeText: string;
+};
+
 type LiveState = {
   currentIndex: number;
+  blocks: TrainingSessionBlockRecord[];
   completedBlockIds: string[];
   skippedBlockIds: string[];
   completedSetsByBlockId: Record<string, number>;
   actualPerformanceDraftsByBlockId: Record<string, ActualPerformanceDraft>;
   actualPerformanceCarryForwardByBlockId: Record<string, ActualPerformanceDraft>;
+  performanceDraftsByBlockId: Record<string, LivePerformanceDraft>;
   setPerformances: WorkoutSetPerformance[];
   finishReviewOpen: boolean;
   restAfterBlockId: string | null;
@@ -168,6 +184,195 @@ function getPerformanceDraftFromBlock(block: TrainingSessionBlockRecord | null):
   };
 }
 
+function createLivePerformanceLineDraftFromBlock(
+  block: TrainingSessionBlockRecord | null,
+  setsCount?: number
+): LivePerformanceLineDraft {
+  return {
+    id: `${block?.id || 'block'}-line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    setsCount: Math.max(Math.trunc(Number(setsCount ?? block?.sets_count ?? 1) || 1), 1),
+    targetValue:
+      block?.block_type === 'free'
+        ? null
+        : block?.block_type === 'reps'
+          ? getPlannedReps(block)
+          : Number.isFinite(Number(block?.target_value)) && Number(block?.target_value) > 0
+            ? Number(block?.target_value)
+            : null,
+    chargeKg: getPlannedChargeKg(block),
+    note: '',
+  };
+}
+
+function createDefaultLivePerformanceDraft(block: TrainingSessionBlockRecord | null): LivePerformanceDraft {
+  return {
+    lines: [createLivePerformanceLineDraftFromBlock(block)],
+    freeText: '',
+  };
+}
+
+function normalizeLivePerformanceLineDraft(
+  line: Partial<LivePerformanceLineDraft> | null | undefined,
+  block: TrainingSessionBlockRecord | null
+): LivePerformanceLineDraft {
+  const fallback = createLivePerformanceLineDraftFromBlock(block);
+
+  return {
+    id:
+      typeof line?.id === 'string' && line.id.trim().length > 0
+        ? line.id
+        : fallback.id,
+    setsCount: Math.max(
+      Math.trunc(Number(line?.setsCount ?? fallback.setsCount) || fallback.setsCount),
+      1
+    ),
+    targetValue:
+      line?.targetValue == null
+        ? fallback.targetValue
+        : Number.isFinite(Number(line.targetValue)) && Number(line.targetValue) >= 0
+          ? Number(line.targetValue)
+          : fallback.targetValue,
+    chargeKg:
+      line?.chargeKg == null
+        ? fallback.chargeKg
+        : Number.isFinite(Number(line.chargeKg)) && Number(line.chargeKg) >= 0
+          ? Number(line.chargeKg)
+          : fallback.chargeKg,
+    note: typeof line?.note === 'string' ? line.note : fallback.note,
+  };
+}
+
+function normalizeLivePerformanceDraft(
+  draft: Partial<LivePerformanceDraft> | null | undefined,
+  block: TrainingSessionBlockRecord | null
+): LivePerformanceDraft {
+  const fallback = createDefaultLivePerformanceDraft(block);
+  const nextLines = Array.isArray(draft?.lines) && draft.lines.length > 0
+    ? draft.lines.map((line) => normalizeLivePerformanceLineDraft(line, block))
+    : fallback.lines;
+
+  return {
+    lines: nextLines.length > 0 ? nextLines : fallback.lines,
+    freeText: typeof draft?.freeText === 'string' ? draft.freeText : fallback.freeText,
+  };
+}
+
+function getLivePerformanceDraftTotalSets(draft: LivePerformanceDraft | null | undefined, block: TrainingSessionBlockRecord | null) {
+  if (!draft || draft.lines.length === 0) {
+    return normalizeSessionSetsCount(block?.sets_count ?? 1);
+  }
+
+  return draft.lines.reduce((total, line) => total + Math.max(Math.trunc(Number(line.setsCount) || 0), 1), 0);
+}
+
+function getLivePerformanceDraftVolumeKg(
+  draft: LivePerformanceDraft | null | undefined,
+  block: TrainingSessionBlockRecord | null
+) {
+  const normalizedLines = getLivePerformanceDraftLines(draft, block);
+  const blockType = block?.block_type;
+
+  return normalizedLines.reduce((total, line) => {
+    const setsCount = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
+    const targetValue =
+      line.targetValue != null
+        ? Number(line.targetValue)
+        : blockType === 'reps'
+          ? Number(block?.target_value ?? 0)
+          : Number(block?.target_value ?? 0);
+    const chargeKg =
+      line.chargeKg != null
+        ? Number(line.chargeKg)
+        : blockType === 'reps'
+          ? Number(block?.charge_kg ?? 0)
+          : Number(block?.charge_kg ?? 0);
+
+    if (!Number.isFinite(targetValue) || !Number.isFinite(chargeKg) || targetValue <= 0 || chargeKg <= 0) {
+      return total;
+    }
+
+    return total + setsCount * targetValue * chargeKg;
+  }, 0);
+}
+
+function getLivePerformanceDraftLines(
+  draft: LivePerformanceDraft | null | undefined,
+  block: TrainingSessionBlockRecord | null
+) {
+  const normalizedDraft = normalizeLivePerformanceDraft(draft, block);
+  return normalizedDraft.lines;
+}
+
+function getLivePerformanceLineIndexByCompletedSets(
+  lines: LivePerformanceLineDraft[],
+  completedSets: number
+) {
+  const normalizedCompletedSets = Math.max(Math.trunc(Number(completedSets) || 0), 0);
+  let consumed = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineSets = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
+    const nextConsumed = consumed + lineSets;
+
+    if (normalizedCompletedSets < nextConsumed) {
+      return index;
+    }
+
+    consumed = nextConsumed;
+  }
+
+  return Math.max(lines.length - 1, 0);
+}
+
+function getLivePerformanceLineStartSetNumber(lines: LivePerformanceLineDraft[], lineIndex: number) {
+  return lines.slice(0, Math.max(lineIndex, 0)).reduce((total, line) => total + Math.max(Math.trunc(Number(line.setsCount) || 0), 1), 0);
+}
+
+function getLivePerformanceLineForSetNumber(lines: LivePerformanceLineDraft[], setNumber: number) {
+  const normalizedSetNumber = Math.max(Math.trunc(Number(setNumber) || 0), 1);
+  let consumed = 0;
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const lineSets = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
+    consumed += lineSets;
+
+    if (normalizedSetNumber <= consumed) {
+      return { line, lineIndex: index };
+    }
+  }
+
+  const fallbackLine = lines[lines.length - 1] || createLivePerformanceLineDraftFromBlock(null);
+  return { line: fallbackLine, lineIndex: Math.max(lines.length - 1, 0) };
+}
+
+function formatLivePerformanceLineSummary(blockType: SessionBlockType, line: LivePerformanceLineDraft) {
+  const setsLabel = `${Math.max(Math.trunc(Number(line.setsCount) || 0), 1)} série${Math.max(Math.trunc(Number(line.setsCount) || 0), 1) > 1 ? 's' : ''}`;
+
+  if (blockType === 'reps') {
+    const repsLabel = line.targetValue == null ? '-' : `${line.targetValue} reps`;
+    const chargeLabel = line.chargeKg != null && line.chargeKg > 0 ? ` @ ${line.chargeKg} kg` : '';
+    return `${setsLabel} · ${repsLabel}${chargeLabel}`;
+  }
+
+  if (blockType === 'duration') {
+    const seconds = line.targetValue ?? 0;
+    return `${setsLabel} · ${formatTimerClock(seconds)}`;
+  }
+
+  if (blockType === 'distance') {
+    const distance = line.targetValue ?? 0;
+    return `${setsLabel} · ${distance} km`;
+  }
+
+  if (line.note.trim()) {
+    return `${setsLabel} · ${line.note.trim()}`;
+  }
+
+  return setsLabel;
+}
+
 function getSetPerformanceKey(entry: Pick<WorkoutSetPerformance, 'block_id' | 'set_number' | 'status'>) {
   return `${entry.block_id}:${entry.set_number}:${entry.status}`;
 }
@@ -196,6 +401,9 @@ export default function LiveSessionPage() {
   const [actualPerformanceCarryForwardByBlockId, setActualPerformanceCarryForwardByBlockId] = useState<
     Record<string, ActualPerformanceDraft>
   >({});
+  const [performanceDraftsByBlockId, setPerformanceDraftsByBlockId] = useState<
+    Record<string, LivePerformanceDraft>
+  >({});
   const [setPerformances, setSetPerformances] = useState<WorkoutSetPerformance[]>([]);
   const [finishReviewOpen, setFinishReviewOpen] = useState(false);
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
@@ -218,6 +426,15 @@ export default function LiveSessionPage() {
   const [completionLevelProgress, setCompletionLevelProgress] = useState<ActyvLevelProgress | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
+  const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+  const [newExerciseName, setNewExerciseName] = useState('');
+  const [newExerciseType, setNewExerciseType] = useState<SessionBlockType>('reps');
+  const [newExerciseSets, setNewExerciseSets] = useState('1');
+  const [newExerciseTargetValue, setNewExerciseTargetValue] = useState('');
+  const [newExerciseChargeKg, setNewExerciseChargeKg] = useState('');
+  const [newExerciseRestSeconds, setNewExerciseRestSeconds] = useState('60');
+  const [newExerciseFreeText, setNewExerciseFreeText] = useState('');
+  const hasHydratedLiveStateRef = useRef(false);
 
   const liveStorageKey = `actyv.session.live.${id}`;
 
@@ -293,7 +510,9 @@ export default function LiveSessionPage() {
           return;
         }
 
-        setBlocks(blockRows || []);
+        if (!hasHydratedLiveStateRef.current || blocks.length === 0) {
+          setBlocks(blockRows || []);
+        }
       } finally {
         setLoading(false);
       }
@@ -310,14 +529,60 @@ export default function LiveSessionPage() {
       if (!savedValue) return;
 
       const parsedValue = JSON.parse(savedValue) as Partial<LiveState>;
+      let hydratedBlocks: TrainingSessionBlockRecord[] | null = null;
+      if (Array.isArray(parsedValue.blocks)) {
+        hasHydratedLiveStateRef.current = true;
+        const nextBlocks = parsedValue.blocks.flatMap((block) => {
+            if (!block || typeof block !== 'object') return [];
+            const candidateBlock = block as Partial<TrainingSessionBlockRecord>;
+            if (
+              typeof candidateBlock.id !== 'string' ||
+              typeof candidateBlock.name !== 'string' ||
+              typeof candidateBlock.block_type !== 'string'
+            ) {
+              return [];
+            }
+
+            return [
+              {
+                id: candidateBlock.id,
+                session_id: typeof candidateBlock.session_id === 'string' ? candidateBlock.session_id : id,
+                position: Number.isFinite(Number(candidateBlock.position)) ? Number(candidateBlock.position) : 0,
+                name: candidateBlock.name,
+                block_type: candidateBlock.block_type as SessionBlockType,
+                sets_count:
+                  Number.isFinite(Number(candidateBlock.sets_count)) && Number(candidateBlock.sets_count) > 0
+                    ? Number(candidateBlock.sets_count)
+                    : 1,
+                target_value:
+                  candidateBlock.target_value === null || candidateBlock.target_value === undefined
+                    ? null
+                    : Number(candidateBlock.target_value),
+                charge_kg:
+                  candidateBlock.charge_kg === null || candidateBlock.charge_kg === undefined
+                    ? null
+                    : Number(candidateBlock.charge_kg),
+                rest_seconds:
+                  Number.isFinite(Number(candidateBlock.rest_seconds)) && Number(candidateBlock.rest_seconds) >= 0
+                    ? Number(candidateBlock.rest_seconds)
+                    : 60,
+              } satisfies TrainingSessionBlockRecord,
+            ];
+        });
+        hydratedBlocks = nextBlocks;
+        setBlocks(nextBlocks);
+      }
       if (parsedValue.historySaved === true) {
         clearPersistedLiveState();
+        hasHydratedLiveStateRef.current = false;
         setCurrentIndex(0);
+        setBlocks([]);
         setCompletedBlockIds([]);
         setSkippedBlockIds([]);
         setCompletedSetsByBlockId({});
         setActualPerformanceDraftsByBlockId({});
         setActualPerformanceCarryForwardByBlockId({});
+        setPerformanceDraftsByBlockId({});
         setSetPerformances([]);
         setFinishReviewOpen(false);
         setRestAfterBlockId(null);
@@ -406,6 +671,25 @@ export default function LiveSessionPage() {
           })
         );
         setActualPerformanceCarryForwardByBlockId(nextCarryForward);
+      }
+      if (parsedValue.performanceDraftsByBlockId && typeof parsedValue.performanceDraftsByBlockId === 'object') {
+        hasHydratedLiveStateRef.current = true;
+        const nextPerformanceDrafts = Object.fromEntries(
+          Object.entries(parsedValue.performanceDraftsByBlockId).flatMap(([blockId, draft]) => {
+            if (!blockId || !draft || typeof draft !== 'object') return [];
+            const candidateDraft = draft as Partial<LivePerformanceDraft>;
+            return [
+              [
+                blockId,
+                normalizeLivePerformanceDraft(
+                  candidateDraft,
+                  (hydratedBlocks || blocks).find((block) => block.id === blockId) || null
+                ),
+              ],
+            ];
+          })
+        );
+        setPerformanceDraftsByBlockId(nextPerformanceDrafts);
       }
       if (Array.isArray(parsedValue.setPerformances)) {
         setSetPerformances(
@@ -539,15 +823,13 @@ export default function LiveSessionPage() {
           return total;
         }
 
-        const volume = getSessionBlockVolumeKg(
-          block.block_type,
-          block.target_value,
-          block.sets_count,
-          block.charge_kg
+        const volume = getLivePerformanceDraftVolumeKg(
+          performanceDraftsByBlockId[block.id] || createDefaultLivePerformanceDraft(block),
+          block
         );
         return total + (volume ?? 0);
       }, 0),
-    [blocks, completedBlockIds]
+    [blocks, completedBlockIds, performanceDraftsByBlockId]
   );
   const estimatedDurationSeconds = useMemo(() => getSessionEstimatedDuration(blocks), [blocks]);
   const estimatedCalories = useMemo(
@@ -573,27 +855,26 @@ export default function LiveSessionPage() {
       ? Math.max(0, Math.trunc(Number(restSourceBlock.rest_seconds)))
       : currentBlockRestSeconds;
   const currentBlockVolume = currentBlock
-    ? getSessionBlockVolumeKg(
-        currentBlock.block_type,
-        currentBlock.target_value,
-        currentBlock.sets_count,
-        currentBlock.charge_kg
+    ? getLivePerformanceDraftVolumeKg(
+        (currentBlock ? performanceDraftsByBlockId[currentBlock.id] : null) ||
+          createDefaultLivePerformanceDraft(currentBlock),
+        currentBlock
       )
     : null;
   const rawCurrentCompletedSets = currentBlock ? Number(completedSetsByBlockId[currentBlock.id] ?? 0) : 0;
   const currentCompletedSets = currentBlock
     ? Math.min(
         Number.isFinite(rawCurrentCompletedSets) ? Math.max(Math.trunc(rawCurrentCompletedSets), 0) : 0,
-        currentBlockSetsTotal
+        currentLiveBlockSetsTotal
       )
     : 0;
   const isDurationBlock = currentBlock?.block_type === 'duration';
   const usesSetBySetValidation =
     Boolean(currentBlock) &&
-    currentBlockSetsTotal > 1 &&
+    currentLiveBlockSetsTotal > 1 &&
     !resolvedBlockIds.includes(currentBlock.id);
   const displayedSeriesStep = currentBlock
-    ? Math.min(currentCompletedSets + (resolvedBlockIds.includes(currentBlock.id) ? 0 : 1), currentBlockSetsTotal)
+    ? Math.min(currentCompletedSets + (resolvedBlockIds.includes(currentBlock.id) ? 0 : 1), currentLiveBlockSetsTotal)
     : 1;
   const isCurrentBlockSkipped = Boolean(currentBlock) && skippedBlockIds.includes(currentBlock.id);
   const isResting = Boolean(restAfterBlockId) && !isFinishReviewVisible;
@@ -630,9 +911,9 @@ export default function LiveSessionPage() {
               : 'Pret pour la serie';
   const currentSeriesLabel = currentBlock
     ? usesSetBySetValidation
-      ? `Serie ${Math.max(displayedSeriesStep, 1)} / ${currentBlockSetsTotal}`
-      : currentBlockSetsTotal > 1
-        ? `${currentBlockSetsTotal} series prevues`
+      ? `Serie ${Math.max(displayedSeriesStep, 1)} / ${currentLiveBlockSetsTotal}`
+      : currentLiveBlockSetsTotal > 1
+        ? `${currentLiveBlockSetsTotal} series prevues`
         : 'Bloc unique'
     : '-';
   const currentBlockName = currentBlock?.name?.trim() || (currentBlock ? `Bloc ${currentIndex + 1}` : 'Bloc');
@@ -641,16 +922,61 @@ export default function LiveSessionPage() {
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
   const plannedRepsForCurrentBlock = getPlannedReps(currentBlock);
   const plannedChargeKgForCurrentBlock = getPlannedChargeKg(currentBlock);
-  const currentActualPerformanceDraft =
-    (currentBlock ? actualPerformanceDraftsByBlockId[currentBlock.id] : null) || getPerformanceDraftFromBlock(currentBlock);
+  const currentLivePerformanceDraft =
+    (currentBlock ? performanceDraftsByBlockId[currentBlock.id] : null) ||
+    createDefaultLivePerformanceDraft(currentBlock);
+  const currentLivePerformanceLines = getLivePerformanceDraftLines(
+    currentLivePerformanceDraft,
+    currentBlock
+  );
+  const currentLivePerformanceTotalSets = getLivePerformanceDraftTotalSets(
+    currentLivePerformanceDraft,
+    currentBlock
+  );
+  const currentLiveBlockSetsTotal = Math.max(currentBlockSetsTotal, currentLivePerformanceTotalSets);
+  const currentActivePerformanceLineIndex = getLivePerformanceLineIndexByCompletedSets(
+    currentLivePerformanceLines,
+    currentCompletedSets
+  );
+  const currentActivePerformanceLine =
+    currentLivePerformanceLines[currentActivePerformanceLineIndex] ||
+    currentLivePerformanceLines[0] ||
+    createLivePerformanceLineDraftFromBlock(currentBlock);
+  const currentCompletedSetsBeforeActiveLine = getLivePerformanceLineStartSetNumber(
+    currentLivePerformanceLines,
+    currentActivePerformanceLineIndex
+  );
+  const currentActiveLineCompletedSets = Math.max(
+    currentCompletedSets - currentCompletedSetsBeforeActiveLine,
+    0
+  );
+  const currentActiveLineTotalSets = Math.max(Math.trunc(Number(currentActivePerformanceLine.setsCount) || 0), 1);
   const currentActualReps =
-    currentActualPerformanceDraft.actualReps == null
-      ? plannedRepsForCurrentBlock
-      : normalizePositiveInteger(currentActualPerformanceDraft.actualReps, 0);
+    currentBlock?.block_type === 'reps'
+      ? currentActivePerformanceLine.targetValue == null
+        ? plannedRepsForCurrentBlock
+        : normalizePositiveInteger(currentActivePerformanceLine.targetValue, 0)
+      : currentBlock?.block_type === 'duration'
+        ? currentActivePerformanceLine.targetValue == null
+          ? Number(currentBlock?.target_value ?? 0)
+          : normalizePositiveInteger(currentActivePerformanceLine.targetValue, 0)
+        : currentBlock?.block_type === 'distance'
+          ? currentActivePerformanceLine.targetValue == null
+            ? Number(currentBlock?.target_value ?? 0)
+            : normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue, 0)
+        : null;
   const currentActualChargeKg =
-    currentActualPerformanceDraft.actualChargeKg == null
-      ? plannedChargeKgForCurrentBlock
-      : normalizeNonNegativeNumber(currentActualPerformanceDraft.actualChargeKg, 0);
+    currentBlock?.block_type === 'reps'
+      ? currentActivePerformanceLine.chargeKg == null
+        ? plannedChargeKgForCurrentBlock
+        : normalizeNonNegativeNumber(currentActivePerformanceLine.chargeKg, 0)
+      : null;
+  const currentActualText =
+    currentBlock?.block_type === 'free'
+      ? currentActivePerformanceLine.note.trim()
+      : currentActivePerformanceLine.note.trim().length > 0
+        ? currentActivePerformanceLine.note.trim()
+        : null;
   const finishStateLabel =
     saveState === 'saving'
       ? 'Enregistrement...'
@@ -667,7 +993,10 @@ export default function LiveSessionPage() {
     (!isDurationBlock || currentPhase !== 'exercising' || awaitingExerciseCompletion);
   const canAdjustCurrentPerformance =
     Boolean(currentBlock) &&
-    currentBlock.block_type === 'reps' &&
+    (currentBlock.block_type === 'reps' ||
+      currentBlock.block_type === 'duration' ||
+      currentBlock.block_type === 'distance' ||
+      currentBlock.block_type === 'free') &&
     !resolvedBlockIds.includes(currentBlock.id);
   const canOpenFinishReview =
     Boolean(session) &&
@@ -681,23 +1010,23 @@ export default function LiveSessionPage() {
     ? allBlocksCompleted
       ? 'Tous les blocs sont termines. Tu peux valider la seance.'
       : 'Tu peux terminer maintenant la seance ou revenir sur les blocs restants.'
-    : 'Termine, passe ou atteins le dernier bloc pour pouvoir cloturer la seance.';
+      : 'Termine, passe ou atteins le dernier bloc pour pouvoir cloturer la seance.';
 
   useEffect(() => {
-    if (!currentBlock || currentBlock.block_type !== 'reps' || resolvedBlockIds.includes(currentBlock.id)) {
+    if (!currentBlock || resolvedBlockIds.includes(currentBlock.id)) {
       return;
     }
 
-    const nextDraft =
-      actualPerformanceCarryForwardByBlockId[currentBlock.id] || getPerformanceDraftFromBlock(currentBlock);
+    const nextDraft = normalizeLivePerformanceDraft(
+      performanceDraftsByBlockId[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock),
+      currentBlock
+    );
 
-    setActualPerformanceDraftsByBlockId((current) => {
+    const nextScalarDraft = getPerformanceDraftFromBlock(currentBlock);
+
+    setPerformanceDraftsByBlockId((current) => {
       const currentDraft = current[currentBlock.id];
-      if (
-        currentDraft &&
-        currentDraft.actualReps === nextDraft.actualReps &&
-        currentDraft.actualChargeKg === nextDraft.actualChargeKg
-      ) {
+      if (JSON.stringify(currentDraft) === JSON.stringify(nextDraft)) {
         return current;
       }
 
@@ -706,7 +1035,23 @@ export default function LiveSessionPage() {
         [currentBlock.id]: nextDraft,
       };
     });
-  }, [actualPerformanceCarryForwardByBlockId, currentBlock, resolvedBlockIds]);
+
+    setActualPerformanceDraftsByBlockId((current) => {
+      const currentDraft = current[currentBlock.id];
+      if (
+        currentDraft &&
+        currentDraft.actualReps === nextScalarDraft.actualReps &&
+        currentDraft.actualChargeKg === nextScalarDraft.actualChargeKg
+      ) {
+        return current;
+      }
+
+      return {
+        ...current,
+        [currentBlock.id]: nextScalarDraft,
+      };
+    });
+  }, [currentBlock, performanceDraftsByBlockId, resolvedBlockIds]);
 
   const validatedSeriesCount = useMemo(
     () =>
@@ -715,15 +1060,18 @@ export default function LiveSessionPage() {
           return total;
         }
 
-        const recordedSets = Number(completedSetsByBlockId[block.id] ?? normalizeSessionSetsCount(block.sets_count));
+        const recordedSets = Number(
+          completedSetsByBlockId[block.id] ??
+            getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block)
+        );
         const normalizedSets = Math.min(
           Math.max(Number.isFinite(recordedSets) ? Math.trunc(recordedSets) : 0, 0),
-          normalizeSessionSetsCount(block.sets_count)
+          getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block)
         );
 
         return total + normalizedSets;
       }, 0),
-    [blocks, completedBlockIds, completedSetsByBlockId]
+    [blocks, completedBlockIds, completedSetsByBlockId, performanceDraftsByBlockId]
   );
   const actualCompletedSetPerformances = useMemo(
     () => setPerformances.filter((entry) => entry.status === 'completed'),
@@ -747,8 +1095,12 @@ export default function LiveSessionPage() {
     [actualCompletedSetPerformances]
   );
   const totalSetsCount = useMemo(
-    () => blocks.reduce((total, block) => total + normalizeSessionSetsCount(block.sets_count), 0),
-    [blocks]
+    () =>
+      blocks.reduce(
+        (total, block) => total + getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block),
+        0
+      ),
+    [blocks, performanceDraftsByBlockId]
   );
   const skippedSeriesCount = useMemo(
     () =>
@@ -757,35 +1109,14 @@ export default function LiveSessionPage() {
           return total;
         }
 
-        const totalSets = normalizeSessionSetsCount(block.sets_count);
         const completedSets = Math.min(
           Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
-          totalSets
+          getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block)
         );
 
-        return total + Math.max(totalSets - completedSets, 0);
+        return total + Math.max(getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block) - completedSets, 0);
       }, 0),
-    [blocks, skippedBlockIds, completedSetsByBlockId]
-  );
-  const totalRepetitionsCount = useMemo(
-    () =>
-      blocks.reduce((total, block) => {
-        if (!completedBlockIds.includes(block.id) || block.block_type !== 'reps') {
-          return total;
-        }
-
-        const targetValue =
-          Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
-            ? Number(block.target_value)
-            : 0;
-        const completedSets = Math.min(
-          Math.max(Number(completedSetsByBlockId[block.id] ?? normalizeSessionSetsCount(block.sets_count)), 0),
-          normalizeSessionSetsCount(block.sets_count)
-        );
-
-        return total + targetValue * completedSets;
-      }, 0),
-    [blocks, completedBlockIds, completedSetsByBlockId]
+    [blocks, skippedBlockIds, completedSetsByBlockId, performanceDraftsByBlockId]
   );
   const unresolvedSeriesCount = useMemo(
     () =>
@@ -794,15 +1125,14 @@ export default function LiveSessionPage() {
           return total;
         }
 
-        const totalSets = normalizeSessionSetsCount(block.sets_count);
         const completedSets = Math.min(
           Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
-          totalSets
+          getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block)
         );
 
-        return total + Math.max(totalSets - completedSets, 0);
+        return total + Math.max(getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block) - completedSets, 0);
       }, 0),
-    [blocks, completedBlockIds, skippedBlockIds, completedSetsByBlockId]
+    [blocks, completedBlockIds, skippedBlockIds, completedSetsByBlockId, performanceDraftsByBlockId]
   );
   const completionRate = blocks.length > 0 ? Math.round((completedBlocksCount / blocks.length) * 100) : 0;
   const isPartialCompletion = skippedBlocksCount > 0 || skippedSeriesCount > 0 || remainingBlocksCount > 0;
@@ -890,12 +1220,23 @@ export default function LiveSessionPage() {
       .map((entry) => ({
         ...entry,
         set_number: normalizePositiveInteger(entry.set_number, 1),
+        line_number: entry.line_number == null ? null : normalizePositiveInteger(entry.line_number, 1),
+        block_type:
+          entry.block_type === 'reps' ||
+          entry.block_type === 'duration' ||
+          entry.block_type === 'distance' ||
+          entry.block_type === 'free'
+            ? entry.block_type
+            : null,
         planned_reps: entry.planned_reps == null ? null : normalizePositiveInteger(entry.planned_reps, 0),
         actual_reps: entry.actual_reps == null ? null : normalizePositiveInteger(entry.actual_reps, 0),
         planned_charge_kg:
           entry.planned_charge_kg == null ? null : normalizeNonNegativeNumber(entry.planned_charge_kg, 0),
         actual_charge_kg:
           entry.actual_charge_kg == null ? null : normalizeNonNegativeNumber(entry.actual_charge_kg, 0),
+        planned_value: entry.planned_value == null ? null : normalizeNonNegativeNumber(entry.planned_value, 0),
+        actual_value: entry.actual_value == null ? null : normalizeNonNegativeNumber(entry.actual_value, 0),
+        actual_text: typeof entry.actual_text === 'string' ? entry.actual_text : null,
       }));
 
     if (JSON.stringify(sanitizedSetPerformances) !== JSON.stringify(setPerformances)) {
@@ -945,11 +1286,13 @@ export default function LiveSessionPage() {
     try {
       const payload: LiveState = {
         currentIndex: nextIndex,
+        blocks,
         completedBlockIds: sanitizedIds,
         skippedBlockIds: sanitizedSkippedIds,
         completedSetsByBlockId: sanitizedCompletedSetsByBlockId,
         actualPerformanceDraftsByBlockId: sanitizedActualPerformanceDraftsByBlockId,
         actualPerformanceCarryForwardByBlockId: sanitizedActualPerformanceCarryForwardByBlockId,
+        performanceDraftsByBlockId,
         setPerformances: sanitizedSetPerformances,
         finishReviewOpen,
         restAfterBlockId: sanitizedRestAfterBlockId,
@@ -975,6 +1318,7 @@ export default function LiveSessionPage() {
     completedSetsByBlockId,
     actualPerformanceDraftsByBlockId,
     actualPerformanceCarryForwardByBlockId,
+    performanceDraftsByBlockId,
     setPerformances,
     currentIndex,
     finishReviewOpen,
@@ -1103,8 +1447,90 @@ export default function LiveSessionPage() {
     }
   };
 
-  const updateCurrentPerformanceDraft = (changes: Partial<ActualPerformanceDraft>) => {
+  const addExerciseToLive = () => {
+    if (!newExerciseName.trim() || !session) return;
+
+    const sanitizedSets = Math.max(Math.trunc(Number(newExerciseSets) || 1), 1);
+    const sanitizedTargetValue =
+      newExerciseType === 'free'
+        ? null
+        : newExerciseTargetValue.trim() === ''
+          ? null
+          : Math.max(Number(newExerciseTargetValue), 0);
+    const sanitizedChargeKg =
+      newExerciseType === 'reps' && newExerciseChargeKg.trim() !== ''
+        ? Math.max(Number(newExerciseChargeKg), 0)
+        : null;
+    const sanitizedRestSeconds = Math.max(Math.trunc(Number(newExerciseRestSeconds) || 0), 0);
+
+    const nextBlock: TrainingSessionBlockRecord = {
+      id: `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      session_id: session.id,
+      position: blocks.length,
+      name: newExerciseName.trim(),
+      block_type: newExerciseType,
+      sets_count: sanitizedSets,
+      target_value: sanitizedTargetValue,
+      charge_kg: sanitizedChargeKg,
+      rest_seconds: sanitizedRestSeconds,
+    };
+
+    setBlocks((current) => [...current, nextBlock]);
+    setCurrentIndex(blocks.length);
+    setPerformanceDraftsByBlockId((current) => ({
+      ...current,
+      [nextBlock.id]: createDefaultLivePerformanceDraft(nextBlock),
+    }));
+    setActualPerformanceDraftsByBlockId((current) => ({
+      ...current,
+      [nextBlock.id]: getPerformanceDraftFromBlock(nextBlock),
+    }));
+    setIsAddExerciseOpen(false);
+    setNewExerciseName('');
+    setNewExerciseType('reps');
+    setNewExerciseSets('1');
+    setNewExerciseTargetValue('');
+    setNewExerciseChargeKg('');
+    setNewExerciseRestSeconds('60');
+    setNewExerciseFreeText('');
+    setValidationFeedback('Exercice ajoute');
+  };
+
+  const updateCurrentPerformanceLine = (changes: Partial<LivePerformanceLineDraft>) => {
     if (!currentBlock) return;
+
+    setPerformanceDraftsByBlockId((current) => {
+      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+      const nextLines = existingDraft.lines.length > 0 ? [...existingDraft.lines] : [createLivePerformanceLineDraftFromBlock(currentBlock)];
+      const lineIndex = Math.min(
+        getLivePerformanceLineIndexByCompletedSets(nextLines, currentCompletedSets),
+        nextLines.length - 1
+      );
+      const currentLine = nextLines[lineIndex] || createLivePerformanceLineDraftFromBlock(currentBlock);
+
+      nextLines[lineIndex] = {
+        ...currentLine,
+        id: currentLine.id || createLivePerformanceLineDraftFromBlock(currentBlock).id,
+        setsCount: changes.setsCount !== undefined ? Math.max(Math.trunc(Number(changes.setsCount) || 0), 1) : currentLine.setsCount,
+        targetValue:
+          changes.targetValue !== undefined
+            ? changes.targetValue
+            : currentLine.targetValue,
+        chargeKg:
+          changes.chargeKg !== undefined
+            ? changes.chargeKg
+            : currentLine.chargeKg,
+        note: changes.note !== undefined ? changes.note : currentLine.note,
+      };
+
+      return {
+        ...current,
+        [currentBlock.id]: {
+          ...existingDraft,
+          lines: nextLines.map((line) => normalizeLivePerformanceLineDraft(line, currentBlock)),
+        },
+      };
+    });
 
     setActualPerformanceDraftsByBlockId((current) => {
       const fallbackDraft = current[currentBlock.id] || getPerformanceDraftFromBlock(currentBlock);
@@ -1112,55 +1538,136 @@ export default function LiveSessionPage() {
         ...current,
         [currentBlock.id]: {
           actualReps:
-            changes.actualReps !== undefined
-              ? changes.actualReps
+            changes.targetValue !== undefined && currentBlock.block_type === 'reps'
+              ? changes.targetValue
               : fallbackDraft.actualReps,
           actualChargeKg:
-            changes.actualChargeKg !== undefined
-              ? changes.actualChargeKg
+            changes.chargeKg !== undefined
+              ? changes.chargeKg
               : fallbackDraft.actualChargeKg,
         },
       };
     });
   };
 
-  const adjustCurrentActualReps = (delta: number) => {
-    const fallbackReps = plannedRepsForCurrentBlock ?? 0;
-    updateCurrentPerformanceDraft({
-      actualReps: Math.max((currentActualReps ?? fallbackReps) + delta, 0),
+  const updateCurrentPerformanceLineAt = (lineIndex: number, changes: Partial<LivePerformanceLineDraft>) => {
+    if (!currentBlock) return;
+
+    setPerformanceDraftsByBlockId((current) => {
+      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+      if (lineIndex < 0 || lineIndex >= existingDraft.lines.length) {
+        return current;
+      }
+
+      const nextLines = existingDraft.lines.map((line, index) =>
+        index === lineIndex
+          ? normalizeLivePerformanceLineDraft(
+              {
+                ...line,
+                ...changes,
+              },
+              currentBlock
+            )
+          : line
+      );
+
+      return {
+        ...current,
+        [currentBlock.id]: {
+          ...existingDraft,
+          lines: nextLines,
+        },
+      };
     });
   };
 
-  const adjustCurrentActualChargeKg = (delta: number) => {
-    const fallbackCharge = plannedChargeKgForCurrentBlock ?? 0;
-    updateCurrentPerformanceDraft({
-      actualChargeKg: Math.max((currentActualChargeKg ?? fallbackCharge) + delta, 0),
+  const addCurrentPerformanceLine = () => {
+    if (!currentBlock) return;
+
+    setPerformanceDraftsByBlockId((current) => {
+      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+      const nextLine = createLivePerformanceLineDraftFromBlock(currentBlock, 1);
+      const nextLines = [...existingDraft.lines, nextLine];
+
+      return {
+        ...current,
+        [currentBlock.id]: {
+          ...existingDraft,
+          lines: nextLines,
+        },
+      };
+    });
+  };
+
+  const removeCurrentPerformanceLine = (lineIndex: number) => {
+    if (!currentBlock) return;
+
+    setPerformanceDraftsByBlockId((current) => {
+      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+      if (existingDraft.lines.length <= 1 || lineIndex < 0 || lineIndex >= existingDraft.lines.length) {
+        return current;
+      }
+
+      const nextLines = existingDraft.lines.filter((_, index) => index !== lineIndex);
+
+      return {
+        ...current,
+        [currentBlock.id]: {
+          ...existingDraft,
+          lines: nextLines.length > 0 ? nextLines : [createLivePerformanceLineDraftFromBlock(currentBlock)],
+        },
+      };
     });
   };
 
   const resetCurrentPerformanceDraft = () => {
-    updateCurrentPerformanceDraft(getPerformanceDraftFromBlock(currentBlock));
-    if (currentBlock) {
-      setActualPerformanceCarryForwardByBlockId((current) => {
-        if (!(currentBlock.id in current)) return current;
-        const nextState = { ...current };
-        delete nextState[currentBlock.id];
-        return nextState;
-      });
-    }
+    if (!currentBlock) return;
+
+    setPerformanceDraftsByBlockId((current) => ({
+      ...current,
+      [currentBlock.id]: createDefaultLivePerformanceDraft(currentBlock),
+    }));
+    setActualPerformanceDraftsByBlockId((current) => {
+      const nextState = { ...current };
+      nextState[currentBlock.id] = getPerformanceDraftFromBlock(currentBlock);
+      return nextState;
+    });
     setValidationFeedback('Retour aux valeurs prevues');
   };
 
   const applyCurrentPerformanceToRemainingSets = () => {
-    if (!currentBlock || currentBlock.block_type !== 'reps') return;
+    if (!currentBlock) return;
 
-    setActualPerformanceCarryForwardByBlockId((current) => ({
-      ...current,
-      [currentBlock.id]: {
-        actualReps: currentActualReps,
-        actualChargeKg: currentActualChargeKg,
-      },
-    }));
+    setPerformanceDraftsByBlockId((current) => {
+      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+      const nextLines = existingDraft.lines.map((line, index) =>
+        index < currentActivePerformanceLineIndex
+          ? line
+          : currentBlock.block_type === 'free'
+            ? {
+                ...line,
+                note: currentActualText ?? line.note,
+              }
+            : currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
+              ? {
+                  ...line,
+                  targetValue: currentActualReps,
+                }
+              : {
+                  ...line,
+                  targetValue: currentActualReps,
+                  chargeKg: currentActualChargeKg,
+                }
+      );
+
+      return {
+        ...current,
+        [currentBlock.id]: {
+          ...existingDraft,
+          lines: nextLines,
+        },
+      };
+    });
     setValidationFeedback('Applique aux series restantes');
   };
 
@@ -1229,6 +1736,14 @@ export default function LiveSessionPage() {
     setEarnedXpTotal(0);
     setSaveState('idle');
     setRunKey(createLiveRunKey());
+    setIsAddExerciseOpen(false);
+    setNewExerciseName('');
+    setNewExerciseType('reps');
+    setNewExerciseSets('1');
+    setNewExerciseTargetValue('');
+    setNewExerciseChargeKg('');
+    setNewExerciseRestSeconds('60');
+    setNewExerciseFreeText('');
     clearRestState();
     clearExerciseState();
     clearPersistedLiveState();
@@ -1258,33 +1773,49 @@ export default function LiveSessionPage() {
     setStartedSeriesKey(null);
     setValidationFeedback(usesSetBySetValidation ? 'Serie validee' : 'Bloc valide');
 
-    const setNumber = Math.min(currentCompletedSets + 1, currentBlockSetsTotal);
+    const setNumber = Math.min(currentCompletedSets + 1, currentLiveBlockSetsTotal);
     const plannedReps = getPlannedReps(currentBlock);
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
+    const plannedTargetValue =
+      currentBlock.block_type === 'reps'
+        ? currentActivePerformanceLine.targetValue ?? plannedReps
+        : currentBlock.block_type === 'duration'
+          ? normalizePositiveInteger(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+          : currentBlock.block_type === 'distance'
+            ? normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+            : null;
 
     upsertSetPerformanceEntries([
       {
         block_id: currentBlock.id,
         block_name: currentBlock.name?.trim() || `Bloc ${currentIndex + 1}`,
         set_number: setNumber,
+        line_number: currentActivePerformanceLineIndex + 1,
+        block_type: currentBlock.block_type,
         planned_reps: plannedReps,
         actual_reps: currentBlock.block_type === 'reps' ? currentActualReps ?? plannedReps : null,
         planned_charge_kg: plannedChargeKg,
         actual_charge_kg:
           currentBlock.block_type === 'reps' ? (currentActualChargeKg && currentActualChargeKg > 0 ? currentActualChargeKg : null) : null,
+        planned_value: plannedTargetValue,
+        actual_value:
+          currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
+            ? currentActualReps
+            : null,
+        actual_text: currentBlock.block_type === 'free' ? currentActivePerformanceLine.note || null : null,
         status: 'completed',
       },
     ]);
 
     if (usesSetBySetValidation) {
-      const nextCompletedSets = Math.min(currentCompletedSets + 1, currentBlockSetsTotal);
+      const nextCompletedSets = Math.min(currentCompletedSets + 1, currentLiveBlockSetsTotal);
 
       setCompletedSetsByBlockId((current) => ({
         ...current,
         [currentBlock.id]: nextCompletedSets,
       }));
 
-      if (nextCompletedSets >= currentBlockSetsTotal) {
+      if (nextCompletedSets >= currentLiveBlockSetsTotal) {
         completeCurrentExercise();
       } else {
         beginRest(currentBlock.id, currentIndex, currentBlockRestSeconds);
@@ -1295,7 +1826,7 @@ export default function LiveSessionPage() {
 
     setCompletedSetsByBlockId((current) => ({
       ...current,
-      [currentBlock.id]: currentBlockSetsTotal,
+      [currentBlock.id]: currentLiveBlockSetsTotal,
     }));
 
     completeCurrentExercise();
@@ -1310,16 +1841,29 @@ export default function LiveSessionPage() {
     setValidationFeedback('Bloc passe');
     const plannedReps = getPlannedReps(currentBlock);
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
+    const plannedTargetValue =
+      currentBlock.block_type === 'reps'
+        ? currentActivePerformanceLine.targetValue ?? plannedReps
+        : currentBlock.block_type === 'duration'
+          ? normalizePositiveInteger(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+          : currentBlock.block_type === 'distance'
+            ? normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+            : null;
     const skippedEntries: WorkoutSetPerformance[] = Array.from(
-      { length: Math.max(currentBlockSetsTotal - currentCompletedSets, 0) },
+      { length: Math.max(currentLiveBlockSetsTotal - currentCompletedSets, 0) },
       (_, index) => ({
         block_id: currentBlock.id,
         block_name: currentBlock.name?.trim() || `Bloc ${currentIndex + 1}`,
         set_number: currentCompletedSets + index + 1,
+        line_number: currentActivePerformanceLineIndex + 1,
+        block_type: currentBlock.block_type,
         planned_reps: plannedReps,
         actual_reps: null,
         planned_charge_kg: plannedChargeKg,
         actual_charge_kg: null,
+        planned_value: plannedTargetValue,
+        actual_value: null,
+        actual_text: null,
         status: 'skipped' as const,
       })
     );
@@ -1449,20 +1993,21 @@ export default function LiveSessionPage() {
       );
 
       blocks.forEach((block, blockIndex) => {
-        const totalSets = normalizeSessionSetsCount(block.sets_count);
+        const liveDraft =
+          performanceDraftsByBlockId[block.id] || createDefaultLivePerformanceDraft(block);
+        const liveLines = getLivePerformanceDraftLines(liveDraft, block);
+        const totalSets = getLivePerformanceDraftTotalSets(liveDraft, block);
         const completedSets = Math.min(
           Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
           totalSets
         );
-        const plannedReps = getPlannedReps(block);
-        const plannedChargeKg = getPlannedChargeKg(block);
-        const fallbackDraft =
-          actualPerformanceCarryForwardByBlockId[block.id] ||
-          actualPerformanceDraftsByBlockId[block.id] ||
-          getPerformanceDraftFromBlock(block);
         const blockName = block.name?.trim() || `Bloc ${blockIndex + 1}`;
 
         for (let setNumber = 1; setNumber <= completedSets; setNumber += 1) {
+          const { line, lineIndex } = getLivePerformanceLineForSetNumber(liveLines, setNumber);
+          const normalizedTargetValue = line.targetValue == null ? null : normalizeNonNegativeNumber(line.targetValue, 0);
+          const normalizedChargeKg = line.chargeKg == null ? null : normalizeNonNegativeNumber(line.chargeKg, 0);
+          const lineType = block.block_type;
           const key = getSetPerformanceKey({
             block_id: block.id,
             set_number: setNumber,
@@ -1474,21 +2019,30 @@ export default function LiveSessionPage() {
               block_id: block.id,
               block_name: blockName,
               set_number: setNumber,
-              planned_reps: plannedReps,
-              actual_reps: block.block_type === 'reps' ? fallbackDraft.actualReps ?? plannedReps : null,
-              planned_charge_kg: plannedChargeKg,
-              actual_charge_kg:
-                block.block_type === 'reps'
-                  ? fallbackDraft.actualChargeKg && fallbackDraft.actualChargeKg > 0
-                    ? fallbackDraft.actualChargeKg
-                    : null
+              line_number: lineIndex + 1,
+              block_type: lineType,
+              planned_reps: lineType === 'reps' ? normalizedTargetValue : null,
+              actual_reps: lineType === 'reps' ? normalizedTargetValue : null,
+              planned_charge_kg: lineType === 'reps' ? normalizedChargeKg : null,
+              actual_charge_kg: lineType === 'reps' ? normalizedChargeKg : null,
+              planned_value:
+                lineType === 'duration' || lineType === 'distance'
+                  ? normalizedTargetValue
                   : null,
+              actual_value:
+                lineType === 'duration' || lineType === 'distance'
+                  ? normalizedTargetValue
+                  : null,
+              actual_text: lineType === 'free' ? line.note.trim() || null : null,
               status: 'completed',
             });
           }
         }
 
         for (let setNumber = completedSets + 1; setNumber <= totalSets; setNumber += 1) {
+          const { line, lineIndex } = getLivePerformanceLineForSetNumber(liveLines, setNumber);
+          const normalizedTargetValue = line.targetValue == null ? null : normalizeNonNegativeNumber(line.targetValue, 0);
+          const lineType = block.block_type;
           const key = getSetPerformanceKey({
             block_id: block.id,
             set_number: setNumber,
@@ -1500,10 +2054,18 @@ export default function LiveSessionPage() {
               block_id: block.id,
               block_name: blockName,
               set_number: setNumber,
-              planned_reps: plannedReps,
+              line_number: lineIndex + 1,
+              block_type: lineType,
+              planned_reps: lineType === 'reps' ? normalizedTargetValue : null,
               actual_reps: null,
-              planned_charge_kg: plannedChargeKg,
+              planned_charge_kg: lineType === 'reps' ? normalizeNonNegativeNumber(line.chargeKg, 0) : null,
               actual_charge_kg: null,
+              planned_value:
+                lineType === 'duration' || lineType === 'distance'
+                  ? normalizedTargetValue
+                  : null,
+              actual_value: null,
+              actual_text: null,
               status: 'skipped',
             });
           }
@@ -2462,89 +3024,164 @@ export default function LiveSessionPage() {
                   <article className="card session-live-performance-card">
                     <div className="session-live-performance-card__header">
                       <div>
-                        <span className="section-kicker">Realise</span>
-                        <h2>Aujourd hui</h2>
+                        <span className="section-kicker">Réalisé</span>
+                        <h2>{currentBlock.block_type === 'free' ? 'Texte libre' : 'Lignes de série'}</h2>
                       </div>
                       <span className="session-block-chip">{currentSeriesLabel}</span>
                     </div>
 
                     <div className="session-live-performance-card__planned">
-                      <span>Prevu</span>
+                      <span>Prévu</span>
                       <strong>
-                        {`${currentBlockSetsTotal} x ${plannedRepsForCurrentBlock ?? 0}${
-                          plannedChargeKgForCurrentBlock ? ` @ ${plannedChargeKgForCurrentBlock} kg` : ''
-                        }`}
+                        {formatLivePerformanceLineSummary(currentBlock.block_type, currentActivePerformanceLine)}
                       </strong>
                     </div>
 
                     <div className="session-live-performance-card__planned">
-                      <span>Realise</span>
+                      <span>Actif</span>
                       <strong>
-                        {`Reps : ${currentActualReps ?? 0}${
-                          plannedChargeKgForCurrentBlock != null || currentActualChargeKg != null
-                            ? ` | Poids : ${currentActualChargeKg ?? 0} kg`
-                            : ''
-                        }`}
+                        {currentBlock.block_type === 'free'
+                          ? currentActualText || 'Saisis ton texte libre'
+                          : formatLivePerformanceLineSummary(currentBlock.block_type, currentActivePerformanceLine)}
                       </strong>
                     </div>
 
-                    <div className="session-live-performance-grid">
-                      <div className="session-live-performance-field">
-                        <span>Reps</span>
-                        <div className="session-live-stepper">
-                          <button type="button" className="button ghost" onClick={() => adjustCurrentActualReps(-1)}>
-                            -
-                          </button>
-                          <input
-                            type="number"
-                            min={0}
-                            inputMode="numeric"
-                            value={currentActualReps ?? 0}
-                            onChange={(event) =>
-                              updateCurrentPerformanceDraft({
-                                actualReps: normalizePositiveInteger(event.target.value, 0),
-                              })
-                            }
-                          />
-                          <button type="button" className="button ghost" onClick={() => adjustCurrentActualReps(1)}>
-                            +
-                          </button>
-                        </div>
-                      </div>
+                    <div className="session-live-line-list">
+                      {currentLivePerformanceLines.map((line, lineIndex) => {
+                        const isActiveLine = lineIndex === currentActivePerformanceLineIndex;
+                        const lineSummary = formatLivePerformanceLineSummary(currentBlock.block_type, line);
 
-                      <div className="session-live-performance-field">
-                        <span>Poids</span>
-                        <div className="session-live-stepper">
-                          <button type="button" className="button ghost" onClick={() => adjustCurrentActualChargeKg(-2.5)}>
-                            -2.5
-                          </button>
-                          <input
-                            type="number"
-                            min={0}
-                            step="0.5"
-                            inputMode="decimal"
-                            value={currentActualChargeKg ?? 0}
-                            onChange={(event) =>
-                              updateCurrentPerformanceDraft({
-                                actualChargeKg: normalizeNonNegativeNumber(event.target.value, 0),
-                              })
-                            }
-                          />
-                          <button type="button" className="button ghost" onClick={() => adjustCurrentActualChargeKg(2.5)}>
-                            +2.5
-                          </button>
-                        </div>
-                      </div>
+                        return (
+                          <article
+                            key={line.id}
+                            className={`session-live-line-item${isActiveLine ? ' session-live-line-item--active' : ''}`}
+                          >
+                            <div className="session-live-line-item__top">
+                              <div>
+                                <span className="section-kicker">{`Ligne ${lineIndex + 1}`}</span>
+                                <strong>{lineSummary}</strong>
+                              </div>
+                              {currentLivePerformanceLines.length > 1 ? (
+                                <button
+                                  type="button"
+                                  className="button ghost session-live-line-item__remove"
+                                  onClick={() => removeCurrentPerformanceLine(lineIndex)}
+                                >
+                                  Retirer
+                                </button>
+                              ) : null}
+                            </div>
+
+                            <div className="session-live-performance-grid session-live-performance-grid--dense">
+                              <div className="session-live-performance-field">
+                                <span>Séries</span>
+                                <input
+                                  type="number"
+                                  min={1}
+                                  inputMode="numeric"
+                                  value={line.setsCount}
+                                  onChange={(event) =>
+                                    updateCurrentPerformanceLineAt(lineIndex, {
+                                      setsCount: normalizePositiveInteger(event.target.value, 1),
+                                    })
+                                  }
+                                />
+                              </div>
+
+                              {currentBlock.block_type === 'reps' ? (
+                                <>
+                                  <div className="session-live-performance-field">
+                                    <span>Répétitions</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      inputMode="numeric"
+                                      value={line.targetValue ?? 0}
+                                      onChange={(event) =>
+                                        updateCurrentPerformanceLineAt(lineIndex, {
+                                          targetValue: normalizePositiveInteger(event.target.value, 0),
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                  <div className="session-live-performance-field">
+                                    <span>Charge kg</span>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      step="0.5"
+                                      inputMode="decimal"
+                                      value={line.chargeKg ?? 0}
+                                      onChange={(event) =>
+                                        updateCurrentPerformanceLineAt(lineIndex, {
+                                          chargeKg: normalizeNonNegativeNumber(event.target.value, 0),
+                                        })
+                                      }
+                                    />
+                                  </div>
+                                </>
+                              ) : currentBlock.block_type === 'duration' ? (
+                                <div className="session-live-performance-field">
+                                  <span>Durée (sec)</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    inputMode="numeric"
+                                    value={line.targetValue ?? 0}
+                                    onChange={(event) =>
+                                      updateCurrentPerformanceLineAt(lineIndex, {
+                                        targetValue: normalizePositiveInteger(event.target.value, 0),
+                                      })
+                                    }
+                                  />
+                                </div>
+                              ) : currentBlock.block_type === 'distance' ? (
+                                <div className="session-live-performance-field">
+                                  <span>Distance</span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step="0.1"
+                                    inputMode="decimal"
+                                    value={line.targetValue ?? 0}
+                                    onChange={(event) =>
+                                      updateCurrentPerformanceLineAt(lineIndex, {
+                                        targetValue: normalizeNonNegativeNumber(event.target.value, 0),
+                                      })
+                                    }
+                                  />
+                                </div>
+                              ) : (
+                                <div className="session-live-performance-field session-live-performance-field--full">
+                                  <span>Texte libre</span>
+                                  <textarea
+                                    rows={2}
+                                    value={line.note}
+                                    onChange={(event) =>
+                                      updateCurrentPerformanceLineAt(lineIndex, {
+                                        note: event.target.value,
+                                      })
+                                    }
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
 
                     <div className="session-live-performance-card__actions">
-                      {currentBlockSetsTotal > 1 && currentCompletedSets < currentBlockSetsTotal - 1 ? (
+                      <button type="button" className="button ghost" onClick={addCurrentPerformanceLine}>
+                        + Ajouter une ligne
+                      </button>
+                      {currentLivePerformanceTotalSets > 1 && currentCompletedSets < currentLivePerformanceTotalSets - 1 ? (
                         <button type="button" className="button ghost" onClick={applyCurrentPerformanceToRemainingSets}>
-                          Appliquer aux series restantes
+                          Appliquer aux séries restantes
                         </button>
                       ) : null}
                       <button type="button" className="button ghost" onClick={resetCurrentPerformanceDraft}>
-                        Revenir au prevu
+                        Revenir au prévu
                       </button>
                     </div>
                   </article>

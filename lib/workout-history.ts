@@ -1,12 +1,33 @@
+import type { SessionBlockType } from '@/lib/session-blocks';
+
 export type WorkoutSetPerformance = {
   block_id: string;
   block_name: string;
   set_number: number;
+  line_number?: number | null;
+  block_type?: SessionBlockType | null;
   planned_reps: number | null;
   actual_reps: number | null;
   planned_charge_kg: number | null;
   actual_charge_kg: number | null;
+  planned_value?: number | null;
+  actual_value?: number | null;
+  actual_text?: string | null;
   status: 'completed' | 'skipped';
+};
+
+export type WorkoutSetLine = {
+  id: string;
+  line_number: number;
+  sets_count: number;
+  block_type: SessionBlockType;
+  planned_reps: number | null;
+  actual_reps: number | null;
+  planned_charge_kg: number | null;
+  actual_charge_kg: number | null;
+  planned_value: number | null;
+  actual_value: number | null;
+  actual_text?: string | null;
 };
 
 export type WorkoutCompletionMetadata = {
@@ -27,6 +48,7 @@ export type WorkoutCompletionMetadata = {
   earned_xp?: number;
   awarded_badges?: string[];
   actual_sets?: WorkoutSetPerformance[];
+  set_lines?: WorkoutSetLine[];
   set_performances?: WorkoutSetPerformance[];
 };
 
@@ -64,15 +86,29 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
               block_id: blockId,
               block_name: blockName,
               set_number: setNumber,
+              line_number: toPositiveNumber(candidateEntry.line_number) ?? null,
+              block_type:
+                candidateEntry.block_type === 'reps' ||
+                candidateEntry.block_type === 'duration' ||
+                candidateEntry.block_type === 'distance' ||
+                candidateEntry.block_type === 'free'
+                  ? candidateEntry.block_type
+                  : null,
               planned_reps: toPositiveNumber(candidateEntry.planned_reps) ?? null,
               actual_reps: toPositiveNumber(candidateEntry.actual_reps) ?? null,
               planned_charge_kg: toPositiveNumber(candidateEntry.planned_charge_kg) ?? null,
               actual_charge_kg: toPositiveNumber(candidateEntry.actual_charge_kg) ?? null,
+              planned_value: toPositiveNumber(candidateEntry.planned_value) ?? null,
+              actual_value: toPositiveNumber(candidateEntry.actual_value) ?? null,
+              actual_text:
+                typeof candidateEntry.actual_text === 'string' ? candidateEntry.actual_text : null,
               status,
             } satisfies WorkoutSetPerformance,
           ];
         })
       : undefined;
+
+  const setLines = parseSetPerformances(candidate.set_lines);
 
   const actualSets = parseSetPerformances(candidate.actual_sets);
   const legacySetPerformances = parseSetPerformances(candidate.set_performances);
@@ -100,6 +136,7 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
       ? candidate.awarded_badges.filter((value): value is string => typeof value === 'string' && value.length > 0)
       : undefined,
     actual_sets: actualSets ?? legacySetPerformances,
+    set_lines: setLines,
     set_performances: legacySetPerformances ?? actualSets,
   };
 }
