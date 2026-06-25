@@ -395,6 +395,7 @@ export default function LiveSessionPage() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
   const [skippedBlockIds, setSkippedBlockIds] = useState<string[]>([]);
@@ -452,6 +453,54 @@ export default function LiveSessionPage() {
     }
   }, [liveStorageKey]);
 
+  const resolveLiveAuthUserId = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.getSession();
+
+      if (error) {
+        console.error('Erreur getSession seance live :', error);
+      }
+
+      const sessionUserId = data.session?.user?.id ?? null;
+      if (sessionUserId) {
+        return sessionUserId;
+      }
+
+      if (typeof window === 'undefined') {
+        return null;
+      }
+
+      return await new Promise<string | null>((resolve) => {
+        let settled = false;
+        let timeoutId: number | undefined;
+        let subscription: { unsubscribe: () => void } | null = null;
+
+        const finish = (nextUserId: string | null) => {
+          if (settled) return;
+          settled = true;
+          if (typeof timeoutId === 'number') {
+            window.clearTimeout(timeoutId);
+          }
+          subscription?.unsubscribe();
+          resolve(nextUserId);
+        };
+
+        timeoutId = window.setTimeout(() => {
+          finish(null);
+        }, 1500);
+
+        subscription = supabase.auth.onAuthStateChange((_event, nextSession) => {
+          if (nextSession?.user?.id) {
+            finish(nextSession.user.id);
+          }
+        }).data.subscription;
+      });
+    } catch (error) {
+      console.error('Erreur resolution auth seance live :', error);
+      return null;
+    }
+  }, []);
+
   useEffect(() => {
     if (!id) {
       setLoading(false);
@@ -465,28 +514,25 @@ export default function LiveSessionPage() {
       setLoading(true);
       setMessage(null);
       setHistoryMessage(null);
+      setAuthUserId(null);
 
       try {
-        const {
-          data: { user },
-          error: userError,
-        } = await supabase.auth.getUser();
+        const resolvedUserId = await resolveLiveAuthUserId();
 
-        if (userError || !user) {
-          if (userError) {
-            console.error('Erreur chargement user seance live :', userError);
-          }
+        if (!resolvedUserId) {
           setMessage('Connecte-toi pour lancer cette seance.');
           setSession(null);
           setBlocks([]);
           return;
         }
 
+        setAuthUserId(resolvedUserId);
+
         const { data: sessionRow, error: sessionError } = await supabase
           .from('training_sessions')
           .select('id, user_id, name, sport, description, visibility, created_at')
           .eq('id', id)
-          .or(`user_id.eq.${user.id},visibility.eq.public`)
+          .or(`user_id.eq.${resolvedUserId},visibility.eq.public`)
           .maybeSingle();
 
         if (sessionError) {
@@ -500,6 +546,7 @@ export default function LiveSessionPage() {
         if (!sessionRow) {
           setSession(null);
           setBlocks([]);
+          setMessage('Cette seance est introuvable.');
           return;
         }
 
@@ -514,16 +561,19 @@ export default function LiveSessionPage() {
           return;
         }
 
-        if (!hasHydratedLiveStateRef.current || blocks.length === 0) {
-          setBlocks(blockRows || []);
-        }
+        setBlocks(blockRows || []);
+      } catch (error) {
+        console.error('Erreur inattendue seance live :', error);
+        setMessage('Impossible de charger cette seance.');
+        setSession(null);
+        setBlocks([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadSession();
-  }, [id]);
+  }, [id, resolveLiveAuthUserId]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1980,17 +2030,16 @@ export default function LiveSessionPage() {
     setHistoryMessage(null);
 
     try {
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
+      const currentUserId = authUserId || (await resolveLiveAuthUserId());
 
-      if (userError || !user) {
-        console.error('Workout history insert error:', userError || new Error('No authenticated user'));
+      if (!currentUserId) {
+        console.error('Workout history insert error:', new Error('No authenticated user'));
         setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
         setSaveState('error');
         return false;
       }
+
+      setAuthUserId(currentUserId);
 
       const finalSetPerformanceByKey = new Map(
         setPerformances.map((entry) => [getSetPerformanceKey(entry), entry])
@@ -2537,7 +2586,7 @@ export default function LiveSessionPage() {
           } else {
             const bonusXp = Number(dailySessionRow.bonus_xp || 25);
             const dailyXpResult = await awardXp({
-              userId: user.id,
+              userId: currentUserId,
               source: 'daily_session_completed',
               metadata: { target_id: dailySessionId },
               xpOverride: bonusXp,
@@ -2551,7 +2600,7 @@ export default function LiveSessionPage() {
             } else if (dailyXpResult?.error) {
               console.error('XP award failed', {
                 payload: {
-                  user_id: user.id,
+                  user_id: currentUserId,
                   event_type: 'daily_session_completed',
                   xp_amount: bonusXp,
                   target_id: dailySessionId,
@@ -2567,7 +2616,7 @@ export default function LiveSessionPage() {
         }
       }
 
-      const badgeResult = await refreshUserBadges(user.id);
+      const badgeResult = await refreshUserBadges(currentUserId);
 
       if (badgeResult.error) {
         console.error('Erreur refresh badges seance live :', badgeResult.error);
@@ -2585,7 +2634,7 @@ export default function LiveSessionPage() {
         });
       });
 
-      const xpTotalResult = await getUserTotalXp(user.id, 0);
+      const xpTotalResult = await getUserTotalXp(currentUserId, 0);
       if (!xpTotalResult.error) {
         setCompletionTotalXp(xpTotalResult.totalXp);
         setCompletionLevelProgress(getActyvLevel(xpTotalResult.totalXp));
@@ -2613,6 +2662,7 @@ export default function LiveSessionPage() {
       return false;
     }
   }, [
+    authUserId,
     actualPerformanceCarryForwardByBlockId,
     actualPerformanceDraftsByBlockId,
     blocks,
@@ -2634,6 +2684,7 @@ export default function LiveSessionPage() {
     session,
     sessionTotalVolume,
     setPerformances,
+    resolveLiveAuthUserId,
     skippedBlocksCount,
     skippedSeriesCount,
     unresolvedSeriesCount,
@@ -2657,6 +2708,7 @@ export default function LiveSessionPage() {
       ? `${completionTotalXp} XP`
       : `${completionTotalXp} / ${completionLevelProgress.nextLevelXp} XP`
     : null;
+  const loginHref = `/login?redirectTo=${encodeURIComponent(`/sessions/${id}/live`)}`;
 
   return (
     <AppShell>
@@ -2676,6 +2728,11 @@ export default function LiveSessionPage() {
               <Link href="/sessions" className="button primary">
                 Revenir a mes seances
               </Link>
+              {message?.toLowerCase().includes('connecte-toi') ? (
+                <Link href={loginHref} className="button ghost">
+                  Se connecter
+                </Link>
+              ) : null}
             </div>
           </div>
         ) : blocks.length === 0 ? (
