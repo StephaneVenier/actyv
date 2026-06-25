@@ -252,6 +252,10 @@ function normalizePositiveInteger(value: number | null | undefined, fallback = 0
   return Math.trunc(normalizedValue);
 }
 
+function safeTrimText(value: string | null | undefined) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -528,11 +532,11 @@ export default function SessionDetailPage() {
 
     const groupedRecords = new Map<string, ExercisePersonalRecord>();
     const sessionExerciseOrder = new Map(
-      blocks.map((block, index) => [(block.name?.trim() || '').toLowerCase(), index] as const)
+      blocks.map((block, index) => [safeTrimText(block.name).toLowerCase(), index] as const)
     );
 
     historyExerciseEntries.forEach((entry) => {
-      const exerciseName = entry.exercise_name?.trim() || '';
+      const exerciseName = safeTrimText(entry.exercise_name);
       if (!exerciseName) return;
 
       const recordKey = exerciseName.toLowerCase();
@@ -581,8 +585,8 @@ export default function SessionDetailPage() {
     });
 
     return [...groupedRecords.values()].sort((left, right) => {
-      const leftOrder = sessionExerciseOrder.get(left.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
-      const rightOrder = sessionExerciseOrder.get(right.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      const leftOrder = sessionExerciseOrder.get(safeTrimText(left.exerciseName).toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = sessionExerciseOrder.get(safeTrimText(right.exerciseName).toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
 
       if (leftOrder !== rightOrder) {
         return leftOrder - rightOrder;
@@ -598,11 +602,11 @@ export default function SessionDetailPage() {
 
     const groupedEntries = new Map<string, WorkoutHistoryExerciseEntry[]>();
     const sessionExerciseOrder = new Map(
-      blocks.map((block, index) => [(block.name?.trim() || '').toLowerCase(), index] as const)
+      blocks.map((block, index) => [safeTrimText(block.name).toLowerCase(), index] as const)
     );
 
     historyExerciseEntries.forEach((entry) => {
-      const exerciseName = entry.exercise_name?.trim() || '';
+      const exerciseName = safeTrimText(entry.exercise_name);
       if (!exerciseName) return;
 
       const key = exerciseName.toLowerCase();
@@ -763,8 +767,8 @@ export default function SessionDetailPage() {
         };
       })
       .sort((left, right) => {
-        const leftOrder = sessionExerciseOrder.get(left.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
-        const rightOrder = sessionExerciseOrder.get(right.exerciseName.trim().toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      const leftOrder = sessionExerciseOrder.get(safeTrimText(left.exerciseName).toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
+      const rightOrder = sessionExerciseOrder.get(safeTrimText(right.exerciseName).toLowerCase()) ?? Number.MAX_SAFE_INTEGER;
         if (leftOrder !== rightOrder) return leftOrder - rightOrder;
         return left.exerciseName.localeCompare(right.exerciseName, 'fr');
       });
@@ -1156,20 +1160,20 @@ export default function SessionDetailPage() {
     0
   );
   const repsBlocks = useMemo(
-    () => blocks.filter((block) => block.block_type === 'reps' && (block.name?.trim() || '').length > 0),
+    () => blocks.filter((block) => block.block_type === 'reps' && safeTrimText(block.name).length > 0),
     [blocks]
   );
   const exercisePerformanceSnapshotsByName = useMemo(
     () =>
       new Map<string, ExercisePerformanceSnapshot[]>(
         repsBlocks.map((block) => {
-          const normalizedBlockName = (block.name?.trim() || '').toLowerCase();
+          const normalizedBlockName = safeTrimText(block.name).toLowerCase();
           const snapshots = workoutPerformanceHistoryEntries
             .map((historyEntry) => {
               const matchingSets = historyEntry.actualSets.filter(
                 (setEntry) =>
                   setEntry.status === 'completed' &&
-                  setEntry.block_name.trim().toLowerCase() === normalizedBlockName
+                  safeTrimText(setEntry.block_name).toLowerCase() === normalizedBlockName
               );
 
               if (matchingSets.length === 0) return null;
@@ -1180,7 +1184,7 @@ export default function SessionDetailPage() {
               return {
                 historyId: historyEntry.id,
                 completedAt: historyEntry.completedAt,
-                blockName: block.name?.trim() || 'Exercice',
+                blockName: safeTrimText(block.name) || 'Exercice',
                 summary,
               } satisfies ExercisePerformanceSnapshot;
             })
@@ -1199,13 +1203,13 @@ export default function SessionDetailPage() {
 
     return repsBlocks
       .map((block) => {
-        const normalizedBlockName = (block.name?.trim() || '').toLowerCase();
+        const normalizedBlockName = safeTrimText(block.name).toLowerCase();
         const matchingHistoryEntries = workoutPerformanceHistoryEntries
           .map((historyEntry) => {
             const matchingSets = historyEntry.actualSets.filter(
               (setEntry) =>
                 setEntry.status === 'completed' &&
-                setEntry.block_name.trim().toLowerCase() === normalizedBlockName
+                safeTrimText(setEntry.block_name).toLowerCase() === normalizedBlockName
             );
 
             if (matchingSets.length === 0) return null;
@@ -1270,7 +1274,7 @@ export default function SessionDetailPage() {
 
         return {
           blockId: block.id,
-          exerciseName: block.name?.trim() || 'Exercice',
+          exerciseName: safeTrimText(block.name) || 'Exercice',
           maxChargeKg: maxChargeKg > 0 ? maxChargeKg : null,
           bestSetReps: bestSetReps > 0 ? bestSetReps : null,
           bestWorkoutVolumeKg: bestWorkoutVolumeKg > 0 ? bestWorkoutVolumeKg : null,

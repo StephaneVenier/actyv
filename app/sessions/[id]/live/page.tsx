@@ -165,6 +165,10 @@ function normalizeNonNegativeNumber(value: unknown, fallback = 0) {
   return Math.max(normalizedValue, fallback);
 }
 
+function safeTrimText(value: string | null | undefined) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
 function getPlannedReps(block: TrainingSessionBlockRecord | null) {
   if (!block || block.block_type !== 'reps') return null;
   const normalizedValue = normalizePositiveInteger(block.target_value, 0);
@@ -770,7 +774,7 @@ export default function LiveSessionPage() {
       if (typeof parsedValue.isTimerPaused === 'boolean') {
         setIsTimerPaused(parsedValue.isTimerPaused);
       }
-      if (typeof parsedValue.runKey === 'string' && parsedValue.runKey.trim().length > 0) {
+      if (typeof parsedValue.runKey === 'string' && safeTrimText(parsedValue.runKey).length > 0) {
         setRunKey(parsedValue.runKey);
       }
       if (typeof parsedValue.historySaved === 'boolean') {
@@ -916,9 +920,9 @@ export default function LiveSessionPage() {
         ? `${currentLiveBlockSetsTotal} series prevues`
         : 'Bloc unique'
     : '-';
-  const currentBlockName = currentBlock?.name?.trim() || (currentBlock ? `Bloc ${currentIndex + 1}` : 'Bloc');
+  const currentBlockName = safeTrimText(currentBlock?.name) || (currentBlock ? `Bloc ${currentIndex + 1}` : 'Bloc');
   const restingBlockName =
-    restSourceBlock?.name?.trim() ||
+    safeTrimText(restSourceBlock?.name) ||
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
   const plannedRepsForCurrentBlock = getPlannedReps(currentBlock);
   const plannedChargeKgForCurrentBlock = getPlannedChargeKg(currentBlock);
@@ -973,9 +977,9 @@ export default function LiveSessionPage() {
       : null;
   const currentActualText =
     currentBlock?.block_type === 'free'
-      ? currentActivePerformanceLine.note.trim()
-      : currentActivePerformanceLine.note.trim().length > 0
-        ? currentActivePerformanceLine.note.trim()
+      ? safeTrimText(currentActivePerformanceLine.note)
+      : safeTrimText(currentActivePerformanceLine.note).length > 0
+        ? safeTrimText(currentActivePerformanceLine.note)
         : null;
   const finishStateLabel =
     saveState === 'saving'
@@ -1788,7 +1792,7 @@ export default function LiveSessionPage() {
     upsertSetPerformanceEntries([
       {
         block_id: currentBlock.id,
-        block_name: currentBlock.name?.trim() || `Bloc ${currentIndex + 1}`,
+        block_name: safeTrimText(currentBlock.name) || `Bloc ${currentIndex + 1}`,
         set_number: setNumber,
         line_number: currentActivePerformanceLineIndex + 1,
         block_type: currentBlock.block_type,
@@ -1853,7 +1857,7 @@ export default function LiveSessionPage() {
       { length: Math.max(currentLiveBlockSetsTotal - currentCompletedSets, 0) },
       (_, index) => ({
         block_id: currentBlock.id,
-        block_name: currentBlock.name?.trim() || `Bloc ${currentIndex + 1}`,
+        block_name: safeTrimText(currentBlock.name) || `Bloc ${currentIndex + 1}`,
         set_number: currentCompletedSets + index + 1,
         line_number: currentActivePerformanceLineIndex + 1,
         block_type: currentBlock.block_type,
@@ -2001,7 +2005,7 @@ export default function LiveSessionPage() {
           Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
           totalSets
         );
-        const blockName = block.name?.trim() || `Bloc ${blockIndex + 1}`;
+        const blockName = safeTrimText(block.name) || `Bloc ${blockIndex + 1}`;
 
         for (let setNumber = 1; setNumber <= completedSets; setNumber += 1) {
           const { line, lineIndex } = getLivePerformanceLineForSetNumber(liveLines, setNumber);
@@ -2033,7 +2037,7 @@ export default function LiveSessionPage() {
                 lineType === 'duration' || lineType === 'distance'
                   ? normalizedTargetValue
                   : null,
-              actual_text: lineType === 'free' ? line.note.trim() || null : null,
+              actual_text: lineType === 'free' ? safeTrimText(line.note) || null : null,
               status: 'completed',
             });
           }
@@ -2275,7 +2279,7 @@ export default function LiveSessionPage() {
 
       const exerciseHistoryPayload = blocks
         .filter((block) => completedBlockIds.includes(block.id))
-        .filter((block) => (block.name?.trim() || '').length > 0)
+        .filter((block) => safeTrimText(block.name).length > 0)
         .map((block) => {
           const normalizedSetsCount =
             Number(completedSetsByBlockId[block.id] ?? 0) > 0
@@ -2304,7 +2308,7 @@ export default function LiveSessionPage() {
             history_id: data.id,
             user_id: user.id,
             workout_id: session.id,
-            exercise_name: block.name?.trim() || `Bloc ${block.position + 1}`,
+            exercise_name: safeTrimText(block.name) || `Bloc ${block.position + 1}`,
             block_type: block.block_type,
             sets_count: normalizedSetsCount,
             reps: block.block_type === 'reps' ? normalizedTargetValue : 0,
@@ -2340,7 +2344,7 @@ export default function LiveSessionPage() {
           charge_kg: number | null;
           volume: number | null;
         }>) || [])).forEach((entry) => {
-          const key = (entry.exercise_name?.trim() || '').toLowerCase();
+          const key = safeTrimText(entry.exercise_name).toLowerCase();
           const current = previousBestByExercise.get(key) || {
             reps: 0,
             duration: 0,
@@ -2359,7 +2363,7 @@ export default function LiveSessionPage() {
         const detectedNewRecords: NewPersonalRecord[] = [];
 
         exerciseHistoryPayload.forEach((entry) => {
-          const key = (entry.exercise_name?.trim() || '').toLowerCase();
+          const key = safeTrimText(entry.exercise_name).toLowerCase();
           const previousBest = previousBestByExercise.get(key) || {
             reps: 0,
             duration: 0,
@@ -3270,7 +3274,7 @@ export default function LiveSessionPage() {
                   <LiveBlockPreviewRail
                     blocks={blocks.map((block) => ({
                       id: block.id,
-                      name: block.name?.trim() || `Bloc ${block.position + 1}`,
+                      name: safeTrimText(block.name) || `Bloc ${block.position + 1}`,
                       block_type: block.block_type,
                     }))}
                     currentIndex={currentIndex}
