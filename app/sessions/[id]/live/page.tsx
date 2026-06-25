@@ -2275,7 +2275,7 @@ export default function LiveSessionPage() {
 
       const exerciseHistoryPayload = blocks
         .filter((block) => completedBlockIds.includes(block.id))
-        .filter((block) => block.name.trim().length > 0)
+        .filter((block) => (block.name?.trim() || '').length > 0)
         .map((block) => {
           const normalizedSetsCount =
             Number(completedSetsByBlockId[block.id] ?? 0) > 0
@@ -2304,7 +2304,7 @@ export default function LiveSessionPage() {
             history_id: data.id,
             user_id: user.id,
             workout_id: session.id,
-            exercise_name: block.name.trim(),
+            exercise_name: block.name?.trim() || `Bloc ${block.position + 1}`,
             block_type: block.block_type,
             sets_count: normalizedSetsCount,
             reps: block.block_type === 'reps' ? normalizedTargetValue : 0,
@@ -2340,7 +2340,7 @@ export default function LiveSessionPage() {
           charge_kg: number | null;
           volume: number | null;
         }>) || [])).forEach((entry) => {
-          const key = entry.exercise_name.trim().toLowerCase();
+          const key = (entry.exercise_name?.trim() || '').toLowerCase();
           const current = previousBestByExercise.get(key) || {
             reps: 0,
             duration: 0,
@@ -2359,7 +2359,7 @@ export default function LiveSessionPage() {
         const detectedNewRecords: NewPersonalRecord[] = [];
 
         exerciseHistoryPayload.forEach((entry) => {
-          const key = entry.exercise_name.trim().toLowerCase();
+          const key = (entry.exercise_name?.trim() || '').toLowerCase();
           const previousBest = previousBestByExercise.get(key) || {
             reps: 0,
             duration: 0,

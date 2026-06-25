@@ -528,11 +528,11 @@ export default function SessionDetailPage() {
 
     const groupedRecords = new Map<string, ExercisePersonalRecord>();
     const sessionExerciseOrder = new Map(
-      blocks.map((block, index) => [block.name.trim().toLowerCase(), index] as const)
+      blocks.map((block, index) => [(block.name?.trim() || '').toLowerCase(), index] as const)
     );
 
     historyExerciseEntries.forEach((entry) => {
-      const exerciseName = entry.exercise_name.trim();
+      const exerciseName = entry.exercise_name?.trim() || '';
       if (!exerciseName) return;
 
       const recordKey = exerciseName.toLowerCase();
@@ -598,11 +598,11 @@ export default function SessionDetailPage() {
 
     const groupedEntries = new Map<string, WorkoutHistoryExerciseEntry[]>();
     const sessionExerciseOrder = new Map(
-      blocks.map((block, index) => [block.name.trim().toLowerCase(), index] as const)
+      blocks.map((block, index) => [(block.name?.trim() || '').toLowerCase(), index] as const)
     );
 
     historyExerciseEntries.forEach((entry) => {
-      const exerciseName = entry.exercise_name.trim();
+      const exerciseName = entry.exercise_name?.trim() || '';
       if (!exerciseName) return;
 
       const key = exerciseName.toLowerCase();
@@ -1156,14 +1156,14 @@ export default function SessionDetailPage() {
     0
   );
   const repsBlocks = useMemo(
-    () => blocks.filter((block) => block.block_type === 'reps' && block.name.trim().length > 0),
+    () => blocks.filter((block) => block.block_type === 'reps' && (block.name?.trim() || '').length > 0),
     [blocks]
   );
   const exercisePerformanceSnapshotsByName = useMemo(
     () =>
       new Map<string, ExercisePerformanceSnapshot[]>(
         repsBlocks.map((block) => {
-          const normalizedBlockName = block.name.trim().toLowerCase();
+          const normalizedBlockName = (block.name?.trim() || '').toLowerCase();
           const snapshots = workoutPerformanceHistoryEntries
             .map((historyEntry) => {
               const matchingSets = historyEntry.actualSets.filter(
@@ -1180,7 +1180,7 @@ export default function SessionDetailPage() {
               return {
                 historyId: historyEntry.id,
                 completedAt: historyEntry.completedAt,
-                blockName: block.name.trim(),
+                blockName: block.name?.trim() || 'Exercice',
                 summary,
               } satisfies ExercisePerformanceSnapshot;
             })
@@ -1199,7 +1199,7 @@ export default function SessionDetailPage() {
 
     return repsBlocks
       .map((block) => {
-        const normalizedBlockName = block.name.trim().toLowerCase();
+        const normalizedBlockName = (block.name?.trim() || '').toLowerCase();
         const matchingHistoryEntries = workoutPerformanceHistoryEntries
           .map((historyEntry) => {
             const matchingSets = historyEntry.actualSets.filter(
@@ -1270,7 +1270,7 @@ export default function SessionDetailPage() {
 
         return {
           blockId: block.id,
-          exerciseName: block.name.trim(),
+          exerciseName: block.name?.trim() || 'Exercice',
           maxChargeKg: maxChargeKg > 0 ? maxChargeKg : null,
           bestSetReps: bestSetReps > 0 ? bestSetReps : null,
           bestWorkoutVolumeKg: bestWorkoutVolumeKg > 0 ? bestWorkoutVolumeKg : null,
@@ -1912,7 +1912,7 @@ export default function SessionDetailPage() {
               ) : (
                 <div className="session-block-list">
                   {repsBlocks.map((block) => {
-                    const snapshots = exercisePerformanceSnapshotsByName.get(block.name.trim().toLowerCase()) || [];
+                    const snapshots = exercisePerformanceSnapshotsByName.get((block.name?.trim() || '').toLowerCase()) || [];
                     const latestSnapshot = snapshots[0] || null;
                     const previousSnapshot = snapshots[1] || null;
 
@@ -1920,7 +1920,7 @@ export default function SessionDetailPage() {
                       <article key={block.id} className="session-block-card session-record-card">
                         <div className="session-block-card__top">
                           <div className="session-block-check__label">
-                            <strong>{block.name.trim()}</strong>
+                            <strong>{block.name?.trim() || 'Exercice'}</strong>
                             <small>{formatSessionBlockSummary(block)}</small>
                           </div>
                         </div>
