@@ -915,6 +915,18 @@ export default function LiveSessionPage() {
         currentBlock
       )
     : null;
+  const currentLivePerformanceDraft =
+    (currentBlock ? performanceDraftsByBlockId[currentBlock.id] : null) ||
+    createDefaultLivePerformanceDraft(currentBlock);
+  const currentLivePerformanceLines = getLivePerformanceDraftLines(
+    currentLivePerformanceDraft,
+    currentBlock
+  );
+  const currentLivePerformanceTotalSets = getLivePerformanceDraftTotalSets(
+    currentLivePerformanceDraft,
+    currentBlock
+  );
+  const currentLiveBlockSetsTotal = Math.max(currentBlockSetsTotal, currentLivePerformanceTotalSets);
   const rawCurrentCompletedSets = currentBlock ? Number(completedSetsByBlockId[currentBlock.id] ?? 0) : 0;
   const currentCompletedSets = currentBlock
     ? Math.min(
@@ -976,18 +988,6 @@ export default function LiveSessionPage() {
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
   const plannedRepsForCurrentBlock = getPlannedReps(currentBlock);
   const plannedChargeKgForCurrentBlock = getPlannedChargeKg(currentBlock);
-  const currentLivePerformanceDraft =
-    (currentBlock ? performanceDraftsByBlockId[currentBlock.id] : null) ||
-    createDefaultLivePerformanceDraft(currentBlock);
-  const currentLivePerformanceLines = getLivePerformanceDraftLines(
-    currentLivePerformanceDraft,
-    currentBlock
-  );
-  const currentLivePerformanceTotalSets = getLivePerformanceDraftTotalSets(
-    currentLivePerformanceDraft,
-    currentBlock
-  );
-  const currentLiveBlockSetsTotal = Math.max(currentBlockSetsTotal, currentLivePerformanceTotalSets);
   const currentActivePerformanceLineIndex = getLivePerformanceLineIndexByCompletedSets(
     currentLivePerformanceLines,
     currentCompletedSets
