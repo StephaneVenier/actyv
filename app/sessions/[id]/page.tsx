@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { CompactAccordion } from '@/components/CompactAccordion';
+import { SessionDebugBoundary } from '@/components/SessionDebugBoundary';
+import { SessionDebugPanel } from '@/components/SessionDebugPanel';
 import { CompactExerciseCard, SessionSummaryHeader } from '@/components/session-compact-ui';
 import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import { queuePendingToast } from '@/components/ToastProvider';
@@ -274,6 +276,8 @@ export default function SessionDetailPage() {
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | null>(null);
   const [showAllPerformanceHistory, setShowAllPerformanceHistory] = useState(false);
+  const [loadError, setLoadError] = useState<Error | null>(null);
+  const [debugSnapshot, setDebugSnapshot] = useState<Record<string, unknown> | null>(null);
 
   const completionStorageKey = `actyv.session.completed.${id}`;
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -282,6 +286,7 @@ export default function SessionDetailPage() {
     const loadSession = async () => {
       setLoading(true);
       setMessage(null);
+      setLoadError(null);
 
       try {
         const {
@@ -298,6 +303,11 @@ export default function SessionDetailPage() {
           setBlocks([]);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
+          setDebugSnapshot({
+            phase: 'auth-error',
+            sessionId: id,
+            userError: userError ?? null,
+          });
           return;
         }
 
@@ -315,6 +325,12 @@ export default function SessionDetailPage() {
           setBlocks([]);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
+          setDebugSnapshot({
+            phase: 'session-error',
+            sessionId: id,
+            userId: user.id,
+            sessionError,
+          });
           return;
         }
 
@@ -323,19 +339,42 @@ export default function SessionDetailPage() {
           setBlocks([]);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
+          setDebugSnapshot({
+            phase: 'session-missing',
+            sessionId: id,
+            userId: user.id,
+            sessionRow: null,
+          });
           return;
         }
 
         const currentSession = sessionRow as TrainingSession;
         setSession(currentSession);
+        setDebugSnapshot({
+          phase: 'session-loaded',
+          sessionId: id,
+          userId: user.id,
+          sessionRow: currentSession,
+        });
 
         const { data: blockRows, error: blocksError } = await fetchTrainingSessionBlocks([id]);
 
         if (blocksError) {
           console.error('Erreur chargement blocs detail seance :', blocksError);
           setBlocks([]);
+          setDebugSnapshot((current) => ({
+            ...(current ?? {}),
+            phase: 'blocks-error',
+            blocksError,
+          }));
         } else {
           setBlocks(blockRows || []);
+          setDebugSnapshot((current) => ({
+            ...(current ?? {}),
+            phase: 'blocks-loaded',
+            blockCount: blockRows?.length ?? 0,
+            blocks: blockRows ?? [],
+          }));
         }
 
         let historyResponse = await supabase
@@ -369,6 +408,11 @@ export default function SessionDetailPage() {
           console.error('Erreur chargement historique detail seance :', historyError);
           setHistoryEntries([]);
           setHistoryExerciseEntries([]);
+          setDebugSnapshot((current) => ({
+            ...(current ?? {}),
+            phase: 'history-error',
+            historyError,
+          }));
         } else {
           const exactHistoryRows = (historyRows as WorkoutHistoryEntry[]) || [];
           let resolvedHistoryEntries = exactHistoryRows;
@@ -415,6 +459,11 @@ export default function SessionDetailPage() {
           }
 
           setHistoryEntries(resolvedHistoryEntries);
+          setDebugSnapshot((current) => ({
+            ...(current ?? {}),
+            historyCount: resolvedHistoryEntries.length,
+            fallbackHistoryCount: matchedByWorkoutNameWithNullId.length,
+          }));
 
           const { data: historyExerciseRows, error: historyExerciseError } = await supabase
             .from('workout_exercise_history')
@@ -428,10 +477,34 @@ export default function SessionDetailPage() {
           if (historyExerciseError) {
             console.error('Erreur chargement records exercices detail seance :', historyExerciseError);
             setHistoryExerciseEntries([]);
+            setDebugSnapshot((current) => ({
+              ...(current ?? {}),
+              phase: 'history-exercise-error',
+              historyExerciseError,
+            }));
           } else {
             setHistoryExerciseEntries((historyExerciseRows as WorkoutHistoryExerciseEntry[]) || []);
+            setDebugSnapshot((current) => ({
+              ...(current ?? {}),
+              historyExerciseCount: historyExerciseRows?.length ?? 0,
+            }));
           }
         }
+      } catch (error) {
+        console.error('Erreur inattendue detail seance :', error);
+        const normalizedError = error instanceof Error ? error : new Error(String(error));
+        setLoadError(normalizedError);
+        setMessage(normalizedError.message);
+        setSession(null);
+        setBlocks([]);
+        setHistoryEntries([]);
+        setHistoryExerciseEntries([]);
+        setDebugSnapshot((current) => ({
+          ...(current ?? {}),
+          phase: 'load-catch',
+          sessionId: id,
+          error: normalizedError,
+        }));
       } finally {
         setLoading(false);
       }
@@ -1325,27 +1398,41 @@ export default function SessionDetailPage() {
   };
 
   return (
-    <AppShell>
-      <section className="sessions-page sessions-page--dark">
-        <Link href="/sessions" className="detail-back-link">
-          &larr; Retour aux seances
-        </Link>
+    <SessionDebugBoundary
+      componentName="SessionDetailPage"
+      routeLabel="/sessions/[id]"
+      sessionId={id}
+      snapshot={debugSnapshot}
+    >
+      <AppShell>
+        <section className="sessions-page sessions-page--dark">
+          <Link href="/sessions" className="detail-back-link">
+            &larr; Retour aux seances
+          </Link>
 
-        {loading ? (
-          <div className="challenge-state">
-            <p>Chargement de la seance...</p>
-          </div>
-        ) : !session ? (
-          <div className="challenge-state">
-            <p>{message || 'Cette seance est introuvable.'}</p>
-            <div className="session-empty-actions">
-              <Link href="/sessions" className="button primary">
-                Revenir a mes seances
-              </Link>
+          {loadError ? (
+            <SessionDebugPanel
+              componentName="SessionDetailPage"
+              routeLabel="/sessions/[id]"
+              sessionId={id}
+              error={loadError}
+              snapshot={debugSnapshot}
+            />
+          ) : loading ? (
+            <div className="challenge-state">
+              <p>Chargement de la seance...</p>
             </div>
-          </div>
-        ) : (
-          <>
+          ) : !session ? (
+            <div className="challenge-state">
+              <p>{message || 'Cette seance est introuvable.'}</p>
+              <div className="session-empty-actions">
+                <Link href="/sessions" className="button primary">
+                  Revenir a mes seances
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <>
             <SessionSummaryHeader
               variant="coach-compact"
               sportBadge={
@@ -2097,9 +2184,10 @@ export default function SessionDetailPage() {
               )}
             </CompactAccordion>
 
-          </>
-        )}
-      </section>
-    </AppShell>
+            </>
+          )}
+        </section>
+      </AppShell>
+    </SessionDebugBoundary>
   );
 }
