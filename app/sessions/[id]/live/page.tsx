@@ -52,6 +52,7 @@ type LivePerformanceLineDraft = {
   setsCount: number;
   targetValue: number | null;
   chargeKg: number | null;
+  restSeconds: number | null;
   note: string;
 };
 
@@ -73,6 +74,7 @@ type LiveState = {
   finishReviewOpen: boolean;
   restAfterBlockId: string | null;
   restResumeIndex: number | null;
+  restTotalSeconds: number;
   restSecondsLeft: number;
   exerciseBlockId: string | null;
   exerciseSecondsLeft: number;
@@ -194,7 +196,7 @@ function createLivePerformanceLineDraftFromBlock(
 ): LivePerformanceLineDraft {
   return {
     id: `${block?.id || 'block'}-line-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    setsCount: Math.max(Math.trunc(Number(setsCount ?? block?.sets_count ?? 1) || 1), 1),
+    setsCount: Math.max(Math.trunc(Number(setsCount ?? 1) || 1), 1),
     targetValue:
       block?.block_type === 'free'
         ? null
@@ -204,13 +206,19 @@ function createLivePerformanceLineDraftFromBlock(
             ? Number(block?.target_value)
             : null,
     chargeKg: getPlannedChargeKg(block),
+    restSeconds:
+      block && Number.isFinite(Number(block.rest_seconds)) && Number(block.rest_seconds) >= 0
+        ? Math.max(0, Math.trunc(Number(block.rest_seconds)))
+        : null,
     note: '',
   };
 }
 
 function createDefaultLivePerformanceDraft(block: TrainingSessionBlockRecord | null): LivePerformanceDraft {
+  const lineCount = Math.max(normalizeSessionSetsCount(block?.sets_count ?? 1), 1);
+
   return {
-    lines: [createLivePerformanceLineDraftFromBlock(block)],
+    lines: Array.from({ length: lineCount }, () => createLivePerformanceLineDraftFromBlock(block, 1)),
     freeText: '',
   };
 }
@@ -226,10 +234,7 @@ function normalizeLivePerformanceLineDraft(
       typeof line?.id === 'string' && line.id.trim().length > 0
         ? line.id
         : fallback.id,
-    setsCount: Math.max(
-      Math.trunc(Number(line?.setsCount ?? fallback.setsCount) || fallback.setsCount),
-      1
-    ),
+    setsCount: 1,
     targetValue:
       line?.targetValue == null
         ? fallback.targetValue
@@ -242,6 +247,12 @@ function normalizeLivePerformanceLineDraft(
         : Number.isFinite(Number(line.chargeKg)) && Number(line.chargeKg) >= 0
           ? Number(line.chargeKg)
           : fallback.chargeKg,
+    restSeconds:
+      line?.restSeconds == null
+        ? fallback.restSeconds
+        : Number.isFinite(Number(line.restSeconds)) && Number(line.restSeconds) >= 0
+          ? Math.max(0, Math.trunc(Number(line.restSeconds)))
+          : fallback.restSeconds,
     note: typeof line?.note === 'string' ? line.note : fallback.note,
   };
 }
@@ -252,7 +263,17 @@ function normalizeLivePerformanceDraft(
 ): LivePerformanceDraft {
   const fallback = createDefaultLivePerformanceDraft(block);
   const nextLines = Array.isArray(draft?.lines) && draft.lines.length > 0
-    ? draft.lines.map((line) => normalizeLivePerformanceLineDraft(line, block))
+    ? draft.lines.length === 1 && normalizeSessionSetsCount(block?.sets_count ?? 1) > 1
+      ? Array.from({ length: normalizeSessionSetsCount(block?.sets_count ?? 1) }, (_, index) =>
+          normalizeLivePerformanceLineDraft(
+            {
+              ...draft.lines[0],
+              id: `${draft.lines[0]?.id || fallback.lines[0].id}-copy-${index + 1}`,
+            },
+            block
+          )
+        )
+      : draft.lines.map((line) => normalizeLivePerformanceLineDraft(line, block))
     : fallback.lines;
 
   return {
@@ -262,11 +283,8 @@ function normalizeLivePerformanceDraft(
 }
 
 function getLivePerformanceDraftTotalSets(draft: LivePerformanceDraft | null | undefined, block: TrainingSessionBlockRecord | null) {
-  if (!draft || draft.lines.length === 0) {
-    return normalizeSessionSetsCount(block?.sets_count ?? 1);
-  }
-
-  return draft.lines.reduce((total, line) => total + Math.max(Math.trunc(Number(line.setsCount) || 0), 1), 0);
+  const normalizedDraft = normalizeLivePerformanceDraft(draft, block);
+  return Math.max(normalizedDraft.lines.length, 1);
 }
 
 function getLivePerformanceDraftVolumeKg(
@@ -312,47 +330,18 @@ function getLivePerformanceLineIndexByCompletedSets(
   completedSets: number
 ) {
   const normalizedCompletedSets = Math.max(Math.trunc(Number(completedSets) || 0), 0);
-  let consumed = 0;
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const lineSets = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
-    const nextConsumed = consumed + lineSets;
-
-    if (normalizedCompletedSets < nextConsumed) {
-      return index;
-    }
-
-    consumed = nextConsumed;
-  }
-
-  return Math.max(lines.length - 1, 0);
-}
-
-function getLivePerformanceLineStartSetNumber(lines: LivePerformanceLineDraft[], lineIndex: number) {
-  return lines.slice(0, Math.max(lineIndex, 0)).reduce((total, line) => total + Math.max(Math.trunc(Number(line.setsCount) || 0), 1), 0);
+  return Math.min(normalizedCompletedSets, Math.max(lines.length - 1, 0));
 }
 
 function getLivePerformanceLineForSetNumber(lines: LivePerformanceLineDraft[], setNumber: number) {
   const normalizedSetNumber = Math.max(Math.trunc(Number(setNumber) || 0), 1);
-  let consumed = 0;
-
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    const lineSets = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
-    consumed += lineSets;
-
-    if (normalizedSetNumber <= consumed) {
-      return { line, lineIndex: index };
-    }
-  }
-
-  const fallbackLine = lines[lines.length - 1] || createLivePerformanceLineDraftFromBlock(null);
-  return { line: fallbackLine, lineIndex: Math.max(lines.length - 1, 0) };
+  const lineIndex = Math.min(Math.max(normalizedSetNumber - 1, 0), Math.max(lines.length - 1, 0));
+  const fallbackLine = lines[lineIndex] || lines[lines.length - 1] || createLivePerformanceLineDraftFromBlock(null);
+  return { line: fallbackLine, lineIndex };
 }
 
 function formatLivePerformanceLineSummary(blockType: SessionBlockType, line: LivePerformanceLineDraft) {
-  const setsLabel = `${Math.max(Math.trunc(Number(line.setsCount) || 0), 1)} série${Math.max(Math.trunc(Number(line.setsCount) || 0), 1) > 1 ? 's' : ''}`;
+  const setsLabel = '1 série';
 
   if (blockType === 'reps') {
     const repsLabel = line.targetValue == null ? '-' : `${line.targetValue} reps`;
@@ -413,6 +402,7 @@ export default function LiveSessionPage() {
   const [finishReviewOpen, setFinishReviewOpen] = useState(false);
   const [restAfterBlockId, setRestAfterBlockId] = useState<string | null>(null);
   const [restResumeIndex, setRestResumeIndex] = useState<number | null>(null);
+  const [restTotalSeconds, setRestTotalSeconds] = useState(DEFAULT_REST_SECONDS);
   const [restSecondsLeft, setRestSecondsLeft] = useState(DEFAULT_REST_SECONDS);
   const [exerciseBlockId, setExerciseBlockId] = useState<string | null>(null);
   const [exerciseSecondsLeft, setExerciseSecondsLeft] = useState(0);
@@ -803,6 +793,12 @@ export default function LiveSessionPage() {
       ) {
         setRestSecondsLeft(Math.max(0, Math.floor(parsedValue.restSecondsLeft)));
       }
+      if (
+        typeof parsedValue.restTotalSeconds === 'number' &&
+        Number.isFinite(parsedValue.restTotalSeconds)
+      ) {
+        setRestTotalSeconds(Math.max(0, Math.floor(parsedValue.restTotalSeconds)));
+      }
       if (typeof parsedValue.exerciseBlockId === 'string' || parsedValue.exerciseBlockId === null) {
         setExerciseBlockId(parsedValue.exerciseBlockId ?? null);
       }
@@ -904,10 +900,6 @@ export default function LiveSessionPage() {
     currentBlock && Number.isFinite(Number(currentBlock.rest_seconds))
       ? Math.max(0, Math.trunc(Number(currentBlock.rest_seconds)))
       : DEFAULT_REST_SECONDS;
-  const restSourceBlockRestSeconds =
-    restSourceBlock && Number.isFinite(Number(restSourceBlock.rest_seconds))
-      ? Math.max(0, Math.trunc(Number(restSourceBlock.rest_seconds)))
-      : currentBlockRestSeconds;
   const currentBlockVolume = currentBlock
     ? getLivePerformanceDraftVolumeKg(
         (currentBlock ? performanceDraftsByBlockId[currentBlock.id] : null) ||
@@ -996,15 +988,6 @@ export default function LiveSessionPage() {
     currentLivePerformanceLines[currentActivePerformanceLineIndex] ||
     currentLivePerformanceLines[0] ||
     createLivePerformanceLineDraftFromBlock(currentBlock);
-  const currentCompletedSetsBeforeActiveLine = getLivePerformanceLineStartSetNumber(
-    currentLivePerformanceLines,
-    currentActivePerformanceLineIndex
-  );
-  const currentActiveLineCompletedSets = Math.max(
-    currentCompletedSets - currentCompletedSetsBeforeActiveLine,
-    0
-  );
-  const currentActiveLineTotalSets = Math.max(Math.trunc(Number(currentActivePerformanceLine.setsCount) || 0), 1);
   const currentActualReps =
     currentBlock?.block_type === 'reps'
       ? currentActivePerformanceLine.targetValue == null
@@ -1031,6 +1014,10 @@ export default function LiveSessionPage() {
       : safeTrimText(currentActivePerformanceLine.note).length > 0
         ? safeTrimText(currentActivePerformanceLine.note)
         : null;
+  const currentLineRestSeconds =
+    currentActivePerformanceLine.restSeconds == null
+      ? currentBlockRestSeconds
+      : Math.max(0, Math.trunc(Number(currentActivePerformanceLine.restSeconds) || 0));
   const finishStateLabel =
     saveState === 'saving'
       ? 'Enregistrement...'
@@ -1351,6 +1338,7 @@ export default function LiveSessionPage() {
         finishReviewOpen,
         restAfterBlockId: sanitizedRestAfterBlockId,
         restResumeIndex: nextResumeIndex,
+        restTotalSeconds,
         restSecondsLeft,
         exerciseBlockId,
         exerciseSecondsLeft,
@@ -1379,6 +1367,7 @@ export default function LiveSessionPage() {
     liveStorageKey,
     restAfterBlockId,
     restResumeIndex,
+    restTotalSeconds,
     restSecondsLeft,
     exerciseBlockId,
     exerciseSecondsLeft,
@@ -1452,6 +1441,7 @@ export default function LiveSessionPage() {
   const clearRestState = () => {
     setRestAfterBlockId(null);
     setRestResumeIndex(null);
+    setRestTotalSeconds(DEFAULT_REST_SECONDS);
     setRestSecondsLeft(DEFAULT_REST_SECONDS);
   };
 
@@ -1653,6 +1643,36 @@ export default function LiveSessionPage() {
     });
   };
 
+  const duplicateCurrentPerformanceLine = (lineIndex: number) => {
+    if (!currentBlock) return;
+
+    setPerformanceDraftsByBlockId((current) => {
+      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+      if (lineIndex < 0 || lineIndex >= existingDraft.lines.length) {
+        return current;
+      }
+
+      const sourceLine = existingDraft.lines[lineIndex];
+      const duplicateLine = normalizeLivePerformanceLineDraft(
+        {
+          ...sourceLine,
+          id: `${sourceLine.id || `${currentBlock.id}-line`}-dup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        },
+        currentBlock
+      );
+      const nextLines = [...existingDraft.lines];
+      nextLines.splice(lineIndex + 1, 0, duplicateLine);
+
+      return {
+        ...current,
+        [currentBlock.id]: {
+          ...existingDraft,
+          lines: nextLines,
+        },
+      };
+    });
+  };
+
   const removeCurrentPerformanceLine = (lineIndex: number) => {
     if (!currentBlock) return;
 
@@ -1701,16 +1721,19 @@ export default function LiveSessionPage() {
             ? {
                 ...line,
                 note: currentActualText ?? line.note,
+                restSeconds: currentLineRestSeconds,
               }
             : currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
               ? {
                   ...line,
                   targetValue: currentActualReps,
+                  restSeconds: currentLineRestSeconds,
                 }
               : {
                   ...line,
                   targetValue: currentActualReps,
                   chargeKg: currentActualChargeKg,
+                  restSeconds: currentLineRestSeconds,
                 }
       );
 
@@ -1763,6 +1786,7 @@ export default function LiveSessionPage() {
 
     setRestAfterBlockId(sourceBlockId);
     setRestResumeIndex(Math.min(Math.max(nextIndex, 0), Math.max(blocks.length - 1, 0)));
+    setRestTotalSeconds(normalizedRest);
     setRestSecondsLeft(normalizedRest);
     clearExerciseState();
   };
@@ -1817,7 +1841,7 @@ export default function LiveSessionPage() {
       return;
     }
 
-    beginRest(currentBlock.id, currentIndex + 1, currentBlockRestSeconds);
+        beginRest(currentBlock.id, currentIndex + 1, currentLineRestSeconds);
   };
 
   const handleValidateCurrent = () => {
@@ -1832,11 +1856,11 @@ export default function LiveSessionPage() {
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
     const plannedTargetValue =
       currentBlock.block_type === 'reps'
-        ? currentActivePerformanceLine.targetValue ?? plannedReps
+        ? currentActualReps ?? plannedReps
         : currentBlock.block_type === 'duration'
-          ? normalizePositiveInteger(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+          ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
           : currentBlock.block_type === 'distance'
-            ? normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+            ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
             : null;
 
     upsertSetPerformanceEntries([
@@ -1872,7 +1896,7 @@ export default function LiveSessionPage() {
       if (nextCompletedSets >= currentLiveBlockSetsTotal) {
         completeCurrentExercise();
       } else {
-        beginRest(currentBlock.id, currentIndex, currentBlockRestSeconds);
+        beginRest(currentBlock.id, currentIndex, currentLineRestSeconds);
       }
 
       return;
@@ -1897,11 +1921,11 @@ export default function LiveSessionPage() {
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
     const plannedTargetValue =
       currentBlock.block_type === 'reps'
-        ? currentActivePerformanceLine.targetValue ?? plannedReps
+        ? currentActualReps ?? plannedReps
         : currentBlock.block_type === 'duration'
-          ? normalizePositiveInteger(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+          ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
           : currentBlock.block_type === 'distance'
-            ? normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue ?? currentBlock.target_value ?? 0, 0)
+            ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
             : null;
     const skippedEntries: WorkoutSetPerformance[] = Array.from(
       { length: Math.max(currentLiveBlockSetsTotal - currentCompletedSets, 0) },
@@ -1939,7 +1963,7 @@ export default function LiveSessionPage() {
       setValidationFeedback(null);
 
       if (currentBlock.block_type === 'duration') {
-        const duration = Number(currentBlock?.target_value ?? 0);
+        const duration = Number(currentActivePerformanceLine.targetValue ?? currentBlock?.target_value ?? 0);
         const normalizedTarget =
           Number.isFinite(duration) && duration > 0 ? Math.max(1, Math.trunc(duration)) : 0;
 
@@ -2206,7 +2230,7 @@ export default function LiveSessionPage() {
       };
 
       const payload = {
-        user_id: user.id,
+        user_id: currentUserId,
         workout_id: session.id,
         workout_name: session.name,
         completed_at: new Date().toISOString(),
@@ -2283,7 +2307,7 @@ export default function LiveSessionPage() {
           const { data: existingDailyCompletion, error: existingDailyCompletionError } = await supabase
             .from('daily_session_completions')
             .select('id')
-            .eq('user_id', user.id)
+            .eq('user_id', currentUserId)
             .eq('daily_session_id', dailySessionId)
             .maybeSingle();
 
@@ -2299,7 +2323,7 @@ export default function LiveSessionPage() {
 
       if (!dailySessionId || !alreadyCompletedDailySession) {
         const workoutXpResult = await awardXp({
-          userId: user.id,
+          userId: currentUserId,
           source: 'session_completed',
           metadata: { target_id: data.id },
         });
@@ -2310,7 +2334,7 @@ export default function LiveSessionPage() {
         } else if (workoutXpResult?.error) {
           console.error('XP award failed', {
             payload: {
-              user_id: user.id,
+              user_id: currentUserId,
               event_type: 'session_completed',
               xp_amount: 10,
               target_id: data.id,
@@ -2355,7 +2379,7 @@ export default function LiveSessionPage() {
 
           return {
             history_id: data.id,
-            user_id: user.id,
+            user_id: currentUserId,
             workout_id: session.id,
             exercise_name: safeTrimText(block.name) || `Bloc ${block.position + 1}`,
             block_type: block.block_type,
@@ -2374,7 +2398,7 @@ export default function LiveSessionPage() {
         const { data: previousExerciseHistory, error: previousExerciseHistoryError } = await supabase
           .from('workout_exercise_history')
           .select('exercise_name, reps, duration_seconds, charge_kg, volume')
-          .eq('user_id', user.id)
+          .eq('user_id', currentUserId)
           .in('exercise_name', exerciseNames);
 
         if (previousExerciseHistoryError) {
@@ -2486,7 +2510,7 @@ export default function LiveSessionPage() {
 
       if (programSessionId && programId) {
         const programCompletionPayload = {
-          user_id: user.id,
+          user_id: currentUserId,
           program_id: programId,
           program_session_id: programSessionId,
           session_id: session.id,
@@ -2497,7 +2521,7 @@ export default function LiveSessionPage() {
         const { data: existingCompletion, error: existingCompletionError } = await supabase
           .from('training_program_completions')
           .select('id')
-          .eq('user_id', user.id)
+          .eq('user_id', currentUserId)
           .eq('program_id', programId)
           .eq('program_session_id', programSessionId)
           .maybeSingle();
@@ -2527,11 +2551,11 @@ export default function LiveSessionPage() {
                 .from('training_program_sessions')
                 .select('*', { count: 'exact', head: true })
                 .eq('program_id', programId),
-              supabase
-                .from('training_program_completions')
-                .select('*', { count: 'exact', head: true })
-                .eq('program_id', programId)
-                .eq('user_id', user.id),
+                supabase
+                  .from('training_program_completions')
+                  .select('*', { count: 'exact', head: true })
+                  .eq('program_id', programId)
+                  .eq('user_id', currentUserId),
             ]);
 
             if (
@@ -2540,7 +2564,7 @@ export default function LiveSessionPage() {
               Number(completedProgramSessionsCount || 0) >= Number(totalProgramSessionsCount)
             ) {
               const programCompletedXpResult = await awardXp({
-                userId: user.id,
+                userId: currentUserId,
                 source: 'program_completed',
                 metadata: { target_id: programId },
               });
@@ -2550,11 +2574,11 @@ export default function LiveSessionPage() {
                 nextEarnedXpTotal += XP_RULES.program_completed.xp;
               } else if (programCompletedXpResult?.error) {
                 console.error('XP award failed', {
-                  payload: {
-                    user_id: user.id,
-                    event_type: 'program_completed',
-                    xp_amount: 50,
-                    target_id: programId,
+                    payload: {
+                      user_id: currentUserId,
+                      event_type: 'program_completed',
+                      xp_amount: 50,
+                      target_id: programId,
                   },
                   error: programCompletedXpResult.error,
                 });
@@ -2567,7 +2591,7 @@ export default function LiveSessionPage() {
       if (dailySessionId && dailySessionRow) {
         if (!alreadyCompletedDailySession) {
           const dailyCompletionPayload = {
-            user_id: user.id,
+            user_id: currentUserId,
             daily_session_id: dailySessionId,
             session_id: session.id,
             workout_history_id: data.id,
@@ -3020,7 +3044,7 @@ export default function LiveSessionPage() {
               <RestTimerOverlay
                 blockLabel={restingBlockName}
                 secondsLeft={restSecondsLeft}
-                totalSeconds={restSourceBlockRestSeconds}
+                totalSeconds={restTotalSeconds}
                 onSkip={() => setRestSecondsLeft(0)}
                 onAdd15={() => adjustRestSeconds(15)}
                 onSubtract15={() => adjustRestSeconds(-15)}
@@ -3123,13 +3147,22 @@ export default function LiveSessionPage() {
                                 <strong>{lineSummary}</strong>
                               </div>
                               {currentLivePerformanceLines.length > 1 ? (
-                                <button
-                                  type="button"
-                                  className="button ghost session-live-line-item__remove"
-                                  onClick={() => removeCurrentPerformanceLine(lineIndex)}
-                                >
-                                  Retirer
-                                </button>
+                                <div className="session-live-line-item__actions">
+                                  <button
+                                    type="button"
+                                    className="button ghost session-live-line-item__duplicate"
+                                    onClick={() => duplicateCurrentPerformanceLine(lineIndex)}
+                                  >
+                                    Dupliquer
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="button ghost session-live-line-item__remove"
+                                    onClick={() => removeCurrentPerformanceLine(lineIndex)}
+                                  >
+                                    Retirer
+                                  </button>
+                                </div>
                               ) : null}
                             </div>
 
@@ -3226,6 +3259,21 @@ export default function LiveSessionPage() {
                                   />
                                 </div>
                               )}
+
+                              <div className="session-live-performance-field">
+                                <span>Repos (sec)</span>
+                                <input
+                                  type="number"
+                                  min={0}
+                                  inputMode="numeric"
+                                  value={line.restSeconds ?? currentLineRestSeconds}
+                                  onChange={(event) =>
+                                    updateCurrentPerformanceLineAt(lineIndex, {
+                                      restSeconds: normalizePositiveInteger(event.target.value, 0),
+                                    })
+                                  }
+                                />
+                              </div>
                             </div>
                           </article>
                         );
