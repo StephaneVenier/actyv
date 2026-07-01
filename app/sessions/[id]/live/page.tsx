@@ -370,6 +370,46 @@ function getSetPerformanceKey(entry: Pick<WorkoutSetPerformance, 'block_id' | 's
   return `${entry.block_id}:${entry.set_number}:${entry.status}`;
 }
 
+function formatLivePerformanceLineCompactMeta(blockType: SessionBlockType, line: LivePerformanceLineDraft) {
+  if (blockType === 'reps') {
+    const repsLabel = line.targetValue == null ? '-' : `${line.targetValue} reps`;
+    const chargeLabel = line.chargeKg != null && line.chargeKg > 0 ? ` • ${line.chargeKg} kg` : '';
+    const restLabel =
+      line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
+    return `${repsLabel}${chargeLabel}${restLabel}`;
+  }
+
+  if (blockType === 'duration') {
+    const durationLabel = line.targetValue == null ? '-' : formatTimerClock(line.targetValue);
+    const restLabel =
+      line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
+    return `${durationLabel}${restLabel}`;
+  }
+
+  if (blockType === 'distance') {
+    const distanceLabel = line.targetValue == null ? '-' : `${line.targetValue} km`;
+    const restLabel =
+      line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
+    return `${distanceLabel}${restLabel}`;
+  }
+
+  const noteLabel = line.note.trim();
+  const restLabel = line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
+  return `${noteLabel || 'Consigne'}${restLabel}`;
+}
+
+function getLivePerformanceLineStatusLabel(lineIndex: number, activeLineIndex: number, completedSets: number) {
+  if (lineIndex < completedSets) {
+    return { icon: '✓', label: 'Terminee' };
+  }
+
+  if (lineIndex === activeLineIndex) {
+    return { icon: '▶', label: 'Active' };
+  }
+
+  return { icon: '○', label: 'A faire' };
+}
+
 export default function LiveSessionPage() {
   const params = useParams();
   const router = useRouter();
@@ -429,6 +469,7 @@ export default function LiveSessionPage() {
   const [newExerciseChargeKg, setNewExerciseChargeKg] = useState('');
   const [newExerciseRestSeconds, setNewExerciseRestSeconds] = useState('60');
   const [newExerciseFreeText, setNewExerciseFreeText] = useState('');
+  const [openPerformanceLineIndex, setOpenPerformanceLineIndex] = useState<number | null>(null);
   const hasHydratedLiveStateRef = useRef(false);
 
   const liveStorageKey = `actyv.session.live.${id}`;
@@ -962,11 +1003,15 @@ export default function LiveSessionPage() {
           ? awaitingExerciseCompletion
             ? 'Serie prete a etre terminee'
             : 'Serie en cours'
-          : isCurrentBlockSkipped
-            ? 'Bloc passe'
-            : currentCompletedSets > 0
-              ? 'Pret pour la serie suivante'
-              : 'Pret pour la serie';
+            : isCurrentBlockSkipped
+              ? 'Bloc passe'
+              : currentCompletedSets > 0
+                ? 'Pret pour la serie suivante'
+                : 'Pret pour la serie';
+  useEffect(() => {
+    setOpenPerformanceLineIndex(null);
+  }, [currentBlock?.id]);
+
   const currentSeriesLabel = currentBlock
     ? usesSetBySetValidation
       ? `Serie ${Math.max(displayedSeriesStep, 1)} / ${currentLiveBlockSetsTotal}`
@@ -1641,6 +1686,7 @@ export default function LiveSessionPage() {
         },
       };
     });
+    setOpenPerformanceLineIndex(currentLivePerformanceLines.length);
   };
 
   const duplicateCurrentPerformanceLine = (lineIndex: number) => {
@@ -1671,10 +1717,14 @@ export default function LiveSessionPage() {
         },
       };
     });
+    setOpenPerformanceLineIndex(lineIndex + 1);
   };
 
   const removeCurrentPerformanceLine = (lineIndex: number) => {
     if (!currentBlock) return;
+
+    const existingDraft = performanceDraftsByBlockId[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
+    const nextLength = Math.max(existingDraft.lines.length - 1, 1);
 
     setPerformanceDraftsByBlockId((current) => {
       const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
@@ -1692,6 +1742,16 @@ export default function LiveSessionPage() {
         },
       };
     });
+    setOpenPerformanceLineIndex((current) => {
+      if (current == null) return null;
+      if (current === lineIndex) {
+        return Math.max(0, Math.min(lineIndex, nextLength - 1));
+      }
+      if (current > lineIndex) {
+        return current - 1;
+      }
+      return current;
+    });
   };
 
   const resetCurrentPerformanceDraft = () => {
@@ -1706,6 +1766,7 @@ export default function LiveSessionPage() {
       nextState[currentBlock.id] = getPerformanceDraftFromBlock(currentBlock);
       return nextState;
     });
+    setOpenPerformanceLineIndex(null);
     setValidationFeedback('Retour aux valeurs prevues');
   };
 
@@ -3133,148 +3194,183 @@ export default function LiveSessionPage() {
 
                     <div className="session-live-line-list">
                       {currentLivePerformanceLines.map((line, lineIndex) => {
+                        const isOpenLine = openPerformanceLineIndex === lineIndex;
                         const isActiveLine = lineIndex === currentActivePerformanceLineIndex;
-                        const lineSummary = formatLivePerformanceLineSummary(currentBlock.block_type, line);
+                        const lineStatus = getLivePerformanceLineStatusLabel(
+                          lineIndex,
+                          currentActivePerformanceLineIndex,
+                          currentCompletedSets
+                        );
+                        const lineMeta = formatLivePerformanceLineCompactMeta(currentBlock.block_type, line);
+                        const lineTitle =
+                          currentBlock.block_type === 'free'
+                            ? line.note.trim() || `Ligne ${lineIndex + 1}`
+                            : `Serie ${lineIndex + 1}`;
 
                         return (
                           <article
                             key={line.id}
-                            className={`session-live-line-item${isActiveLine ? ' session-live-line-item--active' : ''}`}
+                            className={`session-live-line-item${
+                              isActiveLine ? ' session-live-line-item--active' : ''
+                            }${isOpenLine ? ' session-live-line-item--open' : ''}`}
                           >
-                            <div className="session-live-line-item__top">
-                              <div>
-                                <span className="section-kicker">{`Ligne ${lineIndex + 1}`}</span>
-                                <strong>{lineSummary}</strong>
-                              </div>
-                              {currentLivePerformanceLines.length > 1 ? (
-                                <div className="session-live-line-item__actions">
-                                  <button
-                                    type="button"
-                                    className="button ghost session-live-line-item__duplicate"
-                                    onClick={() => duplicateCurrentPerformanceLine(lineIndex)}
-                                  >
-                                    Dupliquer
-                                  </button>
-                                  <button
-                                    type="button"
-                                    className="button ghost session-live-line-item__remove"
-                                    onClick={() => removeCurrentPerformanceLine(lineIndex)}
-                                  >
-                                    Retirer
-                                  </button>
+                            <button
+                              type="button"
+                              className="session-live-line-item__summary"
+                              onClick={() =>
+                                setOpenPerformanceLineIndex((current) => (current === lineIndex ? null : lineIndex))
+                              }
+                            >
+                              <span className="session-live-line-item__status" aria-hidden="true">
+                                {lineStatus.icon}
+                              </span>
+                              <span className="session-live-line-item__copy">
+                                <span className="session-live-line-item__title">{lineTitle}</span>
+                                <span className="session-live-line-item__meta">{lineMeta}</span>
+                              </span>
+                              <span className="session-live-line-item__menu" aria-hidden="true">
+                                {isOpenLine ? '▴' : '⋮'}
+                              </span>
+                            </button>
+
+                            {isOpenLine ? (
+                              <div className="session-live-line-item__details">
+                                <div className="session-live-line-item__details-head">
+                                  <div>
+                                    <span className="section-kicker">{lineStatus.label}</span>
+                                    <strong>{lineTitle}</strong>
+                                  </div>
+                                  {currentLivePerformanceLines.length > 1 ? (
+                                    <div className="session-live-line-item__actions">
+                                      <button
+                                        type="button"
+                                        className="button ghost session-live-line-item__duplicate"
+                                        onClick={() => duplicateCurrentPerformanceLine(lineIndex)}
+                                      >
+                                        Dupliquer
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="button ghost session-live-line-item__remove"
+                                        onClick={() => removeCurrentPerformanceLine(lineIndex)}
+                                      >
+                                        Retirer
+                                      </button>
+                                    </div>
+                                  ) : null}
                                 </div>
-                              ) : null}
-                            </div>
 
-                            <div className="session-live-performance-grid session-live-performance-grid--dense">
-                              <div className="session-live-performance-field">
-                                <span>Séries</span>
-                                <input
-                                  type="number"
-                                  min={1}
-                                  inputMode="numeric"
-                                  value={line.setsCount}
-                                  onChange={(event) =>
-                                    updateCurrentPerformanceLineAt(lineIndex, {
-                                      setsCount: normalizePositiveInteger(event.target.value, 1),
-                                    })
-                                  }
-                                />
-                              </div>
-
-                              {currentBlock.block_type === 'reps' ? (
-                                <>
+                                <div className="session-live-performance-grid session-live-performance-grid--dense session-live-performance-grid--compact">
                                   <div className="session-live-performance-field">
-                                    <span>Répétitions</span>
+                                    <span>Séries</span>
+                                    <input
+                                      type="number"
+                                      min={1}
+                                      inputMode="numeric"
+                                      value={line.setsCount}
+                                      onChange={(event) =>
+                                        updateCurrentPerformanceLineAt(lineIndex, {
+                                          setsCount: normalizePositiveInteger(event.target.value, 1),
+                                        })
+                                      }
+                                    />
+                                  </div>
+
+                                  {currentBlock.block_type === 'reps' ? (
+                                    <>
+                                      <div className="session-live-performance-field">
+                                        <span>Répétitions</span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          inputMode="numeric"
+                                          value={line.targetValue ?? 0}
+                                          onChange={(event) =>
+                                            updateCurrentPerformanceLineAt(lineIndex, {
+                                              targetValue: normalizePositiveInteger(event.target.value, 0),
+                                            })
+                                          }
+                                        />
+                                      </div>
+                                      <div className="session-live-performance-field">
+                                        <span>Charge kg</span>
+                                        <input
+                                          type="number"
+                                          min={0}
+                                          step="0.5"
+                                          inputMode="decimal"
+                                          value={line.chargeKg ?? 0}
+                                          onChange={(event) =>
+                                            updateCurrentPerformanceLineAt(lineIndex, {
+                                              chargeKg: normalizeNonNegativeNumber(event.target.value, 0),
+                                            })
+                                          }
+                                        />
+                                      </div>
+                                    </>
+                                  ) : currentBlock.block_type === 'duration' ? (
+                                    <div className="session-live-performance-field">
+                                      <span>Durée (sec)</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        inputMode="numeric"
+                                        value={line.targetValue ?? 0}
+                                        onChange={(event) =>
+                                          updateCurrentPerformanceLineAt(lineIndex, {
+                                            targetValue: normalizePositiveInteger(event.target.value, 0),
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  ) : currentBlock.block_type === 'distance' ? (
+                                    <div className="session-live-performance-field">
+                                      <span>Distance</span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        step="0.1"
+                                        inputMode="decimal"
+                                        value={line.targetValue ?? 0}
+                                        onChange={(event) =>
+                                          updateCurrentPerformanceLineAt(lineIndex, {
+                                            targetValue: normalizeNonNegativeNumber(event.target.value, 0),
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="session-live-performance-field session-live-performance-field--full">
+                                      <span>Texte libre</span>
+                                      <textarea
+                                        rows={2}
+                                        value={line.note}
+                                        onChange={(event) =>
+                                          updateCurrentPerformanceLineAt(lineIndex, {
+                                            note: event.target.value,
+                                          })
+                                        }
+                                      />
+                                    </div>
+                                  )}
+
+                                  <div className="session-live-performance-field">
+                                    <span>Repos (sec)</span>
                                     <input
                                       type="number"
                                       min={0}
                                       inputMode="numeric"
-                                      value={line.targetValue ?? 0}
+                                      value={line.restSeconds ?? currentLineRestSeconds}
                                       onChange={(event) =>
                                         updateCurrentPerformanceLineAt(lineIndex, {
-                                          targetValue: normalizePositiveInteger(event.target.value, 0),
+                                          restSeconds: normalizePositiveInteger(event.target.value, 0),
                                         })
                                       }
                                     />
                                   </div>
-                                  <div className="session-live-performance-field">
-                                    <span>Charge kg</span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      step="0.5"
-                                      inputMode="decimal"
-                                      value={line.chargeKg ?? 0}
-                                      onChange={(event) =>
-                                        updateCurrentPerformanceLineAt(lineIndex, {
-                                          chargeKg: normalizeNonNegativeNumber(event.target.value, 0),
-                                        })
-                                      }
-                                    />
-                                  </div>
-                                </>
-                              ) : currentBlock.block_type === 'duration' ? (
-                                <div className="session-live-performance-field">
-                                  <span>Durée (sec)</span>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    inputMode="numeric"
-                                    value={line.targetValue ?? 0}
-                                    onChange={(event) =>
-                                      updateCurrentPerformanceLineAt(lineIndex, {
-                                        targetValue: normalizePositiveInteger(event.target.value, 0),
-                                      })
-                                    }
-                                  />
                                 </div>
-                              ) : currentBlock.block_type === 'distance' ? (
-                                <div className="session-live-performance-field">
-                                  <span>Distance</span>
-                                  <input
-                                    type="number"
-                                    min={0}
-                                    step="0.1"
-                                    inputMode="decimal"
-                                    value={line.targetValue ?? 0}
-                                    onChange={(event) =>
-                                      updateCurrentPerformanceLineAt(lineIndex, {
-                                        targetValue: normalizeNonNegativeNumber(event.target.value, 0),
-                                      })
-                                    }
-                                  />
-                                </div>
-                              ) : (
-                                <div className="session-live-performance-field session-live-performance-field--full">
-                                  <span>Texte libre</span>
-                                  <textarea
-                                    rows={2}
-                                    value={line.note}
-                                    onChange={(event) =>
-                                      updateCurrentPerformanceLineAt(lineIndex, {
-                                        note: event.target.value,
-                                      })
-                                    }
-                                  />
-                                </div>
-                              )}
-
-                              <div className="session-live-performance-field">
-                                <span>Repos (sec)</span>
-                                <input
-                                  type="number"
-                                  min={0}
-                                  inputMode="numeric"
-                                  value={line.restSeconds ?? currentLineRestSeconds}
-                                  onChange={(event) =>
-                                    updateCurrentPerformanceLineAt(lineIndex, {
-                                      restSeconds: normalizePositiveInteger(event.target.value, 0),
-                                    })
-                                  }
-                                />
                               </div>
-                            </div>
+                            ) : null}
                           </article>
                         );
                       })}
