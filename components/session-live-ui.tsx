@@ -33,6 +33,7 @@ type LiveBlockCardProps = {
   blockIndex: number;
   totalBlocks: number;
   currentSeriesLabel: string;
+  livePrimaryValue?: string | null;
   statusLabel: string;
   isCompleted: boolean;
   blockVolumeLabel?: string | null;
@@ -158,6 +159,7 @@ export function LiveBlockCard({
   blockIndex,
   totalBlocks,
   currentSeriesLabel,
+  livePrimaryValue,
   statusLabel,
   isCompleted,
   blockVolumeLabel,
@@ -184,7 +186,7 @@ export function LiveBlockCard({
       </div>
 
       <div className="session-live-focus-card__value">
-        <strong>{countdownLabel || getLivePrimaryValue(block)}</strong>
+        <strong>{countdownLabel || livePrimaryValue || getLivePrimaryValue(block)}</strong>
         <span>{currentSeriesLabel}</span>
       </div>
 

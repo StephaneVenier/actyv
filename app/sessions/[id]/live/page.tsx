@@ -1033,6 +1033,9 @@ export default function LiveSessionPage() {
     currentLivePerformanceLines[currentActivePerformanceLineIndex] ||
     currentLivePerformanceLines[0] ||
     createLivePerformanceLineDraftFromBlock(currentBlock);
+  const currentActivePerformanceLineSummary = currentBlock
+    ? formatLivePerformanceLineCompactMeta(currentBlock.block_type, currentActivePerformanceLine)
+    : null;
   const currentActualReps =
     currentBlock?.block_type === 'reps'
       ? currentActivePerformanceLine.targetValue == null
@@ -3121,6 +3124,7 @@ export default function LiveSessionPage() {
                   blockIndex={currentIndex}
                   totalBlocks={blocks.length}
                   currentSeriesLabel={currentSeriesLabel}
+                  livePrimaryValue={currentActivePerformanceLineSummary}
                   statusLabel={currentStatusLabel}
                   isCompleted={completedBlockIds.includes(currentBlock.id)}
                   blockVolumeLabel={formatSessionVolumeKg(currentBlockVolume)}
@@ -3399,8 +3403,8 @@ export default function LiveSessionPage() {
                   </article>
                   <article className="card session-live-quick-stat">
                     <span>Progression bloc</span>
-                    <strong>{currentSeriesLabel}</strong>
-                  </article>
+                      <strong>{currentActivePerformanceLineSummary || currentSeriesLabel}</strong>
+                    </article>
                   <article className="card session-live-quick-stat">
                     <span>Duree estimee</span>
                     <strong>{estimatedDurationSeconds ? formatElapsedDuration(estimatedDurationSeconds) : '-'}</strong>
