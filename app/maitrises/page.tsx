@@ -22,13 +22,18 @@ export default function MasteriesPage() {
   return (
     <AppShell>
       <div className="masteries-page">
-        <section className="card masteries-hero-card">
-          <div className="masteries-hero-card__copy">
+        <section className="masteries-page-header">
+          <div className="masteries-page-header__copy">
             <span className="section-kicker">Maitrises</span>
             <h1>Maitrises</h1>
             <p className="muted">Fais progresser tes competences sportives.</p>
-            <p className="masteries-hero-card__hint">Chaque activite te rapproche du niveau suivant.</p>
+            <p className="masteries-page-header__hint">Chaque activite te rapproche du niveau suivant.</p>
           </div>
+          <button type="button" className="masteries-page-header__action" aria-label="Options maitrises" disabled>
+            <span />
+            <span />
+            <span />
+          </button>
         </section>
 
         <section className="masteries-category-tabs" aria-label="Categories de maitrises">
@@ -45,9 +50,8 @@ export default function MasteriesPage() {
         </section>
 
         <section className="card masteries-summary-card">
-          <div>
-            <span className="section-kicker">{selectedCategory?.label || 'Categorie'}</span>
-            <h2>{selectedCategory?.label || 'Maitrises'}</h2>
+          <div className="masteries-summary-card__title">
+            <span className="section-kicker">{selectedCategory?.label?.toUpperCase() || 'CATEGORIE'}</span>
           </div>
           <div className="masteries-summary-card__stats">
             <div className="masteries-summary-stat">
@@ -70,4 +74,3 @@ export default function MasteriesPage() {
     </AppShell>
   );
 }
-

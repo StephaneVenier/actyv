@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { getMasteryById, getMasteryProgressPercent } from '@/lib/masteries';
-
-function formatMasteryValue(value: number, unit: string) {
-  return `${new Intl.NumberFormat('fr-FR', {
-    maximumFractionDigits: unit === 'km' ? 1 : 0,
-  }).format(value)} ${unit}`;
-}
+import { MasteryIcon } from '@/components/MasteryIcon';
+import {
+  formatMasteryProgressLabel,
+  formatMasteryValue,
+  getMasteryById,
+  getMasteryInfoCopy,
+  getMasteryProgressPercent,
+  getMasteryUnitLabel,
+} from '@/lib/masteries';
 
 export default function MasteryDetailPage() {
   const params = useParams();
@@ -39,58 +41,105 @@ export default function MasteryDetailPage() {
 
   const progressPercent = getMasteryProgressPercent(mastery);
   const remainingValue = Math.max(mastery.nextLevelTarget - mastery.currentValue, 0);
+  const remainingUnitLabel = getMasteryUnitLabel(mastery.unit, remainingValue);
 
   return (
     <AppShell>
       <div className="masteries-page">
-        <section className="card masteries-hero-card mastery-detail-hero">
-          <div className="masteries-hero-card__copy">
-            <span className="section-kicker">Maitrise</span>
-            <h1>{mastery.name}</h1>
-            <p className="muted">Niveau {mastery.level}</p>
+        <section className="card masteries-detail-shell">
+          <div className="masteries-detail-shell__topbar">
+            <Link href="/maitrises" className="masteries-detail-shell__back" aria-label="Retour aux maitrises">
+              &larr;
+            </Link>
+            <div className="masteries-detail-shell__actions">
+              <button type="button" className="masteries-detail-shell__icon-button" aria-label="Favori" disabled>
+                &#9734;
+              </button>
+              <button type="button" className="masteries-detail-shell__icon-button" aria-label="Plus d'options" disabled>
+                &#8942;
+              </button>
+            </div>
           </div>
 
-          <div className="mastery-detail-progress">
+          <div className="masteries-detail-shell__hero">
+            <span className="mastery-detail-shell__icon-wrap">
+              <MasteryIcon categoryId={mastery.categoryId} className="mastery-icon mastery-icon--hero" />
+            </span>
+            <div className="masteries-hero-card__copy masteries-hero-card__copy--detail">
+              <h1>{mastery.name}</h1>
+              <p className="mastery-detail-shell__level">Niveau {mastery.level}</p>
+            </div>
+          </div>
+
+          <div className="mastery-detail-progress mastery-detail-progress--hero">
             <div className="mastery-detail-progress__top">
-              <strong>{formatMasteryValue(mastery.currentValue, mastery.unit)}</strong>
-              <span>{formatMasteryValue(mastery.nextLevelTarget, mastery.unit)}</span>
+              <strong>{formatMasteryProgressLabel(mastery)}</strong>
+              <span>{Math.round(progressPercent)}%</span>
             </div>
             <div className="progress-bar mastery-card__bar" aria-hidden="true">
               <span className="progress-fill" style={{ width: `${progressPercent}%` }} />
             </div>
-            <p className="mastery-detail-progress__hint">
-              Encore {formatMasteryValue(remainingValue, mastery.unit)} pour atteindre le niveau {mastery.level + 1}.
-            </p>
-            <p className="mastery-detail-progress__reward">Prochaine recompense : +{mastery.nextRewardXp} XP</p>
           </div>
 
-          <div className="masteries-detail-actions">
-            <Link href="/maitrises" className="button ghost">
-              Retour aux maitrises
-            </Link>
-            <button type="button" className="button primary" disabled>
+          <div className="card mastery-detail-reward-card">
+            <div className="mastery-detail-reward-card__block">
+              <span className="mastery-detail-reward-card__icon">&#9733;</span>
+              <div>
+                <strong>Encore {formatMasteryValue(remainingValue, mastery.unit)}</strong>
+                <span>pour atteindre le niveau {mastery.level + 1} en {remainingUnitLabel}</span>
+              </div>
+            </div>
+            <div className="mastery-detail-reward-card__divider" aria-hidden="true" />
+            <div className="mastery-detail-reward-card__block mastery-detail-reward-card__block--reward">
+              <span>Prochaine recompense</span>
+              <strong>+{mastery.nextRewardXp} XP</strong>
+            </div>
+          </div>
+
+          <div className="card mastery-detail-stats-card">
+            <div className="mastery-detail-stat-row">
+              <span className="mastery-detail-stat-row__icon">&Sigma;</span>
+              <span>Total realise</span>
+              <strong>
+                {formatMasteryValue(mastery.totalValue, mastery.unit)} {getMasteryUnitLabel(mastery.unit, mastery.totalValue)}
+              </strong>
+            </div>
+            <div className="mastery-detail-stat-row">
+              <span className="mastery-detail-stat-row__icon">&#9719;</span>
+              <span>15 derniers jours</span>
+              <strong>
+                {formatMasteryValue(mastery.last15DaysValue, mastery.unit)}{' '}
+                {getMasteryUnitLabel(mastery.unit, mastery.last15DaysValue)}
+              </strong>
+            </div>
+            <div className="mastery-detail-stat-row">
+              <span className="mastery-detail-stat-row__icon">&#8962;</span>
+              <span>Meilleure seance</span>
+              <strong>
+                {formatMasteryValue(mastery.bestSessionValue, mastery.unit)}{' '}
+                {getMasteryUnitLabel(mastery.unit, mastery.bestSessionValue)}
+              </strong>
+            </div>
+          </div>
+
+          <div className="mastery-detail-action-card">
+            <button type="button" className="button mastery-detail-action-card__button" disabled>
+              <span className="mastery-detail-action-card__plus" aria-hidden="true">
+                +
+              </span>
               Ajouter une performance
             </button>
+            <p className="mastery-detail-locked-note">Bientot disponible</p>
           </div>
-          <p className="mastery-detail-locked-note">Bientot disponible</p>
-        </section>
 
-        <section className="mastery-detail-stats">
-          <article className="card mastery-detail-stat-card">
-            <span>Total realise</span>
-            <strong>{formatMasteryValue(mastery.totalValue, mastery.unit)}</strong>
-          </article>
-          <article className="card mastery-detail-stat-card">
-            <span>15 derniers jours</span>
-            <strong>{formatMasteryValue(mastery.last15DaysValue, mastery.unit)}</strong>
-          </article>
-          <article className="card mastery-detail-stat-card">
-            <span>Meilleure seance</span>
-            <strong>{formatMasteryValue(mastery.bestSessionValue, mastery.unit)}</strong>
-          </article>
+          <div className="card mastery-detail-info-card">
+            <span className="mastery-detail-info-card__icon" aria-hidden="true">
+              i
+            </span>
+            <p>{getMasteryInfoCopy(mastery)}</p>
+          </div>
         </section>
       </div>
     </AppShell>
   );
 }
-

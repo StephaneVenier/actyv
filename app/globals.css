@@ -2184,52 +2184,72 @@ img {
 
 .masteries-page {
   display: grid;
-  gap: 14px;
-}
-
-.masteries-hero-card,
-.masteries-summary-card,
-.mastery-detail-stat-card {
-  display: grid;
   gap: 12px;
-  padding: 18px;
-  background: linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(16, 34, 35, 0.98));
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.masteries-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.masteries-page-header__copy,
 .masteries-hero-card__copy {
   display: grid;
-  gap: 6px;
+  gap: 4px;
+  min-width: 0;
 }
 
-.masteries-hero-card h1,
-.masteries-summary-card h2 {
-  margin: 0;
-  color: #f4f7f6;
-}
-
+.masteries-page-header h1,
 .masteries-hero-card h1 {
-  font-size: clamp(1.45rem, 2.2vw, 1.9rem);
-  line-height: 1.06;
+  margin: 0;
+  color: #f1f5f9;
+  font-size: clamp(1.34rem, 2vw, 1.72rem);
+  line-height: 1.04;
 }
 
-.masteries-summary-card h2 {
-  font-size: 1.05rem;
-  line-height: 1.1;
-}
-
+.masteries-page-header .muted,
 .masteries-hero-card .muted,
-.masteries-summary-card .muted,
 .mastery-detail-progress__hint,
-.mastery-detail-locked-note {
-  color: #9fb5b3;
+.mastery-detail-locked-note,
+.mastery-detail-stat-row span,
+.mastery-detail-info-card p {
+  color: #94a3b8;
 }
 
+.masteries-page-header__hint,
 .masteries-hero-card__hint {
   margin: 0;
-  color: #bfd0cf;
-  font-size: 0.84rem;
-  line-height: 1.45;
+  color: #f1f5f9;
+  opacity: 0.76;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.masteries-page-header__action,
+.masteries-detail-shell__icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid #1f2937;
+  background: #111827;
+  color: #f1f5f9;
+}
+
+.masteries-page-header__action {
+  gap: 3px;
+}
+
+.masteries-page-header__action span {
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .masteries-category-tabs {
@@ -2246,13 +2266,13 @@ img {
 
 .masteries-category-tab {
   flex: 0 0 auto;
-  min-height: 38px;
-  padding: 0 14px;
+  min-height: 34px;
+  padding: 0 12px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background: rgba(11, 23, 24, 0.92);
-  color: #bfd0cf;
-  font-size: 0.84rem;
+  border: 1px solid #1f2937;
+  background: #111827;
+  color: #94a3b8;
+  font-size: 0.76rem;
   font-weight: 700;
   white-space: nowrap;
   transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
@@ -2260,106 +2280,173 @@ img {
 
 .masteries-category-tab:hover {
   transform: translateY(-1px);
-  border-color: rgba(53, 230, 107, 0.2);
-  color: #f4f7f6;
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #f1f5f9;
 }
 
 .masteries-category-tab.is-active {
-  background: linear-gradient(135deg, rgba(76, 217, 100, 0.16), rgba(32, 183, 166, 0.14), rgba(30, 107, 214, 0.14));
-  border-color: rgba(134, 239, 172, 0.24);
-  color: #f4f7f6;
-  box-shadow: 0 12px 24px rgba(2, 8, 23, 0.14);
+  background: #22c55e;
+  border-color: #22c55e;
+  color: #0f172a;
+  box-shadow: 0 12px 24px rgba(34, 197, 94, 0.16);
+}
+
+.masteries-summary-card,
+.masteries-detail-shell,
+.mastery-detail-reward-card,
+.mastery-detail-stats-card,
+.mastery-detail-info-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  background: linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(17, 24, 39, 0.98));
+  border: 1px solid #1f2937;
+  box-shadow: 0 18px 40px rgba(2, 8, 23, 0.18);
 }
 
 .masteries-summary-card {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
+  gap: 14px;
+}
+
+.masteries-summary-card__title .section-kicker {
+  color: #22c55e;
 }
 
 .masteries-summary-card__stats {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   flex-wrap: wrap;
 }
 
 .masteries-summary-stat {
   display: grid;
-  gap: 2px;
+  gap: 3px;
   justify-items: end;
+  min-width: 78px;
+  position: relative;
+}
+
+.masteries-summary-stat + .masteries-summary-stat {
+  padding-left: 14px;
+}
+
+.masteries-summary-stat + .masteries-summary-stat::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 1px;
+  background: #1f2937;
 }
 
 .masteries-summary-stat strong {
-  color: #f4f7f6;
-  font-size: 1rem;
+  color: #f1f5f9;
+  font-size: 1.02rem;
+  line-height: 1;
 }
 
 .masteries-summary-stat span {
-  color: #9fb5b3;
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  line-height: 1.2;
+  text-align: right;
 }
 
 .masteries-list {
   display: grid;
-  gap: 10px;
+  gap: 8px;
 }
 
 .mastery-card {
   display: grid;
-  gap: 10px;
-  padding: 14px;
+  gap: 8px;
+  padding: 12px 14px;
   border-radius: 18px;
   background:
-    linear-gradient(135deg, rgba(76, 217, 100, 0.08), rgba(32, 183, 166, 0.06) 45%, rgba(30, 107, 214, 0.07)),
-    rgba(11, 23, 24, 0.98);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+    linear-gradient(135deg, rgba(34, 197, 94, 0.08), rgba(74, 222, 128, 0.04) 45%, rgba(15, 23, 42, 0)),
+    #111827;
+  border: 1px solid #1f2937;
   box-shadow: 0 18px 38px rgba(2, 8, 23, 0.18);
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
 }
 
 .mastery-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(76, 217, 100, 0.18);
+  border-color: rgba(74, 222, 128, 0.26);
   box-shadow: 0 22px 42px rgba(2, 8, 23, 0.22);
 }
 
 .mastery-card__top,
 .mastery-card__progress-copy,
+.mastery-detail-progress__top,
 .masteries-detail-actions,
-.mastery-detail-progress__top {
+.mastery-detail-stat-row,
+.masteries-detail-shell__topbar,
+.masteries-detail-shell__hero,
+.masteries-detail-shell__actions {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
 }
 
+.mastery-card__lead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.mastery-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  color: #4ade80;
+  flex: 0 0 28px;
+}
+
+.mastery-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.mastery-icon--hero {
+  width: 34px;
+  height: 34px;
+}
+
 .mastery-card__copy {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   min-width: 0;
 }
 
 .mastery-card__copy strong,
 .mastery-detail-progress__top strong,
-.mastery-detail-stat-card strong {
-  color: #f4f7f6;
+.mastery-detail-stat-row strong,
+.mastery-detail-reward-card__block strong,
+.mastery-detail-shell__level {
+  color: #f1f5f9;
 }
 
 .mastery-card__copy strong {
-  font-size: 0.98rem;
-  line-height: 1.2;
+  font-size: 0.96rem;
+  line-height: 1.15;
   overflow-wrap: anywhere;
 }
 
 .mastery-card__copy span,
 .mastery-card__progress-copy span,
-.mastery-card__level-chip,
 .mastery-detail-progress__top span,
-.mastery-detail-stat-card span,
-.mastery-detail-progress__reward {
-  color: #9fb5b3;
+.mastery-detail-progress__reward,
+.mastery-detail-reward-card__block span {
+  color: #94a3b8;
 }
 
 .mastery-card__copy span,
@@ -2369,37 +2456,92 @@ img {
   font-size: 0.78rem;
 }
 
-.mastery-card__level-chip {
-  flex: 0 0 auto;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.05);
-  display: inline-flex;
-  align-items: center;
-  font-weight: 700;
+.mastery-card__chevron {
+  color: #94a3b8;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
+.mastery-card__progress-copy {
+  align-items: end;
+}
+
+.mastery-card__progress-copy strong {
+  color: #4ade80;
+  font-size: 0.8rem;
+  line-height: 1;
 }
 
 .mastery-card__bar {
-  height: 8px;
+  height: 7px;
+  background: #1f2937;
 }
 
-.mastery-detail-hero {
+.mastery-card__bar .progress-fill {
+  background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+}
+
+.masteries-detail-shell {
   gap: 14px;
+}
+
+.masteries-detail-shell__topbar {
+  align-items: center;
+}
+
+.masteries-detail-shell__back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  border: 1px solid #1f2937;
+  background: #111827;
+  color: #f1f5f9;
+  font-size: 1.1rem;
+}
+
+.masteries-detail-shell__hero {
+  flex-direction: column;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+}
+
+.masteries-hero-card__copy--detail {
+  justify-items: center;
+}
+
+.mastery-detail-shell__icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 76px;
+  height: 76px;
+  border-radius: 999px;
+  border: 1px solid rgba(34, 197, 94, 0.34);
+  background: radial-gradient(circle at center, rgba(34, 197, 94, 0.08), rgba(15, 23, 42, 0));
+}
+
+.mastery-detail-shell__level {
+  margin: 0;
+  color: #22c55e;
+  font-size: 0.96rem;
+  font-weight: 800;
 }
 
 .mastery-detail-progress {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   padding: 14px;
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #111827;
+  border: 1px solid #1f2937;
 }
 
 .mastery-detail-progress__top strong {
-  font-size: 1.05rem;
+  font-size: 0.92rem;
 }
 
 .mastery-detail-progress__hint,
@@ -2414,29 +2556,135 @@ img {
   font-weight: 700;
 }
 
+.mastery-detail-reward-card {
+  grid-template-columns: minmax(0, 1fr) 1px minmax(120px, auto);
+  align-items: stretch;
+}
+
+.mastery-detail-reward-card__block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mastery-detail-reward-card__block span {
+  display: block;
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.mastery-detail-reward-card__block strong {
+  display: block;
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.mastery-detail-reward-card__block--reward {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.mastery-detail-reward-card__block--reward strong {
+  color: #4ade80;
+}
+
+.mastery-detail-reward-card__icon {
+  color: #fbbf24;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.mastery-detail-reward-card__divider {
+  width: 1px;
+  background: #1f2937;
+}
+
 .mastery-detail-locked-note {
   font-size: 0.78rem;
 }
 
-.mastery-detail-stats {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+.mastery-detail-stats-card,
+.mastery-detail-info-card,
+.mastery-detail-action-card {
+  border-radius: 18px;
+  border: 1px solid #1f2937;
+  background: #111827;
 }
 
-.mastery-detail-stat-card {
+.mastery-detail-stats-card {
+  display: grid;
+  overflow: hidden;
+}
+
+.mastery-detail-stat-row {
+  padding: 12px 14px;
+  gap: 12px;
+  color: #94a3b8;
+}
+
+.mastery-detail-stat-row + .mastery-detail-stat-row {
+  border-top: 1px solid #1f2937;
+}
+
+.mastery-detail-stat-row span {
+  font-size: 0.82rem;
+}
+
+.mastery-detail-stat-row strong {
+  margin-left: auto;
+  font-size: 0.82rem;
+  text-align: right;
+}
+
+.mastery-detail-stat-row__icon {
+  color: #cbd5e1;
+  font-size: 0.86rem;
+  flex: 0 0 14px;
+  text-align: center;
+}
+
+.mastery-detail-action-card {
+  display: grid;
+  gap: 8px;
   padding: 14px;
 }
 
-.mastery-detail-stat-card span {
-  font-size: 0.74rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.mastery-detail-action-card__button {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
 }
 
-.mastery-detail-stat-card strong {
+.mastery-detail-action-card__plus {
   font-size: 1rem;
-  line-height: 1.2;
+  line-height: 1;
+}
+
+.mastery-detail-info-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+}
+
+.mastery-detail-info-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  border: 1px solid #475569;
+  color: #cbd5e1;
+  font-size: 0.72rem;
+  flex: 0 0 18px;
+}
+
+.mastery-detail-info-card p {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
 }
 
 .stats-hero-card,
@@ -2678,6 +2926,10 @@ img {
     gap: 12px;
   }
 
+  .masteries-page-header {
+    gap: 10px;
+  }
+
   .masteries-hero-card,
   .masteries-summary-card,
   .mastery-detail-stat-card {
@@ -2687,6 +2939,10 @@ img {
   .masteries-summary-card,
   .mastery-detail-stats {
     grid-template-columns: 1fr;
+  }
+
+  .masteries-summary-card__stats {
+    justify-content: space-between;
   }
 
   .masteries-summary-card__stats,
@@ -2701,6 +2957,30 @@ img {
   .masteries-detail-actions {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .mastery-detail-reward-card {
+    grid-template-columns: 1fr;
+  }
+
+  .mastery-detail-reward-card__divider {
+    width: 100%;
+    height: 1px;
+  }
+
+  .mastery-detail-reward-card__block--reward {
+    align-items: flex-start;
+  }
+
+  .mastery-detail-stat-row {
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .mastery-detail-stat-row strong {
+    width: 100%;
+    margin-left: 26px;
+    text-align: left;
   }
 
   .masteries-detail-actions .button {

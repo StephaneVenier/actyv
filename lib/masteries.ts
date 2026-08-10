@@ -25,7 +25,6 @@ export const MASTERY_CATEGORIES: MasteryCategory[] = [
   { id: 'marche', label: 'Marche' },
   { id: 'velo', label: 'Velo' },
   { id: 'natation', label: 'Natation' },
-  { id: 'randonnee', label: 'Randonnee' },
 ];
 
 export const MASTERIES: Mastery[] = [
@@ -250,32 +249,6 @@ export const MASTERIES: Mastery[] = [
     bestSessionValue: 1.8,
     nextRewardXp: 5,
   },
-  {
-    id: 'distance-randonnee',
-    categoryId: 'randonnee',
-    name: 'Distance Randonnee',
-    unit: 'km',
-    level: 4,
-    currentValue: 72,
-    nextLevelTarget: 100,
-    totalValue: 212,
-    last15DaysValue: 26,
-    bestSessionValue: 19.4,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'dplus-randonnee',
-    categoryId: 'randonnee',
-    name: 'D+ Randonnee',
-    unit: 'm',
-    level: 5,
-    currentValue: 4500,
-    nextLevelTarget: 6000,
-    totalValue: 16020,
-    last15DaysValue: 1220,
-    bestSessionValue: 920,
-    nextRewardXp: 5,
-  },
 ];
 
 export function getMasteriesByCategory(categoryId: string) {
@@ -295,6 +268,67 @@ export function getMasteryProgressPercent(mastery: Mastery) {
   return Math.max(0, Math.min((mastery.currentValue / mastery.nextLevelTarget) * 100, 100));
 }
 
+export function formatMasteryValue(value: number, unit: string) {
+  const maximumFractionDigits = unit === 'km' ? 1 : 0;
+
+  return new Intl.NumberFormat('fr-FR', {
+    maximumFractionDigits,
+  }).format(value);
+}
+
+export function getMasteryUnitLabel(unit: string, value?: number) {
+  const normalizedValue = Math.abs(Number(value || 0));
+
+  if (unit === 'reps') {
+    return normalizedValue > 1 ? 'repetitions' : 'repetition';
+  }
+
+  if (unit === 'secondes') {
+    return normalizedValue > 1 ? 'secondes' : 'seconde';
+  }
+
+  if (unit === 'kg') {
+    return 'kg';
+  }
+
+  if (unit === 'km') {
+    return 'km';
+  }
+
+  if (unit === 'm') {
+    return 'm';
+  }
+
+  return unit;
+}
+
+export function formatMasteryProgressLabel(mastery: Mastery) {
+  return `${formatMasteryValue(mastery.currentValue, mastery.unit)} / ${formatMasteryValue(
+    mastery.nextLevelTarget,
+    mastery.unit
+  )} ${getMasteryUnitLabel(mastery.unit, mastery.nextLevelTarget)}`;
+}
+
+export function getMasteryInfoCopy(mastery: Mastery) {
+  if (mastery.unit === 'reps') {
+    return 'Chaque repetition validee fait progresser cette maitrise.';
+  }
+
+  if (mastery.unit === 'kg') {
+    return 'Chaque kilo cumule dans tes performances fait progresser cette maitrise.';
+  }
+
+  if (mastery.unit === 'km') {
+    return 'Chaque kilometre valide fait progresser cette maitrise.';
+  }
+
+  if (mastery.unit === 'm') {
+    return 'Chaque metre de denivele valide fait progresser cette maitrise.';
+  }
+
+  return 'Les niveaux sont bases sur le volume cumule de tes performances.';
+}
+
 export function getMasteryCategorySummary(categoryId: string) {
   const masteries = getMasteriesByCategory(categoryId);
 
@@ -303,4 +337,3 @@ export function getMasteryCategorySummary(categoryId: string) {
     earnedLevels: masteries.reduce((total, mastery) => total + mastery.level, 0),
   };
 }
-
