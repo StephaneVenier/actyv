@@ -1,285 +1,160 @@
+export const MASTERY_MEASUREMENT_TYPES = [
+  'reps',
+  'duration',
+  'distance',
+  'elevation',
+  'volume',
+  'count',
+] as const;
+
+export const MASTERY_SOURCES = ['manual', 'session', 'activity', 'import'] as const;
+
+export type MasteryMeasurementType = (typeof MASTERY_MEASUREMENT_TYPES)[number];
+export type MasterySource = (typeof MASTERY_SOURCES)[number];
+
 export type MasteryCategory = {
   id: string;
+  dbId?: string;
   label: string;
+  sortOrder: number;
+  active?: boolean;
+};
+
+export type MasteryLevel = {
+  masteryId: string;
+  level: number;
+  threshold: number;
+  xpReward: number;
+};
+
+export type MasteryEntry = {
+  id: string;
+  userId: string;
+  masteryId: string;
+  value: number;
+  source: MasterySource;
+  sourceRefId: string | null;
+  metadata: Record<string, unknown>;
+  performedAt: string;
+  createdAt: string;
+};
+
+export type MasteryUnlock = {
+  id?: string;
+  userId: string;
+  masteryId: string;
+  level: number;
+  xpAwarded: number;
+  unlockedAt: string;
+};
+
+export type MasteryProgress = {
+  totalValue: number;
+  currentLevel: number;
+  currentThreshold: number;
+  nextLevel: number;
+  nextThreshold: number;
+  remainingValue: number;
+  progressPercent: number;
+  xpRewardNextLevel: number;
+  isMaxLevel: boolean;
 };
 
 export type Mastery = {
   id: string;
+  dbId: string;
   categoryId: string;
+  categoryDbId: string;
   name: string;
   unit: string;
+  measurementType: MasteryMeasurementType;
+  description: string | null;
   level: number;
   currentValue: number;
+  currentThreshold: number;
+  nextLevel: number;
   nextLevelTarget: number;
+  remainingValue: number;
+  progressPercent: number;
   totalValue: number;
   last15DaysValue: number;
   bestSessionValue: number;
   nextRewardXp: number;
+  isMaxLevel: boolean;
 };
 
-export const MASTERY_CATEGORIES: MasteryCategory[] = [
-  { id: 'fitness', label: 'Fitness' },
-  { id: 'musculation', label: 'Musculation' },
-  { id: 'course', label: 'Course a pied' },
-  { id: 'trail', label: 'Trail' },
-  { id: 'marche', label: 'Marche' },
-  { id: 'velo', label: 'Velo' },
-  { id: 'natation', label: 'Natation' },
+export type MasteryCategorySummary = {
+  startedCount: number;
+  earnedLevels: number;
+};
+
+export type MasteryDashboardData = {
+  categories: MasteryCategory[];
+  masteries: Mastery[];
+  masteriesByCategory: Record<string, Mastery[]>;
+  summaries: Record<string, MasteryCategorySummary>;
+};
+
+export type MasteryDetailData = {
+  mastery: Mastery;
+  history: MasteryEntry[];
+  recentUnlocks: MasteryUnlock[];
+};
+
+export type AddMasteryEntryResult = {
+  entryId: string;
+  masteryId: string;
+  totalValue: number;
+  currentLevel: number;
+  currentThreshold: number;
+  nextLevel: number;
+  nextThreshold: number;
+  remainingValue: number;
+  progressPercent: number;
+  xpRewardNextLevel: number;
+  xpAwarded: number;
+  unlockedLevels: Array<{
+    level: number;
+    xpReward: number;
+  }>;
+  insertedValue: number;
+  isMaxLevel: boolean;
+};
+
+export const MASTERY_CATEGORY_FALLBACKS: MasteryCategory[] = [
+  { id: 'fitness', label: 'Fitness', sortOrder: 1 },
+  { id: 'musculation', label: 'Musculation', sortOrder: 2 },
+  { id: 'course-a-pied', label: 'Course a pied', sortOrder: 3 },
+  { id: 'trail', label: 'Trail', sortOrder: 4 },
+  { id: 'marche', label: 'Marche', sortOrder: 5 },
+  { id: 'velo', label: 'Velo', sortOrder: 6 },
+  { id: 'natation', label: 'Natation', sortOrder: 7 },
 ];
 
-export const MASTERIES: Mastery[] = [
-  {
-    id: 'pompes',
-    categoryId: 'fitness',
-    name: 'Pompes',
-    unit: 'reps',
-    level: 4,
-    currentValue: 72,
-    nextLevelTarget: 100,
-    totalValue: 187,
-    last15DaysValue: 62,
-    bestSessionValue: 35,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'burpees',
-    categoryId: 'fitness',
-    name: 'Burpees',
-    unit: 'reps',
-    level: 3,
-    currentValue: 34,
-    nextLevelTarget: 50,
-    totalValue: 94,
-    last15DaysValue: 28,
-    bestSessionValue: 18,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'planche',
-    categoryId: 'fitness',
-    name: 'Planche',
-    unit: 'secondes',
-    level: 5,
-    currentValue: 780,
-    nextLevelTarget: 1200,
-    totalValue: 3240,
-    last15DaysValue: 620,
-    bestSessionValue: 180,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'air-squats',
-    categoryId: 'fitness',
-    name: 'Air Squats',
-    unit: 'reps',
-    level: 6,
-    currentValue: 420,
-    nextLevelTarget: 600,
-    totalValue: 1420,
-    last15DaysValue: 240,
-    bestSessionValue: 75,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'tractions',
-    categoryId: 'musculation',
-    name: 'Tractions',
-    unit: 'reps',
-    level: 3,
-    currentValue: 18,
-    nextLevelTarget: 40,
-    totalValue: 63,
-    last15DaysValue: 16,
-    bestSessionValue: 8,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'developpe-couche',
-    categoryId: 'musculation',
-    name: 'Developpe couche',
-    unit: 'kg',
-    level: 4,
-    currentValue: 3200,
-    nextLevelTarget: 4000,
-    totalValue: 12600,
-    last15DaysValue: 2800,
-    bestSessionValue: 960,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'squat-barre',
-    categoryId: 'musculation',
-    name: 'Squat barre',
-    unit: 'kg',
-    level: 3,
-    currentValue: 1500,
-    nextLevelTarget: 2000,
-    totalValue: 6800,
-    last15DaysValue: 1900,
-    bestSessionValue: 720,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'dips',
-    categoryId: 'musculation',
-    name: 'Dips',
-    unit: 'reps',
-    level: 4,
-    currentValue: 78,
-    nextLevelTarget: 100,
-    totalValue: 214,
-    last15DaysValue: 46,
-    bestSessionValue: 20,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'distance-cap',
-    categoryId: 'course',
-    name: 'Distance CAP',
-    unit: 'km',
-    level: 6,
-    currentValue: 127,
-    nextLevelTarget: 175,
-    totalValue: 482,
-    last15DaysValue: 36,
-    bestSessionValue: 18.4,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'dplus-cap',
-    categoryId: 'course',
-    name: 'D+ CAP',
-    unit: 'm',
-    level: 4,
-    currentValue: 820,
-    nextLevelTarget: 1000,
-    totalValue: 3810,
-    last15DaysValue: 420,
-    bestSessionValue: 240,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'distance-trail',
-    categoryId: 'trail',
-    name: 'Distance Trail',
-    unit: 'km',
-    level: 4,
-    currentValue: 74,
-    nextLevelTarget: 100,
-    totalValue: 246,
-    last15DaysValue: 28,
-    bestSessionValue: 22.1,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'dplus-trail',
-    categoryId: 'trail',
-    name: 'D+ Trail',
-    unit: 'm',
-    level: 5,
-    currentValue: 4200,
-    nextLevelTarget: 6000,
-    totalValue: 15420,
-    last15DaysValue: 1320,
-    bestSessionValue: 980,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'distance-marche',
-    categoryId: 'marche',
-    name: 'Marche',
-    unit: 'km',
-    level: 6,
-    currentValue: 142,
-    nextLevelTarget: 200,
-    totalValue: 516,
-    last15DaysValue: 52,
-    bestSessionValue: 24.8,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'dplus-marche',
-    categoryId: 'marche',
-    name: 'D+ Marche',
-    unit: 'm',
-    level: 4,
-    currentValue: 750,
-    nextLevelTarget: 1000,
-    totalValue: 2940,
-    last15DaysValue: 360,
-    bestSessionValue: 210,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'distance-velo',
-    categoryId: 'velo',
-    name: 'Distance Velo',
-    unit: 'km',
-    level: 5,
-    currentValue: 165,
-    nextLevelTarget: 200,
-    totalValue: 684,
-    last15DaysValue: 82,
-    bestSessionValue: 61.2,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'dplus-velo',
-    categoryId: 'velo',
-    name: 'D+ Velo',
-    unit: 'm',
-    level: 4,
-    currentValue: 2800,
-    nextLevelTarget: 4000,
-    totalValue: 11240,
-    last15DaysValue: 1640,
-    bestSessionValue: 760,
-    nextRewardXp: 5,
-  },
-  {
-    id: 'distance-natation',
-    categoryId: 'natation',
-    name: 'Distance Natation',
-    unit: 'km',
-    level: 3,
-    currentValue: 6.4,
-    nextLevelTarget: 10,
-    totalValue: 24.6,
-    last15DaysValue: 3.2,
-    bestSessionValue: 1.8,
-    nextRewardXp: 5,
-  },
-];
-
-export function getMasteriesByCategory(categoryId: string) {
-  return MASTERIES.filter((mastery) => mastery.categoryId === categoryId);
+function clampPercent(value: number) {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(value, 100));
 }
 
-export function getMasteryById(id: string) {
-  return MASTERIES.find((mastery) => mastery.id === id) || null;
-}
-
-export function getMasteryCategoryById(categoryId: string) {
-  return MASTERY_CATEGORIES.find((category) => category.id === categoryId) || null;
-}
-
-export function getMasteryProgressPercent(mastery: Mastery) {
-  if (mastery.nextLevelTarget <= 0) return 0;
-  return Math.max(0, Math.min((mastery.currentValue / mastery.nextLevelTarget) * 100, 100));
+export function normalizeMasteryNumber(value: number | string | null | undefined) {
+  const normalized = Number(value || 0);
+  return Number.isFinite(normalized) ? normalized : 0;
 }
 
 export function formatMasteryValue(value: number, unit: string) {
-  const maximumFractionDigits = unit === 'km' ? 1 : 0;
+  const normalized = normalizeMasteryNumber(value);
+  const maximumFractionDigits = unit === 'km' ? 1 : unit === 'kg' ? 0 : 0;
 
   return new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: unit === 'km' && normalized % 1 !== 0 ? 1 : 0,
     maximumFractionDigits,
-  }).format(value);
+  }).format(normalized);
 }
 
 export function getMasteryUnitLabel(unit: string, value?: number) {
-  const normalizedValue = Math.abs(Number(value || 0));
+  const normalizedValue = Math.abs(normalizeMasteryNumber(value));
 
-  if (unit === 'reps') {
+  if (unit === 'repetitions') {
     return normalizedValue > 1 ? 'repetitions' : 'repetition';
   }
 
@@ -287,53 +162,191 @@ export function getMasteryUnitLabel(unit: string, value?: number) {
     return normalizedValue > 1 ? 'secondes' : 'seconde';
   }
 
-  if (unit === 'kg') {
-    return 'kg';
-  }
-
-  if (unit === 'km') {
-    return 'km';
-  }
-
-  if (unit === 'm') {
-    return 'm';
-  }
+  if (unit === 'kg') return 'kg';
+  if (unit === 'km') return 'km';
+  if (unit === 'm') return 'm';
 
   return unit;
 }
 
-export function formatMasteryProgressLabel(mastery: Mastery) {
+export function computeMasteryProgress(levels: MasteryLevel[], totalValue: number): MasteryProgress {
+  const sortedLevels = [...levels].sort((left, right) => left.level - right.level);
+  const normalizedTotal = normalizeMasteryNumber(totalValue);
+
+  const currentLevelDefinition =
+    [...sortedLevels].reverse().find((definition) => normalizedTotal >= definition.threshold) || null;
+  const currentLevel = currentLevelDefinition?.level || 0;
+  const currentThreshold = currentLevelDefinition?.threshold || 0;
+  const nextLevelDefinition =
+    sortedLevels.find((definition) => definition.level === currentLevel + 1) ||
+    sortedLevels.find((definition) => definition.level > currentLevel) ||
+    null;
+
+  if (!nextLevelDefinition) {
+    return {
+      totalValue: normalizedTotal,
+      currentLevel,
+      currentThreshold,
+      nextLevel: currentLevel,
+      nextThreshold: currentThreshold,
+      remainingValue: 0,
+      progressPercent: normalizedTotal > 0 ? 100 : 0,
+      xpRewardNextLevel: 0,
+      isMaxLevel: true,
+    };
+  }
+
+  const nextThreshold = nextLevelDefinition.threshold;
+  const remainingValue = Math.max(nextThreshold - normalizedTotal, 0);
+  const progressRange = Math.max(nextThreshold - currentThreshold, 1);
+  const progressPercent = clampPercent(((normalizedTotal - currentThreshold) / progressRange) * 100);
+
+  return {
+    totalValue: normalizedTotal,
+    currentLevel,
+    currentThreshold,
+    nextLevel: nextLevelDefinition.level,
+    nextThreshold,
+    remainingValue,
+    progressPercent,
+    xpRewardNextLevel: normalizeMasteryNumber(nextLevelDefinition.xpReward),
+    isMaxLevel: false,
+  };
+}
+
+export function buildMasteryRecord({
+  dbId,
+  slug,
+  categorySlug,
+  categoryDbId,
+  name,
+  unit,
+  measurementType,
+  description,
+  totalValue,
+  last15DaysValue,
+  bestSessionValue,
+  levels,
+}: {
+  dbId: string;
+  slug: string;
+  categorySlug: string;
+  categoryDbId: string;
+  name: string;
+  unit: string;
+  measurementType: MasteryMeasurementType;
+  description: string | null;
+  totalValue: number;
+  last15DaysValue: number;
+  bestSessionValue: number;
+  levels: MasteryLevel[];
+}): Mastery {
+  const progress = computeMasteryProgress(levels, totalValue);
+
+  return {
+    id: slug,
+    dbId,
+    categoryId: categorySlug,
+    categoryDbId,
+    name,
+    unit,
+    measurementType,
+    description,
+    level: progress.currentLevel,
+    currentValue: progress.totalValue,
+    currentThreshold: progress.currentThreshold,
+    nextLevel: progress.nextLevel,
+    nextLevelTarget: progress.nextThreshold,
+    remainingValue: progress.remainingValue,
+    progressPercent: progress.progressPercent,
+    totalValue: progress.totalValue,
+    last15DaysValue: normalizeMasteryNumber(last15DaysValue),
+    bestSessionValue: normalizeMasteryNumber(bestSessionValue),
+    nextRewardXp: progress.xpRewardNextLevel,
+    isMaxLevel: progress.isMaxLevel,
+  };
+}
+
+export function getMasteriesByCategory(masteries: Mastery[], categoryId: string) {
+  return masteries.filter((mastery) => mastery.categoryId === categoryId);
+}
+
+export function getMasteryById(masteries: Mastery[], id: string) {
+  return masteries.find((mastery) => mastery.id === id) || null;
+}
+
+export function getMasteryCategoryById(categories: MasteryCategory[], categoryId: string) {
+  return categories.find((category) => category.id === categoryId) || null;
+}
+
+export function getMasteryProgressPercent(mastery: Pick<Mastery, 'progressPercent'>) {
+  return clampPercent(mastery.progressPercent);
+}
+
+export function formatMasteryProgressLabel(mastery: Pick<Mastery, 'currentValue' | 'nextLevelTarget' | 'unit' | 'isMaxLevel'>) {
+  if (mastery.isMaxLevel || mastery.nextLevelTarget <= 0) {
+    return `${formatMasteryValue(mastery.currentValue, mastery.unit)} ${getMasteryUnitLabel(
+      mastery.unit,
+      mastery.currentValue
+    )}`;
+  }
+
   return `${formatMasteryValue(mastery.currentValue, mastery.unit)} / ${formatMasteryValue(
     mastery.nextLevelTarget,
     mastery.unit
   )} ${getMasteryUnitLabel(mastery.unit, mastery.nextLevelTarget)}`;
 }
 
-export function getMasteryInfoCopy(mastery: Mastery) {
-  if (mastery.unit === 'reps') {
+export function getMasteryInfoCopy(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
+  if (mastery.measurementType === 'reps') {
     return 'Chaque repetition validee fait progresser cette maitrise.';
   }
 
-  if (mastery.unit === 'kg') {
-    return 'Chaque kilo cumule dans tes performances fait progresser cette maitrise.';
+  if (mastery.measurementType === 'duration') {
+    return 'Chaque seconde cumulee fait progresser cette maitrise.';
   }
 
-  if (mastery.unit === 'km') {
+  if (mastery.measurementType === 'distance') {
     return 'Chaque kilometre valide fait progresser cette maitrise.';
   }
 
-  if (mastery.unit === 'm') {
+  if (mastery.measurementType === 'elevation') {
     return 'Chaque metre de denivele valide fait progresser cette maitrise.';
+  }
+
+  if (mastery.measurementType === 'volume') {
+    return 'Chaque kilo cumule dans tes performances fait progresser cette maitrise.';
   }
 
   return 'Les niveaux sont bases sur le volume cumule de tes performances.';
 }
 
-export function getMasteryCategorySummary(categoryId: string) {
-  const masteries = getMasteriesByCategory(categoryId);
-
+export function getMasteryCategorySummary(masteries: Mastery[]): MasteryCategorySummary {
   return {
-    startedCount: masteries.length,
+    startedCount: masteries.filter((mastery) => mastery.totalValue > 0).length,
     earnedLevels: masteries.reduce((total, mastery) => total + mastery.level, 0),
   };
+}
+
+export function getMasteryInputLabel(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
+  if (mastery.measurementType === 'reps') return 'Repetitions';
+  if (mastery.measurementType === 'duration') return 'Duree';
+  if (mastery.measurementType === 'distance') return 'Distance';
+  if (mastery.measurementType === 'elevation') return 'Denivele';
+  if (mastery.measurementType === 'volume') return 'Volume';
+  return 'Valeur';
+}
+
+export function getMasteryInputStep(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
+  if (mastery.measurementType === 'distance' && mastery.unit === 'km') return '0.1';
+  if (mastery.measurementType === 'volume') return '1';
+  return '1';
+}
+
+export function getMasteryInputHint(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
+  if (mastery.measurementType === 'volume') {
+    return 'Renseigne series, repetitions et charge pour calculer le volume en kg.';
+  }
+
+  return `Valeur attendue en ${getMasteryUnitLabel(mastery.unit)}.`;
 }

@@ -27,6 +27,7 @@ function renderCategoryIcon(categoryId: string) {
         </>
       );
     case 'course':
+    case 'course-a-pied':
       return (
         <>
           <circle cx="16.5" cy="6" r="1.5" />
@@ -80,4 +81,3 @@ export function MasteryIcon({ categoryId, className }: MasteryIconProps) {
     </span>
   );
 }
-
