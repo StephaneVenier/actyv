@@ -6,12 +6,12 @@ import {
   type MasteryDashboardData,
   type MasteryDetailData,
   type MasteryEntry,
-  type MasteryLevel,
   type MasteryMeasurementType,
+  type MasteryProgressSnapshot,
   type MasterySource,
   type MasteryUnlock,
   MASTERY_CATEGORY_FALLBACKS,
-  buildMasteryRecord,
+  buildMasteryRecordFromProgress,
   getMasteryCategorySummary,
   normalizeMasteryNumber,
 } from '@/lib/masteries';
@@ -36,13 +36,6 @@ type MasteryRow = {
   sort_order: number | null;
 };
 
-type MasteryLevelRow = {
-  mastery_id: string;
-  level: number;
-  threshold: number;
-  xp_reward: number;
-};
-
 type MasteryEntryRow = {
   id: string;
   user_id: string;
@@ -62,6 +55,26 @@ type MasteryUnlockRow = {
   level: number;
   xp_awarded: number;
   unlocked_at: string;
+};
+
+type MasteryProgressRow = {
+  mastery_id: string;
+  slug: string;
+  name: string;
+  category_id: string;
+  measurement_type: string;
+  unit: string;
+  description: string | null;
+  sort_order: number | null;
+  total_value: number | string | null;
+  current_level: number | string | null;
+  current_threshold: number | string | null;
+  next_level: number | string | null;
+  next_threshold: number | string | null;
+  remaining_value: number | string | null;
+  progress_percent: number | string | null;
+  xp_reward_next_level: number | string | null;
+  is_max_level: boolean | null;
 };
 
 function ensureSupabaseReady() {
@@ -117,68 +130,48 @@ function readPayloadNumber(payload: Record<string, unknown>, key: string) {
   return normalizeMasteryNumber(payload[key] as string | number | null | undefined);
 }
 
-async function fetchMasteryBaseData() {
-  ensureSupabaseReady();
-
-  const [categoriesResponse, masteriesResponse, levelsResponse] = await Promise.all([
-    supabase
-      .from('mastery_categories')
-      .select('id, slug, name, sort_order, active')
-      .eq('active', true)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('masteries')
-      .select('id, slug, name, category_id, measurement_type, unit, description, active, sort_order')
-      .eq('active', true)
-      .order('sort_order', { ascending: true }),
-    supabase
-      .from('mastery_levels')
-      .select('mastery_id, level, threshold, xp_reward')
-      .order('mastery_id', { ascending: true })
-      .order('level', { ascending: true }),
-  ]);
-
-  if (categoriesResponse.error) throw categoriesResponse.error;
-  if (masteriesResponse.error) throw masteriesResponse.error;
-  if (levelsResponse.error) throw levelsResponse.error;
-
+function mapProgressPayloadToSnapshot(payload: Record<string, unknown>): MasteryProgressSnapshot {
   return {
-    categories: (categoriesResponse.data as MasteryCategoryRow[] | null) || [],
-    masteries: (masteriesResponse.data as MasteryRow[] | null) || [],
-    levels: (levelsResponse.data as MasteryLevelRow[] | null) || [],
+    totalValue: readPayloadNumber(payload, 'total_value'),
+    currentLevel: readPayloadNumber(payload, 'current_level'),
+    currentThreshold: readPayloadNumber(payload, 'current_threshold'),
+    nextLevel: readPayloadNumber(payload, 'next_level'),
+    nextThreshold: readPayloadNumber(payload, 'next_threshold'),
+    remainingValue: readPayloadNumber(payload, 'remaining_value'),
+    progressPercent: readPayloadNumber(payload, 'progress_percent'),
+    xpRewardNextLevel: readPayloadNumber(payload, 'xp_reward_next_level'),
+    isMaxLevel: Boolean(payload.is_max_level),
   };
 }
 
-function buildDashboardFromRows({
-  categories,
-  masteries,
-  levels,
-  entries,
-}: {
-  categories: MasteryCategoryRow[];
-  masteries: MasteryRow[];
-  levels: MasteryLevelRow[];
-  entries: MasteryEntryRow[];
-}): MasteryDashboardData {
-  const levelsByMasteryId = new Map<string, MasteryLevel[]>();
-  for (const level of levels) {
-    const bucket = levelsByMasteryId.get(level.mastery_id) || [];
-    bucket.push({
-      masteryId: level.mastery_id,
-      level: level.level,
-      threshold: normalizeMasteryNumber(level.threshold),
-      xpReward: normalizeMasteryNumber(level.xp_reward),
-    });
-    levelsByMasteryId.set(level.mastery_id, bucket);
-  }
+function mapProgressRowToSnapshot(row: MasteryProgressRow): MasteryProgressSnapshot {
+  return {
+    totalValue: normalizeMasteryNumber(row.total_value),
+    currentLevel: normalizeMasteryNumber(row.current_level),
+    currentThreshold: normalizeMasteryNumber(row.current_threshold),
+    nextLevel: normalizeMasteryNumber(row.next_level),
+    nextThreshold: normalizeMasteryNumber(row.next_threshold),
+    remainingValue: normalizeMasteryNumber(row.remaining_value),
+    progressPercent: normalizeMasteryNumber(row.progress_percent),
+    xpRewardNextLevel: normalizeMasteryNumber(row.xp_reward_next_level),
+    isMaxLevel: Boolean(row.is_max_level),
+  };
+}
 
-  const entriesByMasteryId = new Map<string, MasteryEntryRow[]>();
-  for (const entry of entries) {
-    const bucket = entriesByMasteryId.get(entry.mastery_id) || [];
-    bucket.push(entry);
-    entriesByMasteryId.set(entry.mastery_id, bucket);
-  }
+async function fetchMasteryCategories() {
+  ensureSupabaseReady();
+  const categoriesResponse = await supabase
+    .from('mastery_categories')
+    .select('id, slug, name, sort_order, active')
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
 
+  if (categoriesResponse.error) throw categoriesResponse.error;
+
+  return (categoriesResponse.data as MasteryCategoryRow[] | null) || [];
+}
+
+function buildCategoriesIndex(categories: MasteryCategoryRow[]) {
   const categoriesByDbId = new Map(
     categories.map((category) => [
       category.id,
@@ -192,24 +185,28 @@ function buildDashboardFromRows({
     ])
   );
 
+  return {
+    categoryList: sortCategories([...categoriesByDbId.values()]),
+    categoriesByDbId,
+  };
+}
+
+function buildDashboardFromProgressRows({
+  categories,
+  masteries,
+}: {
+  categories: MasteryCategoryRow[];
+  masteries: MasteryProgressRow[];
+}): MasteryDashboardData {
+  const { categoryList, categoriesByDbId } = buildCategoriesIndex(categories);
+
   const masteryRecords: Mastery[] = masteries
     .map((mastery) => {
       const category = categoriesByDbId.get(mastery.category_id);
       if (!category) return null;
 
-      const masteryEntries = entriesByMasteryId.get(mastery.id) || [];
-      const totalValue = masteryEntries.reduce((sum, entry) => sum + normalizeMasteryNumber(entry.value), 0);
-      const fifteenDaysAgoIso = getFifteenDaysAgoIso();
-      const last15DaysValue = masteryEntries.reduce((sum, entry) => {
-        return entry.performed_at >= fifteenDaysAgoIso ? sum + normalizeMasteryNumber(entry.value) : sum;
-      }, 0);
-      const bestSessionValue = masteryEntries.reduce(
-        (best, entry) => Math.max(best, normalizeMasteryNumber(entry.value)),
-        0
-      );
-
-      return buildMasteryRecord({
-        dbId: mastery.id,
+      return buildMasteryRecordFromProgress({
+        dbId: mastery.mastery_id,
         slug: mastery.slug,
         categorySlug: category.id,
         categoryDbId: category.dbId || mastery.category_id,
@@ -217,15 +214,13 @@ function buildDashboardFromRows({
         unit: mastery.unit,
         measurementType: mastery.measurement_type as MasteryMeasurementType,
         description: mastery.description,
-        totalValue,
-        last15DaysValue,
-        bestSessionValue,
-        levels: levelsByMasteryId.get(mastery.id) || [],
+        progress: mapProgressRowToSnapshot(mastery),
+        last15DaysValue: 0,
+        bestSessionValue: 0,
       });
     })
     .filter((mastery): mastery is Mastery => Boolean(mastery));
 
-  const categoryList = sortCategories([...categoriesByDbId.values()]);
   const masteriesByCategory = Object.fromEntries(
     categoryList.map((category) => [category.id, masteryRecords.filter((mastery) => mastery.categoryId === category.id)])
   );
@@ -242,32 +237,44 @@ function buildDashboardFromRows({
 }
 
 export async function loadMasteriesDashboard(userId: string): Promise<MasteryDashboardData> {
-  const baseData = await fetchMasteryBaseData();
-  const entriesResponse = await supabase
-    .from('mastery_entries')
-    .select('id, user_id, mastery_id, value, source, source_ref_id, metadata, performed_at, created_at')
-    .eq('user_id', userId)
-    .order('performed_at', { ascending: false });
+  void userId;
+  ensureSupabaseReady();
 
-  if (entriesResponse.error) {
-    throw entriesResponse.error;
-  }
+  const [categories, progressResponse] = await Promise.all([
+    fetchMasteryCategories(),
+    supabase.rpc('get_my_masteries_progress'),
+  ]);
 
-  return buildDashboardFromRows({
-    ...baseData,
-    entries: (entriesResponse.data as MasteryEntryRow[] | null) || [],
+  if (progressResponse.error) throw progressResponse.error;
+
+  return buildDashboardFromProgressRows({
+    categories,
+    masteries: (progressResponse.data as MasteryProgressRow[] | null) || [],
   });
 }
 
 export async function loadMasteryDetail(userId: string, masterySlug: string): Promise<MasteryDetailData | null> {
-  const baseData = await fetchMasteryBaseData();
-  const targetMastery = baseData.masteries.find((mastery) => mastery.slug === masterySlug);
+  ensureSupabaseReady();
+
+  const [categories, masteryResponse] = await Promise.all([
+    fetchMasteryCategories(),
+    supabase
+      .from('masteries')
+      .select('id, slug, name, category_id, measurement_type, unit, description, active, sort_order')
+      .eq('slug', masterySlug)
+      .eq('active', true)
+      .maybeSingle(),
+  ]);
+
+  if (masteryResponse.error) throw masteryResponse.error;
+
+  const targetMastery = (masteryResponse.data as MasteryRow | null) || null;
 
   if (!targetMastery) {
     return null;
   }
 
-  const [entriesResponse, unlocksResponse] = await Promise.all([
+  const [entriesResponse, unlocksResponse, progressResponse] = await Promise.all([
     supabase
       .from('mastery_entries')
       .select('id, user_id, mastery_id, value, source, source_ref_id, metadata, performed_at, created_at')
@@ -280,16 +287,36 @@ export async function loadMasteryDetail(userId: string, masterySlug: string): Pr
       .eq('user_id', userId)
       .eq('mastery_id', targetMastery.id)
       .order('level', { ascending: false }),
+    supabase.rpc('compute_mastery_progress', { p_mastery_id: targetMastery.id }),
   ]);
 
   if (entriesResponse.error) throw entriesResponse.error;
   if (unlocksResponse.error) throw unlocksResponse.error;
+  if (progressResponse.error) throw progressResponse.error;
 
-  const dashboard = buildDashboardFromRows({
-    ...baseData,
-    entries: (entriesResponse.data as MasteryEntryRow[] | null) || [],
+  const { categoriesByDbId } = buildCategoriesIndex(categories);
+  const category = categoriesByDbId.get(targetMastery.category_id);
+  if (!category) return null;
+
+  const entries = (entriesResponse.data as MasteryEntryRow[] | null) || [];
+  const fifteenDaysAgoIso = getFifteenDaysAgoIso();
+  const last15DaysValue = entries.reduce((sum, entry) => {
+    return entry.performed_at >= fifteenDaysAgoIso ? sum + normalizeMasteryNumber(entry.value) : sum;
+  }, 0);
+  const bestSessionValue = entries.reduce((best, entry) => Math.max(best, normalizeMasteryNumber(entry.value)), 0);
+  const mastery = buildMasteryRecordFromProgress({
+    dbId: targetMastery.id,
+    slug: targetMastery.slug,
+    categorySlug: category.id,
+    categoryDbId: category.dbId || targetMastery.category_id,
+    name: targetMastery.name,
+    unit: targetMastery.unit,
+    measurementType: targetMastery.measurement_type as MasteryMeasurementType,
+    description: targetMastery.description,
+    progress: mapProgressPayloadToSnapshot((progressResponse.data || {}) as Record<string, unknown>),
+    last15DaysValue,
+    bestSessionValue,
   });
-  const mastery = dashboard.masteries.find((entry) => entry.dbId === targetMastery.id) || null;
 
   if (!mastery) {
     return null;
@@ -297,7 +324,7 @@ export async function loadMasteryDetail(userId: string, masterySlug: string): Pr
 
   return {
     mastery,
-    history: ((entriesResponse.data as MasteryEntryRow[] | null) || []).map(mapEntryRowToModel),
+    history: entries.map(mapEntryRowToModel),
     recentUnlocks: ((unlocksResponse.data as MasteryUnlockRow[] | null) || []).map(mapUnlockRowToModel),
   };
 }

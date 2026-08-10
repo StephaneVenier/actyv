@@ -319,7 +319,7 @@ export default function MasteryDetailPage() {
             </div>
             <p className="mastery-detail-progress__hint">
               {mastery.isMaxLevel
-                ? 'Niveau pilote maximum atteint pour cette maitrise.'
+                ? 'Niveau maximum atteint.'
                 : `Progression actuelle entre le niveau ${mastery.level} et le niveau ${mastery.nextLevel}.`}
             </p>
           </div>

@@ -186,8 +186,8 @@ export default function MasteriesPage() {
             <section className="masteries-list" aria-label={`Liste des maitrises ${selectedCategory?.label || ''}`}>
               {masteries.length === 0 ? (
                 <article className="card mastery-empty-card">
-                  <strong>Aucune maitrise pilote dans cette categorie</strong>
-                  <p>Les premieres maitrises backend sont actives sur certaines categories seulement pour cette V1.</p>
+                  <strong>Aucune maitrise dans cette categorie</strong>
+                  <p>Cette categorie ne contient pas encore de maitrise visible pour ton compte.</p>
                 </article>
               ) : (
                 masteries.map((mastery) => <MasteryCard key={mastery.id} mastery={mastery} />)

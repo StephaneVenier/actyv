@@ -60,6 +60,8 @@ export type MasteryProgress = {
   isMaxLevel: boolean;
 };
 
+export type MasteryProgressSnapshot = MasteryProgress;
+
 export type Mastery = {
   id: string;
   dbId: string;
@@ -264,6 +266,55 @@ export function buildMasteryRecord({
     bestSessionValue: normalizeMasteryNumber(bestSessionValue),
     nextRewardXp: progress.xpRewardNextLevel,
     isMaxLevel: progress.isMaxLevel,
+  };
+}
+
+export function buildMasteryRecordFromProgress({
+  dbId,
+  slug,
+  categorySlug,
+  categoryDbId,
+  name,
+  unit,
+  measurementType,
+  description,
+  progress,
+  last15DaysValue,
+  bestSessionValue,
+}: {
+  dbId: string;
+  slug: string;
+  categorySlug: string;
+  categoryDbId: string;
+  name: string;
+  unit: string;
+  measurementType: MasteryMeasurementType;
+  description: string | null;
+  progress: MasteryProgressSnapshot;
+  last15DaysValue: number;
+  bestSessionValue: number;
+}): Mastery {
+  return {
+    id: slug,
+    dbId,
+    categoryId: categorySlug,
+    categoryDbId,
+    name,
+    unit,
+    measurementType,
+    description,
+    level: normalizeMasteryNumber(progress.currentLevel),
+    currentValue: normalizeMasteryNumber(progress.totalValue),
+    currentThreshold: normalizeMasteryNumber(progress.currentThreshold),
+    nextLevel: normalizeMasteryNumber(progress.nextLevel),
+    nextLevelTarget: normalizeMasteryNumber(progress.nextThreshold),
+    remainingValue: normalizeMasteryNumber(progress.remainingValue),
+    progressPercent: clampPercent(progress.progressPercent),
+    totalValue: normalizeMasteryNumber(progress.totalValue),
+    last15DaysValue: normalizeMasteryNumber(last15DaysValue),
+    bestSessionValue: normalizeMasteryNumber(bestSessionValue),
+    nextRewardXp: normalizeMasteryNumber(progress.xpRewardNextLevel),
+    isMaxLevel: Boolean(progress.isMaxLevel),
   };
 }
 
