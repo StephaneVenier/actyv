@@ -1,3 +1,5 @@
+begin;
+
 create table if not exists public.mastery_categories (
   id uuid primary key default gen_random_uuid(),
   slug text not null unique,
@@ -150,7 +152,7 @@ create or replace function public.compute_mastery_progress_internal(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_total_value numeric := 0;
@@ -245,7 +247,7 @@ create or replace function public.compute_mastery_progress(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_user_id uuid := auth.uid();
@@ -265,7 +267,7 @@ create or replace function public.process_mastery_unlocks(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_total_value numeric := 0;
@@ -288,18 +290,18 @@ begin
     and mastery_id = p_mastery_id;
 
   for v_level_row in
-    select level, xp_reward
-    from public.mastery_levels
-    where mastery_id = p_mastery_id
+    select ml.level, ml.xp_reward
+    from public.mastery_levels ml
+    where ml.mastery_id = p_mastery_id
       and threshold <= v_total_value
       and not exists (
         select 1
         from public.mastery_level_unlocks
         where user_id = p_user_id
           and mastery_id = p_mastery_id
-          and level = mastery_levels.level
+          and level = ml.level
       )
-    order by level asc
+    order by ml.level asc
   loop
     begin
       insert into public.mastery_level_unlocks (user_id, mastery_id, level, xp_awarded)
@@ -350,7 +352,7 @@ create or replace function public.handle_mastery_entry_after_insert()
 returns trigger
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 begin
   perform public.process_mastery_unlocks(new.user_id, new.mastery_id);
@@ -375,7 +377,7 @@ create or replace function public.add_mastery_entry(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = ''
 as $$
 declare
   v_user_id uuid := auth.uid();
@@ -673,3 +675,5 @@ set
   weight = excluded.weight;
 
 notify pgrst, 'reload schema';
+
+commit;
