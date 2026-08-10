@@ -161,6 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     isRouteActive('/leaderboard') ||
     isRouteActive('/sessions') ||
     isRouteActive('/programs') ||
+    isRouteActive('/maitrises') ||
     isRouteActive('/badges') ||
     isRouteActive('/banque');
 
@@ -260,6 +261,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                         className="profile-dropdown-link"
                       >
                         Mes badges
+                      </Link>
+
+                      <Link
+                        href="/maitrises"
+                        onClick={() => setMenuOpen(false)}
+                        className="profile-dropdown-link"
+                      >
+                        Mes maitrises
                       </Link>
 
                       <Link
@@ -377,6 +386,18 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <span className="quick-menu-item__title">Programmes</span>
                 </div>
                 <span className="quick-menu-item__meta">Planifier et suivre tes cycles</span>
+              </Link>
+
+              <Link
+                href="/maitrises"
+                className={isRouteActive('/maitrises') ? 'quick-menu-item is-active' : 'quick-menu-item'}
+                onClick={() => setQuickMenuOpen(false)}
+              >
+                <div className="quick-menu-item__heading">
+                  <span className="quick-menu-item__icon quick-menu-item__icon--masteries" aria-hidden="true" />
+                  <span className="quick-menu-item__title">Maitrises</span>
+                </div>
+                <span className="quick-menu-item__meta">Faire progresser tes competences sportives</span>
               </Link>
 
               <Link

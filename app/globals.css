@@ -2182,6 +2182,263 @@ img {
   gap: 16px;
 }
 
+.masteries-page {
+  display: grid;
+  gap: 14px;
+}
+
+.masteries-hero-card,
+.masteries-summary-card,
+.mastery-detail-stat-card {
+  display: grid;
+  gap: 12px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(16, 34, 35, 0.98));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.masteries-hero-card__copy {
+  display: grid;
+  gap: 6px;
+}
+
+.masteries-hero-card h1,
+.masteries-summary-card h2 {
+  margin: 0;
+  color: #f4f7f6;
+}
+
+.masteries-hero-card h1 {
+  font-size: clamp(1.45rem, 2.2vw, 1.9rem);
+  line-height: 1.06;
+}
+
+.masteries-summary-card h2 {
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.masteries-hero-card .muted,
+.masteries-summary-card .muted,
+.mastery-detail-progress__hint,
+.mastery-detail-locked-note {
+  color: #9fb5b3;
+}
+
+.masteries-hero-card__hint {
+  margin: 0;
+  color: #bfd0cf;
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.masteries-category-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.masteries-category-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.masteries-category-tab {
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(11, 23, 24, 0.92);
+  color: #bfd0cf;
+  font-size: 0.84rem;
+  font-weight: 700;
+  white-space: nowrap;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.masteries-category-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgba(53, 230, 107, 0.2);
+  color: #f4f7f6;
+}
+
+.masteries-category-tab.is-active {
+  background: linear-gradient(135deg, rgba(76, 217, 100, 0.16), rgba(32, 183, 166, 0.14), rgba(30, 107, 214, 0.14));
+  border-color: rgba(134, 239, 172, 0.24);
+  color: #f4f7f6;
+  box-shadow: 0 12px 24px rgba(2, 8, 23, 0.14);
+}
+
+.masteries-summary-card {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.masteries-summary-card__stats {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.masteries-summary-stat {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+}
+
+.masteries-summary-stat strong {
+  color: #f4f7f6;
+  font-size: 1rem;
+}
+
+.masteries-summary-stat span {
+  color: #9fb5b3;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.masteries-list {
+  display: grid;
+  gap: 10px;
+}
+
+.mastery-card {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    linear-gradient(135deg, rgba(76, 217, 100, 0.08), rgba(32, 183, 166, 0.06) 45%, rgba(30, 107, 214, 0.07)),
+    rgba(11, 23, 24, 0.98);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 18px 38px rgba(2, 8, 23, 0.18);
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.mastery-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(76, 217, 100, 0.18);
+  box-shadow: 0 22px 42px rgba(2, 8, 23, 0.22);
+}
+
+.mastery-card__top,
+.mastery-card__progress-copy,
+.masteries-detail-actions,
+.mastery-detail-progress__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.mastery-card__copy {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mastery-card__copy strong,
+.mastery-detail-progress__top strong,
+.mastery-detail-stat-card strong {
+  color: #f4f7f6;
+}
+
+.mastery-card__copy strong {
+  font-size: 0.98rem;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.mastery-card__copy span,
+.mastery-card__progress-copy span,
+.mastery-card__level-chip,
+.mastery-detail-progress__top span,
+.mastery-detail-stat-card span,
+.mastery-detail-progress__reward {
+  color: #9fb5b3;
+}
+
+.mastery-card__copy span,
+.mastery-card__progress-copy span,
+.mastery-detail-progress__top span,
+.mastery-detail-progress__reward {
+  font-size: 0.78rem;
+}
+
+.mastery-card__level-chip {
+  flex: 0 0 auto;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  display: inline-flex;
+  align-items: center;
+  font-weight: 700;
+}
+
+.mastery-card__bar {
+  height: 8px;
+}
+
+.mastery-detail-hero {
+  gap: 14px;
+}
+
+.mastery-detail-progress {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mastery-detail-progress__top strong {
+  font-size: 1.05rem;
+}
+
+.mastery-detail-progress__hint,
+.mastery-detail-progress__reward,
+.mastery-detail-locked-note {
+  margin: 0;
+  line-height: 1.45;
+}
+
+.mastery-detail-progress__reward {
+  color: #a7f3d0;
+  font-weight: 700;
+}
+
+.mastery-detail-locked-note {
+  font-size: 0.78rem;
+}
+
+.mastery-detail-stats {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.mastery-detail-stat-card {
+  padding: 14px;
+}
+
+.mastery-detail-stat-card span {
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.mastery-detail-stat-card strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
 .stats-hero-card,
 .stats-section-card {
   display: grid;
@@ -2415,6 +2672,40 @@ img {
 @media (max-width: 640px) {
   .stats-page {
     gap: 14px;
+  }
+
+  .masteries-page {
+    gap: 12px;
+  }
+
+  .masteries-hero-card,
+  .masteries-summary-card,
+  .mastery-detail-stat-card {
+    padding: 16px;
+  }
+
+  .masteries-summary-card,
+  .mastery-detail-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .masteries-summary-card__stats,
+  .masteries-detail-actions {
+    width: 100%;
+  }
+
+  .masteries-summary-stat {
+    justify-items: start;
+  }
+
+  .masteries-detail-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .masteries-detail-actions .button {
+    width: 100%;
+    justify-content: center;
   }
 
   .stats-hero-meta,
@@ -7471,6 +7762,10 @@ img {
 
 .quick-menu-item__icon--programs {
   background: linear-gradient(135deg, #4cd964, #1e6bd6);
+}
+
+.quick-menu-item__icon--masteries {
+  background: linear-gradient(135deg, #22c55e, #14b8a6 52%, #38bdf8);
 }
 
 .quick-menu-item__icon--badges {
