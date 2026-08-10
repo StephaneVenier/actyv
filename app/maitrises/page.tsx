@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AppShell } from '@/components/AppShell';
 import { MasteryCard } from '@/components/MasteryCard';
@@ -26,6 +26,7 @@ type MasteriesPageState = {
 
 export default function MasteriesPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState('fitness');
+  const categoryTabsRef = useRef<HTMLElement | null>(null);
   const [pageState, setPageState] = useState<MasteriesPageState>({
     categories: [],
     masteries: [],
@@ -34,6 +35,8 @@ export default function MasteriesPage() {
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
   const [authRequired, setAuthRequired] = useState(false);
+  const [canScrollCategoriesLeft, setCanScrollCategoriesLeft] = useState(false);
+  const [canScrollCategoriesRight, setCanScrollCategoriesRight] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -101,6 +104,34 @@ export default function MasteriesPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const tabsElement = categoryTabsRef.current;
+    if (!tabsElement) return;
+
+    const updateCategoryScrollState = () => {
+      const maxScrollLeft = Math.max(tabsElement.scrollWidth - tabsElement.clientWidth, 0);
+      setCanScrollCategoriesLeft(tabsElement.scrollLeft > 4);
+      setCanScrollCategoriesRight(tabsElement.scrollLeft < maxScrollLeft - 4);
+    };
+
+    updateCategoryScrollState();
+    tabsElement.addEventListener('scroll', updateCategoryScrollState, { passive: true });
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(updateCategoryScrollState);
+      resizeObserver.observe(tabsElement);
+    }
+
+    window.addEventListener('resize', updateCategoryScrollState);
+
+    return () => {
+      tabsElement.removeEventListener('scroll', updateCategoryScrollState);
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateCategoryScrollState);
+    };
+  }, [pageState.categories]);
+
   const selectedCategory = useMemo(
     () => pageState.categories.find((category) => category.id === selectedCategoryId) || pageState.categories[0] || null,
     [pageState.categories, selectedCategoryId]
@@ -114,6 +145,44 @@ export default function MasteriesPage() {
   const categorySummary = selectedCategory
     ? pageState.summaries[selectedCategory.id] || { startedCount: 0, earnedLevels: 0 }
     : { startedCount: 0, earnedLevels: 0 };
+
+  const scrollCategoriesBy = (direction: 'left' | 'right') => {
+    const tabsElement = categoryTabsRef.current;
+    if (!tabsElement) return;
+
+    const scrollAmount = Math.min(Math.max(tabsElement.clientWidth * 0.65, 180), 320);
+    tabsElement.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
+    });
+  };
+
+  const handleCategoryWheel = (event: React.WheelEvent<HTMLElement>) => {
+    const tabsElement = categoryTabsRef.current;
+    if (!tabsElement) return;
+
+    const maxScrollLeft = tabsElement.scrollWidth - tabsElement.clientWidth;
+    if (maxScrollLeft <= 0) return;
+
+    const horizontalDelta =
+      Math.abs(event.deltaX) > 0 ? event.deltaX : event.shiftKey ? event.deltaY : 0;
+
+    if (horizontalDelta === 0) {
+      return;
+    }
+
+    const nextScrollLeft = tabsElement.scrollLeft + horizontalDelta;
+    const canMove =
+      (horizontalDelta < 0 && tabsElement.scrollLeft > 0) ||
+      (horizontalDelta > 0 && tabsElement.scrollLeft < maxScrollLeft);
+
+    if (!canMove) {
+      return;
+    }
+
+    event.preventDefault();
+    tabsElement.scrollLeft = Math.max(0, Math.min(nextScrollLeft, maxScrollLeft));
+  };
 
   return (
     <AppShell>
@@ -154,17 +223,44 @@ export default function MasteriesPage() {
           </section>
         ) : (
           <>
-            <section className="masteries-category-tabs" aria-label="Categories de maitrises">
-              {pageState.categories.map((category) => (
-                <button
-                  key={category.id}
-                  type="button"
-                  className={category.id === selectedCategoryId ? 'masteries-category-tab is-active' : 'masteries-category-tab'}
-                  onClick={() => setSelectedCategoryId(category.id)}
-                >
-                  {category.label}
-                </button>
-              ))}
+            <section className="masteries-category-tabs-shell" aria-label="Navigation des categories de maitrises">
+              <button
+                type="button"
+                className={`masteries-category-nav masteries-category-nav--left${canScrollCategoriesLeft ? '' : ' is-hidden'}`}
+                aria-label="Catégories précédentes"
+                onClick={() => scrollCategoriesBy('left')}
+                disabled={!canScrollCategoriesLeft}
+              >
+                <span aria-hidden="true">&lsaquo;</span>
+              </button>
+
+              <section
+                ref={categoryTabsRef}
+                className="masteries-category-tabs"
+                aria-label="Categories de maitrises"
+                onWheel={handleCategoryWheel}
+              >
+                {pageState.categories.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={category.id === selectedCategoryId ? 'masteries-category-tab is-active' : 'masteries-category-tab'}
+                    onClick={() => setSelectedCategoryId(category.id)}
+                  >
+                    {category.label}
+                  </button>
+                ))}
+              </section>
+
+              <button
+                type="button"
+                className={`masteries-category-nav masteries-category-nav--right${canScrollCategoriesRight ? '' : ' is-hidden'}`}
+                aria-label="Catégories suivantes"
+                onClick={() => scrollCategoriesBy('right')}
+                disabled={!canScrollCategoriesRight}
+              >
+                <span aria-hidden="true">&rsaquo;</span>
+              </button>
             </section>
 
             <section className="card masteries-summary-card">

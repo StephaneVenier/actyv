@@ -2252,16 +2252,59 @@ img {
   background: currentColor;
 }
 
+.masteries-category-tabs-shell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .masteries-category-tabs {
   display: flex;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  flex: 1 1 auto;
   padding-bottom: 2px;
   scrollbar-width: none;
 }
 
 .masteries-category-tabs::-webkit-scrollbar {
   display: none;
+}
+
+.masteries-category-nav {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  border: 1px solid #1f2937;
+  background: rgba(15, 23, 42, 0.92);
+  color: #94a3b8;
+  box-shadow: 0 10px 20px rgba(2, 8, 23, 0.18);
+  transition: opacity 0.18s ease, color 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+.masteries-category-nav span {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.masteries-category-nav:hover:not(:disabled) {
+  color: #f1f5f9;
+  border-color: rgba(34, 197, 94, 0.35);
+  transform: translateY(-1px);
+}
+
+.masteries-category-nav:disabled,
+.masteries-category-nav.is-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .masteries-category-tab {
@@ -2289,6 +2332,12 @@ img {
   border-color: #22c55e;
   color: #0f172a;
   box-shadow: 0 12px 24px rgba(34, 197, 94, 0.16);
+}
+
+@media (min-width: 768px) {
+  .masteries-category-nav {
+    display: inline-flex;
+  }
 }
 
 .masteries-summary-card,
