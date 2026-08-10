@@ -124,10 +124,10 @@ export type AddMasteryEntryResult = {
 export const MASTERY_CATEGORY_FALLBACKS: MasteryCategory[] = [
   { id: 'fitness', label: 'Fitness', sortOrder: 1 },
   { id: 'musculation', label: 'Musculation', sortOrder: 2 },
-  { id: 'course-a-pied', label: 'Course a pied', sortOrder: 3 },
+  { id: 'course-a-pied', label: 'Course à pied', sortOrder: 3 },
   { id: 'trail', label: 'Trail', sortOrder: 4 },
   { id: 'marche', label: 'Marche', sortOrder: 5 },
-  { id: 'velo', label: 'Velo', sortOrder: 6 },
+  { id: 'velo', label: 'Vélo', sortOrder: 6 },
   { id: 'natation', label: 'Natation', sortOrder: 7 },
 ];
 
@@ -155,7 +155,7 @@ export function getMasteryUnitLabel(unit: string, value?: number) {
   const normalizedValue = Math.abs(normalizeMasteryNumber(value));
 
   if (unit === 'repetitions') {
-    return normalizedValue > 1 ? 'repetitions' : 'repetition';
+    return normalizedValue > 1 ? 'répétitions' : 'répétition';
   }
 
   if (unit === 'secondes') {
@@ -299,26 +299,26 @@ export function formatMasteryProgressLabel(mastery: Pick<Mastery, 'currentValue'
 
 export function getMasteryInfoCopy(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
   if (mastery.measurementType === 'reps') {
-    return 'Chaque repetition validee fait progresser cette maitrise.';
+    return 'Chaque répétition validée fait progresser cette maîtrise.';
   }
 
   if (mastery.measurementType === 'duration') {
-    return 'Chaque seconde cumulee fait progresser cette maitrise.';
+    return 'Chaque seconde cumulée fait progresser cette maîtrise.';
   }
 
   if (mastery.measurementType === 'distance') {
-    return 'Chaque kilometre valide fait progresser cette maitrise.';
+    return 'Chaque kilomètre validé fait progresser cette maîtrise.';
   }
 
   if (mastery.measurementType === 'elevation') {
-    return 'Chaque metre de denivele valide fait progresser cette maitrise.';
+    return 'Chaque mètre de dénivelé validé fait progresser cette maîtrise.';
   }
 
   if (mastery.measurementType === 'volume') {
-    return 'Chaque kilo cumule dans tes performances fait progresser cette maitrise.';
+    return 'Chaque kilo cumulé dans tes performances fait progresser cette maîtrise.';
   }
 
-  return 'Les niveaux sont bases sur le volume cumule de tes performances.';
+  return 'Les niveaux sont basés sur le volume cumulé de tes performances.';
 }
 
 export function getMasteryCategorySummary(masteries: Mastery[]): MasteryCategorySummary {
@@ -329,10 +329,10 @@ export function getMasteryCategorySummary(masteries: Mastery[]): MasteryCategory
 }
 
 export function getMasteryInputLabel(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
-  if (mastery.measurementType === 'reps') return 'Repetitions';
-  if (mastery.measurementType === 'duration') return 'Duree';
+  if (mastery.measurementType === 'reps') return 'Répétitions';
+  if (mastery.measurementType === 'duration') return 'Durée';
   if (mastery.measurementType === 'distance') return 'Distance';
-  if (mastery.measurementType === 'elevation') return 'Denivele';
+  if (mastery.measurementType === 'elevation') return 'Dénivelé';
   if (mastery.measurementType === 'volume') return 'Volume';
   return 'Valeur';
 }
@@ -345,7 +345,7 @@ export function getMasteryInputStep(mastery: Pick<Mastery, 'measurementType' | '
 
 export function getMasteryInputHint(mastery: Pick<Mastery, 'measurementType' | 'unit'>) {
   if (mastery.measurementType === 'volume') {
-    return 'Renseigne series, repetitions et charge pour calculer le volume en kg.';
+    return 'Renseigne séries, répétitions et charge pour calculer le volume en kg.';
   }
 
   return `Valeur attendue en ${getMasteryUnitLabel(mastery.unit)}.`;

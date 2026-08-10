@@ -1885,6 +1885,10 @@ create index if not exists mastery_entries_user_mastery_idx
 create index if not exists mastery_entries_user_mastery_performed_idx
   on public.mastery_entries (user_id, mastery_id, performed_at desc);
 
+create unique index if not exists mastery_entries_user_mastery_source_ref_idx
+  on public.mastery_entries (user_id, mastery_id, source, source_ref_id)
+  where source_ref_id is not null;
+
 create index if not exists mastery_level_unlocks_user_mastery_idx
   on public.mastery_level_unlocks (user_id, mastery_id, unlocked_at desc);
 
@@ -1926,10 +1930,6 @@ create policy "Users can read own mastery entries"
   using (auth.uid() = user_id);
 
 drop policy if exists "Users can insert own mastery entries" on public.mastery_entries;
-create policy "Users can insert own mastery entries"
-  on public.mastery_entries for insert
-  to authenticated
-  with check (auth.uid() = user_id);
 
 drop policy if exists "Users can read own mastery unlocks" on public.mastery_level_unlocks;
 create policy "Users can read own mastery unlocks"
@@ -1940,11 +1940,17 @@ create policy "Users can read own mastery unlocks"
 grant select on public.mastery_categories to authenticated;
 grant select on public.masteries to authenticated;
 grant select on public.mastery_levels to authenticated;
-grant select, insert on public.mastery_entries to authenticated;
+grant select on public.mastery_entries to authenticated;
 grant select on public.mastery_muscles to authenticated;
 grant select on public.mastery_level_unlocks to authenticated;
 
-create or replace function public.compute_mastery_progress(
+revoke insert on public.mastery_entries from public;
+revoke insert on public.mastery_entries from anon;
+revoke insert on public.mastery_entries from authenticated;
+
+drop function if exists public.compute_mastery_progress(uuid, uuid);
+
+create or replace function public.compute_mastery_progress_internal(
   p_user_id uuid,
   p_mastery_id uuid
 )
@@ -2040,6 +2046,25 @@ begin
 end;
 $$;
 
+create or replace function public.compute_mastery_progress(
+  p_mastery_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_user_id uuid := auth.uid();
+begin
+  if v_user_id is null then
+    raise exception 'AUTH_REQUIRED';
+  end if;
+
+  return public.compute_mastery_progress_internal(v_user_id, p_mastery_id);
+end;
+$$;
+
 create or replace function public.process_mastery_unlocks(
   p_user_id uuid,
   p_mastery_id uuid
@@ -2083,47 +2108,43 @@ begin
       )
     order by level asc
   loop
-    insert into public.mastery_level_unlocks (user_id, mastery_id, level, xp_awarded)
-    values (p_user_id, p_mastery_id, v_level_row.level, v_level_row.xp_reward)
-    on conflict (user_id, mastery_id, level) do nothing;
+    begin
+      insert into public.mastery_level_unlocks (user_id, mastery_id, level, xp_awarded)
+      values (p_user_id, p_mastery_id, v_level_row.level, v_level_row.xp_reward);
+    exception
+      when unique_violation then
+        continue;
+    end;
 
-    if found then
-      insert into public.xp_events (user_id, event_type, xp_amount, target_id)
-      values (
-        p_user_id,
-        'mastery_level_up',
-        v_level_row.xp_reward,
-        p_mastery_id::text || ':level:' || v_level_row.level::text
-      )
-      on conflict do nothing;
-
-      if found then
-        v_total_xp_awarded := v_total_xp_awarded + v_level_row.xp_reward;
-      end if;
-
-      v_unlocked_levels := v_unlocked_levels || jsonb_build_array(
-        jsonb_build_object(
-          'level', v_level_row.level,
-          'xp_reward', v_level_row.xp_reward
-        )
-      );
-    end if;
-  end loop;
-
-  if v_total_xp_awarded > 0 then
-    insert into public.profiles (id, total_xp, level)
+    insert into public.xp_events (user_id, event_type, xp_amount, target_id)
     values (
       p_user_id,
-      v_total_xp_awarded,
-      public.calculate_level(v_total_xp_awarded)
-    )
-    on conflict (id) do update
-    set
-      total_xp = coalesce(public.profiles.total_xp, 0) + v_total_xp_awarded,
-      level = public.calculate_level(coalesce(public.profiles.total_xp, 0) + v_total_xp_awarded);
-  end if;
+      'mastery_level_up',
+      v_level_row.xp_reward,
+      p_mastery_id::text || ':level:' || v_level_row.level::text
+    );
 
-  v_progress := public.compute_mastery_progress(p_user_id, p_mastery_id);
+    update public.profiles
+    set
+      total_xp = coalesce(total_xp, 0) + v_level_row.xp_reward,
+      level = public.calculate_level(coalesce(total_xp, 0) + v_level_row.xp_reward)
+    where id = p_user_id;
+
+    if not found then
+      raise exception 'PROFILE_NOT_FOUND_FOR_MASTERY_XP';
+    end if;
+
+    v_total_xp_awarded := v_total_xp_awarded + v_level_row.xp_reward;
+
+    v_unlocked_levels := v_unlocked_levels || jsonb_build_array(
+      jsonb_build_object(
+        'level', v_level_row.level,
+        'xp_reward', v_level_row.xp_reward
+      )
+    );
+  end loop;
+
+  v_progress := public.compute_mastery_progress_internal(p_user_id, p_mastery_id);
 
   return v_progress || jsonb_build_object(
     'xp_awarded', v_total_xp_awarded,
@@ -2183,6 +2204,14 @@ begin
     raise exception 'VALUE_MUST_BE_POSITIVE';
   end if;
 
+  if p_source <> 'manual' then
+    raise exception 'SOURCE_NOT_ALLOWED';
+  end if;
+
+  if p_source_ref_id is not null then
+    raise exception 'SOURCE_REF_NOT_ALLOWED_FOR_MANUAL_ENTRY';
+  end if;
+
   if p_source not in ('manual', 'session', 'activity', 'import') then
     raise exception 'INVALID_MASTERY_SOURCE';
   end if;
@@ -2239,7 +2268,7 @@ begin
     and mastery_id = p_mastery_id
     and not (level = any(v_before_levels));
 
-  v_progress := public.compute_mastery_progress(v_user_id, p_mastery_id);
+  v_progress := public.compute_mastery_progress_internal(v_user_id, p_mastery_id);
 
   return v_progress || jsonb_build_object(
     'entry_id', v_entry_id,
@@ -2251,17 +2280,32 @@ begin
 end;
 $$;
 
-grant execute on function public.compute_mastery_progress(uuid, uuid) to authenticated;
+revoke all on function public.compute_mastery_progress_internal(uuid, uuid) from public;
+revoke all on function public.compute_mastery_progress_internal(uuid, uuid) from anon;
+revoke all on function public.compute_mastery_progress_internal(uuid, uuid) from authenticated;
+revoke all on function public.process_mastery_unlocks(uuid, uuid) from public;
+revoke all on function public.process_mastery_unlocks(uuid, uuid) from anon;
+revoke all on function public.process_mastery_unlocks(uuid, uuid) from authenticated;
+revoke all on function public.handle_mastery_entry_after_insert() from public;
+revoke all on function public.handle_mastery_entry_after_insert() from anon;
+revoke all on function public.handle_mastery_entry_after_insert() from authenticated;
+revoke all on function public.compute_mastery_progress(uuid) from public;
+revoke all on function public.compute_mastery_progress(uuid) from anon;
+revoke all on function public.compute_mastery_progress(uuid) from authenticated;
+grant execute on function public.compute_mastery_progress(uuid) to authenticated;
+revoke all on function public.add_mastery_entry(uuid, numeric, text, uuid, jsonb, timestamptz) from public;
+revoke all on function public.add_mastery_entry(uuid, numeric, text, uuid, jsonb, timestamptz) from anon;
+revoke all on function public.add_mastery_entry(uuid, numeric, text, uuid, jsonb, timestamptz) from authenticated;
 grant execute on function public.add_mastery_entry(uuid, numeric, text, uuid, jsonb, timestamptz) to authenticated;
 
 with category_seed(slug, name, sort_order) as (
   values
     ('fitness', 'Fitness', 1),
     ('musculation', 'Musculation', 2),
-    ('course-a-pied', 'Course a pied', 3),
+    ('course-a-pied', 'Course à pied', 3),
     ('trail', 'Trail', 4),
     ('marche', 'Marche', 5),
-    ('velo', 'Velo', 6),
+    ('velo', 'Vélo', 6),
     ('natation', 'Natation', 7)
 )
 insert into public.mastery_categories (slug, name, sort_order, active)
@@ -2275,18 +2319,18 @@ set
 
 with mastery_seed(slug, name, category_slug, measurement_type, unit, description, sort_order) as (
   values
-    ('pompes', 'Pompes', 'fitness', 'reps', 'repetitions', 'Volume cumule de pompes validees.', 1),
-    ('burpees', 'Burpees', 'fitness', 'reps', 'repetitions', 'Volume cumule de burpees valides.', 2),
-    ('planche', 'Planche', 'fitness', 'duration', 'secondes', 'Temps cumule de gainage planche.', 3),
-    ('tractions', 'Tractions', 'musculation', 'reps', 'repetitions', 'Volume cumule de tractions validees.', 1),
-    ('squat', 'Squat', 'musculation', 'reps', 'repetitions', 'Volume cumule de squats valides.', 2),
-    ('developpe-couche', 'Developpe couche', 'musculation', 'volume', 'kg', 'Volume cumule de developpe couche en kg.', 3),
-    ('distance-cap', 'Distance CAP', 'course-a-pied', 'distance', 'km', 'Distance cumulee en course a pied.', 1),
-    ('dplus-cap', 'D+ CAP', 'course-a-pied', 'elevation', 'm', 'Denivele positif cumule en course a pied.', 2),
-    ('distance-velo', 'Distance Velo', 'velo', 'distance', 'km', 'Distance cumulee a velo.', 1),
-    ('dplus-velo', 'D+ Velo', 'velo', 'elevation', 'm', 'Denivele positif cumule a velo.', 2),
-    ('marche', 'Marche', 'marche', 'distance', 'km', 'Distance cumulee a pied.', 1),
-    ('dplus-marche', 'D+ Marche', 'marche', 'elevation', 'm', 'Denivele positif cumule en marche.', 2)
+    ('pompes', 'Pompes', 'fitness', 'reps', 'repetitions', 'Volume cumulé de pompes validées.', 1),
+    ('burpees', 'Burpees', 'fitness', 'reps', 'repetitions', 'Volume cumulé de burpees validés.', 2),
+    ('planche', 'Planche', 'fitness', 'duration', 'secondes', 'Temps cumulé de gainage planche.', 3),
+    ('tractions', 'Tractions', 'musculation', 'reps', 'repetitions', 'Volume cumulé de tractions validées.', 1),
+    ('squat', 'Squat', 'musculation', 'reps', 'repetitions', 'Volume cumulé de squats validés.', 2),
+    ('developpe-couche', 'Développé couché', 'musculation', 'volume', 'kg', 'Volume cumulé de développé couché en kg.', 3),
+    ('distance-cap', 'Distance CAP', 'course-a-pied', 'distance', 'km', 'Distance cumulée en course à pied.', 1),
+    ('dplus-cap', 'D+ CAP', 'course-a-pied', 'elevation', 'm', 'Dénivelé positif cumulé en course à pied.', 2),
+    ('distance-velo', 'Distance Vélo', 'velo', 'distance', 'km', 'Distance cumulée à vélo.', 1),
+    ('dplus-velo', 'D+ Vélo', 'velo', 'elevation', 'm', 'Dénivelé positif cumulé à vélo.', 2),
+    ('marche', 'Marche', 'marche', 'distance', 'km', 'Distance cumulée à pied.', 1),
+    ('dplus-marche', 'D+ Marche', 'marche', 'elevation', 'm', 'Dénivelé positif cumulé en marche.', 2)
 )
 insert into public.masteries (
   slug,
