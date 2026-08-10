@@ -2475,10 +2475,14 @@ img {
 .mastery-card__bar {
   height: 7px;
   background: #1f2937;
+  overflow: hidden;
 }
 
 .mastery-card__bar .progress-fill {
+  display: block;
+  height: 100%;
   background: linear-gradient(90deg, #22c55e 0%, #4ade80 100%);
+  box-shadow: 0 0 0 1px rgba(34, 197, 94, 0.08), 0 0 14px rgba(74, 222, 128, 0.22);
 }
 
 .masteries-detail-shell {
@@ -2511,6 +2515,14 @@ img {
 
 .masteries-hero-card__copy--detail {
   justify-items: center;
+}
+
+.masteries-hero-card__copy--detail h1,
+.masteries-detail-shell__hero h1 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: clamp(1.55rem, 4vw, 2rem);
+  line-height: 1.05;
 }
 
 .mastery-detail-shell__icon-wrap {
