@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import type { Session } from '@supabase/supabase-js';
 import { AppShell } from '@/components/AppShell';
 import { BadgeArtwork } from '@/components/badge-artwork';
 import {
@@ -28,6 +29,7 @@ import {
 import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { formatPercent } from '@/lib/display-format';
 import { getActyvLevel, type ActyvLevelProgress } from '@/lib/levels';
+import { processSessionMasteries } from '@/lib/masteries-api';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { WorkoutCompletionMetadata, WorkoutSetPerformance } from '@/lib/workout-history';
@@ -171,6 +173,13 @@ function safeTrimText(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+function appendFeedbackMessage(currentMessage: string | null, nextMessage: string | null) {
+  if (!nextMessage) return currentMessage;
+  if (!currentMessage) return nextMessage;
+  if (currentMessage.includes(nextMessage)) return currentMessage;
+  return `${currentMessage} ${nextMessage}`;
+}
+
 function getPlannedReps(block: TrainingSessionBlockRecord | null) {
   if (!block || block.block_type !== 'reps') return null;
   const normalizedValue = normalizePositiveInteger(block.target_value, 0);
@@ -262,18 +271,19 @@ function normalizeLivePerformanceDraft(
   block: TrainingSessionBlockRecord | null
 ): LivePerformanceDraft {
   const fallback = createDefaultLivePerformanceDraft(block);
-  const nextLines = Array.isArray(draft?.lines) && draft.lines.length > 0
-    ? draft.lines.length === 1 && normalizeSessionSetsCount(block?.sets_count ?? 1) > 1
+  const draftLines = Array.isArray(draft?.lines) ? draft.lines : [];
+  const nextLines = draftLines.length > 0
+    ? draftLines.length === 1 && normalizeSessionSetsCount(block?.sets_count ?? 1) > 1
       ? Array.from({ length: normalizeSessionSetsCount(block?.sets_count ?? 1) }, (_, index) =>
           normalizeLivePerformanceLineDraft(
             {
-              ...draft.lines[0],
-              id: `${draft.lines[0]?.id || fallback.lines[0].id}-copy-${index + 1}`,
+              ...draftLines[0],
+              id: `${draftLines[0]?.id || fallback.lines[0].id}-copy-${index + 1}`,
             },
             block
           )
         )
-      : draft.lines.map((line) => normalizeLivePerformanceLineDraft(line, block))
+      : draftLines.map((line) => normalizeLivePerformanceLineDraft(line, block))
     : fallback.lines;
 
   return {
@@ -520,7 +530,7 @@ export default function LiveSessionPage() {
           finish(null);
         }, 1500);
 
-        subscription = supabase.auth.onAuthStateChange((_event, nextSession) => {
+        subscription = supabase.auth.onAuthStateChange((_event: string, nextSession: Session | null) => {
           if (nextSession?.user?.id) {
             finish(nextSession.user.id);
           }
@@ -2354,6 +2364,25 @@ export default function LiveSessionPage() {
         | null = null;
       let alreadyCompletedDailySession = false;
 
+      try {
+        const masteryResult = await processSessionMasteries(data.id);
+
+        if (process.env.NODE_ENV !== 'production') {
+          console.info('Session masteries processed:', masteryResult);
+        }
+
+        if (masteryResult.xpAwardedTotal > 0) {
+          awardedXpMessages.push(`+${masteryResult.xpAwardedTotal} XP maitrises`);
+          nextEarnedXpTotal += masteryResult.xpAwardedTotal;
+        }
+      } catch (masteryError) {
+        console.error('Session masteries processing error:', masteryError);
+        completionMessage = appendFeedbackMessage(
+          completionMessage,
+          "L'historique a ete enregistre, mais la progression des maitrises n'a pas pu etre synchronisee."
+        );
+      }
+
       if (dailySessionId) {
         const { data: fetchedDailySessionRow, error: dailySessionError } = await supabase
           .from('daily_sessions')
@@ -2705,6 +2734,7 @@ export default function LiveSessionPage() {
       }
 
       const badgeResult = await refreshUserBadges(currentUserId);
+      const awardedBadgeCodes = badgeResult.awarded.map((award) => award.badgeCode);
 
       if (badgeResult.error) {
         console.error('Erreur refresh badges seance live :', badgeResult.error);
@@ -2714,7 +2744,7 @@ export default function LiveSessionPage() {
         queuePendingToast({ message: xpMessage, tone: 'info' });
       });
 
-      badgeResult.awarded.forEach((badgeCode) => {
+      awardedBadgeCodes.forEach((badgeCode) => {
         const badge = getBadgeByCode(badgeCode);
         queuePendingToast({
           message: `Badge debloque : ${badge?.label || badgeCode}`,
@@ -2731,10 +2761,10 @@ export default function LiveSessionPage() {
       if (!nextCompletionSummaryTitle) {
         nextCompletionSummaryTitle = 'Seance terminee';
         nextCompletionSummarySubtitle =
-          nextEarnedXpTotal > 0 ? `+${XP_RULES.session_completed.xp} XP ajoutes` : 'Aucun XP supplementaire';
+          nextEarnedXpTotal > 0 ? `+${nextEarnedXpTotal} XP ajoutes` : 'Aucun XP supplementaire';
       }
 
-      setAwardedBadgeCodes(badgeResult.awarded);
+      setAwardedBadgeCodes(awardedBadgeCodes);
       setCompletionSummaryTitle(nextCompletionSummaryTitle);
       setCompletionSummarySubtitle(nextCompletionSummarySubtitle);
       setHistorySaved(true);

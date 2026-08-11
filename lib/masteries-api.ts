@@ -7,6 +7,8 @@ import {
   type MasteryDetailData,
   type MasteryEntry,
   type MasteryMeasurementType,
+  type ProcessSessionMasteriesResult,
+  type ProcessedSessionMastery,
   type MasteryProgressSnapshot,
   type MasterySource,
   type MasteryUnlock,
@@ -358,6 +360,80 @@ function normalizeRpcResult(data: unknown): AddMasteryEntryResult {
   };
 }
 
+function mapProcessedSessionMastery(entry: unknown): ProcessedSessionMastery | null {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return null;
+  }
+
+  const payload = entry as Record<string, unknown>;
+  const unlockedLevels = Array.isArray(payload.unlocked_levels)
+    ? payload.unlocked_levels.flatMap((levelEntry) => {
+        if (!levelEntry || typeof levelEntry !== 'object' || Array.isArray(levelEntry)) {
+          return [];
+        }
+
+        const normalized = levelEntry as Record<string, unknown>;
+        return [
+          {
+            level: readPayloadNumber(normalized, 'level'),
+            xpReward: readPayloadNumber(normalized, 'xp_reward'),
+          },
+        ];
+      })
+    : [];
+
+  return {
+    entryId: typeof payload.entry_id === 'string' && payload.entry_id.length > 0 ? payload.entry_id : null,
+    masteryId: String(payload.mastery_id || ''),
+    masterySlug: String(payload.mastery_slug || ''),
+    masteryName: String(payload.mastery_name || ''),
+    inserted: Boolean(payload.inserted),
+    insertedValue: readPayloadNumber(payload, 'inserted_value'),
+    xpAwarded: readPayloadNumber(payload, 'xp_awarded'),
+    currentLevel: readPayloadNumber(payload, 'current_level'),
+    totalValue: readPayloadNumber(payload, 'total_value'),
+    progressPercent: readPayloadNumber(payload, 'progress_percent'),
+    unlockedLevels,
+    contributingBlocks: Array.isArray(payload.contributing_blocks)
+      ? payload.contributing_blocks.filter(
+          (block): block is Record<string, unknown> =>
+            Boolean(block) && typeof block === 'object' && !Array.isArray(block)
+        )
+      : [],
+  };
+}
+
+function normalizeProcessSessionMasteriesResult(data: unknown): ProcessSessionMasteriesResult {
+  const payload = (data || {}) as Record<string, unknown>;
+
+  return {
+    workoutHistoryId: String(payload.workout_history_id || ''),
+    workoutId: typeof payload.workout_id === 'string' && payload.workout_id.length > 0 ? payload.workout_id : null,
+    workoutName: String(payload.workout_name || ''),
+    candidateMasteriesCount: readPayloadNumber(payload, 'candidate_masteries_count'),
+    insertedEntriesCount: readPayloadNumber(payload, 'inserted_entries_count'),
+    xpAwardedTotal: readPayloadNumber(payload, 'xp_awarded_total'),
+    missingActualSets: Boolean(payload.missing_actual_sets),
+    processedMasteries: Array.isArray(payload.processed_masteries)
+      ? payload.processed_masteries
+          .map(mapProcessedSessionMastery)
+          .filter((entry): entry is ProcessedSessionMastery => Boolean(entry))
+      : [],
+    ignoredBlocks: Array.isArray(payload.ignored_blocks)
+      ? payload.ignored_blocks.filter(
+          (block): block is Record<string, unknown> =>
+            Boolean(block) && typeof block === 'object' && !Array.isArray(block)
+        )
+      : [],
+    incompatibleMappings: Array.isArray(payload.incompatible_mappings)
+      ? payload.incompatible_mappings.filter(
+          (mapping): mapping is Record<string, unknown> =>
+            Boolean(mapping) && typeof mapping === 'object' && !Array.isArray(mapping)
+        )
+      : [],
+  };
+}
+
 export async function addMasteryEntry({
   masteryId,
   value,
@@ -385,4 +461,18 @@ export async function addMasteryEntry({
   }
 
   return normalizeRpcResult(data);
+}
+
+export async function processSessionMasteries(workoutHistoryId: string) {
+  ensureSupabaseReady();
+
+  const { data, error } = await supabase.rpc('process_workout_masteries', {
+    p_workout_history_id: workoutHistoryId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeProcessSessionMasteriesResult(data);
 }

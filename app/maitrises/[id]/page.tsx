@@ -42,6 +42,27 @@ function formatEntryValue(value: number, unit: string) {
   return `${formatMasteryValue(value, unit)} ${getMasteryUnitLabel(unit, value)}`;
 }
 
+function getEntrySourceLabel(source: string, metadata: Record<string, unknown> | null | undefined) {
+  if (source === 'manual') {
+    return 'Ajout manuel';
+  }
+
+  if (source === 'session') {
+    const workoutName = typeof metadata?.workout_name === 'string' ? metadata.workout_name.trim() : '';
+    return workoutName ? `Seance Actyv - ${workoutName}` : 'Seance Actyv';
+  }
+
+  if (source === 'activity') {
+    return 'Activite Actyv';
+  }
+
+  if (source === 'import') {
+    return 'Import';
+  }
+
+  return source;
+}
+
 export default function MasteryDetailPage() {
   const params = useParams();
   const masteryId = Array.isArray(params?.id) ? params.id[0] : params?.id || '';
@@ -497,7 +518,7 @@ export default function MasteryDetailPage() {
                       <span>{formatEntryValue(entry.value, mastery.unit)}</span>
                     </div>
                     <small>
-                      Source : {entry.source === 'manual' ? 'Ajout manuel' : entry.source} -{' '}
+                      Source : {getEntrySourceLabel(entry.source, entry.metadata)} -{' '}
                       {new Date(entry.performedAt).toLocaleTimeString('fr-FR', {
                         hour: '2-digit',
                         minute: '2-digit',

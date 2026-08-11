@@ -123,6 +123,37 @@ export type AddMasteryEntryResult = {
   isMaxLevel: boolean;
 };
 
+export type ProcessedSessionMastery = {
+  entryId: string | null;
+  masteryId: string;
+  masterySlug: string;
+  masteryName: string;
+  inserted: boolean;
+  insertedValue: number;
+  xpAwarded: number;
+  currentLevel: number;
+  totalValue: number;
+  progressPercent: number;
+  unlockedLevels: Array<{
+    level: number;
+    xpReward: number;
+  }>;
+  contributingBlocks: Array<Record<string, unknown>>;
+};
+
+export type ProcessSessionMasteriesResult = {
+  workoutHistoryId: string;
+  workoutId: string | null;
+  workoutName: string;
+  candidateMasteriesCount: number;
+  insertedEntriesCount: number;
+  xpAwardedTotal: number;
+  missingActualSets: boolean;
+  processedMasteries: ProcessedSessionMastery[];
+  ignoredBlocks: Array<Record<string, unknown>>;
+  incompatibleMappings: Array<Record<string, unknown>>;
+};
+
 export const MASTERY_CATEGORY_FALLBACKS: MasteryCategory[] = [
   { id: 'fitness', label: 'Fitness', sortOrder: 1 },
   { id: 'musculation', label: 'Musculation', sortOrder: 2 },
