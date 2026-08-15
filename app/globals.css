@@ -11181,6 +11181,210 @@ img {
   line-height: 1.3;
 }
 
+.history-page-shell {
+  display: grid;
+  gap: 14px;
+}
+
+.history-page-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(6, 18, 35, 0.97), rgba(9, 23, 42, 0.94)),
+    rgba(8, 18, 36, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.history-page-card__header {
+  display: grid;
+  gap: 8px;
+}
+
+.history-page-card__title {
+  display: grid;
+  gap: 4px;
+}
+
+.history-page-card__title h1 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 1.35rem;
+  line-height: 1.05;
+}
+
+.history-page-card__title p {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.84rem;
+  line-height: 1.3;
+}
+
+.history-filters {
+  display: grid;
+  gap: 10px;
+}
+
+.history-search input,
+.history-select select {
+  width: 100%;
+  min-width: 0;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.56);
+  color: #f8fafc;
+  font: inherit;
+}
+
+.history-search input {
+  min-height: 42px;
+  padding: 0 13px;
+}
+
+.history-search input::placeholder {
+  color: #94a3b8;
+}
+
+.history-type-chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.history-type-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.history-chip {
+  flex: 0 0 auto;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.48);
+  color: #cbd5e1;
+  border-radius: 999px;
+  min-height: 34px;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.history-chip.is-active {
+  border-color: rgba(66, 221, 163, 0.34);
+  background: rgba(66, 221, 163, 0.12);
+  color: #86efac;
+}
+
+.history-selects {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.history-select {
+  display: grid;
+  gap: 5px;
+}
+
+.history-select span {
+  color: #94a3b8;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.history-select select {
+  min-height: 38px;
+  padding: 0 10px;
+}
+
+.history-reset-link {
+  justify-self: start;
+  border: 0;
+  background: transparent;
+  color: #86efac;
+  padding: 0;
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.history-page-card__empty {
+  gap: 6px;
+}
+
+.history-page-card__empty .button {
+  justify-self: start;
+}
+
+.history-months {
+  display: grid;
+  gap: 12px;
+}
+
+.history-month-group {
+  display: grid;
+  gap: 8px;
+}
+
+.history-month-group + .history-month-group {
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.08);
+}
+
+.history-month-group__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.history-month-group__header h2 {
+  margin: 0;
+  color: var(--actyv-accent-title);
+  font-size: 0.92rem;
+  line-height: 1.1;
+}
+
+.history-month-group__header span,
+.history-month-group__empty span {
+  color: #94a3b8;
+  font-size: 0.74rem;
+}
+
+.history-month-group__empty {
+  padding: 8px 2px 2px;
+}
+
+.history-month-group__list {
+  gap: 7px;
+}
+
+.history-entry-row {
+  min-height: 64px;
+}
+
+.history-entry-row__icon span {
+  font-size: 0.58rem;
+}
+
+.history-entry-row--static {
+  cursor: default;
+}
+
+.history-entry-row__dot {
+  color: #475569;
+  font-size: 0.8rem;
+}
+
+.history-load-more {
+  width: 100%;
+  margin-top: 2px;
+}
+
 @media (max-width: 720px) {
   .home-dashboard-summary,
   .home-recent-feed {
@@ -11189,7 +11393,8 @@ img {
 
   .home-dashboard-summary__header,
   .home-recent-feed__header,
-  .home-recent-row__topline {
+  .home-recent-row__topline,
+  .history-month-group__header {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -11199,6 +11404,10 @@ img {
 
   .home-recent-row__aside {
     display: none;
+  }
+
+  .history-selects {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -11217,6 +11426,10 @@ img {
 
   .home-month-summary__item:nth-child(even) {
     padding-right: 0;
+  }
+
+  .history-selects {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
