@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import type { ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import {
   formatBlockMainValue,
   formatSessionRestSeconds,
@@ -25,7 +26,7 @@ type SessionLiveHeaderProps = {
   progressMetaLabel?: string;
   onTogglePause: () => void;
   isPaused: boolean;
-  quitHref: string;
+  quitHref: ComponentProps<typeof Link>['href'];
 };
 
 type LiveBlockCardProps = {
@@ -43,6 +44,8 @@ type LiveBlockCardProps = {
   countdownLabel?: string | null;
   onValidate?: () => void;
   actionDisabled?: boolean;
+  sportLabel?: string | null;
+  menuContent?: ReactNode;
 };
 
 type RestTimerOverlayProps = {
@@ -121,16 +124,18 @@ export function SessionLiveHeader({
     <article className="card session-live-shell">
       <div className="session-live-shell__top">
         <div className="session-live-shell__copy">
-          <span className="section-kicker">Mode live</span>
-          <h1>{title}</h1>
-          <div className="session-live-shell__meta">
+          <span className="section-kicker">Seance</span>
+          <div className="session-live-shell__headline">
+            <h1>{title}</h1>
+            <strong>{elapsedLabel}</strong>
+          </div>
+          <div className="session-live-shell__meta session-live-shell__meta--compact">
+            <span className="session-live-shell__exercise-count">{currentBlockLabel}</span>
             {sportBadge ? sportBadge : null}
-            <span className="session-block-chip">{currentBlockLabel}</span>
-            <span className="session-block-chip">{elapsedLabel}</span>
           </div>
         </div>
 
-        <div className="session-live-shell__actions">
+        <div className="session-live-shell__actions session-live-shell__actions--compact">
           <button type="button" className="button ghost" onClick={onTogglePause}>
             {isPaused ? 'Reprendre' : 'Pause'}
           </button>
@@ -169,76 +174,65 @@ export function LiveBlockCard({
   countdownLabel,
   onValidate,
   actionDisabled = false,
+  sportLabel,
+  menuContent,
 }: LiveBlockCardProps) {
   const typeLabel = getSessionBlockTypeLabel(block.block_type);
   const restLabel = formatSessionRestSeconds(block.rest_seconds) || 'Sans repos';
+  const totalSets = Math.max(Math.trunc(Number(block.sets_count || 1)), 1);
+  const metricsLabel = [sportLabel, typeLabel].filter(Boolean).join(' • ');
 
   return (
-    <article className={`card session-live-focus-card${validationFeedback ? ' is-validated' : ''}`}>
-      <div className="session-live-focus-card__eyebrow">
-        <span className="section-kicker">{`Bloc ${blockIndex + 1} / ${totalBlocks}`}</span>
-        <span className={`session-block-chip${isCompleted ? ' is-done' : ''}`}>{typeLabel}</span>
+    <article className={`card session-live-focus-card session-live-focus-card--compact${validationFeedback ? ' is-validated' : ''}`}>
+      <div className="session-live-focus-card__header">
+        <div className="session-live-focus-card__eyebrow">
+          <span className="section-kicker">{`Exercice ${blockIndex + 1} / ${totalBlocks}`}</span>
+          <span className={`session-block-chip${isCompleted ? ' is-done' : ''}`}>{statusLabel}</span>
+        </div>
+        {menuContent ? <div className="session-live-focus-card__menu">{menuContent}</div> : null}
       </div>
 
-      <div className="session-live-focus-card__hero">
-        <h2>{block.name || `Bloc ${blockIndex + 1}`}</h2>
-        <p>{statusLabel}</p>
+      <div className="session-live-focus-card__hero session-live-focus-card__hero--compact">
+        <div className="session-live-focus-card__media" aria-hidden="true">
+          <SessionExerciseIcon exerciseName={block.name} sport={sportLabel} blockType={block.block_type} size="md" />
+        </div>
+
+        <div className="session-live-focus-card__hero-copy">
+          <h2>{block.name || `Bloc ${blockIndex + 1}`}</h2>
+          {metricsLabel ? <p>{metricsLabel}</p> : null}
+          <div className="session-live-focus-card__stats-row">
+            <span>{`${totalSets} ${totalSets > 1 ? 'series' : 'serie'}`}</span>
+            <span>{restLabel}</span>
+            {blockVolumeLabel ? <span>{blockVolumeLabel}</span> : null}
+          </div>
+        </div>
       </div>
 
-      <div className="session-live-focus-card__value">
+      <div className="session-live-focus-card__value session-live-focus-card__value--compact">
         <strong>{countdownLabel || livePrimaryValue || getLivePrimaryValue(block)}</strong>
         <span>{currentSeriesLabel}</span>
       </div>
 
-      <div className="session-live-focus-card__facts">
-        <div className="session-live-fact">
-          <span>Format</span>
-          <strong>{typeLabel}</strong>
+      {actionLabel || actionHint || validationFeedback ? (
+        <div className="session-live-focus-card__footer session-live-focus-card__footer--compact">
+          {actionLabel ? (
+            <button
+              type="button"
+              className="button primary session-live-focus-card__validate"
+              onClick={onValidate}
+              disabled={actionDisabled || !onValidate}
+            >
+              {actionLabel}
+            </button>
+          ) : null}
+          {actionHint ? <p className="session-live-focus-card__action-hint">{actionHint}</p> : null}
+          {validationFeedback ? (
+            <p className="session-live-focus-card__feedback" aria-live="polite">
+              {validationFeedback}
+            </p>
+          ) : null}
         </div>
-
-        {Number(block.charge_kg || 0) > 0 ? (
-          <div className="session-live-fact">
-            <span>Charge</span>
-            <strong>{block.charge_kg} kg</strong>
-          </div>
-        ) : null}
-
-        <div className="session-live-fact">
-          <span>Repos</span>
-          <strong>{restLabel}</strong>
-        </div>
-
-        {blockVolumeLabel ? (
-          <div className="session-live-fact">
-            <span>Volume</span>
-            <strong>{blockVolumeLabel}</strong>
-          </div>
-        ) : null}
-      </div>
-
-      {block.block_type === 'free' ? (
-        <p className="session-live-focus-card__note">
-          Bloc libre sans objectif chiffre. Utilise-le pour une consigne simple, une technique
-          ou une phase de mobilite.
-        </p>
       ) : null}
-
-      <div className="session-live-focus-card__footer">
-        <button
-          type="button"
-          className="button primary session-live-focus-card__validate"
-          onClick={onValidate}
-          disabled={actionDisabled || !onValidate}
-        >
-          {actionLabel}
-        </button>
-        {actionHint ? <p className="session-live-focus-card__action-hint">{actionHint}</p> : null}
-        {validationFeedback ? (
-          <p className="session-live-focus-card__feedback" aria-live="polite">
-            {validationFeedback}
-          </p>
-        ) : null}
-      </div>
     </article>
   );
 }
@@ -263,8 +257,8 @@ export function RestTimerOverlay({
   return (
     <article className="card session-live-rest-overlay">
       <span className="section-kicker">Repos</span>
-      <h2>Recuperation</h2>
-      <p>{`Bloc valide : ${blockLabel}`}</p>
+      <h2>Repos en cours</h2>
+      <p>{`Prochaine serie : ${blockLabel}`}</p>
 
       <div className="session-live-rest-overlay__ring" style={ringStyle}>
         <div className="session-live-rest-overlay__ring-inner">
@@ -274,7 +268,7 @@ export function RestTimerOverlay({
       </div>
 
       <p className="session-live-rest-overlay__hint">
-        Prends ton souffle. La prochaine serie attendra ton signal pour repartir.
+        Le contexte de l'exercice reste visible pour repartir vite.
       </p>
 
       <div className="session-live-rest-overlay__adjust">
@@ -287,14 +281,14 @@ export function RestTimerOverlay({
       </div>
 
       <div className="session-live-rest-overlay__actions">
-        <button type="button" className="button ghost" onClick={onPrevious} disabled={!canGoPrevious}>
-          Precedent
-        </button>
         <button type="button" className="button ghost" onClick={onSkip}>
           Passer
         </button>
+        <button type="button" className="button ghost" onClick={onPrevious} disabled={!canGoPrevious}>
+          Precedent
+        </button>
         <button type="button" className="button primary" onClick={onNext}>
-          Bloc suivant
+          Reprendre
         </button>
       </div>
     </article>
@@ -368,9 +362,9 @@ export function LiveControls({
   nextDisabled = false,
 }: LiveControlsProps) {
   return (
-    <div className="session-live-controls">
+    <div className="session-live-controls session-live-controls--compact">
       <button type="button" className="button ghost" onClick={onPrevious} disabled={previousDisabled}>
-        Precedent
+        ← Exercice precedent
       </button>
       {onOpenPreview ? (
         <button type="button" className="button ghost" onClick={onOpenPreview}>
@@ -378,7 +372,7 @@ export function LiveControls({
         </button>
       ) : null}
       <button type="button" className="button ghost" onClick={onNext} disabled={nextDisabled}>
-        {nextLabel}
+        {nextLabel.includes('Suivant') ? 'Exercice suivant →' : nextLabel}
       </button>
     </div>
   );

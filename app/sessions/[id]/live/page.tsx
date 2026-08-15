@@ -1,5 +1,6 @@
 'use client';
 
+import type { Route } from 'next';
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
@@ -8,9 +9,7 @@ import { AppShell } from '@/components/AppShell';
 import { BadgeArtwork } from '@/components/badge-artwork';
 import {
   LiveBlockCard,
-  LiveBlockPreviewRail,
   LiveControls,
-  LiveSequenceList,
   RestTimerOverlay,
   SessionLiveHeader,
 } from '@/components/session-live-ui';
@@ -351,7 +350,8 @@ function getLivePerformanceLineForSetNumber(lines: LivePerformanceLineDraft[], s
 }
 
 function formatLivePerformanceLineSummary(blockType: SessionBlockType, line: LivePerformanceLineDraft) {
-  const setsLabel = '1 série';
+  const normalizedSetsCount = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
+  const setsLabel = normalizedSetsCount > 1 ? `${normalizedSetsCount} séries` : '1 série';
 
   if (blockType === 'reps') {
     const repsLabel = line.targetValue == null ? '-' : `${line.targetValue} reps`;
@@ -381,8 +381,11 @@ function getSetPerformanceKey(entry: Pick<WorkoutSetPerformance, 'block_id' | 's
 }
 
 function formatLivePerformanceLineCompactMeta(blockType: SessionBlockType, line: LivePerformanceLineDraft) {
+  const normalizedSetsCount = Math.max(Math.trunc(Number(line.setsCount) || 0), 1);
+  const setsPrefix = normalizedSetsCount > 1 ? `${normalizedSetsCount} x ` : '';
+
   if (blockType === 'reps') {
-    const repsLabel = line.targetValue == null ? '-' : `${line.targetValue} reps`;
+    const repsLabel = line.targetValue == null ? '-' : `${setsPrefix}${line.targetValue} reps`;
     const chargeLabel = line.chargeKg != null && line.chargeKg > 0 ? ` • ${line.chargeKg} kg` : '';
     const restLabel =
       line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
@@ -390,14 +393,14 @@ function formatLivePerformanceLineCompactMeta(blockType: SessionBlockType, line:
   }
 
   if (blockType === 'duration') {
-    const durationLabel = line.targetValue == null ? '-' : formatTimerClock(line.targetValue);
+    const durationLabel = line.targetValue == null ? '-' : `${setsPrefix}${formatTimerClock(line.targetValue)}`;
     const restLabel =
       line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
     return `${durationLabel}${restLabel}`;
   }
 
   if (blockType === 'distance') {
-    const distanceLabel = line.targetValue == null ? '-' : `${line.targetValue} km`;
+    const distanceLabel = line.targetValue == null ? '-' : `${setsPrefix}${line.targetValue} km`;
     const restLabel =
       line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
     return `${distanceLabel}${restLabel}`;
@@ -405,7 +408,7 @@ function formatLivePerformanceLineCompactMeta(blockType: SessionBlockType, line:
 
   const noteLabel = line.note.trim();
   const restLabel = line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
-  return `${noteLabel || 'Consigne'}${restLabel}`;
+  return `${normalizedSetsCount > 1 ? `${normalizedSetsCount} x ` : ''}${noteLabel || 'Consigne'}${restLabel}`;
 }
 
 function getLivePerformanceLineStatusLabel(lineIndex: number, activeLineIndex: number, completedSets: number) {
@@ -472,6 +475,7 @@ export default function LiveSessionPage() {
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
+  const [isExerciseMenuOpen, setIsExerciseMenuOpen] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
   const [newExerciseType, setNewExerciseType] = useState<SessionBlockType>('reps');
   const [newExerciseSets, setNewExerciseSets] = useState('1');
@@ -1020,6 +1024,8 @@ export default function LiveSessionPage() {
                 : 'Pret pour la serie';
   useEffect(() => {
     setOpenPerformanceLineIndex(null);
+    setIsExerciseMenuOpen(false);
+    setIsAddExerciseOpen(false);
   }, [currentBlock?.id]);
 
   const currentSeriesLabel = currentBlock
@@ -1524,20 +1530,6 @@ export default function LiveSessionPage() {
     setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
   };
 
-  const goToNextExercise = () => {
-    clearRestState();
-    clearExerciseState();
-    setFinishReviewOpen(false);
-    setCurrentIndex((value) => Math.min(value + 1, Math.max(blocks.length - 1, 0)));
-  };
-
-  const goToBlockIndex = (index: number) => {
-    clearRestState();
-    clearExerciseState();
-    setFinishReviewOpen(false);
-    setCurrentIndex(Math.min(Math.max(index, 0), Math.max(blocks.length - 1, 0)));
-  };
-
   const goToRemainingBlocks = () => {
     clearRestState();
     clearExerciseState();
@@ -1579,9 +1571,22 @@ export default function LiveSessionPage() {
 
     setBlocks((current) => [...current, nextBlock]);
     setCurrentIndex(blocks.length);
+    const nextDraft = createDefaultLivePerformanceDraft(nextBlock);
+    if (newExerciseType === 'free' && newExerciseFreeText.trim()) {
+      nextDraft.freeText = newExerciseFreeText.trim();
+      nextDraft.lines = nextDraft.lines.map((line, index) =>
+        index === 0
+          ? {
+              ...line,
+              note: newExerciseFreeText.trim(),
+            }
+          : line
+      );
+    }
+
     setPerformanceDraftsByBlockId((current) => ({
       ...current,
-      [nextBlock.id]: createDefaultLivePerformanceDraft(nextBlock),
+      [nextBlock.id]: nextDraft,
     }));
     setActualPerformanceDraftsByBlockId((current) => ({
       ...current,
@@ -2826,7 +2831,7 @@ export default function LiveSessionPage() {
       ? `${completionTotalXp} XP`
       : `${completionTotalXp} / ${completionLevelProgress.nextLevelXp} XP`
     : null;
-  const loginHref = `/login?redirectTo=${encodeURIComponent(`/sessions/${id}/live`)}`;
+  const loginHref = `/login?redirectTo=${encodeURIComponent(`/sessions/${id}/live`)}` as Route;
 
   return (
     <AppShell>
@@ -2857,7 +2862,7 @@ export default function LiveSessionPage() {
           <div className="challenge-state">
             <p>Cette seance ne contient aucun bloc.</p>
             <div className="session-empty-actions">
-              <Link href={`/sessions/${id}`} className="button ghost">
+              <Link href={`/sessions/${id}` as Route} className="button ghost">
                 Revenir au detail
               </Link>
             </div>
@@ -2898,7 +2903,7 @@ export default function LiveSessionPage() {
               progressPercent={globalProgressPercent}
               onTogglePause={() => setIsTimerPaused((current) => !current)}
               isPaused={isTimerPaused || isFinishReviewVisible}
-              quitHref={`/sessions/${id}`}
+              quitHref={`/sessions/${id}` as Route}
             />
 
             {isFinishReviewVisible ? (
@@ -3134,20 +3139,22 @@ export default function LiveSessionPage() {
                   </button>
                 </div>
               </article>
-            ) : isResting && currentBlock ? (
-              <RestTimerOverlay
-                blockLabel={restingBlockName}
-                secondsLeft={restSecondsLeft}
-                totalSeconds={restTotalSeconds}
-                onSkip={() => setRestSecondsLeft(0)}
-                onAdd15={() => adjustRestSeconds(15)}
-                onSubtract15={() => adjustRestSeconds(-15)}
-                onNext={() => setRestSecondsLeft(0)}
-                onPrevious={goToPrevious}
-                canGoPrevious={currentIndex > 0}
-              />
             ) : currentBlock ? (
               <>
+                {isResting ? (
+                  <RestTimerOverlay
+                    blockLabel={restingBlockName}
+                    secondsLeft={restSecondsLeft}
+                    totalSeconds={restTotalSeconds}
+                    onSkip={() => setRestSecondsLeft(0)}
+                    onAdd15={() => adjustRestSeconds(15)}
+                    onSubtract15={() => adjustRestSeconds(-15)}
+                    onNext={() => setRestSecondsLeft(0)}
+                    onPrevious={goToPrevious}
+                    canGoPrevious={currentIndex > 0}
+                  />
+                ) : null}
+
                 <LiveBlockCard
                   key={`${currentBlock.id}-${currentCompletedSets}`}
                   block={currentBlock}
@@ -3158,19 +3165,7 @@ export default function LiveSessionPage() {
                   statusLabel={currentStatusLabel}
                   isCompleted={completedBlockIds.includes(currentBlock.id)}
                   blockVolumeLabel={formatSessionVolumeKg(currentBlockVolume)}
-                  actionLabel={
-                    isExercising
-                      ? awaitingExerciseCompletion
-                        ? 'Terminer la serie'
-                        : isDurationBlock
-                          ? 'Terminer la serie'
-                          : usesSetBySetValidation
-                            ? 'Valider la serie'
-                            : 'Terminer le bloc'
-                      : currentCompletedSets > 0
-                        ? 'Lancer la serie suivante'
-                        : 'Lancer la serie'
-                  }
+                  actionLabel=""
                   actionHint={
                     isDurationBlock
                       ? isExercising
@@ -3190,40 +3185,72 @@ export default function LiveSessionPage() {
                   }
                   validationFeedback={validationFeedback}
                   countdownLabel={isDurationBlock && isExercising && !awaitingExerciseCompletion ? formatTimerClock(exerciseSecondsLeft) : null}
-                  onValidate={
-                    !canValidateCurrentBlock
-                      ? undefined
-                      : isExercising
-                        ? handleValidateCurrent
-                        : handleStartCurrentSeries
+                  sportLabel={session?.sport}
+                  menuContent={
+                    <div className="session-live-card-menu">
+                      <button
+                        type="button"
+                        className="button ghost session-live-card-menu__trigger"
+                        aria-label="Actions exercice"
+                        aria-expanded={isExerciseMenuOpen}
+                        onClick={() => setIsExerciseMenuOpen((current) => !current)}
+                      >
+                        •••
+                      </button>
+                      {isExerciseMenuOpen ? (
+                        <div className="session-live-card-menu__panel">
+                          <button
+                            type="button"
+                            className="session-live-card-menu__action"
+                            onClick={() => {
+                              setIsExerciseMenuOpen(false);
+                              setIsAddExerciseOpen((current) => !current);
+                            }}
+                          >
+                            Ajouter un exercice
+                          </button>
+                          <button
+                            type="button"
+                            className="session-live-card-menu__action"
+                            onClick={() => {
+                              setIsExerciseMenuOpen(false);
+                              handleSkipCurrentBlock();
+                            }}
+                          >
+                            Ignorer cet exercice
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
                   }
-                  actionDisabled={!canValidateCurrentBlock}
                 />
 
                 {canAdjustCurrentPerformance ? (
                   <article className="card session-live-performance-card">
                     <div className="session-live-performance-card__header">
                       <div>
-                        <span className="section-kicker">Réalisé</span>
-                        <h2>{currentBlock.block_type === 'free' ? 'Texte libre' : 'Lignes de série'}</h2>
+                        <span className="section-kicker">Series</span>
+                        <h2>{currentBlock.block_type === 'free' ? 'Consigne en direct' : 'Tableau des series'}</h2>
                       </div>
                       <span className="session-block-chip">{currentSeriesLabel}</span>
                     </div>
 
-                    <div className="session-live-performance-card__planned">
-                      <span>Prévu</span>
-                      <strong>
-                        {formatLivePerformanceLineSummary(currentBlock.block_type, currentActivePerformanceLine)}
-                      </strong>
-                    </div>
+                    <div className="session-live-performance-card__planned-row">
+                      <div className="session-live-performance-card__planned">
+                        <span>Prevu</span>
+                        <strong>
+                          {formatLivePerformanceLineSummary(currentBlock.block_type, currentActivePerformanceLine)}
+                        </strong>
+                      </div>
 
-                    <div className="session-live-performance-card__planned">
-                      <span>Actif</span>
-                      <strong>
-                        {currentBlock.block_type === 'free'
-                          ? currentActualText || 'Saisis ton texte libre'
-                          : formatLivePerformanceLineSummary(currentBlock.block_type, currentActivePerformanceLine)}
-                      </strong>
+                      <div className="session-live-performance-card__planned">
+                        <span>Actif</span>
+                        <strong>
+                          {currentBlock.block_type === 'free'
+                            ? currentActualText || 'Saisis ton texte libre'
+                            : formatLivePerformanceLineSummary(currentBlock.block_type, currentActivePerformanceLine)}
+                        </strong>
+                      </div>
                     </div>
 
                     <div className="session-live-line-list">
@@ -3258,12 +3285,17 @@ export default function LiveSessionPage() {
                               <span className="session-live-line-item__status" aria-hidden="true">
                                 {lineStatus.icon}
                               </span>
+                              <span className="session-live-line-item__index">{lineIndex + 1}</span>
                               <span className="session-live-line-item__copy">
                                 <span className="session-live-line-item__title">{lineTitle}</span>
                                 <span className="session-live-line-item__meta">{lineMeta}</span>
                               </span>
-                              <span className="session-live-line-item__menu" aria-hidden="true">
-                                {isOpenLine ? '▴' : '⋮'}
+                              <span
+                                className={`session-live-line-item__badge${
+                                  isActiveLine ? ' session-live-line-item__badge--active' : ''
+                                }`}
+                              >
+                                {lineStatus.label}
                               </span>
                             </button>
 
@@ -3410,44 +3442,260 @@ export default function LiveSessionPage() {
                       })}
                     </div>
 
-                    <div className="session-live-performance-card__actions">
-                      <button type="button" className="button ghost" onClick={addCurrentPerformanceLine}>
-                        + Ajouter une ligne
-                      </button>
-                      {currentLivePerformanceTotalSets > 1 && currentCompletedSets < currentLivePerformanceTotalSets - 1 ? (
-                        <button type="button" className="button ghost" onClick={applyCurrentPerformanceToRemainingSets}>
-                          Appliquer aux séries restantes
+                    <div className="session-live-editor">
+                      <div className="session-live-editor__top">
+                        <div>
+                          <span className="section-kicker">
+                            {currentBlock.block_type === 'free' ? 'Bloc actif' : currentSeriesLabel}
+                          </span>
+                          <strong>
+                            {currentBlock.block_type === 'free'
+                              ? currentBlockName
+                              : `Serie ${Math.min(currentActivePerformanceLineIndex + 1, currentLivePerformanceLines.length)} / ${currentLivePerformanceLines.length}`}
+                          </strong>
+                        </div>
+                        <span className="session-live-editor__summary">
+                          {currentActivePerformanceLineSummary || currentSeriesLabel}
+                        </span>
+                      </div>
+
+                      {currentBlock.block_type === 'reps' ? (
+                        <div className="session-live-editor__controls session-live-editor__controls--double">
+                          <label className="session-live-adjust-card">
+                            <span>Reps</span>
+                            <div className="session-live-stepper session-live-stepper--large">
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: Math.max(Number(currentActualReps ?? 0) - 1, 0),
+                                  })
+                                }
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                inputMode="numeric"
+                                value={currentActualReps ?? 0}
+                                onChange={(event) =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: normalizePositiveInteger(event.target.value, 0),
+                                  })
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: Math.max(Number(currentActualReps ?? 0) + 1, 0),
+                                  })
+                                }
+                              >
+                                +
+                              </button>
+                            </div>
+                          </label>
+
+                          <label className="session-live-adjust-card">
+                            <span>Charge (kg)</span>
+                            <div className="session-live-stepper session-live-stepper--large">
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    chargeKg: Math.max(Number(currentActualChargeKg ?? 0) - 2.5, 0),
+                                  })
+                                }
+                              >
+                                -
+                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.5"
+                                inputMode="decimal"
+                                value={currentActualChargeKg ?? 0}
+                                onChange={(event) =>
+                                  updateCurrentPerformanceLine({
+                                    chargeKg: normalizeNonNegativeNumber(event.target.value, 0),
+                                  })
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    chargeKg: Math.max(Number(currentActualChargeKg ?? 0) + 2.5, 0),
+                                  })
+                                }
+                              >
+                                +
+                              </button>
+                            </div>
+                          </label>
+                        </div>
+                      ) : currentBlock.block_type === 'duration' ? (
+                        <div className="session-live-editor__controls">
+                          <label className="session-live-adjust-card">
+                            <span>Temps</span>
+                            <div className="session-live-stepper session-live-stepper--large">
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: Math.max(Number(currentActualReps ?? 0) - 5, 0),
+                                  })
+                                }
+                              >
+                                -5
+                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                inputMode="numeric"
+                                value={currentActualReps ?? 0}
+                                onChange={(event) =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: normalizePositiveInteger(event.target.value, 0),
+                                  })
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: Math.max(Number(currentActualReps ?? 0) + 5, 0),
+                                  })
+                                }
+                              >
+                                +5
+                              </button>
+                            </div>
+                          </label>
+                        </div>
+                      ) : currentBlock.block_type === 'distance' ? (
+                        <div className="session-live-editor__controls">
+                          <label className="session-live-adjust-card">
+                            <span>Distance (m)</span>
+                            <div className="session-live-stepper session-live-stepper--large">
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: Math.max(Number(currentActualReps ?? 0) - 50, 0),
+                                  })
+                                }
+                              >
+                                -50
+                              </button>
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.1"
+                                inputMode="decimal"
+                                value={currentActualReps ?? 0}
+                                onChange={(event) =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: normalizeNonNegativeNumber(event.target.value, 0),
+                                  })
+                                }
+                              />
+                              <button
+                                type="button"
+                                className="button ghost"
+                                onClick={() =>
+                                  updateCurrentPerformanceLine({
+                                    targetValue: Math.max(Number(currentActualReps ?? 0) + 50, 0),
+                                  })
+                                }
+                              >
+                                +50
+                              </button>
+                            </div>
+                          </label>
+                        </div>
+                      ) : (
+                        <div className="session-live-editor__controls">
+                          <label className="session-live-adjust-card session-live-adjust-card--textarea">
+                            <span>Texte libre</span>
+                            <textarea
+                              rows={3}
+                              value={currentActivePerformanceLine.note}
+                              onChange={(event) =>
+                                updateCurrentPerformanceLine({
+                                  note: event.target.value,
+                                })
+                              }
+                            />
+                          </label>
+                        </div>
+                      )}
+
+                      <div className="session-live-editor__meta">
+                        <span>{`Repos ${formatTimerClock(currentLineRestSeconds)}`}</span>
+                        {currentBlock.block_type === 'reps' ? (
+                          <span>{formatSessionVolumeKg((currentActualReps ?? 0) * (currentActualChargeKg ?? 0)) || '0 kg'}</span>
+                        ) : null}
+                        <span>{getSessionBlockTypeLabel(currentBlock.block_type)}</span>
+                      </div>
+
+                      <div className="session-live-performance-card__actions">
+                        <button
+                          type="button"
+                          className="button primary session-live-validate-button"
+                          onClick={
+                            !canValidateCurrentBlock
+                              ? undefined
+                              : isExercising
+                                ? handleValidateCurrent
+                                : handleStartCurrentSeries
+                          }
+                          disabled={!canValidateCurrentBlock}
+                        >
+                          {isExercising
+                            ? awaitingExerciseCompletion
+                              ? 'Terminer la serie'
+                              : isDurationBlock
+                                ? 'Terminer la serie'
+                                : usesSetBySetValidation
+                                  ? 'Valider la serie'
+                                  : 'Terminer le bloc'
+                            : currentCompletedSets > 0
+                              ? 'Lancer la serie suivante'
+                              : isDurationBlock
+                                ? 'Demarrer'
+                                : 'Valider la serie'}
                         </button>
+                        <button type="button" className="button ghost" onClick={addCurrentPerformanceLine}>
+                          + Ajouter une serie
+                        </button>
+                        {currentLivePerformanceTotalSets > 1 && currentCompletedSets < currentLivePerformanceTotalSets - 1 ? (
+                          <button type="button" className="button ghost" onClick={applyCurrentPerformanceToRemainingSets}>
+                            Appliquer aux series restantes
+                          </button>
+                        ) : null}
+                        <button type="button" className="button ghost" onClick={resetCurrentPerformanceDraft}>
+                          Revenir au prevu
+                        </button>
+                      </div>
+
+                      {validationFeedback ? (
+                        <p className="session-live-actions__hint" aria-live="polite">
+                          {validationFeedback}
+                        </p>
                       ) : null}
-                      <button type="button" className="button ghost" onClick={resetCurrentPerformanceDraft}>
-                        Revenir au prévu
-                      </button>
                     </div>
                   </article>
                 ) : null}
-
-                <div className="session-live-quick-stats">
-                  <article className="card session-live-quick-stat">
-                    <span>Bloc courant</span>
-                    <strong>{getSessionBlockTypeLabel(currentBlock.block_type)}</strong>
-                  </article>
-                  <article className="card session-live-quick-stat">
-                    <span>Progression bloc</span>
-                      <strong>{currentActivePerformanceLineSummary || currentSeriesLabel}</strong>
-                    </article>
-                  <article className="card session-live-quick-stat">
-                    <span>Duree estimee</span>
-                    <strong>{estimatedDurationSeconds ? formatElapsedDuration(estimatedDurationSeconds) : '-'}</strong>
-                  </article>
-                  <article className="card session-live-quick-stat">
-                    <span>Volume reel</span>
-                    <strong>{formatSessionVolumeKg(actualSessionVolume) || '-'}</strong>
-                  </article>
-                  <article className="card session-live-quick-stat">
-                    <span>Calories live</span>
-                    <strong>{formatEstimatedWorkoutCalories(estimatedCalories) || '-'}</strong>
-                  </article>
-                </div>
 
                 <LiveControls
                   onPrevious={goToPrevious}
@@ -3456,6 +3704,139 @@ export default function LiveSessionPage() {
                   nextDisabled={currentIndex >= blocks.length - 1 && resolvedBlockIds.includes(currentBlock.id)}
                   nextLabel={resolvedBlockIds.includes(currentBlock.id) ? 'Suivant' : 'Passer ce bloc'}
                 />
+
+                {isAddExerciseOpen ? (
+                  <article className="card session-live-inline-form">
+                    <div className="session-live-inline-form__header">
+                      <div>
+                        <span className="section-kicker">Live</span>
+                        <h2>Ajouter un exercice</h2>
+                      </div>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={() => setIsAddExerciseOpen(false)}
+                      >
+                        Fermer
+                      </button>
+                    </div>
+
+                    <div className="session-live-performance-grid session-live-performance-grid--compact">
+                      <label className="session-live-performance-field session-live-performance-field--full">
+                        <span>Nom</span>
+                        <input
+                          type="text"
+                          value={newExerciseName}
+                          onChange={(event) => setNewExerciseName(event.target.value)}
+                          placeholder="Developpe couche"
+                        />
+                      </label>
+
+                      <label className="session-live-performance-field">
+                        <span>Type</span>
+                        <select
+                          value={newExerciseType}
+                          onChange={(event) => setNewExerciseType(event.target.value as SessionBlockType)}
+                        >
+                          <option value="reps">Repetitions</option>
+                          <option value="duration">Duree</option>
+                          <option value="distance">Distance</option>
+                          <option value="free">Libre</option>
+                        </select>
+                      </label>
+
+                      <label className="session-live-performance-field">
+                        <span>Series</span>
+                        <input
+                          type="number"
+                          min={1}
+                          inputMode="numeric"
+                          value={newExerciseSets}
+                          onChange={(event) => setNewExerciseSets(event.target.value)}
+                        />
+                      </label>
+
+                      {newExerciseType !== 'free' ? (
+                        <label className="session-live-performance-field">
+                          <span>
+                            {newExerciseType === 'reps'
+                              ? 'Repetitions'
+                              : newExerciseType === 'duration'
+                                ? 'Duree (sec)'
+                                : 'Distance (m)'}
+                          </span>
+                          <input
+                            type="number"
+                            min={0}
+                            step={newExerciseType === 'distance' ? '0.1' : '1'}
+                            inputMode={newExerciseType === 'distance' ? 'decimal' : 'numeric'}
+                            value={newExerciseTargetValue}
+                            onChange={(event) => setNewExerciseTargetValue(event.target.value)}
+                          />
+                        </label>
+                      ) : null}
+
+                      {newExerciseType === 'reps' ? (
+                        <label className="session-live-performance-field">
+                          <span>Charge (kg)</span>
+                          <input
+                            type="number"
+                            min={0}
+                            step="0.5"
+                            inputMode="decimal"
+                            value={newExerciseChargeKg}
+                            onChange={(event) => setNewExerciseChargeKg(event.target.value)}
+                          />
+                        </label>
+                      ) : null}
+
+                      <label className="session-live-performance-field">
+                        <span>Repos (sec)</span>
+                        <input
+                          type="number"
+                          min={0}
+                          inputMode="numeric"
+                          value={newExerciseRestSeconds}
+                          onChange={(event) => setNewExerciseRestSeconds(event.target.value)}
+                        />
+                      </label>
+
+                      {newExerciseType === 'free' ? (
+                        <label className="session-live-performance-field session-live-performance-field--full">
+                          <span>Consigne</span>
+                          <textarea
+                            rows={3}
+                            value={newExerciseFreeText}
+                            onChange={(event) => setNewExerciseFreeText(event.target.value)}
+                            placeholder="Ajoute la consigne libre"
+                          />
+                        </label>
+                      ) : null}
+                    </div>
+
+                    <div className="session-live-performance-card__actions">
+                      <button type="button" className="button primary" onClick={addExerciseToLive}>
+                        Ajouter l'exercice
+                      </button>
+                      <button
+                        type="button"
+                        className="button ghost"
+                        onClick={() => {
+                          setIsAddExerciseOpen(false);
+                          setNewExerciseName('');
+                          setNewExerciseType('reps');
+                          setNewExerciseSets('1');
+                          setNewExerciseTargetValue('');
+                          setNewExerciseChargeKg('');
+                          setNewExerciseRestSeconds('60');
+                          setNewExerciseFreeText('');
+                        }}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                  </article>
+                ) : null}
 
                 <div className="session-live-actions session-live-actions--inline">
                   <button
@@ -3473,50 +3854,6 @@ export default function LiveSessionPage() {
                   </button>
                   <p className="session-live-actions__hint">{finishReviewHint}</p>
                 </div>
-
-                <article className="card session-live-rail-card">
-                  <div className="session-live-rail-card__top">
-                    <div>
-                      <span className="section-kicker">Sequence complete</span>
-                      <h2>Vue d ensemble</h2>
-                    </div>
-                    <span className="session-block-chip">{currentStatusLabel}</span>
-                  </div>
-
-                  <LiveSequenceList
-                    blocks={blocks}
-                    currentIndex={currentIndex}
-                    completedBlockIds={completedBlockIds}
-                    skippedBlockIds={skippedBlockIds}
-                    completedSetsByBlockId={completedSetsByBlockId}
-                    currentSeriesLabel={currentSeriesLabel}
-                    currentStatusLabel={currentStatusLabel}
-                    onSelect={goToBlockIndex}
-                  />
-                </article>
-
-                <article className="card session-live-rail-card">
-                  <div className="session-live-rail-card__top">
-                    <div>
-                      <span className="section-kicker">Apercu rapide</span>
-                      <h2>Plan de seance</h2>
-                    </div>
-                    <span className="session-block-chip">
-                      {allBlocksCompleted ? 'Termine' : isTimerPaused ? 'Pause' : 'En cours'}
-                    </span>
-                  </div>
-
-                  <LiveBlockPreviewRail
-                    blocks={blocks.map((block) => ({
-                      id: block.id,
-                      name: safeTrimText(block.name) || `Bloc ${block.position + 1}`,
-                      block_type: block.block_type,
-                    }))}
-                    currentIndex={currentIndex}
-                    completedBlockIds={completedBlockIds}
-                    onSelect={goToBlockIndex}
-                  />
-                </article>
               </>
             ) : null}
           </>

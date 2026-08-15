@@ -6704,6 +6704,430 @@ img {
   box-shadow: none;
 }
 
+.session-live-shell {
+  gap: 12px;
+  padding: 16px;
+  border-radius: 22px;
+}
+
+.session-live-shell__copy {
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-live-shell__headline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-live-shell__copy h1 {
+  font-size: clamp(1.2rem, 3.6vw, 1.7rem);
+}
+
+.session-live-shell__headline strong {
+  color: #f4f7f6;
+  font-size: 1rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.session-live-shell__meta--compact {
+  gap: 8px;
+}
+
+.session-live-shell__exercise-count {
+  color: #9fd8cf;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.session-live-shell__actions--compact {
+  gap: 8px;
+}
+
+.session-live-shell__actions--compact .button {
+  min-height: 38px;
+  padding-inline: 12px;
+  font-size: 0.84rem;
+}
+
+.session-live-progress__bar {
+  height: 8px;
+}
+
+.session-live-progress small,
+.session-live-shell__progress-note {
+  font-size: 0.8rem;
+}
+
+.session-live-focus-card--compact {
+  gap: 14px;
+  padding: 16px;
+  border-radius: 24px;
+}
+
+.session-live-focus-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.session-live-focus-card__hero--compact {
+  grid-template-columns: 82px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+}
+
+.session-live-focus-card__media {
+  display: grid;
+  place-items: center;
+  width: 82px;
+  height: 82px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(12, 28, 29, 0.96), rgba(8, 18, 19, 0.96));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.session-live-focus-card__hero-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.session-live-focus-card__hero-copy h2 {
+  margin: 0;
+  font-size: clamp(1.35rem, 4vw, 2rem);
+  line-height: 1.05;
+}
+
+.session-live-focus-card__hero-copy p {
+  margin: 0;
+  color: #bfd0cf;
+  font-size: 0.92rem;
+}
+
+.session-live-focus-card__stats-row {
+  display: flex;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  color: #9fb5b3;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.session-live-focus-card__stats-row span + span::before {
+  content: '•';
+  margin-right: 12px;
+  color: rgba(159, 181, 179, 0.6);
+}
+
+.session-live-focus-card__value--compact {
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 20px;
+}
+
+.session-live-focus-card__value--compact strong {
+  font-size: clamp(1.08rem, 3.8vw, 1.5rem);
+}
+
+.session-live-focus-card__value--compact span {
+  font-size: 0.86rem;
+}
+
+.session-live-focus-card__footer--compact {
+  gap: 8px;
+}
+
+.session-live-focus-card__action-hint,
+.session-live-focus-card__feedback {
+  text-align: left;
+}
+
+.session-live-card-menu {
+  position: relative;
+}
+
+.session-live-card-menu__trigger {
+  min-width: 42px;
+  min-height: 38px;
+  padding-inline: 10px;
+  font-size: 1rem;
+  letter-spacing: 0.18em;
+}
+
+.session-live-card-menu__panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 4;
+  display: grid;
+  min-width: 190px;
+  overflow: hidden;
+  border-radius: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, rgba(14, 30, 31, 0.98), rgba(9, 18, 19, 0.98));
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.28);
+}
+
+.session-live-card-menu__action {
+  min-height: 42px;
+  padding: 0 14px;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: #f4f7f6;
+  text-align: left;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.session-live-card-menu__action:first-child {
+  border-top: 0;
+}
+
+.session-live-card-menu__action:hover {
+  background: rgba(53, 230, 107, 0.08);
+}
+
+.session-live-performance-card__planned-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.session-live-line-item__summary {
+  grid-template-columns: auto auto minmax(0, 1fr) auto;
+}
+
+.session-live-line-item__index {
+  color: #f4f7f6;
+  font-size: 1.05rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.session-live-line-item__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+  color: #9fb5b3;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.session-live-line-item__badge--active {
+  border-color: rgba(53, 230, 107, 0.22);
+  background: rgba(53, 230, 107, 0.14);
+  color: #8cf1df;
+}
+
+.session-live-editor {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 20px;
+  border: 1px solid rgba(53, 230, 107, 0.16);
+  background: linear-gradient(180deg, rgba(14, 30, 31, 0.94), rgba(8, 18, 19, 0.94));
+}
+
+.session-live-editor__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.session-live-editor__top strong {
+  display: block;
+  margin-top: 2px;
+  color: #f4f7f6;
+  font-size: 1rem;
+}
+
+.session-live-editor__summary {
+  color: #8cf1df;
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+.session-live-editor__controls {
+  display: grid;
+  gap: 10px;
+}
+
+.session-live-editor__controls--double {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.session-live-adjust-card {
+  display: grid;
+  gap: 8px;
+}
+
+.session-live-adjust-card > span {
+  color: #bfd0cf;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.session-live-adjust-card--textarea textarea {
+  min-height: 88px;
+}
+
+.session-live-stepper--large {
+  grid-template-columns: 48px minmax(0, 1fr) 48px;
+  gap: 8px;
+}
+
+.session-live-stepper--large .button {
+  min-height: 52px;
+  padding: 0;
+  font-size: 1.1rem;
+}
+
+.session-live-stepper--large input {
+  min-height: 52px;
+  border-radius: 16px;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.session-live-editor__meta {
+  display: flex;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  color: #9fb5b3;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.session-live-validate-button {
+  width: 100%;
+  min-height: 50px;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.session-live-inline-form {
+  display: grid;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 22px;
+}
+
+.session-live-inline-form__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.session-live-inline-form__header h2 {
+  margin: 0;
+  color: #f4f7f6;
+  font-size: 1.05rem;
+}
+
+.session-live-performance-field--full {
+  grid-column: 1 / -1;
+}
+
+.session-live-performance-field select,
+.session-live-performance-field input,
+.session-live-performance-field textarea {
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 18, 19, 0.92);
+  color: #f4f7f6;
+}
+
+.session-live-rest-overlay {
+  gap: 14px;
+  padding: 16px;
+  border-radius: 22px;
+}
+
+.session-live-rest-overlay__ring {
+  width: min(180px, 46vw);
+}
+
+.session-live-rest-overlay__actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .session-live-shell__top,
+  .session-live-shell__headline {
+    align-items: flex-start;
+  }
+
+  .session-live-shell__headline {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .session-live-focus-card__hero--compact,
+  .session-live-performance-card__planned-row,
+  .session-live-editor__controls--double {
+    grid-template-columns: 1fr;
+  }
+
+  .session-live-line-item__summary {
+    grid-template-columns: auto auto minmax(0, 1fr);
+  }
+
+  .session-live-line-item__badge {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-left: 42px;
+  }
+
+  .session-live-rest-overlay__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 390px) {
+  .session-live-shell,
+  .session-live-focus-card--compact,
+  .session-live-performance-card,
+  .session-live-inline-form,
+  .session-live-rest-overlay {
+    padding: 14px;
+  }
+
+  .session-live-focus-card__media {
+    width: 72px;
+    height: 72px;
+  }
+
+  .session-live-stepper--large {
+    grid-template-columns: 44px minmax(0, 1fr) 44px;
+  }
+
+  .session-live-stepper--large input {
+    font-size: 1.32rem;
+  }
+
+  .session-live-performance-card__actions {
+    grid-template-columns: 1fr;
+  }
+}
+
 @keyframes session-live-validated-flash {
   0% {
     transform: scale(1);
