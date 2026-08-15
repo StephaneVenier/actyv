@@ -93,8 +93,10 @@ export function RecentActivityFeed({ loading, items, monthlySummary }: RecentAct
         <div className="home-month-summary__grid">
           {monthlySummary.map((item) => (
             <div key={item.label} className="home-month-summary__item">
-              <strong>{loading ? '...' : item.value}</strong>
-              {item.unit ? <span>{item.unit}</span> : null}
+              <div className="home-month-summary__value-row">
+                <strong>{loading ? '...' : item.value}</strong>
+                {item.unit ? <span>{item.unit}</span> : null}
+              </div>
               <small>{item.label}</small>
             </div>
           ))}

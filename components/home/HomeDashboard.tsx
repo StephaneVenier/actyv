@@ -55,7 +55,6 @@ export function HomeDashboard({
       <article className="card home-dashboard-summary">
         <div className="home-dashboard-summary__header">
           <span className="section-kicker home-dashboard-summary__kicker">ACTYV DASHBOARD</span>
-          <span className="home-dashboard-summary__eyebrow">Niveau {loading ? '...' : level}</span>
         </div>
 
         <div className="home-dashboard-summary__body">
@@ -63,29 +62,32 @@ export function HomeDashboard({
             <div className="home-dashboard-summary__ring" style={progressStyle}>
               <div className="home-dashboard-summary__ring-inner">
                 <strong>{loading ? '--' : formatPercent(progressPercent)}</strong>
+                <span>du niveau</span>
               </div>
             </div>
           </div>
 
-          <div className="home-dashboard-summary__copy">
+          <div className="home-dashboard-summary__main">
             <div className="home-dashboard-summary__level-row">
-              <span>Niveau actuel</span>
               <strong>{loading ? 'Chargement...' : `Niveau ${level}`}</strong>
             </div>
 
             <div className="home-dashboard-summary__xp-row">
               <strong>{loading ? '...' : `${formatNumber(totalXp)} XP`}</strong>
-              <span>
-                {loading ? 'Chargement...' : `${formatNumber(currentThreshold)} / ${formatNumber(nextThreshold)} XP`}
-              </span>
             </div>
 
             <div className="progress-bar home-dashboard-summary__bar" aria-hidden="true">
               <div style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} />
             </div>
 
+            <span className="home-dashboard-summary__progress-copy">
+              {loading ? 'Chargement...' : `${formatNumber(currentThreshold)} / ${formatNumber(nextThreshold)} XP`}
+            </span>
+          </div>
+
+          <div className="home-dashboard-summary__aside">
             <div className="home-dashboard-summary__meta">
-              <strong>{loading ? '--' : formatNumber(xpToNextLevel)}</strong>
+              <strong>{loading ? '--' : `${formatNumber(xpToNextLevel)} XP`}</strong>
               <span>avant le niveau suivant</span>
             </div>
           </div>
