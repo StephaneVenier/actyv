@@ -33,7 +33,7 @@ const sportBadgeConfigs: SportBadgeConfig[] = [
   { aliases: ['course', 'course a pied', 'running', 'run', 'jog'], icon: '🏃', tone: 'course' },
   { aliases: ['trail', 'randonnee', 'hike'], icon: '⛰', tone: 'trail' },
   { aliases: ['marche', 'walk'], icon: '🚶', tone: 'marche' },
-  { aliases: ['velo', 'bike', 'cycling', 'cyclisme'], icon: '🚲', tone: 'velo' },
+  { aliases: ['velo', 'bike', 'cycling', 'cyclisme', 'vtt', 'mtb', 'mountain bike'], icon: '🚲', tone: 'velo' },
   { aliases: ['yoga'], icon: '♥', tone: 'yoga' },
   { aliases: ['natation', 'swim'], icon: '🏊', tone: 'natation' },
 ];

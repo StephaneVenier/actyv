@@ -9,6 +9,8 @@ import {
   type MasteryMeasurementType,
   type ProcessSessionMasteriesResult,
   type ProcessedSessionMastery,
+  type ProcessActivityMasteriesResult,
+  type ProcessedActivityMastery,
   type MasteryProgressSnapshot,
   type MasterySource,
   type MasteryUnlock,
@@ -434,6 +436,66 @@ function normalizeProcessSessionMasteriesResult(data: unknown): ProcessSessionMa
   };
 }
 
+function mapProcessedActivityMastery(entry: unknown): ProcessedActivityMastery | null {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return null;
+  }
+
+  const payload = entry as Record<string, unknown>;
+  const unlockedLevels = Array.isArray(payload.unlocked_levels)
+    ? payload.unlocked_levels.flatMap((levelEntry) => {
+        if (!levelEntry || typeof levelEntry !== 'object' || Array.isArray(levelEntry)) {
+          return [];
+        }
+
+        const normalized = levelEntry as Record<string, unknown>;
+        return [
+          {
+            level: readPayloadNumber(normalized, 'level'),
+            xpReward: readPayloadNumber(normalized, 'xp_reward'),
+          },
+        ];
+      })
+    : [];
+
+  return {
+    entryId: typeof payload.entry_id === 'string' && payload.entry_id.length > 0 ? payload.entry_id : null,
+    masteryId: String(payload.mastery_id || ''),
+    masterySlug: String(payload.mastery_slug || ''),
+    masteryName: String(payload.mastery_name || ''),
+    inserted: Boolean(payload.inserted),
+    insertedValue: readPayloadNumber(payload, 'inserted_value'),
+    xpAwarded: readPayloadNumber(payload, 'xp_awarded'),
+    currentLevel: readPayloadNumber(payload, 'current_level'),
+    totalValue: readPayloadNumber(payload, 'total_value'),
+    progressPercent: readPayloadNumber(payload, 'progress_percent'),
+    unlockedLevels,
+  };
+}
+
+function normalizeProcessActivityMasteriesResult(data: unknown): ProcessActivityMasteriesResult {
+  const payload = (data || {}) as Record<string, unknown>;
+
+  return {
+    activityId: String(payload.activity_id || ''),
+    activitySport: String(payload.activity_sport || ''),
+    normalizedSport:
+      typeof payload.normalized_sport === 'string' && payload.normalized_sport.length > 0
+        ? payload.normalized_sport
+        : null,
+    candidateMasteriesCount: readPayloadNumber(payload, 'candidate_masteries_count'),
+    insertedEntriesCount: readPayloadNumber(payload, 'inserted_entries_count'),
+    xpAwardedTotal: readPayloadNumber(payload, 'xp_awarded_total'),
+    unsupportedSport: Boolean(payload.unsupported_sport),
+    ignoredReason: typeof payload.ignored_reason === 'string' && payload.ignored_reason.length > 0 ? payload.ignored_reason : null,
+    processedMasteries: Array.isArray(payload.processed_masteries)
+      ? payload.processed_masteries
+          .map(mapProcessedActivityMastery)
+          .filter((entry): entry is ProcessedActivityMastery => Boolean(entry))
+      : [],
+  };
+}
+
 export async function addMasteryEntry({
   masteryId,
   value,
@@ -475,4 +537,18 @@ export async function processSessionMasteries(workoutHistoryId: string) {
   }
 
   return normalizeProcessSessionMasteriesResult(data);
+}
+
+export async function processActivityMasteries(activityId: string) {
+  ensureSupabaseReady();
+
+  const { data, error } = await supabase.rpc('process_activity_masteries', {
+    p_activity_id: activityId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeProcessActivityMasteriesResult(data);
 }

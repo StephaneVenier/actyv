@@ -7,6 +7,13 @@ import { queuePendingToast } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 import { sports } from '@/components/challenge-data';
 import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
+import {
+  resolveActivityMasterySport,
+  supportsActivityDistanceMetric,
+  supportsActivityDurationMetric,
+  supportsActivityElevationMetric,
+} from '@/lib/activity-masteries';
+import { processActivityMasteries } from '@/lib/masteries-api';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -111,6 +118,9 @@ export default function NewActivityPageClient() {
   );
   const [selectedSport, setSelectedSport] = useState('');
   const [unitValue, setUnitValue] = useState('');
+  const [distanceValue, setDistanceValue] = useState('');
+  const [durationValue, setDurationValue] = useState('');
+  const [elevationGainValue, setElevationGainValue] = useState('');
   const [exerciseType, setExerciseType] = useState('');
   const [comment, setComment] = useState('');
 
@@ -190,9 +200,23 @@ export default function NewActivityPageClient() {
 
   useEffect(() => {
     setUnitValue('');
+    setDistanceValue('');
+    setDurationValue('');
+    setElevationGainValue('');
     setExerciseType('');
     setMessage(null);
   }, [selectedChallengeId]);
+
+  const selectedActivityMasterySport = useMemo(
+    () => resolveActivityMasterySport(selectedSport),
+    [selectedSport]
+  );
+  const supportsDistanceMetrics = supportsActivityDistanceMetric(selectedActivityMasterySport);
+  const supportsDurationMetrics = supportsActivityDurationMetric(selectedActivityMasterySport);
+  const supportsElevationMetrics = supportsActivityElevationMetric(selectedActivityMasterySport);
+  const showExtraDistanceField = supportsDistanceMetrics && selectedGoalType !== 'distance';
+  const showExtraDurationField = supportsDurationMetrics && selectedGoalType !== 'duration';
+  const showElevationField = supportsElevationMetrics;
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -226,6 +250,19 @@ export default function NewActivityPageClient() {
       }
 
       const parsedUnitValue = unitValue ? Number(unitValue) : null;
+      const parsedDistanceValue =
+        selectedGoalType === 'distance'
+          ? parsedUnitValue
+          : distanceValue
+            ? Number(distanceValue)
+            : null;
+      const parsedDurationValue =
+        selectedGoalType === 'duration'
+          ? parsedUnitValue
+          : durationValue
+            ? Number(durationValue)
+            : null;
+      const parsedElevationGainValue = elevationGainValue ? Number(elevationGainValue) : null;
 
       if (parsedUnitValue === null || Number.isNaN(parsedUnitValue) || parsedUnitValue <= 0) {
         setMessage('Merci de renseigner une valeur valide pour ton activité.');
@@ -235,6 +272,33 @@ export default function NewActivityPageClient() {
 
       if (selectedGoalType === 'reps' && !exerciseType) {
         setMessage("Merci de sélectionner le type d'exercice.");
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        parsedDistanceValue !== null &&
+        (Number.isNaN(parsedDistanceValue) || parsedDistanceValue <= 0)
+      ) {
+        setMessage('Merci de renseigner une distance valide.');
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        parsedDurationValue !== null &&
+        (Number.isNaN(parsedDurationValue) || parsedDurationValue <= 0)
+      ) {
+        setMessage('Merci de renseigner une durée valide.');
+        setSubmitting(false);
+        return;
+      }
+
+      if (
+        parsedElevationGainValue !== null &&
+        (Number.isNaN(parsedElevationGainValue) || parsedElevationGainValue < 0)
+      ) {
+        setMessage('Merci de renseigner un D+ valide.');
         setSubmitting(false);
         return;
       }
@@ -283,14 +347,19 @@ export default function NewActivityPageClient() {
         user_id: user.id,
         user_email: user.email,
         sport: selectedSport,
+        activity_name: null,
+        source: 'manual',
+        occurred_at: new Date().toISOString(),
         unit_type: selectedGoalType,
         unit_value: parsedUnitValue,
         exercise_type: selectedGoalType === 'reps' ? exerciseType : null,
         comment: comment.trim() || null,
+        elevation_gain_m: parsedElevationGainValue,
+        metadata: {},
 
         // Compatibilité avec l'ancien système
-        duration_minutes: selectedGoalType === 'duration' ? parsedUnitValue : null,
-        distance_km: selectedGoalType === 'distance' ? parsedUnitValue : null,
+        duration_minutes: parsedDurationValue,
+        distance_km: parsedDistanceValue,
       };
 
       const { data: createdActivity, error } = await supabase
@@ -304,6 +373,14 @@ export default function NewActivityPageClient() {
         setMessage("Impossible d'enregistrer l’activité.");
         setSubmitting(false);
         return;
+      }
+
+      if (createdActivity?.id) {
+        try {
+          await processActivityMasteries(createdActivity.id);
+        } catch (masteryError) {
+          console.error('Erreur traitement maitrises activité :', masteryError);
+        }
       }
 
       if (createdActivity?.id) {
@@ -443,6 +520,57 @@ export default function NewActivityPageClient() {
                 disabled={submitting || selectedChallengeCompleted}
               />
             </div>
+
+            {showExtraDistanceField && (
+              <div className="field">
+                <label htmlFor="distanceValue">Distance (km)</label>
+                <input
+                  id="distanceValue"
+                  name="distanceValue"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  placeholder="Ex : 12.4"
+                  value={distanceValue}
+                  onChange={(e) => setDistanceValue(e.target.value)}
+                  disabled={submitting || selectedChallengeCompleted}
+                />
+              </div>
+            )}
+
+            {showExtraDurationField && (
+              <div className="field">
+                <label htmlFor="durationValue">Durée (minutes)</label>
+                <input
+                  id="durationValue"
+                  name="durationValue"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Ex : 62"
+                  value={durationValue}
+                  onChange={(e) => setDurationValue(e.target.value)}
+                  disabled={submitting || selectedChallengeCompleted}
+                />
+              </div>
+            )}
+
+            {showElevationField && (
+              <div className="field">
+                <label htmlFor="elevationGainValue">D+ (m)</label>
+                <input
+                  id="elevationGainValue"
+                  name="elevationGainValue"
+                  type="number"
+                  min="0"
+                  step="1"
+                  placeholder="Ex : 180"
+                  value={elevationGainValue}
+                  onChange={(e) => setElevationGainValue(e.target.value)}
+                  disabled={submitting || selectedChallengeCompleted}
+                />
+              </div>
+            )}
 
             {selectedGoalType === 'reps' && (
               <div className="field">

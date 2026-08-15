@@ -4,6 +4,7 @@ export const sports = [
   'Course à pied',
   'Marche',
   'Vélo',
+  'VTT',
   'Fitness',
   'Musculation',
   'Trail',

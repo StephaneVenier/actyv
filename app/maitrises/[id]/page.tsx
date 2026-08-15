@@ -53,7 +53,8 @@ function getEntrySourceLabel(source: string, metadata: Record<string, unknown> |
   }
 
   if (source === 'activity') {
-    return 'Activite Actyv';
+    const activitySport = typeof metadata?.activity_sport === 'string' ? metadata.activity_sport.trim() : '';
+    return activitySport ? `Activite Actyv - ${activitySport}` : 'Activite Actyv';
   }
 
   if (source === 'import') {

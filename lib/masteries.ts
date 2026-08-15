@@ -154,6 +154,35 @@ export type ProcessSessionMasteriesResult = {
   incompatibleMappings: Array<Record<string, unknown>>;
 };
 
+export type ProcessedActivityMastery = {
+  entryId: string | null;
+  masteryId: string;
+  masterySlug: string;
+  masteryName: string;
+  inserted: boolean;
+  insertedValue: number;
+  xpAwarded: number;
+  currentLevel: number;
+  totalValue: number;
+  progressPercent: number;
+  unlockedLevels: Array<{
+    level: number;
+    xpReward: number;
+  }>;
+};
+
+export type ProcessActivityMasteriesResult = {
+  activityId: string;
+  activitySport: string;
+  normalizedSport: string | null;
+  candidateMasteriesCount: number;
+  insertedEntriesCount: number;
+  xpAwardedTotal: number;
+  unsupportedSport: boolean;
+  ignoredReason: string | null;
+  processedMasteries: ProcessedActivityMastery[];
+};
+
 export const MASTERY_CATEGORY_FALLBACKS: MasteryCategory[] = [
   { id: 'fitness', label: 'Fitness', sortOrder: 1 },
   { id: 'musculation', label: 'Musculation', sortOrder: 2 },
