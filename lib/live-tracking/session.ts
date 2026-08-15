@@ -13,6 +13,7 @@ export function createInitialLiveTrackingState(
   sport: LiveActivitySport = DEFAULT_LIVE_SPORT
 ): LiveTrackingState {
   return {
+    sessionId: null,
     status: 'idle',
     sport,
     startedAtMs: null,
@@ -28,12 +29,21 @@ export function createInitialLiveTrackingState(
     speedWindowPoints: [],
     elevationState: createInitialElevationState(),
     gpsStatus: 'searching',
+    lastSequence: 0,
     currentPaceSecondsPerKm: null,
     averagePaceSecondsPerKm: null,
     currentSpeedKmh: null,
     averageSpeedKmh: null,
     awaitingResumeRebase: false,
   };
+}
+
+export function createLiveSessionId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+
+  return `live-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
 }
 
 export function buildPersistedSession(state: LiveTrackingState): PersistedLiveSession {
@@ -74,4 +84,3 @@ export function buildLiveTrackingSummary(
     averageSpeedKmh,
   };
 }
-

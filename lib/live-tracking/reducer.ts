@@ -33,12 +33,22 @@ function handleGpsPointReceived(
   state: LiveTrackingState,
   point: LiveGpsPoint
 ): LiveTrackingState {
+  const nextSequence =
+    typeof point.sequence === 'number' && Number.isFinite(point.sequence)
+      ? Math.max(state.lastSequence, Math.trunc(point.sequence))
+      : state.lastSequence;
+
+  if (typeof point.sequence === 'number' && point.sequence <= state.lastSequence) {
+    return state;
+  }
+
   const gpsStatus = getGpsQuality(point);
 
   if (state.status === 'idle' || state.status === 'finished') {
     return {
       ...state,
       lastPoint: point,
+      lastSequence: nextSequence,
       gpsStatus,
     };
   }
@@ -47,6 +57,7 @@ function handleGpsPointReceived(
   const nextStateBase: LiveTrackingState = {
     ...state,
     lastPoint: point,
+    lastSequence: nextSequence,
     gpsStatus,
   };
 
@@ -112,6 +123,7 @@ export function liveTrackingReducer(state: LiveTrackingState, action: LiveTracki
     case 'START':
       return {
         ...createInitialLiveTrackingState(action.sport),
+        sessionId: action.sessionId,
         status: 'running',
         sport: action.sport,
         startedAtMs: action.nowMs,

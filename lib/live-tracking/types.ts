@@ -12,6 +12,8 @@ export type LivePrimaryMetric = 'pace' | 'speed';
 export type LiveGpsQuality = 'searching' | 'poor' | 'good' | 'excellent';
 
 export type LiveGpsPoint = {
+  sessionId?: string | null;
+  sequence?: number | null;
   latitude: number;
   longitude: number;
   altitude: number | null;
@@ -36,6 +38,7 @@ export type LiveElevationState = {
 };
 
 export type LiveTrackingState = {
+  sessionId: string | null;
   status: LiveTrackingStatus;
   sport: LiveActivitySport;
   startedAtMs: number | null;
@@ -51,6 +54,7 @@ export type LiveTrackingState = {
   speedWindowPoints: AcceptedGpsPoint[];
   elevationState: LiveElevationState;
   gpsStatus: LiveGpsQuality;
+  lastSequence: number;
   currentPaceSecondsPerKm: number | null;
   averagePaceSecondsPerKm: number | null;
   currentSpeedKmh: number | null;
@@ -76,11 +80,10 @@ export type PersistedLiveSession = {
 };
 
 export type LiveTrackingAction =
-  | { type: 'START'; sport: LiveActivitySport; nowMs: number }
+  | { type: 'START'; sport: LiveActivitySport; nowMs: number; sessionId: string }
   | { type: 'GPS_POINT_RECEIVED'; point: LiveGpsPoint }
   | { type: 'PAUSE'; nowMs: number }
   | { type: 'RESUME'; nowMs: number }
   | { type: 'FINISH'; nowMs: number }
   | { type: 'RESTORE_SESSION'; session: PersistedLiveSession }
   | { type: 'RESET'; sport?: LiveActivitySport };
-

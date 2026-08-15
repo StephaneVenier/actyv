@@ -10,6 +10,13 @@ export type LiveSportConfig = {
   minSegmentMeters: number;
 };
 
+export type LiveTrackingAndroidConfig = {
+  updateIntervalMs: number;
+  fastestIntervalMs: number;
+  minDistanceMeters: number;
+  priority: 'high-accuracy';
+};
+
 export const LIVE_GPS_ACCURACY_THRESHOLDS = {
   excellent: 10,
   good: 20,
@@ -20,6 +27,13 @@ export const LIVE_ELEVATION_CONFIG = {
   smoothingWindowSize: 5,
   minimumAccumulatedDeltaM: 3,
 } as const;
+
+export const LIVE_TRACKING_ANDROID_CONFIG: LiveTrackingAndroidConfig = {
+  updateIntervalMs: 2000,
+  fastestIntervalMs: 1000,
+  minDistanceMeters: 3,
+  priority: 'high-accuracy',
+};
 
 export const DEFAULT_LIVE_SPORT: LiveActivitySport = 'course-a-pied';
 
@@ -74,4 +88,3 @@ export const LIVE_SPORT_CONFIG: Record<LiveActivitySport, LiveSportConfig> = {
 export function getLiveSportConfig(sport: LiveActivitySport) {
   return LIVE_SPORT_CONFIG[sport];
 }
-

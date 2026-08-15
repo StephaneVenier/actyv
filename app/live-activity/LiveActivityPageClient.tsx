@@ -56,6 +56,9 @@ export default function LiveActivityPageClient() {
     activeDurationMs,
     summary,
     restorableSession,
+    platformStatus,
+    platformError,
+    nativeActionPending,
     start,
     pause,
     resume,
@@ -71,6 +74,7 @@ export default function LiveActivityPageClient() {
   const currentSport = state.status === 'idle' ? selectedSport : state.sport;
   const currentSportConfig = LIVE_SPORT_CONFIG[currentSport];
   const metricLabels = getMetricLabels(currentSportConfig);
+  const isAndroidNativeTracking = platformStatus.available && platformStatus.platform === 'android';
 
   const primaryMetricValue = useMemo(() => {
     if (currentSportConfig.primaryMetric === 'pace') {
@@ -115,6 +119,12 @@ export default function LiveActivityPageClient() {
               <p className="live-activity-shell__subtitle">
                 Prépare une vraie sortie terrain avec suivi local, chrono robuste et reprise en cas de retour dans l&apos;app.
               </p>
+              <div className="live-activity-shell__meta">
+                <span className="badge">{isAndroidNativeTracking ? 'GPS natif Android' : 'Mode web / debug'}</span>
+                {platformStatus.message ? (
+                  <span className="live-activity-shell__meta-text">{platformStatus.message}</span>
+                ) : null}
+              </div>
             </div>
 
             <Link href="/activities/new" className="button ghost live-activity-shell__link">
@@ -180,11 +190,18 @@ export default function LiveActivityPageClient() {
                 <button
                   type="button"
                   className="button primary live-activity-start-button"
-                  onClick={() => start(selectedSport)}
+                  onClick={() => void start(selectedSport)}
+                  disabled={nativeActionPending}
                 >
-                  Démarrer
+                  {nativeActionPending ? 'Démarrage...' : 'Démarrer'}
                 </button>
               </div>
+
+              {platformError ? (
+                <p className="live-activity-inline-message live-activity-inline-message--warning">
+                  {platformError}
+                </p>
+              ) : null}
             </section>
           )}
 
@@ -229,18 +246,39 @@ export default function LiveActivityPageClient() {
 
               <div className="live-activity-actions">
                 {state.status === 'running' ? (
-                  <button type="button" className="button primary" onClick={pause}>
-                    Pause
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => void pause()}
+                    disabled={nativeActionPending}
+                  >
+                    {nativeActionPending ? '...' : 'Pause'}
                   </button>
                 ) : (
-                  <button type="button" className="button primary" onClick={resume}>
-                    Reprendre
+                  <button
+                    type="button"
+                    className="button primary"
+                    onClick={() => void resume()}
+                    disabled={nativeActionPending}
+                  >
+                    {nativeActionPending ? '...' : 'Reprendre'}
                   </button>
                 )}
-                <button type="button" className="button ghost" onClick={finish}>
-                  Terminer
+                <button
+                  type="button"
+                  className="button ghost"
+                  onClick={() => void finish()}
+                  disabled={nativeActionPending}
+                >
+                  {nativeActionPending ? '...' : 'Terminer'}
                 </button>
               </div>
+
+              {platformError ? (
+                <p className="live-activity-inline-message live-activity-inline-message--warning">
+                  {platformError}
+                </p>
+              ) : null}
             </section>
           )}
 
