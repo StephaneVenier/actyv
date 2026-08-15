@@ -3,16 +3,15 @@ import type { Route } from 'next';
 import type { CSSProperties } from 'react';
 
 export type HomeDashboardStat = {
+  icon: string;
   label: string;
   value: string;
-  hint: string;
+  hint?: string | null;
   href: Route;
 };
 
 type HomeDashboardProps = {
   loading: boolean;
-  title: string;
-  subtitle: string;
   level: number;
   totalXp: number;
   progressPercent: number;
@@ -39,8 +38,6 @@ type RingStyle = CSSProperties & {
 
 export function HomeDashboard({
   loading,
-  title,
-  subtitle,
   level,
   totalXp,
   progressPercent,
@@ -57,17 +54,20 @@ export function HomeDashboard({
     <section className="home-dashboard-main">
       <article className="card home-dashboard-summary">
         <div className="home-dashboard-summary__header">
-          <div>
-            <span className="section-kicker">Actyv dashboard</span>
-            <h1>{title}</h1>
-          </div>
+          <span className="section-kicker home-dashboard-summary__kicker">ACTYV DASHBOARD</span>
           <span className="home-dashboard-summary__eyebrow">Niveau {loading ? '...' : level}</span>
         </div>
 
         <div className="home-dashboard-summary__body">
-          <div className="home-dashboard-summary__copy">
-            <p className="home-dashboard-summary__subtitle">{subtitle}</p>
+          <div className="home-dashboard-summary__ring-wrap">
+            <div className="home-dashboard-summary__ring" style={progressStyle}>
+              <div className="home-dashboard-summary__ring-inner">
+                <strong>{loading ? '--' : formatPercent(progressPercent)}</strong>
+              </div>
+            </div>
+          </div>
 
+          <div className="home-dashboard-summary__copy">
             <div className="home-dashboard-summary__level-row">
               <span>Niveau actuel</span>
               <strong>{loading ? 'Chargement...' : `Niveau ${level}`}</strong>
@@ -85,19 +85,8 @@ export function HomeDashboard({
             </div>
 
             <div className="home-dashboard-summary__meta">
-              <span>{loading ? '--' : formatPercent(progressPercent)}</span>
-              <span>
-                {loading ? 'Chargement...' : `${formatNumber(xpToNextLevel)} XP avant le prochain niveau`}
-              </span>
-            </div>
-          </div>
-
-          <div className="home-dashboard-summary__ring-wrap">
-            <div className="home-dashboard-summary__ring" style={progressStyle}>
-              <div className="home-dashboard-summary__ring-inner">
-                <strong>{loading ? '--' : formatPercent(progressPercent)}</strong>
-                <span>Progression</span>
-              </div>
+              <strong>{loading ? '--' : formatNumber(xpToNextLevel)}</strong>
+              <span>avant le niveau suivant</span>
             </div>
           </div>
         </div>
@@ -106,9 +95,14 @@ export function HomeDashboard({
       <div className="home-dashboard-stats-grid">
         {stats.map((stat) => (
           <Link key={stat.label} href={stat.href} className="home-dashboard-stat-card">
-            <span>{stat.label}</span>
+            <div className="home-dashboard-stat-card__top">
+              <span className="home-dashboard-stat-card__icon" aria-hidden="true">
+                {stat.icon}
+              </span>
+              <small>{stat.label}</small>
+            </div>
             <strong>{loading ? '...' : stat.value}</strong>
-            <small>{stat.hint}</small>
+            {stat.hint ? <span>{stat.hint}</span> : null}
           </Link>
         ))}
       </div>

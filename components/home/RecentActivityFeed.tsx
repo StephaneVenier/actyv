@@ -13,9 +13,16 @@ export type RecentActivityItem = {
   badgeLabel: string;
 };
 
+export type MonthlySummaryItem = {
+  label: string;
+  value: string;
+  unit?: string | null;
+};
+
 type RecentActivityFeedProps = {
   loading: boolean;
   items: RecentActivityItem[];
+  monthlySummary: MonthlySummaryItem[];
 };
 
 const FEED_ACCENT_LABELS: Record<RecentActivityItem['accent'], string> = {
@@ -24,7 +31,7 @@ const FEED_ACCENT_LABELS: Record<RecentActivityItem['accent'], string> = {
   mastery: 'XP',
 };
 
-export function RecentActivityFeed({ loading, items }: RecentActivityFeedProps) {
+export function RecentActivityFeed({ loading, items, monthlySummary }: RecentActivityFeedProps) {
   return (
     <section className="card home-recent-feed">
       <div className="home-recent-feed__header">
@@ -76,6 +83,23 @@ export function RecentActivityFeed({ loading, items }: RecentActivityFeedProps) 
       <Link href="/historique" className="button ghost home-recent-feed__cta">
         Voir tout l&apos;historique
       </Link>
+
+      <div className="home-month-summary">
+        <div className="home-month-summary__header">
+          <span className="section-kicker">Resume du mois</span>
+          <h3>RÉSUMÉ DU MOIS</h3>
+        </div>
+
+        <div className="home-month-summary__grid">
+          {monthlySummary.map((item) => (
+            <div key={item.label} className="home-month-summary__item">
+              <strong>{loading ? '...' : item.value}</strong>
+              {item.unit ? <span>{item.unit}</span> : null}
+              <small>{item.label}</small>
+            </div>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

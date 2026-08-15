@@ -5,7 +5,11 @@ import type { Route } from 'next';
 import { useEffect, useMemo, useState } from 'react';
 import { AppShell } from '@/components/AppShell';
 import { HomeDashboard, type HomeDashboardStat } from '@/components/home/HomeDashboard';
-import { RecentActivityFeed, type RecentActivityItem } from '@/components/home/RecentActivityFeed';
+import {
+  RecentActivityFeed,
+  type MonthlySummaryItem,
+  type RecentActivityItem,
+} from '@/components/home/RecentActivityFeed';
 import { getLevelProgress } from '@/lib/gamification';
 import { supabase } from '@/lib/supabase';
 import { loadUserStatistics } from '@/lib/user-statistics';
@@ -46,7 +50,6 @@ type MasteryLookupRow = {
 
 type HomeState = {
   loading: boolean;
-  dashboardName: string;
   level: number;
   totalXp: number;
   progressPercent: number;
@@ -55,6 +58,7 @@ type HomeState = {
   xpToNextLevel: number;
   stats: HomeDashboardStat[];
   recentItems: RecentActivityItem[];
+  monthlySummary: MonthlySummaryItem[];
 };
 
 function formatNumber(value: number) {
@@ -64,7 +68,6 @@ function formatNumber(value: number) {
 function getDefaultHomeState(): HomeState {
   return {
     loading: true,
-    dashboardName: 'Athlete',
     level: 1,
     totalXp: 0,
     progressPercent: 0,
@@ -72,12 +75,18 @@ function getDefaultHomeState(): HomeState {
     nextThreshold: 75,
     xpToNextLevel: 75,
     stats: [
-      { label: 'ACTIVITES', value: '0', hint: 'enregistrees', href: '/activities/new' },
-      { label: 'CHALLENGES', value: '0', hint: 'rejoints ou crees', href: '/challenges' as Route },
-      { label: 'SEANCES', value: '0', hint: 'realisees', href: '/sessions' as Route },
-      { label: 'PROGRAMMES', value: '0', hint: 'suivis', href: '/programs' as Route },
+      { icon: '↗', label: 'Activites', value: '0', hint: 'enregistrees', href: '/activities/new' },
+      { icon: '◎', label: 'Challenges', value: '0', hint: 'rejoints ou crees', href: '/challenges' as Route },
+      { icon: '▶', label: 'Seances', value: '0', hint: 'realisees', href: '/sessions' as Route },
+      { icon: '◫', label: 'Programmes', value: '0', hint: 'suivis', href: '/programs' as Route },
     ],
     recentItems: [],
+    monthlySummary: [
+      { label: 'Distance', value: '0', unit: 'km' },
+      { label: 'Temps actif', value: '0 min' },
+      { label: 'D+', value: '0', unit: 'm' },
+      { label: 'Activites', value: '0' },
+    ],
   };
 }
 
@@ -190,6 +199,13 @@ function formatTime(timestamp: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+}
+
+function formatDistanceValue(value: number) {
+  return new Intl.NumberFormat('fr-FR', {
+    minimumFractionDigits: value >= 100 ? 0 : 1,
+    maximumFractionDigits: 1,
+  }).format(Math.max(0, value));
 }
 
 function buildActivityFeedItem(row: RecentActivityRow): RecentActivityItem | null {
@@ -357,16 +373,27 @@ export default function HomePage() {
         const mergedRecentItems = [...recentActivities, ...recentWorkouts, ...recentUnlocks]
           .sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
           .slice(0, 5);
-
-        const displayName = stats.profile.username?.trim() || stats.profile.email?.split('@')[0] || 'Athlete';
         const levelProgress = getLevelProgress(stats.profile.totalXp);
         const challengesCount = stats.challenges.createdChallenges + stats.challenges.joinedChallenges;
         const programsCount = stats.programs.createdPrograms + stats.programs.joinedPrograms;
+        const sessionDurationHint =
+          stats.sessions.totalWorkoutDurationMinutes > 0
+            ? formatDurationMinutes(stats.sessions.totalWorkoutDurationMinutes)
+            : null;
+        const activitiesDistanceHint =
+          stats.month.distanceKm > 0 ? `${formatDistanceValue(stats.month.distanceKm)} km` : null;
+        const challengeHint =
+          stats.challenges.completedChallenges > 0
+            ? `${formatNumber(stats.challenges.completedChallenges)} termine${stats.challenges.completedChallenges > 1 ? 's' : ''}`
+            : null;
+        const programHint =
+          stats.programs.completedPrograms > 0
+            ? `${formatNumber(stats.programs.completedPrograms)} termine${stats.programs.completedPrograms > 1 ? 's' : ''}`
+            : null;
 
         if (!cancelled) {
           setHomeState({
             loading: false,
-            dashboardName: displayName,
             level: levelProgress.level,
             totalXp: stats.profile.totalXp,
             progressPercent: levelProgress.progressPercent,
@@ -375,31 +402,55 @@ export default function HomePage() {
             xpToNextLevel: levelProgress.xpToNextLevel,
             stats: [
               {
+                icon: '↗',
                 label: 'ACTIVITES',
                 value: formatNumber(stats.overview.totalActivities),
-                hint: 'enregistrees',
+                hint: activitiesDistanceHint || 'enregistrees',
                 href: '/activities/new' as Route,
               },
               {
+                icon: '◎',
                 label: 'CHALLENGES',
                 value: formatNumber(challengesCount),
-                hint: 'rejoints ou crees',
+                hint: challengeHint || 'rejoints ou crees',
                 href: '/challenges' as Route,
               },
               {
+                icon: '▶',
                 label: 'SEANCES',
                 value: formatNumber(stats.sessions.completedWorkouts),
-                hint: 'realisees',
+                hint: sessionDurationHint || 'realisees',
                 href: '/sessions' as Route,
               },
               {
+                icon: '◫',
                 label: 'PROGRAMMES',
                 value: formatNumber(programsCount),
-                hint: 'suivis',
+                hint: programHint || 'suivis',
                 href: '/programs' as Route,
               },
             ],
             recentItems: mergedRecentItems,
+            monthlySummary: [
+              {
+                label: 'Distance',
+                value: formatDistanceValue(stats.month.distanceKm),
+                unit: 'km',
+              },
+              {
+                label: 'Temps actif',
+                value: formatDurationMinutes(stats.month.durationMinutes) || '0 min',
+              },
+              {
+                label: 'D+',
+                value: formatNumber(stats.month.elevationGainM),
+                unit: 'm',
+              },
+              {
+                label: 'Activites',
+                value: formatNumber(stats.month.activitiesCount),
+              },
+            ],
           });
         }
       } catch (error) {
@@ -427,14 +478,6 @@ export default function HomePage() {
     };
   }, []);
 
-  const dashboardSubtitle = useMemo(() => {
-    if (homeState.loading) {
-      return 'Chargement de ton niveau et de ta progression.';
-    }
-
-    return `Bienvenue ${homeState.dashboardName}, tout ton suivi du moment dans un seul espace.`;
-  }, [homeState.dashboardName, homeState.loading]);
-
   return (
     <AppShell>
       <div className="home-page home-dashboard">
@@ -452,8 +495,6 @@ export default function HomePage() {
 
         <HomeDashboard
           loading={homeState.loading}
-          title="ACTYV DASHBOARD"
-          subtitle={dashboardSubtitle}
           level={homeState.level}
           totalXp={homeState.totalXp}
           progressPercent={homeState.progressPercent}
@@ -463,7 +504,11 @@ export default function HomePage() {
           stats={homeState.stats}
         />
 
-        <RecentActivityFeed loading={homeState.loading} items={homeState.recentItems} />
+        <RecentActivityFeed
+          loading={homeState.loading}
+          items={homeState.recentItems}
+          monthlySummary={homeState.monthlySummary}
+        />
       </div>
     </AppShell>
   );

@@ -15,8 +15,10 @@ type ActivityRow = {
   sport: string | null;
   distance_km: number | null;
   duration_minutes: number | null;
+  elevation_gain_m: number | null;
   unit_type: string | null;
   unit_value: number | null;
+  occurred_at: string | null;
   created_at: string | null;
 };
 
@@ -118,6 +120,12 @@ export type UserStatisticsSummary = {
     totalReps: number;
     activeDays: number;
     activitiesBySport: UserStatisticsSportRow[];
+  };
+  month: {
+    distanceKm: number;
+    durationMinutes: number;
+    elevationGainM: number;
+    activitiesCount: number;
   };
   movement: {
     todaySteps: number;
@@ -255,7 +263,7 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
       'activities',
       supabase
         .from('activities')
-        .select('id, sport, distance_km, duration_minutes, unit_type, unit_value, created_at')
+        .select('id, sport, distance_km, duration_minutes, elevation_gain_m, unit_type, unit_value, occurred_at, created_at')
         .or(`user_id.eq.${userId}${userEmail ? `,user_email.eq.${userEmail}` : ''}`),
       []
     ),
@@ -468,6 +476,23 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
   const todayIso = getLocalIsoDate();
   const weekStartIso = getWeekStartIsoDate();
   const monthStartIso = getMonthStartIsoDate();
+  const monthlyActivities = activityRows.filter((activity) => {
+    const activityDate = normalizeDateKey(activity.occurred_at || activity.created_at);
+    return Boolean(activityDate && activityDate >= monthStartIso && activityDate <= todayIso);
+  });
+  const monthDistanceKm = monthlyActivities.reduce((sum, activity) => {
+    const isDistance =
+      (activity.unit_type || (activity.distance_km !== null ? 'distance' : null)) === 'distance';
+    return isDistance ? sum + normalizeNumber(activity.unit_value ?? activity.distance_km ?? 0) : sum;
+  }, 0);
+  const monthDurationMinutes = monthlyActivities.reduce((sum, activity) => {
+    const isDuration = (activity.unit_type || (activity.duration_minutes !== null ? 'duration' : null)) === 'duration';
+    return isDuration ? sum + normalizeNumber(activity.unit_value ?? activity.duration_minutes ?? 0) : sum;
+  }, 0);
+  const monthElevationGainM = monthlyActivities.reduce(
+    (sum, activity) => sum + normalizeNumber(activity.elevation_gain_m),
+    0
+  );
 
   const todaySteps = dailySteps.find((entry) => entry.step_date === todayIso)?.steps_count || 0;
   const totalSteps = dailySteps.reduce((sum, entry) => sum + normalizeNumber(entry.steps_count), 0);
@@ -511,6 +536,12 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
       totalReps,
       activeDays,
       activitiesBySport,
+    },
+    month: {
+      distanceKm: monthDistanceKm,
+      durationMinutes: monthDurationMinutes,
+      elevationGainM: monthElevationGainM,
+      activitiesCount: monthlyActivities.length,
     },
     movement: {
       todaySteps,
