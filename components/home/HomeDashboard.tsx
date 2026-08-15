@@ -92,22 +92,22 @@ export function HomeDashboard({
             </div>
           </div>
         </div>
-      </article>
 
-      <div className="home-dashboard-stats-grid">
-        {stats.map((stat) => (
-          <Link key={stat.label} href={stat.href} className="home-dashboard-stat-card">
-            <div className="home-dashboard-stat-card__top">
-              <span className="home-dashboard-stat-card__icon" aria-hidden="true">
-                {stat.icon}
-              </span>
-              <small>{stat.label}</small>
-            </div>
-            <strong>{loading ? '...' : stat.value}</strong>
-            {stat.hint ? <span>{stat.hint}</span> : null}
-          </Link>
-        ))}
-      </div>
+        <div className="home-dashboard-stats-grid">
+          {stats.map((stat) => (
+            <Link key={stat.label} href={stat.href} className="home-dashboard-stat-card">
+              <div className="home-dashboard-stat-card__top">
+                <span className="home-dashboard-stat-card__icon" aria-hidden="true">
+                  {stat.icon}
+                </span>
+                <small>{stat.label}</small>
+              </div>
+              <strong>{loading ? '...' : stat.value}</strong>
+              {stat.hint ? <span>{stat.hint}</span> : null}
+            </Link>
+          ))}
+        </div>
+      </article>
     </section>
   );
 }

@@ -10881,14 +10881,19 @@ img {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0;
-  padding: 6px 4px 0;
-  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  margin-top: 6px;
+  padding: 10px 2px 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
 }
 
 .home-dashboard-stat-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   gap: 2px;
-  padding: 8px 6px 6px;
+  padding: 10px 4px 8px;
   color: inherit;
   text-decoration: none;
   position: relative;
@@ -10899,16 +10904,18 @@ img {
   content: '';
   position: absolute;
   left: 0;
-  top: 8px;
-  bottom: 8px;
+  top: 9px;
+  bottom: 9px;
   width: 1px;
-  background: rgba(148, 163, 184, 0.12);
+  background: rgba(148, 163, 184, 0.16);
 }
 
 .home-dashboard-stat-card__top {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  justify-content: center;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -10919,31 +10926,31 @@ img {
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: rgba(66, 221, 163, 0.1);
-  color: #86efac;
-  font-size: 0.62rem;
+  background: rgba(66, 221, 163, 0.14);
+  color: #4ade80;
+  font-size: 0.72rem;
   line-height: 1;
   flex-shrink: 0;
 }
 
 .home-dashboard-stat-card__top small {
-  color: #94a3b8;
-  font-size: 0.56rem;
+  color: #cbd5e1;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: 0;
   text-transform: none;
   line-height: 1.1;
 }
 
 .home-dashboard-stat-card strong {
-  color: #f8fafc;
-  font-size: 0.96rem;
-  line-height: 1;
+  color: #f1f5f9;
+  font-size: 1.02rem;
+  line-height: 1.05;
 }
 
 .home-dashboard-stat-card > span:last-child {
-  color: #cbd5e1;
-  font-size: 0.62rem;
+  color: #94a3b8;
+  font-size: 0.66rem;
   font-weight: 500;
   letter-spacing: 0;
   text-transform: none;
@@ -11200,23 +11207,23 @@ img {
     text-align: left;
   }
 
-  .home-dashboard-stats-grid,
   .home-month-summary__grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0;
   }
 
-  .home-dashboard-stat-card:nth-child(3)::before,
   .home-month-summary__item:nth-child(3)::before {
     display: none;
   }
 
-  .home-dashboard-stat-card:nth-child(odd),
+  .home-dashboard-stat-card {
+    padding-inline: 3px;
+  }
+
   .home-month-summary__item:nth-child(odd) {
     padding-left: 0;
   }
 
-  .home-dashboard-stat-card:nth-child(even),
   .home-month-summary__item:nth-child(even) {
     padding-right: 0;
   }
