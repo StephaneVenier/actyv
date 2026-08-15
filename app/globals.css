@@ -11138,6 +11138,8 @@ img {
 
 .home-month-summary__item {
   display: grid;
+  justify-items: center;
+  text-align: center;
   gap: 2px;
   padding: 7px 8px 6px;
   position: relative;
@@ -11156,6 +11158,7 @@ img {
 .home-month-summary__value-row {
   display: flex;
   align-items: baseline;
+  justify-content: center;
   gap: 4px;
   flex-wrap: wrap;
 }
@@ -11196,6 +11199,24 @@ img {
 
   .home-recent-row__aside {
     display: none;
+  }
+}
+
+@media (max-width: 360px) {
+  .home-month-summary__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-month-summary__item:nth-child(3)::before {
+    display: none;
+  }
+
+  .home-month-summary__item:nth-child(odd) {
+    padding-left: 0;
+  }
+
+  .home-month-summary__item:nth-child(even) {
+    padding-right: 0;
   }
 }
 

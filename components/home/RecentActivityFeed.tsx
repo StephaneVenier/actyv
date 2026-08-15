@@ -35,10 +35,7 @@ export function RecentActivityFeed({ loading, items, monthlySummary }: RecentAct
   return (
     <section className="card home-recent-feed">
       <div className="home-recent-feed__header">
-        <div>
-          <span className="section-kicker">Mon activite recente</span>
-          <h2>MON ACTIVITE RECENTE</h2>
-        </div>
+        <h2>MON ACTIVITE RECENTE</h2>
 
         <Link href="/historique" className="home-recent-feed__link">
           Voir tout
@@ -86,7 +83,6 @@ export function RecentActivityFeed({ loading, items, monthlySummary }: RecentAct
 
       <div className="home-month-summary">
         <div className="home-month-summary__header">
-          <span className="section-kicker">Resume du mois</span>
           <h3>RÉSUMÉ DU MOIS</h3>
         </div>
 
