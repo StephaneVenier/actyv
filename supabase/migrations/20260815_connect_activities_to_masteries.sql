@@ -3,10 +3,20 @@ begin;
 alter table if exists public.activities
   add column if not exists activity_name text,
   add column if not exists source text not null default 'manual',
-  add column if not exists occurred_at timestamptz not null default now(),
+  add column if not exists occurred_at timestamptz,
   add column if not exists elevation_gain_m numeric,
   add column if not exists elevation_loss_m numeric,
   add column if not exists metadata jsonb not null default '{}'::jsonb;
+
+update public.activities
+set occurred_at = created_at
+where occurred_at is null;
+
+alter table if exists public.activities
+  alter column occurred_at set default now();
+
+alter table if exists public.activities
+  alter column occurred_at set not null;
 
 create or replace function public.resolve_activity_mastery_sport(p_sport text)
 returns text
@@ -74,6 +84,13 @@ declare
   v_distance_km numeric := 0;
   v_duration_minutes numeric := 0;
   v_elevation_gain_m numeric := 0;
+  v_entry_candidates jsonb := '[]'::jsonb;
+  v_before_unlocks jsonb := '[]'::jsonb;
+  v_inserted_entries jsonb := '[]'::jsonb;
+  v_new_unlocks jsonb := '[]'::jsonb;
+  v_processed_masteries jsonb := '[]'::jsonb;
+  v_inserted_entries_count integer := 0;
+  v_xp_awarded_total integer := 0;
   v_result jsonb := '{}'::jsonb;
 begin
   if v_auth_user_id is null then
@@ -305,15 +322,77 @@ begin
      and masteries.active = true
     where raw_candidates.value is not null
       and raw_candidates.value > 0
-  ),
-  before_unlocks as (
+  )
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'mastery_id', entry_candidates.mastery_id,
+        'mastery_slug', entry_candidates.mastery_slug,
+        'mastery_name', entry_candidates.mastery_name,
+        'inserted_value', entry_candidates.inserted_value
+      )
+      order by entry_candidates.mastery_name asc
+    ),
+    '[]'::jsonb
+  )
+  into v_entry_candidates
+  from entry_candidates;
+
+  if jsonb_array_length(v_entry_candidates) = 0 then
+    return jsonb_build_object(
+      'activity_id', v_activity.id,
+      'activity_sport', coalesce(v_activity.sport, ''),
+      'normalized_sport', v_normalized_sport,
+      'candidate_masteries_count', 0,
+      'inserted_entries_count', 0,
+      'xp_awarded_total', 0,
+      'unsupported_sport', false,
+      'ignored_reason', null,
+      'processed_masteries', '[]'::jsonb
+    );
+  end if;
+
+  with entry_candidates as (
     select
-      mastery_level_unlocks.mastery_id,
-      mastery_level_unlocks.level
-    from public.mastery_level_unlocks
-    join entry_candidates
-      on entry_candidates.mastery_id = mastery_level_unlocks.mastery_id
-    where mastery_level_unlocks.user_id = v_auth_user_id
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric
+    )
+  )
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'mastery_id', mastery_level_unlocks.mastery_id,
+        'level', mastery_level_unlocks.level
+      )
+      order by mastery_level_unlocks.mastery_id, mastery_level_unlocks.level
+    ),
+    '[]'::jsonb
+  )
+  into v_before_unlocks
+  from public.mastery_level_unlocks
+  join entry_candidates
+    on entry_candidates.mastery_id = mastery_level_unlocks.mastery_id
+  where mastery_level_unlocks.user_id = v_auth_user_id;
+
+  with entry_candidates as (
+    select
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric
+    )
   ),
   inserted_entries as (
     insert into public.mastery_entries (
@@ -353,6 +432,44 @@ begin
       mastery_entries.id,
       mastery_entries.mastery_id,
       mastery_entries.value
+  )
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'entry_id', inserted_entries.id,
+          'mastery_id', inserted_entries.mastery_id,
+          'value', inserted_entries.value
+        )
+        order by inserted_entries.mastery_id
+      ),
+      '[]'::jsonb
+    ),
+    count(*)
+  into v_inserted_entries, v_inserted_entries_count
+  from inserted_entries;
+
+  with entry_candidates as (
+    select
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric
+    )
+  ),
+  before_unlocks as (
+    select
+      previous_unlock.mastery_id,
+      previous_unlock.level
+    from jsonb_to_recordset(v_before_unlocks) as previous_unlock(
+      mastery_id uuid,
+      level integer
+    )
   ),
   new_unlocks as (
     select
@@ -369,6 +486,57 @@ begin
         where before_unlocks.mastery_id = mastery_level_unlocks.mastery_id
           and before_unlocks.level = mastery_level_unlocks.level
       )
+  )
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'mastery_id', new_unlocks.mastery_id,
+          'level', new_unlocks.level,
+          'xp_awarded', new_unlocks.xp_awarded
+        )
+        order by new_unlocks.mastery_id, new_unlocks.level
+      ),
+      '[]'::jsonb
+    ),
+    coalesce(sum(new_unlocks.xp_awarded), 0)
+  into v_new_unlocks, v_xp_awarded_total
+  from new_unlocks;
+
+  with entry_candidates as (
+    select
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric
+    )
+  ),
+  inserted_entries as (
+    select
+      inserted_entry.entry_id,
+      inserted_entry.mastery_id,
+      inserted_entry.value
+    from jsonb_to_recordset(v_inserted_entries) as inserted_entry(
+      entry_id uuid,
+      mastery_id uuid,
+      value numeric
+    )
+  ),
+  new_unlocks as (
+    select
+      unlocked_entry.mastery_id,
+      unlocked_entry.level,
+      unlocked_entry.xp_awarded
+    from jsonb_to_recordset(v_new_unlocks) as unlocked_entry(
+      mastery_id uuid,
+      level integer,
+      xp_awarded integer
+    )
   ),
   processed_masteries as (
     select
@@ -376,8 +544,8 @@ begin
       entry_candidates.mastery_slug,
       entry_candidates.mastery_name,
       entry_candidates.inserted_value,
-      inserted_entries.id as entry_id,
-      (inserted_entries.id is not null) as inserted,
+      inserted_entries.entry_id,
+      (inserted_entries.entry_id is not null) as inserted,
       coalesce(
         (
           select sum(new_unlocks.xp_awarded)
@@ -405,39 +573,39 @@ begin
     left join inserted_entries
       on inserted_entries.mastery_id = entry_candidates.mastery_id
   )
-  select jsonb_build_object(
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'entry_id', processed_masteries.entry_id,
+        'mastery_id', processed_masteries.mastery_id,
+        'mastery_slug', processed_masteries.mastery_slug,
+        'mastery_name', processed_masteries.mastery_name,
+        'inserted', processed_masteries.inserted,
+        'inserted_value', processed_masteries.inserted_value,
+        'xp_awarded', processed_masteries.xp_awarded,
+        'unlocked_levels', processed_masteries.unlocked_levels,
+        'current_level', coalesce((processed_masteries.progress ->> 'current_level')::integer, 0),
+        'total_value', coalesce((processed_masteries.progress ->> 'total_value')::numeric, 0),
+        'progress_percent', coalesce((processed_masteries.progress ->> 'progress_percent')::numeric, 0)
+      )
+      order by processed_masteries.mastery_name asc
+    ),
+    '[]'::jsonb
+  )
+  into v_processed_masteries
+  from processed_masteries;
+
+  v_result := jsonb_build_object(
     'activity_id', v_activity.id,
     'activity_sport', coalesce(v_activity.sport, ''),
     'normalized_sport', v_normalized_sport,
-    'candidate_masteries_count', coalesce((select count(*) from entry_candidates), 0),
-    'inserted_entries_count', coalesce((select count(*) from inserted_entries), 0),
-    'xp_awarded_total', coalesce((select sum(new_unlocks.xp_awarded) from new_unlocks), 0),
+    'candidate_masteries_count', jsonb_array_length(v_entry_candidates),
+    'inserted_entries_count', v_inserted_entries_count,
+    'xp_awarded_total', v_xp_awarded_total,
     'unsupported_sport', false,
     'ignored_reason', null,
-    'processed_masteries', coalesce(
-      (
-        select jsonb_agg(
-          jsonb_build_object(
-            'entry_id', processed_masteries.entry_id,
-            'mastery_id', processed_masteries.mastery_id,
-            'mastery_slug', processed_masteries.mastery_slug,
-            'mastery_name', processed_masteries.mastery_name,
-            'inserted', processed_masteries.inserted,
-            'inserted_value', processed_masteries.inserted_value,
-            'xp_awarded', processed_masteries.xp_awarded,
-            'unlocked_levels', processed_masteries.unlocked_levels,
-            'current_level', coalesce((processed_masteries.progress ->> 'current_level')::integer, 0),
-            'total_value', coalesce((processed_masteries.progress ->> 'total_value')::numeric, 0),
-            'progress_percent', coalesce((processed_masteries.progress ->> 'progress_percent')::numeric, 0)
-          )
-          order by processed_masteries.mastery_name asc
-        )
-        from processed_masteries
-      ),
-      '[]'::jsonb
-    )
-  )
-  into v_result;
+    'processed_masteries', v_processed_masteries
+  );
 
   return coalesce(
     v_result,
