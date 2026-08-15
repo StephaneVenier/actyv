@@ -4271,6 +4271,13 @@ img {
   line-height: 1.6;
 }
 
+.activity-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
 .activity-context-card {
   margin-top: 18px;
   padding: 16px 18px;
@@ -4323,6 +4330,258 @@ img {
   width: 100%;
   min-height: 52px;
   font-size: 1.02rem;
+}
+
+.live-activity-page {
+  width: min(100%, 680px);
+  margin: 0 auto;
+}
+
+.live-activity-shell {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  border: 1px solid #1f2937;
+  background:
+    radial-gradient(circle at top right, rgba(34, 197, 94, 0.12), transparent 32%),
+    linear-gradient(180deg, rgba(11, 23, 24, 0.98), rgba(17, 24, 39, 0.98));
+  box-shadow: 0 24px 54px rgba(2, 8, 23, 0.24);
+}
+
+.live-activity-shell__header,
+.live-activity-dashboard__status-row,
+.live-activity-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.live-activity-shell__header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.live-activity-shell__title {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: clamp(1.44rem, 4vw, 1.92rem);
+  line-height: 1.04;
+}
+
+.live-activity-shell__subtitle {
+  margin: 0;
+  color: #94a3b8;
+  line-height: 1.45;
+}
+
+.live-activity-shell__link {
+  flex: 0 0 auto;
+}
+
+.live-activity-idle,
+.live-activity-dashboard,
+.live-activity-summary,
+.live-activity-restore-card,
+.live-debug-panel {
+  display: grid;
+  gap: 14px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid #1f2937;
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.live-activity-sport-grid,
+.live-debug-panel__grid,
+.live-activity-summary__grid,
+.live-activity-metric-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.live-activity-sport-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.live-sport-chip {
+  display: grid;
+  gap: 3px;
+  min-height: 72px;
+  padding: 12px;
+  border-radius: 18px;
+  border: 1px solid #1f2937;
+  background: #111827;
+  color: #f1f5f9;
+  text-align: left;
+  transition: transform 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.live-sport-chip:hover {
+  transform: translateY(-1px);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.live-sport-chip strong {
+  color: #f1f5f9;
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.live-sport-chip span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.live-sport-chip.is-active {
+  border-color: rgba(34, 197, 94, 0.48);
+  background:
+    linear-gradient(135deg, rgba(34, 197, 94, 0.16), rgba(15, 23, 42, 0.92)),
+    #0f172a;
+  box-shadow: 0 16px 34px rgba(34, 197, 94, 0.14);
+}
+
+.live-activity-actions {
+  flex-wrap: wrap;
+}
+
+.live-activity-actions--start {
+  justify-content: flex-start;
+}
+
+.live-activity-start-button {
+  min-width: 180px;
+}
+
+.live-activity-dashboard__status {
+  color: #f1f5f9;
+  font-size: 1rem;
+}
+
+.live-activity-dashboard__hero-metric {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  padding: 12px 10px;
+  border-radius: 18px;
+  background: rgba(7, 17, 18, 0.76);
+  border: 1px solid rgba(34, 197, 94, 0.12);
+}
+
+.live-activity-dashboard__hero-label {
+  color: #94a3b8;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.live-activity-dashboard__hero-metric strong {
+  color: #f1f5f9;
+  font-size: clamp(2rem, 8vw, 3.2rem);
+  line-height: 1;
+  text-align: center;
+}
+
+.live-activity-metric-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.live-activity-metric-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 10px;
+  border-radius: 16px;
+  border: 1px solid #1f2937;
+  background: #111827;
+}
+
+.live-activity-metric-card span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1.3;
+}
+
+.live-activity-metric-card strong {
+  color: #f1f5f9;
+  font-size: 1.04rem;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.live-gps-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #1f2937;
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  background: rgba(15, 23, 42, 0.8);
+}
+
+.live-gps-pill--searching,
+.live-gps-pill--poor {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.32);
+}
+
+.live-gps-pill--good {
+  color: #5eead4;
+  border-color: rgba(32, 183, 166, 0.32);
+}
+
+.live-gps-pill--excellent {
+  color: #4ade80;
+  border-color: rgba(74, 222, 128, 0.34);
+}
+
+.live-debug-panel h2,
+.live-activity-summary h2,
+.live-activity-restore-card h2 {
+  margin: 0;
+  color: #f1f5f9;
+  font-size: 1.04rem;
+}
+
+.live-debug-panel p,
+.live-activity-restore-card p {
+  margin: 0;
+  color: #94a3b8;
+}
+
+.live-debug-panel__grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 720px) {
+  .live-activity-shell {
+    padding: 16px;
+    border-radius: 20px;
+  }
+
+  .live-activity-shell__header,
+  .live-activity-dashboard__status-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .live-activity-sport-grid,
+  .live-activity-metric-grid,
+  .live-debug-panel__grid,
+  .live-activity-summary__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .live-activity-actions .button,
+  .activity-hero-actions .button {
+    width: 100%;
+    justify-content: center;
+  }
 }
 
 /* SESSIONS */

@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
@@ -448,6 +449,12 @@ export default function NewActivityPageClient() {
                 Renseigne rapidement ta séance pour mettre à jour ton challenge et suivre ta progression.
               </p>
             </div>
+          </div>
+
+          <div className="activity-hero-actions">
+            <Link href="/live-activity" className="button ghost">
+              Démarrer une activité Live
+            </Link>
           </div>
 
           {preselectedChallengeName && (
