@@ -83,6 +83,13 @@ public final class LiveTrackingManager {
             .apply();
     }
 
+    public static void markStopped(Context context) {
+        getPrefs(context)
+            .edit()
+            .putString(KEY_STATUS, STATUS_STOPPED)
+            .apply();
+    }
+
     public static void clearSession(Context context, String sessionId) {
         if (sessionId != null && !sessionId.isEmpty()) {
             deleteSessionFile(context, sessionId);
@@ -279,4 +286,3 @@ public final class LiveTrackingManager {
         }
     }
 }
-

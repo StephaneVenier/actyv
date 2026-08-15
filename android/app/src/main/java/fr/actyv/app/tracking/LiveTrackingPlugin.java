@@ -140,6 +140,11 @@ public class LiveTrackingPlugin extends Plugin {
             return;
         }
 
+        if (!LiveTrackingService.isServiceRunning()) {
+            call.resolve(buildStatus("Aucun suivi GPS actif à mettre en pause."));
+            return;
+        }
+
         Intent serviceIntent = new Intent(getContext(), LiveTrackingService.class);
         serviceIntent.setAction(LiveTrackingService.ACTION_PAUSE);
         serviceIntent.putExtra(
@@ -150,7 +155,7 @@ public class LiveTrackingPlugin extends Plugin {
             LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS,
             call.getLong(LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS, 0L)
         );
-        ContextCompat.startForegroundService(getContext(), serviceIntent);
+        getContext().startService(serviceIntent);
         call.resolve(buildStatus("Suivi mis en pause."));
     }
 
@@ -160,13 +165,18 @@ public class LiveTrackingPlugin extends Plugin {
             return;
         }
 
+        if (!LiveTrackingService.isServiceRunning()) {
+            call.resolve(buildStatus("Aucun suivi GPS actif à reprendre."));
+            return;
+        }
+
         Intent serviceIntent = new Intent(getContext(), LiveTrackingService.class);
         serviceIntent.setAction(LiveTrackingService.ACTION_RESUME);
         serviceIntent.putExtra(
             LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS,
             call.getLong(LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS, 0L)
         );
-        ContextCompat.startForegroundService(getContext(), serviceIntent);
+        getContext().startService(serviceIntent);
         call.resolve(buildStatus("Suivi repris."));
     }
 
@@ -176,9 +186,14 @@ public class LiveTrackingPlugin extends Plugin {
             return;
         }
 
+        if (!LiveTrackingService.isServiceRunning()) {
+            call.resolve(buildStatus("Le suivi GPS est déjà arrêté."));
+            return;
+        }
+
         Intent serviceIntent = new Intent(getContext(), LiveTrackingService.class);
         serviceIntent.setAction(LiveTrackingService.ACTION_STOP);
-        ContextCompat.startForegroundService(getContext(), serviceIntent);
+        getContext().startService(serviceIntent);
         call.resolve(buildStatus("Suivi GPS arrêté."));
     }
 
@@ -306,4 +321,3 @@ public class LiveTrackingPlugin extends Plugin {
         }
     }
 }
-

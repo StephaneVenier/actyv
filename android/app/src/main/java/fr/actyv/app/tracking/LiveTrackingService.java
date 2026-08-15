@@ -177,6 +177,8 @@ public class LiveTrackingService extends Service {
 
     private void handleStop() {
         String activeSessionId = sessionId != null ? sessionId : LiveTrackingManager.getSessionId(this);
+        trackingStatus = LiveTrackingManager.STATUS_STOPPED;
+        LiveTrackingManager.markStopped(this);
         stopLocationUpdates();
         broadcastStatus("Suivi GPS arrêté.");
         LiveTrackingManager.clearSession(this, activeSessionId);
@@ -385,4 +387,3 @@ public class LiveTrackingService extends Service {
         }
     }
 }
-
