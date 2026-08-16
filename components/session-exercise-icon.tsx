@@ -2,11 +2,13 @@
 
 import Image from 'next/image';
 import type { ReactNode } from 'react';
+import type { ExerciseVisualCategory } from '@/lib/exercise-library';
 import type { SessionBlockType } from '@/lib/session-blocks';
 
 type SessionExerciseIconProps = {
   exerciseName?: string | null;
   exerciseImageUrl?: string | null;
+  visualCategory?: ExerciseVisualCategory | null;
   sport?: string | null;
   blockType?: SessionBlockType | null;
   size?: 'sm' | 'md' | 'lg';
@@ -146,13 +148,30 @@ function WavesSvg() {
 
 export function getExerciseIcon({
   exerciseName,
+  visualCategory,
   sport,
   blockType,
-}: Pick<SessionExerciseIconProps, 'exerciseName' | 'sport' | 'blockType'>) {
+}: Pick<SessionExerciseIconProps, 'exerciseName' | 'visualCategory' | 'sport' | 'blockType'>) {
   const normalizedExercise = normalize(exerciseName);
   const normalizedSport = normalize(sport);
 
   const matches = (...keywords: string[]) => keywords.some((keyword) => normalizedExercise.includes(keyword));
+
+  if (visualCategory === 'RUNNING') {
+    return RouteSvg;
+  }
+
+  if (visualCategory === 'WALKING') {
+    return FootprintsSvg;
+  }
+
+  if (visualCategory === 'MOBILITY') {
+    return WavesSvg;
+  }
+
+  if (visualCategory === 'RECOVERY') {
+    return HeartPulseSvg;
+  }
 
   if (matches('repos', 'rest')) {
     return TimerSvg;
@@ -184,6 +203,10 @@ export function getExerciseIcon({
 
   if (matches('etirement', 'stretch', 'mobilite', 'mobility', 'yoga', 'pilates', 'souplesse')) {
     return WavesSvg;
+  }
+
+  if (matches('retour au calme', 'retour-calme', 'retour calme', 'cooldown', 'cool down', 'recuperation', 'recovery', 'respiration')) {
+    return HeartPulseSvg;
   }
 
   if (matches('cardio', 'hiit', 'burpee', 'air bike', 'jumping jack', 'mountain climber')) {
@@ -232,16 +255,22 @@ export function getExerciseIcon({
 export function SessionExerciseIcon({
   exerciseName,
   exerciseImageUrl,
+  visualCategory,
   sport,
   blockType,
   size = 'md',
   className,
 }: SessionExerciseIconProps) {
-  const Icon = getExerciseIcon({ exerciseName, sport, blockType });
+  const Icon = getExerciseIcon({ exerciseName, visualCategory, sport, blockType });
   const imageSize = getImageSize(size);
+  const categoryClassName = visualCategory ? ` exercise-icon-badge--category-${visualCategory.toLowerCase()}` : '';
 
   return (
-    <IconShell size={size} className={className} hasImage={Boolean(exerciseImageUrl)}>
+    <IconShell
+      size={size}
+      className={`${visualCategory ? 'exercise-icon-badge--category' : ''}${categoryClassName}${className ? ` ${className}` : ''}`}
+      hasImage={Boolean(exerciseImageUrl)}
+    >
       {exerciseImageUrl ? (
         <Image
           src={exerciseImageUrl}

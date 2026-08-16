@@ -199,6 +199,7 @@ export function SessionExercisePicker({
             <SessionExerciseIcon
               exerciseName={exercise.name}
               exerciseImageUrl={exercise.imageUrl}
+              visualCategory={exercise.visualCategory}
               sport={exercise.sport}
               blockType={exercise.trackingType}
               size="md"

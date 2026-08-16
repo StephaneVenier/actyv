@@ -2,6 +2,7 @@
 
 import { ReactNode, useMemo, useState } from 'react';
 import { SessionExerciseIcon } from '@/components/session-exercise-icon';
+import type { ExerciseVisualCategory } from '@/lib/exercise-library';
 import {
   formatBlockMainValue,
   formatSessionRestSeconds,
@@ -18,6 +19,7 @@ type CompactExerciseCardProps = {
   index: number;
   block: SessionBlockDisplayLike & { id?: string };
   exerciseImageUrl?: string | null;
+  exerciseVisualCategory?: ExerciseVisualCategory | null;
   isCompleted?: boolean;
   isCurrent?: boolean;
   completedSets?: number;
@@ -114,6 +116,7 @@ export function CompactExerciseCard({
   index,
   block,
   exerciseImageUrl,
+  exerciseVisualCategory,
   isCompleted = false,
   isCurrent = false,
   completedSets = 0,
@@ -156,6 +159,7 @@ export function CompactExerciseCard({
             <SessionExerciseIcon
               exerciseName={block.name}
               exerciseImageUrl={exerciseImageUrl}
+              visualCategory={exerciseVisualCategory}
               blockType={block.block_type}
               size="md"
             />

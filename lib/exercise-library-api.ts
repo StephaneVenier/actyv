@@ -5,6 +5,7 @@ import {
   findExerciseById,
   findExerciseBySlug,
   getExerciseImageUrl,
+  getExerciseVisualCategory,
   searchExercises as searchExerciseLibrary,
 } from '@/lib/exercise-library';
 
@@ -29,6 +30,10 @@ const EXERCISE_LIBRARY_SELECT = `
 `;
 
 function mapExerciseLibraryRow(row: any): ExerciseLibraryItem {
+  const metadata =
+    row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata) ? row.metadata : {};
+  const imagePath = typeof row.image_path === 'string' ? row.image_path : null;
+
   return {
     id: typeof row.id === 'string' ? row.id : null,
     slug: typeof row.slug === 'string' ? row.slug : '',
@@ -50,10 +55,11 @@ function mapExerciseLibraryRow(row: any): ExerciseLibraryItem {
     difficulty: typeof row.difficulty === 'string' ? row.difficulty : null,
     description: typeof row.description === 'string' ? row.description : null,
     instructions: typeof row.instructions === 'string' ? row.instructions : null,
-    imagePath: typeof row.image_path === 'string' ? row.image_path : null,
-    imageUrl: getExerciseImageUrl(typeof row.image_path === 'string' ? row.image_path : null),
+    imagePath,
+    imageUrl: getExerciseImageUrl(imagePath),
+    visualCategory: getExerciseVisualCategory(metadata),
     active: row.active !== false,
-    metadata: row.metadata && typeof row.metadata === 'object' && !Array.isArray(row.metadata) ? row.metadata : {},
+    metadata,
     source: 'supabase',
   };
 }

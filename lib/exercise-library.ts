@@ -1,6 +1,7 @@
 import type { SessionBlockType } from '@/lib/session-blocks';
 
 export const EXERCISE_IMAGE_BUCKET = 'exercise-images';
+export const EXERCISE_VISUAL_CATEGORIES = ['RUNNING', 'WALKING', 'MOBILITY', 'RECOVERY'] as const;
 
 export const EXERCISE_MUSCLE_GROUPS = [
   'pectoraux',
@@ -41,6 +42,7 @@ export const EXERCISE_EQUIPMENT_OPTIONS = [
 export type ExerciseMuscleGroup = (typeof EXERCISE_MUSCLE_GROUPS)[number];
 export type ExerciseEquipment = (typeof EXERCISE_EQUIPMENT_OPTIONS)[number];
 export type ExerciseCategory = string;
+export type ExerciseVisualCategory = (typeof EXERCISE_VISUAL_CATEGORIES)[number];
 
 export type ExerciseLibraryItem = {
   id: string | null;
@@ -59,18 +61,20 @@ export type ExerciseLibraryItem = {
   instructions: string | null;
   imagePath: string | null;
   imageUrl: string | null;
+  visualCategory: ExerciseVisualCategory | null;
   active: boolean;
   metadata: Record<string, unknown>;
   source: 'fallback' | 'supabase';
 };
 
-type FallbackExerciseSeed = Omit<ExerciseLibraryItem, 'id' | 'imageUrl' | 'source'>;
+type FallbackExerciseSeed = Omit<ExerciseLibraryItem, 'id' | 'imageUrl' | 'visualCategory' | 'source'>;
 
 function createFallbackExercise(seed: FallbackExerciseSeed): ExerciseLibraryItem {
   return {
     ...seed,
     id: null,
     imageUrl: getExerciseImageUrl(seed.imagePath),
+    visualCategory: getExerciseVisualCategory(seed.metadata),
     source: 'fallback',
   };
 }
@@ -109,6 +113,29 @@ export function getExerciseImageUrl(imagePath: string | null | undefined) {
   }
 
   return `${supabaseUrl}/storage/v1/object/public/${EXERCISE_IMAGE_BUCKET}/${encodeStoragePath(normalizedPath)}`;
+}
+
+export function getExerciseVisualCategory(
+  metadata: Record<string, unknown> | null | undefined
+): ExerciseVisualCategory | null {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) {
+    return null;
+  }
+
+  const visualSourceType =
+    typeof metadata.visual_source_type === 'string'
+      ? metadata.visual_source_type.trim().toLowerCase()
+      : null;
+  const visualCategory =
+    typeof metadata.visual_category === 'string' ? metadata.visual_category.trim().toUpperCase() : null;
+
+  if (visualSourceType !== 'actyv_category_icon' || !visualCategory) {
+    return null;
+  }
+
+  return EXERCISE_VISUAL_CATEGORIES.includes(visualCategory as ExerciseVisualCategory)
+    ? (visualCategory as ExerciseVisualCategory)
+    : null;
 }
 
 export const EXERCISE_LIBRARY: ExerciseLibraryItem[] = [

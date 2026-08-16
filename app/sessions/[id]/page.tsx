@@ -22,6 +22,7 @@ import {
   getSessionBlockVolumeKg,
 } from '@/lib/session-blocks';
 import { XP_RULES } from '@/lib/gamification';
+import type { ExerciseVisualCategory } from '@/lib/exercise-library';
 import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
@@ -259,6 +260,11 @@ function safeTrimText(value: string | null | undefined) {
   return typeof value === 'string' ? value.trim() : '';
 }
 
+type ExerciseVisualState = {
+  imageUrl: string | null;
+  visualCategory: ExerciseVisualCategory | null;
+};
+
 export default function SessionDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -274,7 +280,7 @@ export default function SessionDetailPage() {
   const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
   const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
-  const [exerciseImageUrlsById, setExerciseImageUrlsById] = useState<Record<string, string>>({});
+  const [exerciseVisualsById, setExerciseVisualsById] = useState<Record<string, ExerciseVisualState>>({});
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | null>(null);
   const [showAllPerformanceHistory, setShowAllPerformanceHistory] = useState(false);
@@ -521,7 +527,7 @@ export default function SessionDetailPage() {
     );
 
     if (exerciseIds.length === 0) {
-      setExerciseImageUrlsById({});
+      setExerciseVisualsById({});
       return;
     }
 
@@ -532,11 +538,17 @@ export default function SessionDetailPage() {
 
       if (isCancelled) return;
 
-      setExerciseImageUrlsById(
+      setExerciseVisualsById(
         Object.fromEntries(
           data
-            .filter((exercise) => exercise.id && exercise.imageUrl)
-            .map((exercise) => [exercise.id as string, exercise.imageUrl as string])
+            .filter((exercise) => exercise.id)
+            .map((exercise) => [
+              exercise.id as string,
+              {
+                imageUrl: exercise.imageUrl ?? null,
+                visualCategory: exercise.visualCategory ?? null,
+              },
+            ])
         )
       );
     };
@@ -1561,7 +1573,12 @@ export default function SessionDetailPage() {
                         key={block.id}
                         index={index}
                         block={block}
-                        exerciseImageUrl={block.exercise_id ? exerciseImageUrlsById[block.exercise_id] ?? null : null}
+                        exerciseImageUrl={
+                          block.exercise_id ? exerciseVisualsById[block.exercise_id]?.imageUrl ?? null : null
+                        }
+                        exerciseVisualCategory={
+                          block.exercise_id ? exerciseVisualsById[block.exercise_id]?.visualCategory ?? null : null
+                        }
                         variant="coach-compact"
                         isCompleted={isCompleted}
                         isCurrent={isCurrent}

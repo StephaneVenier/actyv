@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import type { ComponentProps, ReactNode } from 'react';
 import { SessionExerciseIcon } from '@/components/session-exercise-icon';
+import type { ExerciseVisualCategory } from '@/lib/exercise-library';
 import {
   formatBlockMainValue,
   formatSessionRestSeconds,
@@ -32,6 +33,7 @@ type SessionLiveHeaderProps = {
 type LiveBlockCardProps = {
   block: SessionBlockDisplayLike;
   exerciseImageUrl?: string | null;
+  exerciseVisualCategory?: ExerciseVisualCategory | null;
   blockIndex: number;
   totalBlocks: number;
   currentSeriesLabel: string;
@@ -76,6 +78,7 @@ type LiveWorkoutRowProps = {
   progressLabel: string;
   detailLabel?: string | null;
   exerciseImageUrl?: string | null;
+  exerciseVisualCategory?: ExerciseVisualCategory | null;
   index: number;
   state: 'done' | 'active' | 'upcoming' | 'skipped';
   isExpanded: boolean;
@@ -188,6 +191,7 @@ function getLivePrimaryValue(block: SessionBlockDisplayLike) {
 export function LiveBlockCard({
   block,
   exerciseImageUrl,
+  exerciseVisualCategory,
   blockIndex,
   totalBlocks,
   currentSeriesLabel,
@@ -224,6 +228,7 @@ export function LiveBlockCard({
           <SessionExerciseIcon
             exerciseName={block.name}
             exerciseImageUrl={exerciseImageUrl}
+            visualCategory={exerciseVisualCategory}
             sport={sportLabel}
             blockType={block.block_type}
             size="md"
@@ -417,6 +422,7 @@ export function LiveWorkoutRow({
   progressLabel,
   detailLabel,
   exerciseImageUrl,
+  exerciseVisualCategory,
   index,
   state,
   isExpanded,
@@ -440,6 +446,7 @@ export function LiveWorkoutRow({
         <SessionExerciseIcon
           exerciseName={title}
           exerciseImageUrl={exerciseImageUrl}
+          visualCategory={exerciseVisualCategory}
           sport={sportLabel}
           blockType={blockType}
           size="sm"

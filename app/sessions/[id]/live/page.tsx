@@ -29,6 +29,7 @@ import {
 } from '@/lib/session-blocks';
 import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { formatPercent } from '@/lib/display-format';
+import type { ExerciseVisualCategory } from '@/lib/exercise-library';
 import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { getActyvLevel, type ActyvLevelProgress } from '@/lib/levels';
 import { processSessionMasteries } from '@/lib/masteries-api';
@@ -88,6 +89,11 @@ type LiveState = {
   runKey: string;
   historySaved: boolean;
   startedSeriesKey: string | null;
+};
+
+type ExerciseVisualState = {
+  imageUrl: string | null;
+  visualCategory: ExerciseVisualCategory | null;
 };
 
 type NewPersonalRecord = {
@@ -437,7 +443,7 @@ export default function LiveSessionPage() {
 
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
-  const [exerciseImageUrlsById, setExerciseImageUrlsById] = useState<Record<string, string>>({});
+  const [exerciseVisualsById, setExerciseVisualsById] = useState<Record<string, ExerciseVisualState>>({});
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
@@ -902,7 +908,7 @@ export default function LiveSessionPage() {
     );
 
     if (exerciseIds.length === 0) {
-      setExerciseImageUrlsById({});
+      setExerciseVisualsById({});
       return;
     }
 
@@ -913,11 +919,17 @@ export default function LiveSessionPage() {
 
       if (isCancelled) return;
 
-      setExerciseImageUrlsById(
+      setExerciseVisualsById(
         Object.fromEntries(
           data
-            .filter((exercise) => exercise.id && exercise.imageUrl)
-            .map((exercise) => [exercise.id as string, exercise.imageUrl as string])
+            .filter((exercise) => exercise.id)
+            .map((exercise) => [
+              exercise.id as string,
+              {
+                imageUrl: exercise.imageUrl ?? null,
+                visualCategory: exercise.visualCategory ?? null,
+              },
+            ])
         )
       );
     };
@@ -3305,7 +3317,14 @@ export default function LiveSessionPage() {
                             title={safeTrimText(block.name) || `Bloc ${index + 1}`}
                             subtitle={subtitle}
                             progressLabel={`${Math.min(completedSets, totalSets)}/${totalSets}`}
-                            exerciseImageUrl={block.exercise_id ? exerciseImageUrlsById[block.exercise_id] ?? null : null}
+                            exerciseImageUrl={
+                              block.exercise_id ? exerciseVisualsById[block.exercise_id]?.imageUrl ?? null : null
+                            }
+                            exerciseVisualCategory={
+                              block.exercise_id
+                                ? exerciseVisualsById[block.exercise_id]?.visualCategory ?? null
+                                : null
+                            }
                             detailLabel={
                               isSkipped
                                 ? 'Passe'
@@ -3667,7 +3686,12 @@ export default function LiveSessionPage() {
                   key={`${currentBlock.id}-${currentCompletedSets}`}
                   block={currentBlock}
                   exerciseImageUrl={
-                    currentBlock.exercise_id ? exerciseImageUrlsById[currentBlock.exercise_id] ?? null : null
+                    currentBlock.exercise_id ? exerciseVisualsById[currentBlock.exercise_id]?.imageUrl ?? null : null
+                  }
+                  exerciseVisualCategory={
+                    currentBlock.exercise_id
+                      ? exerciseVisualsById[currentBlock.exercise_id]?.visualCategory ?? null
+                      : null
                   }
                   blockIndex={currentIndex}
                   totalBlocks={blocks.length}
