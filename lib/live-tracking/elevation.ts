@@ -1,5 +1,5 @@
-import { LIVE_ELEVATION_CONFIG } from '@/lib/live-tracking/config';
-import type { LiveElevationState, LiveGpsPoint } from '@/lib/live-tracking/types';
+import { LIVE_ELEVATION_CONFIG } from './config';
+import type { LiveElevationState, LiveGpsPoint } from './types';
 
 export function createInitialElevationState(): LiveElevationState {
   return {
@@ -9,47 +9,120 @@ export function createInitialElevationState(): LiveElevationState {
     pendingLossM: 0,
     totalGainM: 0,
     totalLossM: 0,
+    lastAltitudeAccuracyM: null,
   };
 }
 
-function average(values: number[]) {
+function median(values: number[]) {
   if (values.length === 0) {
     return null;
   }
 
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  const sortedValues = [...values].sort((a, b) => a - b);
+  const middleIndex = Math.floor(sortedValues.length / 2);
+
+  if (sortedValues.length % 2 === 0) {
+    return (sortedValues[middleIndex - 1] + sortedValues[middleIndex]) / 2;
+  }
+
+  return sortedValues[middleIndex];
+}
+
+export function normalizeElevationState(
+  previousState: LiveElevationState | null | undefined
+): LiveElevationState {
+  if (!previousState) {
+    return createInitialElevationState();
+  }
+
+  return {
+    recentAltitudesM: Array.isArray(previousState.recentAltitudesM)
+      ? previousState.recentAltitudesM.filter((value) => Number.isFinite(value))
+      : [],
+    lastSmoothedAltitudeM:
+      typeof previousState.lastSmoothedAltitudeM === 'number' &&
+      Number.isFinite(previousState.lastSmoothedAltitudeM)
+        ? previousState.lastSmoothedAltitudeM
+        : null,
+    pendingGainM:
+      typeof previousState.pendingGainM === 'number' && Number.isFinite(previousState.pendingGainM)
+        ? previousState.pendingGainM
+        : 0,
+    pendingLossM:
+      typeof previousState.pendingLossM === 'number' && Number.isFinite(previousState.pendingLossM)
+        ? previousState.pendingLossM
+        : 0,
+    totalGainM:
+      typeof previousState.totalGainM === 'number' && Number.isFinite(previousState.totalGainM)
+        ? previousState.totalGainM
+        : 0,
+    totalLossM:
+      typeof previousState.totalLossM === 'number' && Number.isFinite(previousState.totalLossM)
+        ? previousState.totalLossM
+        : 0,
+    lastAltitudeAccuracyM:
+      typeof previousState.lastAltitudeAccuracyM === 'number' &&
+      Number.isFinite(previousState.lastAltitudeAccuracyM)
+        ? previousState.lastAltitudeAccuracyM
+        : null,
+  };
 }
 
 export function updateElevation(
   previousState: LiveElevationState,
   nextPoint: LiveGpsPoint
 ): LiveElevationState {
+  const normalizedState = normalizeElevationState(previousState);
+
   if (nextPoint.altitude === null || !Number.isFinite(nextPoint.altitude)) {
-    return previousState;
+    return normalizedState;
   }
 
-  const recentAltitudesM = [...previousState.recentAltitudesM, nextPoint.altitude].slice(
-    -LIVE_ELEVATION_CONFIG.smoothingWindowSize
-  );
-  const nextSmoothedAltitude = average(recentAltitudesM);
-
-  if (nextSmoothedAltitude === null) {
-    return previousState;
-  }
-
-  if (previousState.lastSmoothedAltitudeM === null) {
+  if (
+    nextPoint.altitudeAccuracy !== null &&
+    nextPoint.altitudeAccuracy !== undefined &&
+    Number.isFinite(nextPoint.altitudeAccuracy) &&
+    nextPoint.altitudeAccuracy > LIVE_ELEVATION_CONFIG.maxAcceptedAltitudeAccuracyM
+  ) {
     return {
-      ...previousState,
-      recentAltitudesM,
-      lastSmoothedAltitudeM: nextSmoothedAltitude,
+      ...normalizedState,
+      lastAltitudeAccuracyM: nextPoint.altitudeAccuracy,
     };
   }
 
-  const deltaM = nextSmoothedAltitude - previousState.lastSmoothedAltitudeM;
-  let pendingGainM = previousState.pendingGainM;
-  let pendingLossM = previousState.pendingLossM;
-  let totalGainM = previousState.totalGainM;
-  let totalLossM = previousState.totalLossM;
+  const recentAltitudesM = [...normalizedState.recentAltitudesM, nextPoint.altitude].slice(
+    -LIVE_ELEVATION_CONFIG.smoothingWindowSize
+  );
+  const nextSmoothedAltitude = median(recentAltitudesM);
+
+  if (nextSmoothedAltitude === null) {
+    return normalizedState;
+  }
+
+  if (normalizedState.lastSmoothedAltitudeM === null) {
+    return {
+      ...normalizedState,
+      recentAltitudesM,
+      lastSmoothedAltitudeM: nextSmoothedAltitude,
+      lastAltitudeAccuracyM:
+        typeof nextPoint.altitudeAccuracy === 'number' ? nextPoint.altitudeAccuracy : null,
+    };
+  }
+
+  const deltaM = nextSmoothedAltitude - normalizedState.lastSmoothedAltitudeM;
+  if (Math.abs(deltaM) < LIVE_ELEVATION_CONFIG.minimumStepDeltaM) {
+    return {
+      ...normalizedState,
+      recentAltitudesM,
+      lastAltitudeAccuracyM:
+        typeof nextPoint.altitudeAccuracy === 'number' ? nextPoint.altitudeAccuracy : null,
+    };
+  }
+
+  let pendingGainM = normalizedState.pendingGainM;
+  let pendingLossM = normalizedState.pendingLossM;
+  let totalGainM = normalizedState.totalGainM;
+  let totalLossM = normalizedState.totalLossM;
 
   if (deltaM > 0) {
     pendingGainM += deltaM;
@@ -76,6 +149,7 @@ export function updateElevation(
     pendingLossM,
     totalGainM,
     totalLossM,
+    lastAltitudeAccuracyM:
+      typeof nextPoint.altitudeAccuracy === 'number' ? nextPoint.altitudeAccuracy : null,
   };
 }
-

@@ -35,6 +35,7 @@ export type LiveElevationState = {
   pendingLossM: number;
   totalGainM: number;
   totalLossM: number;
+  lastAltitudeAccuracyM?: number | null;
 };
 
 export type LiveTrackingState = {

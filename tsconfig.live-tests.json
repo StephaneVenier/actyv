@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": ".tmp-live-tests",
+    "rootDir": "lib/live-tracking",
+    "incremental": false,
+    "noEmit": false,
+    "declaration": false,
+    "emitDeclarationOnly": false
+  },
+  "include": [
+    "lib/live-tracking/types.ts",
+    "lib/live-tracking/config.ts",
+    "lib/live-tracking/distance.ts",
+    "lib/live-tracking/filters.ts",
+    "lib/live-tracking/elevation.ts",
+    "lib/live-tracking/calibration.test.ts"
+  ]
+}

@@ -1,6 +1,10 @@
-import { LIVE_GPS_ACCURACY_THRESHOLDS, getLiveSportConfig } from '@/lib/live-tracking/config';
-import { distanceBetweenPointsMeters } from '@/lib/live-tracking/distance';
-import type { LiveActivitySport, LiveGpsPoint, LiveGpsQuality } from '@/lib/live-tracking/types';
+import {
+  LIVE_GPS_ACCURACY_THRESHOLDS,
+  LIVE_GPS_FILTER_CONFIG,
+  getLiveSportConfig,
+} from './config';
+import { distanceBetweenPointsMeters } from './distance';
+import type { LiveActivitySport, LiveGpsPoint, LiveGpsQuality } from './types';
 
 export type GpsPointAcceptanceResult = {
   accepted: boolean;
@@ -36,14 +40,34 @@ export function getGpsQuality(point: LiveGpsPoint | null): LiveGpsQuality {
   return 'excellent';
 }
 
-function getMinimumAcceptedSegmentMeters(nextPoint: LiveGpsPoint, sport: LiveActivitySport) {
-  const baseThreshold = getLiveSportConfig(sport).minSegmentMeters;
+function getPointAccuracyMeters(point: LiveGpsPoint | null) {
+  if (!point || point.accuracy === null || !Number.isFinite(point.accuracy)) {
+    return null;
+  }
 
-  if (nextPoint.accuracy === null || !Number.isFinite(nextPoint.accuracy)) {
+  return point.accuracy;
+}
+
+function getMinimumAcceptedSegmentMeters(
+  previousPoint: LiveGpsPoint | null,
+  nextPoint: LiveGpsPoint,
+  sport: LiveActivitySport
+) {
+  const baseThreshold = getLiveSportConfig(sport).minSegmentMeters;
+  const previousAccuracy = getPointAccuracyMeters(previousPoint);
+  const nextAccuracy = getPointAccuracyMeters(nextPoint);
+  const effectiveAccuracy = Math.max(previousAccuracy ?? 0, nextAccuracy ?? 0);
+
+  if (effectiveAccuracy <= 0) {
     return baseThreshold;
   }
 
-  return Math.max(baseThreshold, Math.min(nextPoint.accuracy * 0.08, 3));
+  const accuracyThreshold = Math.min(
+    effectiveAccuracy * LIVE_GPS_FILTER_CONFIG.accuracySegmentFactor,
+    LIVE_GPS_FILTER_CONFIG.maxDynamicSegmentMeters
+  );
+
+  return Math.max(baseThreshold, accuracyThreshold);
 }
 
 export function evaluateGpsPointSegment(
@@ -83,7 +107,7 @@ export function evaluateGpsPointSegment(
   }
 
   const segmentDistanceM = distanceBetweenPointsMeters(previousPoint, nextPoint);
-  const minimumSegmentMeters = getMinimumAcceptedSegmentMeters(nextPoint, sport);
+  const minimumSegmentMeters = getMinimumAcceptedSegmentMeters(previousPoint, nextPoint, sport);
 
   if (segmentDistanceM < minimumSegmentMeters) {
     return {
@@ -122,4 +146,3 @@ export function shouldAcceptGpsPoint(
 ) {
   return evaluateGpsPointSegment(previousPoint, nextPoint, sport).accepted;
 }
-

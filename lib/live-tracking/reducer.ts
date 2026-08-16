@@ -1,5 +1,5 @@
 import { getLiveSportConfig } from '@/lib/live-tracking/config';
-import { updateElevation } from '@/lib/live-tracking/elevation';
+import { normalizeElevationState, updateElevation } from '@/lib/live-tracking/elevation';
 import { evaluateGpsPointSegment, getGpsQuality } from '@/lib/live-tracking/filters';
 import { calculateAveragePaceSecondsPerKm, calculateAverageSpeedKmh, calculateSmoothedPaceSecondsPerKm, calculateSmoothedSpeedKmh, trimSpeedWindowPoints } from '@/lib/live-tracking/pace';
 import { createInitialLiveTrackingState } from '@/lib/live-tracking/session';
@@ -198,7 +198,13 @@ export function liveTrackingReducer(state: LiveTrackingState, action: LiveTracki
     }
 
     case 'RESTORE_SESSION':
-      return withUpdatedDerivedMetrics(action.session.state, Date.now());
+      return withUpdatedDerivedMetrics(
+        {
+          ...action.session.state,
+          elevationState: normalizeElevationState(action.session.state.elevationState),
+        },
+        Date.now()
+      );
 
     case 'RESET':
       return createInitialLiveTrackingState(action.sport ?? state.sport);

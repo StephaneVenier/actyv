@@ -1,4 +1,4 @@
-import type { LiveActivitySport, LivePrimaryMetric } from '@/lib/live-tracking/types';
+import type { LiveActivitySport, LivePrimaryMetric } from './types';
 
 export type LiveSportConfig = {
   slug: LiveActivitySport;
@@ -17,15 +17,27 @@ export type LiveTrackingAndroidConfig = {
   priority: 'high-accuracy';
 };
 
+export type LiveGpsFilterConfig = {
+  accuracySegmentFactor: number;
+  maxDynamicSegmentMeters: number;
+};
+
 export const LIVE_GPS_ACCURACY_THRESHOLDS = {
   excellent: 10,
   good: 20,
   maxAccepted: 35,
 } as const;
 
+export const LIVE_GPS_FILTER_CONFIG: LiveGpsFilterConfig = {
+  accuracySegmentFactor: 0.2,
+  maxDynamicSegmentMeters: 6,
+} as const;
+
 export const LIVE_ELEVATION_CONFIG = {
-  smoothingWindowSize: 5,
-  minimumAccumulatedDeltaM: 3,
+  smoothingWindowSize: 3,
+  minimumStepDeltaM: 1.5,
+  minimumAccumulatedDeltaM: 4,
+  maxAcceptedAltitudeAccuracyM: 16,
 } as const;
 
 export const LIVE_TRACKING_ANDROID_CONFIG: LiveTrackingAndroidConfig = {
@@ -63,7 +75,7 @@ export const LIVE_SPORT_CONFIG: Record<LiveActivitySport, LiveSportConfig> = {
     maxAcceptedSpeedKmh: 18,
     smoothingWindowMs: 18000,
     smoothingMaxPoints: 6,
-    minSegmentMeters: 1.2,
+    minSegmentMeters: 1.8,
   },
   velo: {
     slug: 'velo',
