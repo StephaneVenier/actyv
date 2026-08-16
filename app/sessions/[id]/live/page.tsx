@@ -12,6 +12,8 @@ import {
   LiveControls,
   RestTimerOverlay,
   SessionLiveHeader,
+  LiveSetRow,
+  LiveWorkoutRow,
 } from '@/components/session-live-ui';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { formatSportBadgeLabel, getSportBadgeClassName } from '@/components/sport-badge';
@@ -1115,7 +1117,55 @@ export default function LiveSessionPage() {
     ? allBlocksCompleted
       ? 'Tous les blocs sont termines. Tu peux valider la seance.'
       : 'Tu peux terminer maintenant la seance ou revenir sur les blocs restants.'
-      : 'Termine, passe ou atteins le dernier bloc pour pouvoir cloturer la seance.';
+    : 'Termine, passe ou atteins le dernier bloc pour pouvoir cloturer la seance.';
+  const hasLockedExerciseTimer = Boolean(exerciseBlockId) && exerciseSecondsLeft > 0 && !awaitingExerciseCompletion;
+  const isExerciseSwitchLocked = hasLockedExerciseTimer || isResting;
+  const compactElapsedLabel = formatTimerClock(elapsedSeconds);
+  const compactProgressLabel = `Exercice ${Math.min(currentIndex + 1, Math.max(blocks.length, 1))} / ${Math.max(blocks.length, 1)}`;
+  const currentEditableSeriesLabel = `Série ${Math.min(currentActivePerformanceLineIndex + 1, currentLivePerformanceLines.length)} / ${currentLivePerformanceLines.length}`;
+  const currentCompactValueLabel =
+    currentBlock?.block_type === 'reps'
+      ? `${currentActualReps ?? 0} reps${currentActualChargeKg != null ? ` • ${currentActualChargeKg} kg` : ''}`
+      : currentBlock?.block_type === 'duration'
+        ? `${formatTimerClock(Number(currentActualReps ?? 0))}`
+        : currentBlock?.block_type === 'distance'
+          ? `${currentActualReps ?? 0} m`
+          : currentActualText || 'Bloc libre';
+
+  const renderCompactStepper = (
+    label: string,
+    value: string | number,
+    onDecrease: () => void,
+    onIncrease: () => void,
+    onChange: (nextValue: string) => void,
+    options?: {
+      decreaseLabel?: string;
+      increaseLabel?: string;
+      inputMode?: 'numeric' | 'decimal' | 'text';
+      step?: string;
+      min?: number;
+    }
+  ) => (
+    <label className="session-live-compact-stepper">
+      <span>{label}</span>
+      <div className="session-live-compact-stepper__controls">
+        <button type="button" className="button ghost" onClick={onDecrease}>
+          {options?.decreaseLabel ?? '-'}
+        </button>
+        <input
+          type="number"
+          min={options?.min ?? 0}
+          step={options?.step ?? '1'}
+          inputMode={options?.inputMode ?? 'numeric'}
+          value={value}
+          onChange={(event) => onChange(event.target.value)}
+        />
+        <button type="button" className="button ghost" onClick={onIncrease}>
+          {options?.increaseLabel ?? '+'}
+        </button>
+      </div>
+    </label>
+  );
 
   useEffect(() => {
     if (!currentBlock || resolvedBlockIds.includes(currentBlock.id)) {
@@ -1444,7 +1494,7 @@ export default function LiveSessionPage() {
   ]);
 
   useEffect(() => {
-    if (!isResting || restSecondsLeft <= 0) return;
+    if (!isResting || restSecondsLeft <= 0 || isTimerPaused) return;
 
     const timeoutId = window.setTimeout(() => {
       setRestSecondsLeft((current) => Math.max(0, current - 1));
@@ -1453,7 +1503,7 @@ export default function LiveSessionPage() {
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [isResting, restSecondsLeft]);
+  }, [isResting, isTimerPaused, restSecondsLeft]);
 
   useEffect(() => {
     if (!isExercising || exerciseSecondsLeft <= 0 || isTimerPaused) return;
@@ -1517,6 +1567,7 @@ export default function LiveSessionPage() {
   };
 
   const goToPrevious = () => {
+    if ((exerciseBlockId && exerciseSecondsLeft > 0 && !awaitingExerciseCompletion) || isResting) return;
     clearRestState();
     clearExerciseState();
     setFinishReviewOpen(false);
@@ -1524,6 +1575,7 @@ export default function LiveSessionPage() {
   };
 
   const goToNext = () => {
+    if ((exerciseBlockId && exerciseSecondsLeft > 0 && !awaitingExerciseCompletion) || isResting) return;
     clearRestState();
     clearExerciseState();
     setFinishReviewOpen(false);
@@ -1531,6 +1583,7 @@ export default function LiveSessionPage() {
   };
 
   const goToRemainingBlocks = () => {
+    if ((exerciseBlockId && exerciseSecondsLeft > 0 && !awaitingExerciseCompletion) || isResting) return;
     clearRestState();
     clearExerciseState();
     setFinishReviewOpen(false);
@@ -1539,6 +1592,15 @@ export default function LiveSessionPage() {
     if (nextIndex >= 0) {
       setCurrentIndex(nextIndex);
     }
+  };
+
+  const goToBlockIndex = (nextIndex: number) => {
+    if (nextIndex === currentIndex) return;
+    if ((exerciseBlockId && exerciseSecondsLeft > 0 && !awaitingExerciseCompletion) || isResting) return;
+    clearRestState();
+    clearExerciseState();
+    setFinishReviewOpen(false);
+    setCurrentIndex(Math.min(Math.max(nextIndex, 0), Math.max(blocks.length - 1, 0)));
   };
 
   const addExerciseToLive = () => {
@@ -3141,6 +3203,409 @@ export default function LiveSessionPage() {
               </article>
             ) : currentBlock ? (
               <>
+                <article className="card session-live-compact-shell">
+                  <div className="session-live-compact-shell__top">
+                    <Link href={`/sessions/${id}` as Route} className="button ghost session-live-compact-shell__back">
+                      ←
+                    </Link>
+                    <div className="session-live-compact-shell__title">
+                      <strong>{session?.sport ? `Live ${formatSportBadgeLabel(session.sport, 'Seance')}` : 'Live seance'}</strong>
+                      <span>{session.name}</span>
+                    </div>
+                    <span className="session-live-compact-shell__timer">{compactElapsedLabel}</span>
+                    <button
+                      type="button"
+                      className="button ghost session-live-compact-shell__pause"
+                      onClick={() => setIsTimerPaused((current) => !current)}
+                    >
+                      {isTimerPaused ? '▶' : '⏸'}
+                    </button>
+                  </div>
+                  <div className="session-live-compact-shell__progress">
+                    <span>{compactProgressLabel}</span>
+                    <div className="session-live-compact-shell__bar" aria-hidden="true">
+                      <span style={{ width: `${globalProgressPercent}%` }} />
+                    </div>
+                    <strong>{formatPercent(globalProgressPercent)}</strong>
+                  </div>
+                </article>
+
+                <article className="card session-live-board">
+                  <div className="session-live-board__list">
+                    {blocks.map((block, index) => {
+                      const liveDraft = performanceDraftsByBlockId[block.id] || createDefaultLivePerformanceDraft(block);
+                      const liveLines = getLivePerformanceDraftLines(liveDraft, block);
+                      const totalSets = getLivePerformanceDraftTotalSets(liveDraft, block);
+                      const completedSets = Math.min(Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0), totalSets);
+                      const isResolved = completedBlockIds.includes(block.id);
+                      const isSkipped = skippedBlockIds.includes(block.id);
+                      const isActiveBlock = index === currentIndex;
+                      const summaryLine =
+                        liveLines[Math.min(completedSets, Math.max(liveLines.length - 1, 0))] ||
+                        liveLines[0] ||
+                        createLivePerformanceLineDraftFromBlock(block);
+                      const subtitle =
+                        block.block_type === 'reps'
+                          ? `${totalSets} ${totalSets > 1 ? 'series' : 'serie'} • ${
+                              summaryLine.chargeKg != null && Number(summaryLine.chargeKg) > 0
+                                ? `${summaryLine.chargeKg} kg`
+                                : `${summaryLine.targetValue ?? 0} reps`
+                            }`
+                          : block.block_type === 'duration'
+                            ? `${totalSets} ${totalSets > 1 ? 'series' : 'serie'} • ${formatTimerClock(Number(summaryLine.targetValue ?? 0))}`
+                            : block.block_type === 'distance'
+                              ? `${totalSets} ${totalSets > 1 ? 'series' : 'serie'} • ${summaryLine.targetValue ?? 0} m`
+                              : `${totalSets} ${totalSets > 1 ? 'series' : 'serie'} • libre`;
+
+                      return (
+                        <div key={block.id} className="session-live-board__group">
+                          <LiveWorkoutRow
+                            title={safeTrimText(block.name) || `Bloc ${index + 1}`}
+                            subtitle={subtitle}
+                            progressLabel={`${Math.min(completedSets, totalSets)}/${totalSets}`}
+                            detailLabel={
+                              isSkipped
+                                ? 'Passe'
+                                : isResolved
+                                  ? 'Termine'
+                                  : formatLivePerformanceLineCompactMeta(block.block_type, summaryLine)
+                            }
+                            index={index}
+                            state={isSkipped ? 'skipped' : isResolved ? 'done' : isActiveBlock ? 'active' : 'upcoming'}
+                            isExpanded={isActiveBlock}
+                            onClick={() => goToBlockIndex(index)}
+                            sportLabel={session?.sport}
+                            blockType={block.block_type}
+                          />
+
+                          {isActiveBlock ? (
+                            <div className="session-live-board__expanded">
+                              <div className="session-live-board__expanded-top">
+                                <div>
+                                  <span className="section-kicker">
+                                    {currentBlock.block_type === 'free' ? currentSeriesLabel : currentEditableSeriesLabel}
+                                  </span>
+                                  <strong>{currentBlockName}</strong>
+                                </div>
+                                <div className="session-live-board__expanded-summary">
+                                  <span>{currentCompactValueLabel}</span>
+                                  <span>{`Repos ${formatTimerClock(currentLineRestSeconds)}`}</span>
+                                  {currentBlock.block_type === 'reps' ? (
+                                    <span>{formatSessionVolumeKg((currentActualReps ?? 0) * (currentActualChargeKg ?? 0)) || '0 kg'}</span>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              {isResting ? (
+                                <div className="session-live-rest-row">
+                                  <strong>{`Repos • ${restingBlockName}`}</strong>
+                                  <span>{formatTimerClock(restSecondsLeft)}</span>
+                                  <div className="session-live-rest-row__actions">
+                                    <button type="button" className="button ghost" onClick={() => adjustRestSeconds(-15)}>
+                                      -15s
+                                    </button>
+                                    <button
+                                      type="button"
+                                      className="button ghost"
+                                      onClick={() => setIsTimerPaused((current) => !current)}
+                                    >
+                                      {isTimerPaused ? 'Reprendre' : 'Pause'}
+                                    </button>
+                                    <button type="button" className="button ghost" onClick={() => adjustRestSeconds(15)}>
+                                      +15s
+                                    </button>
+                                    <button type="button" className="button ghost" onClick={() => setRestSecondsLeft(0)}>
+                                      Passer
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : null}
+
+                              {isDurationBlock ? (
+                                <div className="session-live-timer-row">
+                                  <strong>{awaitingExerciseCompletion ? 'Serie prete' : 'Chrono actif'}</strong>
+                                  <span>
+                                    {isExercising && !awaitingExerciseCompletion
+                                      ? `${formatTimerClock(
+                                          Math.max(Number(currentActualReps ?? 0) - exerciseSecondsLeft, 0)
+                                        )} / ${formatTimerClock(Number(currentActualReps ?? 0))}`
+                                      : formatTimerClock(Number(currentActualReps ?? 0))}
+                                  </span>
+                                </div>
+                              ) : null}
+
+                              <div className="session-live-set-list">
+                                {currentLivePerformanceLines.map((line, lineIndex) => {
+                                  const isDoneLine = lineIndex < currentCompletedSets;
+                                  const isActiveLine =
+                                    lineIndex === currentActivePerformanceLineIndex &&
+                                    !resolvedBlockIds.includes(currentBlock.id);
+                                  const isSkippedLine = isCurrentBlockSkipped && lineIndex >= currentCompletedSets;
+                                  const primaryLabel =
+                                    currentBlock.block_type === 'reps'
+                                      ? `${line.targetValue ?? 0} reps`
+                                      : currentBlock.block_type === 'duration'
+                                        ? `${Number(line.targetValue ?? 0)} sec`
+                                        : currentBlock.block_type === 'distance'
+                                          ? `${line.targetValue ?? 0} m`
+                                          : line.note.trim() || 'Consigne libre';
+                                  const secondaryLabel =
+                                    currentBlock.block_type === 'reps'
+                                      ? line.chargeKg != null && Number(line.chargeKg) > 0
+                                        ? `${line.chargeKg} kg`
+                                        : null
+                                      : line.restSeconds != null && Number(line.restSeconds) > 0
+                                        ? `Repos ${formatTimerClock(Number(line.restSeconds))}`
+                                        : null;
+                                  const trailingLabel = isSkippedLine
+                                    ? 'Passe'
+                                    : isDoneLine
+                                      ? 'Validee'
+                                      : isDurationBlock && isActiveLine && isExercising && !awaitingExerciseCompletion
+                                        ? `⏱ ${formatTimerClock(exerciseSecondsLeft)}`
+                                        : isActiveLine
+                                          ? 'En cours'
+                                          : 'A venir';
+
+                                  return (
+                                    <LiveSetRow
+                                      key={line.id}
+                                      index={lineIndex}
+                                      primaryLabel={primaryLabel}
+                                      secondaryLabel={secondaryLabel}
+                                      trailingLabel={trailingLabel}
+                                      state={
+                                        isSkippedLine ? 'skipped' : isDoneLine ? 'done' : isActiveLine ? 'active' : 'upcoming'
+                                      }
+                                      isOpen={lineIndex === (openPerformanceLineIndex ?? currentActivePerformanceLineIndex)}
+                                      onOpen={() => setOpenPerformanceLineIndex(lineIndex)}
+                                      control={
+                                        isDoneLine ? (
+                                          <span className="session-live-set-check is-done">✓</span>
+                                        ) : isSkippedLine ? (
+                                          <span className="session-live-set-check is-skipped">—</span>
+                                        ) : isActiveLine ? (
+                                          isDurationBlock ? (
+                                            awaitingExerciseCompletion ? (
+                                              <button
+                                                type="button"
+                                                className="session-live-set-check is-active"
+                                                onClick={handleValidateCurrent}
+                                                disabled={!canValidateCurrentBlock}
+                                                aria-label="Valider la serie"
+                                              >
+                                                ☑
+                                              </button>
+                                            ) : isExercising ? (
+                                              <button
+                                                type="button"
+                                                className="session-live-set-check is-active"
+                                                onClick={() => setIsTimerPaused((current) => !current)}
+                                                aria-label={isTimerPaused ? 'Reprendre le chrono' : 'Mettre le chrono en pause'}
+                                              >
+                                                {isTimerPaused ? '▶' : '⏸'}
+                                              </button>
+                                            ) : (
+                                              <button
+                                                type="button"
+                                                className="session-live-set-check is-active"
+                                                onClick={handleStartCurrentSeries}
+                                                aria-label="Demarrer la serie"
+                                              >
+                                                ▶
+                                              </button>
+                                            )
+                                          ) : (
+                                            <button
+                                              type="button"
+                                              className="session-live-set-check is-active"
+                                              onClick={handleValidateCurrent}
+                                              disabled={!canValidateCurrentBlock}
+                                              aria-label="Valider la serie"
+                                            >
+                                              ☐
+                                            </button>
+                                          )
+                                        ) : (
+                                          <span className="session-live-set-check">○</span>
+                                        )
+                                      }
+                                    />
+                                  );
+                                })}
+                              </div>
+
+                              {canAdjustCurrentPerformance ? (
+                                <div className="session-live-compact-editor">
+                                  {currentBlock.block_type === 'reps' ? (
+                                    <div className="session-live-compact-editor__grid">
+                                      {renderCompactStepper(
+                                        'Repetitions',
+                                        currentActualReps ?? 0,
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: Math.max(Number(currentActualReps ?? 0) - 1, 0),
+                                          }),
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: Math.max(Number(currentActualReps ?? 0) + 1, 0),
+                                          }),
+                                        (nextValue) =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: normalizePositiveInteger(nextValue, 0),
+                                          })
+                                      )}
+                                      {renderCompactStepper(
+                                        'Charge (kg)',
+                                        currentActualChargeKg ?? 0,
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            chargeKg: Math.max(Number(currentActualChargeKg ?? 0) - 2.5, 0),
+                                          }),
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            chargeKg: Math.max(Number(currentActualChargeKg ?? 0) + 2.5, 0),
+                                          }),
+                                        (nextValue) =>
+                                          updateCurrentPerformanceLine({
+                                            chargeKg: normalizeNonNegativeNumber(nextValue, 0),
+                                          }),
+                                        { inputMode: 'decimal', step: '0.5' }
+                                      )}
+                                    </div>
+                                  ) : currentBlock.block_type === 'duration' ? (
+                                    <div className="session-live-compact-editor__grid session-live-compact-editor__grid--single">
+                                      {renderCompactStepper(
+                                        'Duree',
+                                        currentActualReps ?? 0,
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: Math.max(Number(currentActualReps ?? 0) - 5, 0),
+                                          }),
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: Math.max(Number(currentActualReps ?? 0) + 5, 0),
+                                          }),
+                                        (nextValue) =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: normalizePositiveInteger(nextValue, 0),
+                                          }),
+                                        { decreaseLabel: '-5', increaseLabel: '+5' }
+                                      )}
+                                    </div>
+                                  ) : currentBlock.block_type === 'distance' ? (
+                                    <div className="session-live-compact-editor__grid session-live-compact-editor__grid--single">
+                                      {renderCompactStepper(
+                                        'Distance (m)',
+                                        currentActualReps ?? 0,
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: Math.max(Number(currentActualReps ?? 0) - 50, 0),
+                                          }),
+                                        () =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: Math.max(Number(currentActualReps ?? 0) + 50, 0),
+                                          }),
+                                        (nextValue) =>
+                                          updateCurrentPerformanceLine({
+                                            targetValue: normalizeNonNegativeNumber(nextValue, 0),
+                                          }),
+                                        { decreaseLabel: '-50', increaseLabel: '+50', inputMode: 'decimal', step: '0.1' }
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <label className="session-live-compact-editor__note">
+                                      <span>Consigne</span>
+                                      <textarea
+                                        rows={2}
+                                        value={currentActivePerformanceLine.note}
+                                        onChange={(event) =>
+                                          updateCurrentPerformanceLine({
+                                            note: event.target.value,
+                                          })
+                                        }
+                                      />
+                                    </label>
+                                  )}
+                                </div>
+                              ) : null}
+
+                              <div className="session-live-compact-actions">
+                                <button type="button" className="button ghost" onClick={addCurrentPerformanceLine}>
+                                  + Ajouter une serie
+                                </button>
+                                {currentLivePerformanceLines.length > 1 ? (
+                                  <button
+                                    type="button"
+                                    className="button ghost"
+                                    onClick={() => removeCurrentPerformanceLine(currentActivePerformanceLineIndex)}
+                                  >
+                                    Retirer la serie
+                                  </button>
+                                ) : null}
+                                <button type="button" className="button ghost" onClick={resetCurrentPerformanceDraft}>
+                                  Revenir au prevu
+                                </button>
+                                <button type="button" className="button ghost" onClick={handleSkipCurrentBlock}>
+                                  Passer l'exercice
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button ghost"
+                                  onClick={goToPrevious}
+                                  disabled={currentIndex === 0 || isExerciseSwitchLocked}
+                                >
+                                  ‹ Ex. precedent
+                                </button>
+                                <button
+                                  type="button"
+                                  className="button ghost"
+                                  onClick={() => goToBlockIndex(Math.min(currentIndex + 1, blocks.length - 1))}
+                                  disabled={currentIndex >= blocks.length - 1 || isExerciseSwitchLocked}
+                                >
+                                  Ex. suivant ›
+                                </button>
+                              </div>
+
+                              {validationFeedback ? (
+                                <p className="session-live-actions__hint" aria-live="polite">
+                                  {validationFeedback}
+                                </p>
+                              ) : null}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="session-live-board__footer">
+                    <button
+                      type="button"
+                      className="button ghost"
+                      onClick={() => {
+                        setIsExerciseMenuOpen(false);
+                        setIsAddExerciseOpen((current) => !current);
+                      }}
+                    >
+                      + Ajouter un exercice
+                    </button>
+                    <button
+                      type="button"
+                      className="button primary session-live-finish-button"
+                      disabled={!canOpenFinishReview}
+                      onClick={() => {
+                        if (!canOpenFinishReview) return;
+                        clearRestState();
+                        clearExerciseState();
+                        setFinishReviewOpen(true);
+                      }}
+                    >
+                      ⚑ Terminer la seance
+                    </button>
+                  </div>
+                </article>
+
+                <div className="session-live-legacy-ui">
                 {isResting ? (
                   <RestTimerOverlay
                     blockLabel={restingBlockName}
@@ -3704,6 +4169,7 @@ export default function LiveSessionPage() {
                   nextDisabled={currentIndex >= blocks.length - 1 && resolvedBlockIds.includes(currentBlock.id)}
                   nextLabel={resolvedBlockIds.includes(currentBlock.id) ? 'Suivant' : 'Passer ce bloc'}
                 />
+                </div>
 
                 {isAddExerciseOpen ? (
                   <article className="card session-live-inline-form">

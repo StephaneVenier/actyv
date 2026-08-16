@@ -7069,7 +7069,442 @@ img {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.sessions-page--dark .session-live-legacy-ui,
+.sessions-page--dark .session-live-actions--inline {
+  display: none;
+}
+
+.session-live-compact-shell,
+.session-live-board {
+  display: grid;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, rgba(10, 22, 26, 0.98), rgba(7, 15, 18, 0.98));
+  border: 1px solid rgba(143, 255, 214, 0.08);
+}
+
+.session-live-compact-shell__top,
+.session-live-compact-shell__progress,
+.session-live-workout-row,
+.session-live-board__expanded-top,
+.session-live-rest-row,
+.session-live-timer-row,
+.session-live-set-row,
+.session-live-set-row__body,
+.session-live-board__footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.session-live-compact-shell__title {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.session-live-compact-shell__title strong {
+  color: #f4f7f6;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.session-live-compact-shell__title span,
+.session-live-board__expanded-summary span,
+.session-live-workout-row__copy span,
+.session-live-workout-row__metrics span,
+.session-live-set-row__labels span,
+.session-live-set-row__trail em {
+  color: #9fb5b3;
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.session-live-compact-shell__back,
+.session-live-compact-shell__pause {
+  min-width: 38px;
+  min-height: 36px;
+  padding: 0 10px;
+}
+
+.session-live-compact-shell__timer {
+  color: #7df3a6;
+  font-size: 1rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.session-live-compact-shell__progress {
+  gap: 8px;
+}
+
+.session-live-compact-shell__progress > span,
+.session-live-compact-shell__progress > strong {
+  color: #dce7e5;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.session-live-compact-shell__bar {
+  position: relative;
+  flex: 1 1 auto;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.session-live-compact-shell__bar > span {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #35e66b 0%, #20b7a6 100%);
+}
+
+.session-live-board__list {
+  display: grid;
+  gap: 2px;
+}
+
+.session-live-board__group {
+  display: grid;
+  gap: 6px;
+}
+
+.session-live-workout-row {
+  width: 100%;
+  padding: 9px 0;
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.session-live-board__group:first-child .session-live-workout-row {
+  border-top: 0;
+}
+
+.session-live-workout-row__state,
+.session-live-set-check,
+.session-live-set-row__index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.session-live-workout-row.is-done .session-live-workout-row__state,
+.session-live-set-check.is-done {
+  background: rgba(53, 230, 107, 0.16);
+  color: #7df3a6;
+  border: 1px solid rgba(53, 230, 107, 0.28);
+}
+
+.session-live-workout-row.is-active .session-live-workout-row__state,
+.session-live-set-check.is-active {
+  background: rgba(38, 179, 255, 0.14);
+  color: #5bd6ff;
+  border: 1px solid rgba(38, 179, 255, 0.28);
+}
+
+.session-live-workout-row.is-skipped .session-live-workout-row__state,
+.session-live-set-check.is-skipped {
+  background: rgba(255, 255, 255, 0.05);
+  color: #94a7a5;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.session-live-workout-row__visual {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  flex: 0 0 auto;
+}
+
+.session-live-workout-row__copy,
+.session-live-workout-row__metrics,
+.session-live-board__expanded-top > div:first-child,
+.session-live-set-row__labels,
+.session-live-board__expanded-summary {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.session-live-workout-row__copy {
+  flex: 1 1 auto;
+}
+
+.session-live-workout-row__copy strong,
+.session-live-board__expanded-top strong,
+.session-live-set-row__labels strong {
+  color: #f4f7f6;
+  font-size: 0.98rem;
+  font-weight: 800;
+}
+
+.session-live-workout-row__metrics {
+  justify-items: end;
+  text-align: right;
+}
+
+.session-live-workout-row__metrics strong {
+  color: #f4f7f6;
+  font-size: 0.95rem;
+}
+
+.session-live-workout-row__chevron {
+  color: #7df3a6;
+  font-size: 1rem;
+  flex: 0 0 auto;
+}
+
+.session-live-workout-row.is-active .session-live-workout-row__copy strong,
+.session-live-workout-row.is-active .session-live-workout-row__metrics strong,
+.session-live-set-row.is-active .session-live-set-row__labels strong,
+.session-live-set-row.is-active .session-live-set-row__trail em {
+  color: #5bd6ff;
+}
+
+.session-live-workout-row.is-done .session-live-workout-row__copy strong,
+.session-live-set-row.is-done .session-live-set-row__labels strong {
+  color: #7df3a6;
+}
+
+.session-live-board__expanded {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0 12px 40px;
+}
+
+.session-live-board__expanded-top {
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.session-live-board__expanded-summary {
+  justify-items: end;
+  text-align: right;
+}
+
+.session-live-rest-row,
+.session-live-timer-row {
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.session-live-rest-row strong,
+.session-live-timer-row strong {
+  color: #f4f7f6;
+  font-size: 0.86rem;
+}
+
+.session-live-rest-row > span,
+.session-live-timer-row > span {
+  color: #7df3a6;
+  font-size: 0.95rem;
+  font-weight: 800;
+}
+
+.session-live-rest-row__actions,
+.session-live-timer-row__actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.session-live-rest-row__actions .button,
+.session-live-timer-row__actions .button,
+.session-live-board__footer .button,
+.session-live-compact-actions .button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+}
+
+.session-live-set-list {
+  display: grid;
+  gap: 2px;
+}
+
+.session-live-set-row {
+  min-height: 44px;
+  padding: 6px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.session-live-set-row:first-child {
+  border-top: 0;
+}
+
+.session-live-set-row__index {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  color: #7df3a6;
+  background: transparent;
+}
+
+.session-live-set-row__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.session-live-set-check {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: transparent;
+  color: #d7e3e1;
+  padding: 0;
+}
+
+.session-live-set-row__body {
+  flex: 1 1 auto;
+  justify-content: space-between;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
+.session-live-set-row__trail {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.session-live-set-row__trail span {
+  color: #7df3a6;
+}
+
+.session-live-compact-editor {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.session-live-compact-editor__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.session-live-compact-editor__grid--single {
+  grid-template-columns: 1fr;
+}
+
+.session-live-compact-stepper,
+.session-live-compact-editor__note {
+  display: grid;
+  gap: 6px;
+}
+
+.session-live-compact-stepper > span,
+.session-live-compact-editor__note > span {
+  color: #9fb5b3;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.session-live-compact-stepper__controls {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  gap: 6px;
+}
+
+.session-live-compact-stepper__controls .button {
+  min-height: 36px;
+  padding: 0;
+}
+
+.session-live-compact-stepper__controls input,
+.session-live-compact-editor__note textarea {
+  min-height: 36px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 18, 19, 0.92);
+  color: #f4f7f6;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.session-live-compact-editor__note textarea {
+  min-height: 72px;
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.session-live-compact-actions,
+.session-live-board__footer {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.session-live-board__footer {
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.session-live-board__footer .session-live-finish-button {
+  margin-left: auto;
+}
+
 @media (max-width: 640px) {
+  .session-live-board__expanded {
+    padding-left: 0;
+  }
+
+  .session-live-board__expanded-top,
+  .session-live-rest-row,
+  .session-live-timer-row {
+    display: grid;
+    align-items: flex-start;
+  }
+
+  .session-live-board__expanded-summary {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .session-live-rest-row__actions,
+  .session-live-timer-row__actions {
+    justify-content: flex-start;
+  }
+
+  .session-live-compact-editor__grid {
+    grid-template-columns: 1fr;
+  }
+
   .session-live-shell__top,
   .session-live-shell__headline {
     align-items: flex-start;
@@ -7102,6 +7537,38 @@ img {
 }
 
 @media (max-width: 390px) {
+  .session-live-compact-shell,
+  .session-live-board {
+    padding: 10px 12px;
+  }
+
+  .session-live-compact-shell__top {
+    gap: 8px;
+  }
+
+  .session-live-compact-shell__title strong {
+    font-size: 0.92rem;
+  }
+
+  .session-live-compact-shell__title span,
+  .session-live-compact-shell__progress > span,
+  .session-live-compact-shell__progress > strong {
+    font-size: 0.76rem;
+  }
+
+  .session-live-workout-row__copy strong,
+  .session-live-board__expanded-top strong,
+  .session-live-set-row__labels strong {
+    font-size: 0.92rem;
+  }
+
+  .session-live-workout-row__copy span,
+  .session-live-workout-row__metrics span,
+  .session-live-set-row__labels span,
+  .session-live-set-row__trail em {
+    font-size: 0.72rem;
+  }
+
   .session-live-shell,
   .session-live-focus-card--compact,
   .session-live-performance-card,

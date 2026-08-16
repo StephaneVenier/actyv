@@ -69,6 +69,30 @@ type LiveControlsProps = {
   nextDisabled?: boolean;
 };
 
+type LiveWorkoutRowProps = {
+  title: string;
+  subtitle: string;
+  progressLabel: string;
+  detailLabel?: string | null;
+  index: number;
+  state: 'done' | 'active' | 'upcoming' | 'skipped';
+  isExpanded: boolean;
+  onClick: () => void;
+  sportLabel?: string | null;
+  blockType?: SessionBlockDisplayLike['block_type'];
+};
+
+type LiveSetRowProps = {
+  index: number;
+  primaryLabel: string;
+  secondaryLabel?: string | null;
+  trailingLabel: string;
+  state: 'done' | 'active' | 'upcoming' | 'skipped';
+  control: ReactNode;
+  isOpen?: boolean;
+  onOpen?: () => void;
+};
+
 type LiveBlockPreviewRailProps = {
   blocks: Array<{ id: string; name: string; block_type: SessionBlockDisplayLike['block_type'] }>;
   currentIndex: number;
@@ -373,6 +397,81 @@ export function LiveControls({
       ) : null}
       <button type="button" className="button ghost" onClick={onNext} disabled={nextDisabled}>
         {nextLabel.includes('Suivant') ? 'Exercice suivant →' : nextLabel}
+      </button>
+    </div>
+  );
+}
+
+export function LiveWorkoutRow({
+  title,
+  subtitle,
+  progressLabel,
+  detailLabel,
+  index,
+  state,
+  isExpanded,
+  onClick,
+  sportLabel,
+  blockType,
+}: LiveWorkoutRowProps) {
+  const stateIcon =
+    state === 'done' ? '✓' : state === 'active' ? String(index + 1) : state === 'skipped' ? '—' : String(index + 1);
+
+  return (
+    <button
+      type="button"
+      className={`session-live-workout-row is-${state}${isExpanded ? ' is-expanded' : ''}`}
+      onClick={onClick}
+    >
+      <span className="session-live-workout-row__state" aria-hidden="true">
+        {stateIcon}
+      </span>
+      <span className="session-live-workout-row__visual" aria-hidden="true">
+        <SessionExerciseIcon exerciseName={title} sport={sportLabel} blockType={blockType} size="sm" />
+      </span>
+      <span className="session-live-workout-row__copy">
+        <strong>{title}</strong>
+        <span>{subtitle}</span>
+      </span>
+      <span className="session-live-workout-row__metrics">
+        <strong>{progressLabel}</strong>
+        {detailLabel ? <span>{detailLabel}</span> : null}
+      </span>
+      <span className="session-live-workout-row__chevron" aria-hidden="true">
+        {isExpanded ? '⌃' : '›'}
+      </span>
+    </button>
+  );
+}
+
+export function LiveSetRow({
+  index,
+  primaryLabel,
+  secondaryLabel,
+  trailingLabel,
+  state,
+  control,
+  isOpen = false,
+  onOpen,
+}: LiveSetRowProps) {
+  return (
+    <div className={`session-live-set-row is-${state}${isOpen ? ' is-open' : ''}`}>
+      <span className="session-live-set-row__index">{index + 1}</span>
+      <span className="session-live-set-row__control">{control}</span>
+      <button
+        type="button"
+        className="session-live-set-row__body"
+        onClick={onOpen}
+        disabled={!onOpen}
+      >
+        <span className="session-live-set-row__labels">
+          <strong>{primaryLabel}</strong>
+          {secondaryLabel ? <span>{secondaryLabel}</span> : null}
+        </span>
+        <span className="session-live-set-row__trail">
+          <em>{trailingLabel}</em>
+          {onOpen ? <span aria-hidden="true">{isOpen ? '⌃' : '›'}</span> : null}
+        </span>
       </button>
     </div>
   );
