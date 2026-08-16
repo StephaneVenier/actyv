@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { MasteryIcon } from '@/components/MasteryIcon';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import { addMasteryEntry, loadMasteryDetail } from '@/lib/masteries-api';
 import {
   type MasteryDetailData,
@@ -323,7 +324,16 @@ export default function MasteryDetailPage() {
 
           <div className="masteries-detail-shell__hero">
             <span className="mastery-detail-shell__icon-wrap">
-              <MasteryIcon categoryId={mastery.categoryId} className="mastery-icon mastery-icon--hero" />
+              {mastery.linkedExerciseImageUrl ? (
+                <SessionExerciseIcon
+                  exerciseName={mastery.linkedExerciseName || mastery.name}
+                  exerciseImageUrl={mastery.linkedExerciseImageUrl}
+                  size="lg"
+                  className="mastery-detail-shell__exercise-art"
+                />
+              ) : (
+                <MasteryIcon categoryId={mastery.categoryId} className="mastery-icon mastery-icon--hero" />
+              )}
             </span>
             <div className="masteries-hero-card__copy masteries-hero-card__copy--detail">
               <h1>{mastery.name}</h1>

@@ -67,6 +67,9 @@ export type Mastery = {
   dbId: string;
   categoryId: string;
   categoryDbId: string;
+  linkedExerciseId?: string | null;
+  linkedExerciseName?: string | null;
+  linkedExerciseImageUrl?: string | null;
   name: string;
   unit: string;
   measurementType: MasteryMeasurementType;
@@ -310,6 +313,9 @@ export function buildMasteryRecord({
     dbId,
     categoryId: categorySlug,
     categoryDbId,
+    linkedExerciseId: null,
+    linkedExerciseName: null,
+    linkedExerciseImageUrl: null,
     name,
     unit,
     measurementType,
@@ -359,6 +365,9 @@ export function buildMasteryRecordFromProgress({
     dbId,
     categoryId: categorySlug,
     categoryDbId,
+    linkedExerciseId: null,
+    linkedExerciseName: null,
+    linkedExerciseImageUrl: null,
     name,
     unit,
     measurementType,

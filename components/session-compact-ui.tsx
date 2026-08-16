@@ -17,6 +17,7 @@ import {
 type CompactExerciseCardProps = {
   index: number;
   block: SessionBlockDisplayLike & { id?: string };
+  exerciseImageUrl?: string | null;
   isCompleted?: boolean;
   isCurrent?: boolean;
   completedSets?: number;
@@ -112,6 +113,7 @@ export function SessionSummaryHeader({
 export function CompactExerciseCard({
   index,
   block,
+  exerciseImageUrl,
   isCompleted = false,
   isCurrent = false,
   completedSets = 0,
@@ -151,7 +153,12 @@ export function CompactExerciseCard({
       <div className="compact-exercise-card__content">
         <div className="compact-exercise-card__identity">
           <div className="compact-exercise-card__identity-main">
-            <SessionExerciseIcon exerciseName={block.name} blockType={block.block_type} size="md" />
+            <SessionExerciseIcon
+              exerciseName={block.name}
+              exerciseImageUrl={exerciseImageUrl}
+              blockType={block.block_type}
+              size="md"
+            />
             <div>
               <strong>{block.name || `Bloc ${index + 1}`}</strong>
               {!isCoachCompact ? <small>{subtitle || getSessionBlockTypeLabel(block.block_type)}</small> : null}

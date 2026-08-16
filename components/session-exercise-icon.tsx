@@ -1,13 +1,15 @@
 'use client';
 
+import Image from 'next/image';
 import type { ReactNode } from 'react';
 import type { SessionBlockType } from '@/lib/session-blocks';
 
 type SessionExerciseIconProps = {
   exerciseName?: string | null;
+  exerciseImageUrl?: string | null;
   sport?: string | null;
   blockType?: SessionBlockType | null;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
   className?: string;
 };
 
@@ -23,16 +25,29 @@ function IconShell({
   children,
   className,
   size = 'md',
+  hasImage = false,
 }: {
   children: ReactNode;
   className?: string;
-  size?: 'sm' | 'md';
+  size?: 'sm' | 'md' | 'lg';
+  hasImage?: boolean;
 }) {
   return (
-    <span className={`exercise-icon-badge exercise-icon-badge--${size}${className ? ` ${className}` : ''}`} aria-hidden="true">
+    <span
+      className={`exercise-icon-badge exercise-icon-badge--${size}${hasImage ? ' exercise-icon-badge--with-image' : ''}${
+        className ? ` ${className}` : ''
+      }`}
+      aria-hidden="true"
+    >
       {children}
     </span>
   );
+}
+
+function getImageSize(size: 'sm' | 'md' | 'lg') {
+  if (size === 'sm') return 42;
+  if (size === 'lg') return 72;
+  return 52;
 }
 
 function DumbbellSvg() {
@@ -216,15 +231,29 @@ export function getExerciseIcon({
 
 export function SessionExerciseIcon({
   exerciseName,
+  exerciseImageUrl,
   sport,
   blockType,
   size = 'md',
   className,
 }: SessionExerciseIconProps) {
   const Icon = getExerciseIcon({ exerciseName, sport, blockType });
+  const imageSize = getImageSize(size);
+
   return (
-    <IconShell size={size} className={className}>
-      <Icon />
+    <IconShell size={size} className={className} hasImage={Boolean(exerciseImageUrl)}>
+      {exerciseImageUrl ? (
+        <Image
+          src={exerciseImageUrl}
+          alt=""
+          width={imageSize}
+          height={imageSize}
+          unoptimized
+          className="exercise-icon-badge__image"
+        />
+      ) : (
+        <Icon />
+      )}
     </IconShell>
   );
 }

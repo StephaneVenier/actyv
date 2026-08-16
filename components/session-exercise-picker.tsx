@@ -11,6 +11,7 @@ import {
   searchExercises as searchExerciseLibrary,
 } from '@/lib/exercise-library';
 import { getExercises } from '@/lib/exercise-library-api';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 
 type SessionExercisePickerProps = {
   buttonLabel?: string;
@@ -78,6 +79,23 @@ function mapStoredExercisesToItems(exerciseKeys: string[], exercises: ExerciseLi
   return exerciseKeys
     .map((exerciseKey) => lookup.get(exerciseKey))
     .filter((exercise): exercise is ExerciseLibraryItem => Boolean(exercise));
+}
+
+function formatExerciseTag(value: string) {
+  return value
+    .split('-')
+    .filter(Boolean)
+    .map((segment) => segment.charAt(0).toUpperCase() + segment.slice(1))
+    .join(' ');
+}
+
+function getExercisePickerMeta(exercise: ExerciseLibraryItem) {
+  const primaryMuscle = exercise.primaryMuscles[0] ? formatExerciseTag(exercise.primaryMuscles[0]) : null;
+  const primaryEquipment = exercise.equipment[0] ? formatExerciseTag(exercise.equipment[0]) : null;
+
+  return [primaryMuscle, primaryEquipment, exercise.category].filter(Boolean)[0]
+    ? [primaryMuscle, primaryEquipment].filter(Boolean).join(' • ') || exercise.category || 'Sans categorie'
+    : 'Sans categorie';
 }
 
 export function SessionExercisePicker({
@@ -177,8 +195,19 @@ export function SessionExercisePicker({
           className="session-exercise-picker-item__select"
           onClick={() => handleSelectExercise(exercise)}
         >
-          <span>{exercise.name}</span>
-          <small>{exercise.category || 'Sans categorie'}</small>
+          <span className="session-exercise-picker-item__main">
+            <SessionExerciseIcon
+              exerciseName={exercise.name}
+              exerciseImageUrl={exercise.imageUrl}
+              sport={exercise.sport}
+              blockType={exercise.trackingType}
+              size="md"
+            />
+            <span className="session-exercise-picker-item__copy">
+              <span>{exercise.name}</span>
+              <small>{getExercisePickerMeta(exercise)}</small>
+            </span>
+          </span>
         </button>
         <button
           type="button"

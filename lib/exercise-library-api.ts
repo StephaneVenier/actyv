@@ -104,6 +104,52 @@ export async function getExerciseById(exerciseId: string) {
   };
 }
 
+export async function getExercisesByIds(exerciseIds: string[]) {
+  const normalizedIds = Array.from(new Set(exerciseIds.filter(Boolean)));
+
+  if (normalizedIds.length === 0) {
+    return { data: [] as ExerciseLibraryItem[], error: null, source: 'fallback' as const };
+  }
+
+  if (!supabase || typeof (supabase as any).from !== 'function') {
+    return {
+      data: EXERCISE_LIBRARY.filter((exercise) => exercise.id && normalizedIds.includes(exercise.id)),
+      error: null,
+      source: 'fallback' as const,
+    };
+  }
+
+  const response = await supabase
+    .from('exercise_library')
+    .select(EXERCISE_LIBRARY_SELECT)
+    .in('id', normalizedIds)
+    .eq('active', true);
+
+  if (response.error) {
+    if (!isMissingExerciseLibrarySchema(response.error)) {
+      console.error('EXERCISE LIBRARY SELECT BY IDS ERROR:', JSON.stringify(response.error, null, 2));
+    }
+
+    return {
+      data: EXERCISE_LIBRARY.filter((exercise) => exercise.id && normalizedIds.includes(exercise.id)),
+      error: response.error,
+      source: 'fallback' as const,
+    };
+  }
+
+  const rowsById = new Map(
+    (((response.data as any[]) || []).map(mapExerciseLibraryRow)).map((exercise) => [exercise.id, exercise] as const)
+  );
+
+  return {
+    data: normalizedIds
+      .map((exerciseId) => rowsById.get(exerciseId))
+      .filter((exercise): exercise is ExerciseLibraryItem => Boolean(exercise)),
+    error: null,
+    source: 'supabase' as const,
+  };
+}
+
 export async function getExerciseBySlug(slug: string) {
   const { data, error, source } = await getExercises();
   return {

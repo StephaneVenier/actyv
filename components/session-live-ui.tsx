@@ -31,6 +31,7 @@ type SessionLiveHeaderProps = {
 
 type LiveBlockCardProps = {
   block: SessionBlockDisplayLike;
+  exerciseImageUrl?: string | null;
   blockIndex: number;
   totalBlocks: number;
   currentSeriesLabel: string;
@@ -74,6 +75,7 @@ type LiveWorkoutRowProps = {
   subtitle: string;
   progressLabel: string;
   detailLabel?: string | null;
+  exerciseImageUrl?: string | null;
   index: number;
   state: 'done' | 'active' | 'upcoming' | 'skipped';
   isExpanded: boolean;
@@ -185,6 +187,7 @@ function getLivePrimaryValue(block: SessionBlockDisplayLike) {
 
 export function LiveBlockCard({
   block,
+  exerciseImageUrl,
   blockIndex,
   totalBlocks,
   currentSeriesLabel,
@@ -218,7 +221,13 @@ export function LiveBlockCard({
 
       <div className="session-live-focus-card__hero session-live-focus-card__hero--compact">
         <div className="session-live-focus-card__media" aria-hidden="true">
-          <SessionExerciseIcon exerciseName={block.name} sport={sportLabel} blockType={block.block_type} size="md" />
+          <SessionExerciseIcon
+            exerciseName={block.name}
+            exerciseImageUrl={exerciseImageUrl}
+            sport={sportLabel}
+            blockType={block.block_type}
+            size="md"
+          />
         </div>
 
         <div className="session-live-focus-card__hero-copy">
@@ -407,6 +416,7 @@ export function LiveWorkoutRow({
   subtitle,
   progressLabel,
   detailLabel,
+  exerciseImageUrl,
   index,
   state,
   isExpanded,
@@ -427,7 +437,13 @@ export function LiveWorkoutRow({
         {stateIcon}
       </span>
       <span className="session-live-workout-row__visual" aria-hidden="true">
-        <SessionExerciseIcon exerciseName={title} sport={sportLabel} blockType={blockType} size="sm" />
+        <SessionExerciseIcon
+          exerciseName={title}
+          exerciseImageUrl={exerciseImageUrl}
+          sport={sportLabel}
+          blockType={blockType}
+          size="sm"
+        />
       </span>
       <span className="session-live-workout-row__copy">
         <strong>{title}</strong>

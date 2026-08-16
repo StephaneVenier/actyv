@@ -22,6 +22,7 @@ import {
   getSessionBlockVolumeKg,
 } from '@/lib/session-blocks';
 import { XP_RULES } from '@/lib/gamification';
+import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { formatPercent } from '@/lib/display-format';
@@ -273,6 +274,7 @@ export default function SessionDetailPage() {
   const [lastLiveCompletedCount, setLastLiveCompletedCount] = useState(0);
   const [historyEntries, setHistoryEntries] = useState<WorkoutHistoryEntry[]>([]);
   const [historyExerciseEntries, setHistoryExerciseEntries] = useState<WorkoutHistoryExerciseEntry[]>([]);
+  const [exerciseImageUrlsById, setExerciseImageUrlsById] = useState<Record<string, string>>({});
   const [selectedExerciseName, setSelectedExerciseName] = useState<string | null>(null);
   const [expandedHistoryEntryId, setExpandedHistoryEntryId] = useState<string | null>(null);
   const [showAllPerformanceHistory, setShowAllPerformanceHistory] = useState(false);
@@ -512,6 +514,39 @@ export default function SessionDetailPage() {
 
     loadSession();
   }, [id]);
+
+  useEffect(() => {
+    const exerciseIds = Array.from(
+      new Set(blocks.map((block) => block.exercise_id).filter((exerciseId): exerciseId is string => Boolean(exerciseId)))
+    );
+
+    if (exerciseIds.length === 0) {
+      setExerciseImageUrlsById({});
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadExerciseImages = async () => {
+      const { data } = await getExercisesByIds(exerciseIds);
+
+      if (isCancelled) return;
+
+      setExerciseImageUrlsById(
+        Object.fromEntries(
+          data
+            .filter((exercise) => exercise.id && exercise.imageUrl)
+            .map((exercise) => [exercise.id as string, exercise.imageUrl as string])
+        )
+      );
+    };
+
+    void loadExerciseImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [blocks]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -1526,6 +1561,7 @@ export default function SessionDetailPage() {
                         key={block.id}
                         index={index}
                         block={block}
+                        exerciseImageUrl={block.exercise_id ? exerciseImageUrlsById[block.exercise_id] ?? null : null}
                         variant="coach-compact"
                         isCompleted={isCompleted}
                         isCurrent={isCurrent}

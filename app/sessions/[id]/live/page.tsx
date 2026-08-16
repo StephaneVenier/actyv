@@ -29,6 +29,7 @@ import {
 } from '@/lib/session-blocks';
 import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { formatPercent } from '@/lib/display-format';
+import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { getActyvLevel, type ActyvLevelProgress } from '@/lib/levels';
 import { processSessionMasteries } from '@/lib/masteries-api';
 import { supabase } from '@/lib/supabase';
@@ -436,6 +437,7 @@ export default function LiveSessionPage() {
 
   const [session, setSession] = useState<TrainingSession | null>(null);
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
+  const [exerciseImageUrlsById, setExerciseImageUrlsById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<string | null>(null);
   const [historyMessage, setHistoryMessage] = useState<string | null>(null);
@@ -650,6 +652,7 @@ export default function LiveSessionPage() {
                 session_id: typeof candidateBlock.session_id === 'string' ? candidateBlock.session_id : id,
                 position: Number.isFinite(Number(candidateBlock.position)) ? Number(candidateBlock.position) : 0,
                 name: candidateBlock.name,
+                exercise_id: typeof candidateBlock.exercise_id === 'string' ? candidateBlock.exercise_id : null,
                 block_type: candidateBlock.block_type as SessionBlockType,
                 sets_count:
                   Number.isFinite(Number(candidateBlock.sets_count)) && Number(candidateBlock.sets_count) > 0
@@ -892,6 +895,39 @@ export default function LiveSessionPage() {
       console.error('Erreur lecture etat live seance :', error);
     }
   }, [clearPersistedLiveState, liveStorageKey]);
+
+  useEffect(() => {
+    const exerciseIds = Array.from(
+      new Set(blocks.map((block) => block.exercise_id).filter((exerciseId): exerciseId is string => Boolean(exerciseId)))
+    );
+
+    if (exerciseIds.length === 0) {
+      setExerciseImageUrlsById({});
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadExerciseImages = async () => {
+      const { data } = await getExercisesByIds(exerciseIds);
+
+      if (isCancelled) return;
+
+      setExerciseImageUrlsById(
+        Object.fromEntries(
+          data
+            .filter((exercise) => exercise.id && exercise.imageUrl)
+            .map((exercise) => [exercise.id as string, exercise.imageUrl as string])
+        )
+      );
+    };
+
+    void loadExerciseImages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [blocks]);
 
   useEffect(() => {
     if (!runKey) {
@@ -3269,6 +3305,7 @@ export default function LiveSessionPage() {
                             title={safeTrimText(block.name) || `Bloc ${index + 1}`}
                             subtitle={subtitle}
                             progressLabel={`${Math.min(completedSets, totalSets)}/${totalSets}`}
+                            exerciseImageUrl={block.exercise_id ? exerciseImageUrlsById[block.exercise_id] ?? null : null}
                             detailLabel={
                               isSkipped
                                 ? 'Passe'
@@ -3629,6 +3666,9 @@ export default function LiveSessionPage() {
                 <LiveBlockCard
                   key={`${currentBlock.id}-${currentCompletedSets}`}
                   block={currentBlock}
+                  exerciseImageUrl={
+                    currentBlock.exercise_id ? exerciseImageUrlsById[currentBlock.exercise_id] ?? null : null
+                  }
                   blockIndex={currentIndex}
                   totalBlocks={blocks.length}
                   currentSeriesLabel={currentSeriesLabel}

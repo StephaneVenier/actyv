@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { getExercisesByIds } from '@/lib/exercise-library-api';
 import {
   type AddMasteryEntryResult,
   type Mastery,
@@ -79,6 +80,11 @@ type MasteryProgressRow = {
   progress_percent: number | string | null;
   xp_reward_next_level: number | string | null;
   is_max_level: boolean | null;
+};
+
+type MasteryExerciseLinkRow = {
+  mastery_id: string;
+  exercise_id: string | null;
 };
 
 function ensureSupabaseReady() {
@@ -240,6 +246,81 @@ function buildDashboardFromProgressRows({
   };
 }
 
+async function enrichMasteriesWithExerciseImages(masteries: Mastery[]) {
+  if (masteries.length === 0) {
+    return masteries;
+  }
+
+  try {
+    const masteryDbIds = Array.from(new Set(masteries.map((mastery) => mastery.dbId).filter(Boolean)));
+    if (masteryDbIds.length === 0) {
+      return masteries;
+    }
+
+    const linksResponse = await supabase
+      .from('mastery_exercise_links')
+      .select('mastery_id, exercise_id')
+      .in('mastery_id', masteryDbIds)
+      .not('exercise_id', 'is', null);
+
+    if (linksResponse.error) {
+      console.error('MASTERIES EXERCISE LINKS ERROR:', linksResponse.error);
+      return masteries;
+    }
+
+    const exerciseIdsByMasteryId = new Map<string, Set<string>>();
+
+    ((linksResponse.data as MasteryExerciseLinkRow[] | null) || []).forEach((row) => {
+      if (!row.exercise_id) return;
+      const currentIds = exerciseIdsByMasteryId.get(row.mastery_id) || new Set<string>();
+      currentIds.add(row.exercise_id);
+      exerciseIdsByMasteryId.set(row.mastery_id, currentIds);
+    });
+
+    const uniqueExerciseIds = Array.from(
+      new Set(
+        Array.from(exerciseIdsByMasteryId.values())
+          .filter((exerciseIds) => exerciseIds.size === 1)
+          .flatMap((exerciseIds) => Array.from(exerciseIds))
+      )
+    );
+
+    if (uniqueExerciseIds.length === 0) {
+      return masteries;
+    }
+
+    const { data: exercises } = await getExercisesByIds(uniqueExerciseIds);
+    const exercisesById = new Map(
+      exercises.filter((exercise) => exercise.id).map((exercise) => [exercise.id as string, exercise] as const)
+    );
+
+    return masteries.map((mastery) => {
+      const linkedExerciseIds = exerciseIdsByMasteryId.get(mastery.dbId);
+
+      if (!linkedExerciseIds || linkedExerciseIds.size !== 1) {
+        return mastery;
+      }
+
+      const exerciseId = Array.from(linkedExerciseIds)[0];
+      const linkedExercise = exercisesById.get(exerciseId);
+
+      if (!linkedExercise?.imageUrl) {
+        return mastery;
+      }
+
+      return {
+        ...mastery,
+        linkedExerciseId: exerciseId,
+        linkedExerciseName: linkedExercise.name,
+        linkedExerciseImageUrl: linkedExercise.imageUrl,
+      };
+    });
+  } catch (error) {
+    console.error('MASTERIES EXERCISE IMAGE ENRICHMENT ERROR:', error);
+    return masteries;
+  }
+}
+
 export async function loadMasteriesDashboard(userId: string): Promise<MasteryDashboardData> {
   void userId;
   ensureSupabaseReady();
@@ -251,10 +332,28 @@ export async function loadMasteriesDashboard(userId: string): Promise<MasteryDas
 
   if (progressResponse.error) throw progressResponse.error;
 
-  return buildDashboardFromProgressRows({
+  const dashboard = buildDashboardFromProgressRows({
     categories,
     masteries: (progressResponse.data as MasteryProgressRow[] | null) || [],
   });
+
+  const enrichedMasteries = await enrichMasteriesWithExerciseImages(dashboard.masteries);
+  const masteriesByCategory = Object.fromEntries(
+    dashboard.categories.map((category) => [
+      category.id,
+      enrichedMasteries.filter((mastery) => mastery.categoryId === category.id),
+    ])
+  );
+  const summaries = Object.fromEntries(
+    dashboard.categories.map((category) => [category.id, getMasteryCategorySummary(masteriesByCategory[category.id] || [])])
+  );
+
+  return {
+    ...dashboard,
+    masteries: enrichedMasteries,
+    masteriesByCategory,
+    summaries,
+  };
 }
 
 export async function loadMasteryDetail(userId: string, masterySlug: string): Promise<MasteryDetailData | null> {
@@ -308,7 +407,7 @@ export async function loadMasteryDetail(userId: string, masterySlug: string): Pr
     return entry.performed_at >= fifteenDaysAgoIso ? sum + normalizeMasteryNumber(entry.value) : sum;
   }, 0);
   const bestSessionValue = entries.reduce((best, entry) => Math.max(best, normalizeMasteryNumber(entry.value)), 0);
-  const mastery = buildMasteryRecordFromProgress({
+  const masteryRecord = buildMasteryRecordFromProgress({
     dbId: targetMastery.id,
     slug: targetMastery.slug,
     categorySlug: category.id,
@@ -322,12 +421,14 @@ export async function loadMasteryDetail(userId: string, masterySlug: string): Pr
     bestSessionValue,
   });
 
-  if (!mastery) {
+  if (!masteryRecord) {
     return null;
   }
 
+  const [enrichedMastery] = await enrichMasteriesWithExerciseImages([masteryRecord]);
+
   return {
-    mastery,
+    mastery: enrichedMastery || masteryRecord,
     history: entries.map(mapEntryRowToModel),
     recentUnlocks: ((unlocksResponse.data as MasteryUnlockRow[] | null) || []).map(mapUnlockRowToModel),
   };

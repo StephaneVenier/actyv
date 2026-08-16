@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { MasteryIcon } from '@/components/MasteryIcon';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import { type Mastery, formatMasteryProgressLabel, getMasteryProgressPercent } from '@/lib/masteries';
 
 export function MasteryCard({ mastery }: { mastery: Mastery }) {
@@ -11,7 +12,16 @@ export function MasteryCard({ mastery }: { mastery: Mastery }) {
     <Link href={`/maitrises/${mastery.id}`} className="mastery-card">
       <div className="mastery-card__top">
         <div className="mastery-card__lead">
-          <MasteryIcon categoryId={mastery.categoryId} />
+          {mastery.linkedExerciseImageUrl ? (
+            <SessionExerciseIcon
+              exerciseName={mastery.linkedExerciseName || mastery.name}
+              exerciseImageUrl={mastery.linkedExerciseImageUrl}
+              size="sm"
+              className="mastery-card__exercise-art"
+            />
+          ) : (
+            <MasteryIcon categoryId={mastery.categoryId} />
+          )}
           <div className="mastery-card__copy">
             <strong>{mastery.name}</strong>
             <span>Niveau {mastery.level}</span>
