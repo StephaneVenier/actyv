@@ -324,10 +324,11 @@ export default function MasteryDetailPage() {
 
           <div className="masteries-detail-shell__hero">
             <span className="mastery-detail-shell__icon-wrap">
-              {mastery.linkedExerciseImageUrl ? (
+              {mastery.linkedExerciseImageUrl || mastery.linkedExerciseVisualCategory ? (
                 <SessionExerciseIcon
                   exerciseName={mastery.linkedExerciseName || mastery.name}
                   exerciseImageUrl={mastery.linkedExerciseImageUrl}
+                  visualCategory={mastery.linkedExerciseVisualCategory}
                   size="lg"
                   className="mastery-detail-shell__exercise-art"
                 />

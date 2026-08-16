@@ -12,10 +12,11 @@ export function MasteryCard({ mastery }: { mastery: Mastery }) {
     <Link href={`/maitrises/${mastery.id}`} className="mastery-card">
       <div className="mastery-card__top">
         <div className="mastery-card__lead">
-          {mastery.linkedExerciseImageUrl ? (
+          {mastery.linkedExerciseImageUrl || mastery.linkedExerciseVisualCategory ? (
             <SessionExerciseIcon
               exerciseName={mastery.linkedExerciseName || mastery.name}
               exerciseImageUrl={mastery.linkedExerciseImageUrl}
+              visualCategory={mastery.linkedExerciseVisualCategory}
               size="sm"
               className="mastery-card__exercise-art"
             />

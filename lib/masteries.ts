@@ -1,3 +1,5 @@
+import type { ExerciseVisualCategory } from '@/lib/exercise-library';
+
 export const MASTERY_MEASUREMENT_TYPES = [
   'reps',
   'duration',
@@ -70,6 +72,7 @@ export type Mastery = {
   linkedExerciseId?: string | null;
   linkedExerciseName?: string | null;
   linkedExerciseImageUrl?: string | null;
+  linkedExerciseVisualCategory?: ExerciseVisualCategory | null;
   name: string;
   unit: string;
   measurementType: MasteryMeasurementType;
@@ -316,6 +319,7 @@ export function buildMasteryRecord({
     linkedExerciseId: null,
     linkedExerciseName: null,
     linkedExerciseImageUrl: null,
+    linkedExerciseVisualCategory: null,
     name,
     unit,
     measurementType,
@@ -368,6 +372,7 @@ export function buildMasteryRecordFromProgress({
     linkedExerciseId: null,
     linkedExerciseName: null,
     linkedExerciseImageUrl: null,
+    linkedExerciseVisualCategory: null,
     name,
     unit,
     measurementType,

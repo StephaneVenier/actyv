@@ -304,7 +304,7 @@ async function enrichMasteriesWithExerciseImages(masteries: Mastery[]) {
       const exerciseId = Array.from(linkedExerciseIds)[0];
       const linkedExercise = exercisesById.get(exerciseId);
 
-      if (!linkedExercise?.imageUrl) {
+      if (!linkedExercise?.imageUrl && !linkedExercise?.visualCategory) {
         return mastery;
       }
 
@@ -313,6 +313,7 @@ async function enrichMasteriesWithExerciseImages(masteries: Mastery[]) {
         linkedExerciseId: exerciseId,
         linkedExerciseName: linkedExercise.name,
         linkedExerciseImageUrl: linkedExercise.imageUrl,
+        linkedExerciseVisualCategory: linkedExercise.visualCategory,
       };
     });
   } catch (error) {
