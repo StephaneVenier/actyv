@@ -2,21 +2,27 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import {
-  EXERCISE_CATEGORIES,
   EXERCISE_LIBRARY,
-  ExerciseCategory,
+  EXERCISE_CATEGORIES,
   ExerciseLibraryItem,
+  getExerciseCategories,
   FAVORITE_EXERCISES_STORAGE_KEY,
   RECENT_EXERCISES_STORAGE_KEY,
+  searchExercises as searchExerciseLibrary,
 } from '@/lib/exercise-library';
+import { getExercises } from '@/lib/exercise-library-api';
 
 type SessionExercisePickerProps = {
   buttonLabel?: string;
   disabled?: boolean;
-  onSelectExercise: (exerciseName: string) => void;
+  onSelectExercise: (exercise: ExerciseLibraryItem) => void;
 };
 
-function loadStoredExerciseNames(storageKey: string, limit = 10) {
+function getExerciseStorageKey(exercise: Pick<ExerciseLibraryItem, 'slug' | 'name'>) {
+  return exercise.slug || exercise.name.trim();
+}
+
+function loadStoredExerciseKeys(storageKey: string, limit = 10) {
   if (typeof window === 'undefined') return [] as string[];
 
   try {
@@ -30,44 +36,47 @@ function loadStoredExerciseNames(storageKey: string, limit = 10) {
   }
 }
 
-function saveStoredExerciseNames(storageKey: string, values: string[]) {
+function saveStoredExerciseKeys(storageKey: string, values: string[]) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(storageKey, JSON.stringify(values));
 }
 
-function saveRecentExercise(exerciseName: string) {
-  if (typeof window === 'undefined' || !exerciseName.trim()) return;
+function saveRecentExercise(exercise: ExerciseLibraryItem) {
+  const storageKey = getExerciseStorageKey(exercise);
+
+  if (typeof window === 'undefined' || !storageKey.trim()) return;
 
   const nextRecentExercises = [
-    exerciseName.trim(),
-    ...loadStoredExerciseNames(RECENT_EXERCISES_STORAGE_KEY, 10).filter(
-      (value) => value !== exerciseName.trim()
-    ),
+    storageKey.trim(),
+    ...loadStoredExerciseKeys(RECENT_EXERCISES_STORAGE_KEY, 10).filter((value) => value !== storageKey.trim()),
   ].slice(0, 10);
 
-  saveStoredExerciseNames(RECENT_EXERCISES_STORAGE_KEY, nextRecentExercises);
+  saveStoredExerciseKeys(RECENT_EXERCISES_STORAGE_KEY, nextRecentExercises);
 }
 
-function toggleFavoriteExercise(exerciseName: string) {
-  const trimmedExerciseName = exerciseName.trim();
-  if (typeof window === 'undefined' || !trimmedExerciseName) return [] as string[];
+function toggleFavoriteExercise(exercise: ExerciseLibraryItem) {
+  const storageKey = getExerciseStorageKey(exercise).trim();
+  if (typeof window === 'undefined' || !storageKey) return [] as string[];
 
-  const currentFavorites = loadStoredExerciseNames(FAVORITE_EXERCISES_STORAGE_KEY, 20);
-  const nextFavorites = currentFavorites.includes(trimmedExerciseName)
-    ? currentFavorites.filter((value) => value !== trimmedExerciseName)
-    : [trimmedExerciseName, ...currentFavorites].slice(0, 20);
+  const currentFavorites = loadStoredExerciseKeys(FAVORITE_EXERCISES_STORAGE_KEY, 20);
+  const nextFavorites = currentFavorites.includes(storageKey)
+    ? currentFavorites.filter((value) => value !== storageKey)
+    : [storageKey, ...currentFavorites].slice(0, 20);
 
-  saveStoredExerciseNames(FAVORITE_EXERCISES_STORAGE_KEY, nextFavorites);
+  saveStoredExerciseKeys(FAVORITE_EXERCISES_STORAGE_KEY, nextFavorites);
   return nextFavorites;
 }
 
-function mapStoredExercisesToItems(exerciseNames: string[]) {
+function mapStoredExercisesToItems(exerciseKeys: string[], exercises: ExerciseLibraryItem[]) {
   const lookup = new Map<string, ExerciseLibraryItem>(
-    EXERCISE_LIBRARY.map((exercise) => [exercise.name, exercise])
+    exercises.flatMap((exercise) => [
+      [exercise.name, exercise] as const,
+      [exercise.slug, exercise] as const,
+    ])
   );
 
-  return exerciseNames
-    .map((exerciseName) => lookup.get(exerciseName))
+  return exerciseKeys
+    .map((exerciseKey) => lookup.get(exerciseKey))
     .filter((exercise): exercise is ExerciseLibraryItem => Boolean(exercise));
 }
 
@@ -78,48 +87,65 @@ export function SessionExercisePicker({
 }: SessionExercisePickerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'Toutes'>('Toutes');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Toutes');
+  const [exercises, setExercises] = useState<ExerciseLibraryItem[]>(EXERCISE_LIBRARY);
   const [recentExercises, setRecentExercises] = useState<string[]>([]);
   const [favoriteExercises, setFavoriteExercises] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
-    setRecentExercises(loadStoredExerciseNames(RECENT_EXERCISES_STORAGE_KEY, 10));
-    setFavoriteExercises(loadStoredExerciseNames(FAVORITE_EXERCISES_STORAGE_KEY, 20));
+
+    let isCancelled = false;
+
+    const loadExerciseLibrary = async () => {
+      const { data } = await getExercises();
+
+      if (!isCancelled && data.length > 0) {
+        setExercises(data);
+      }
+    };
+
+    setRecentExercises(loadStoredExerciseKeys(RECENT_EXERCISES_STORAGE_KEY, 10));
+    setFavoriteExercises(loadStoredExerciseKeys(FAVORITE_EXERCISES_STORAGE_KEY, 20));
+    void loadExerciseLibrary();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [isOpen]);
 
-  const filteredExercises = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
+  const categories = useMemo(() => {
+    const loadedCategories = getExerciseCategories(exercises);
+    return loadedCategories.length > 0 ? loadedCategories : EXERCISE_CATEGORIES;
+  }, [exercises]);
 
-    return EXERCISE_LIBRARY.filter((exercise) => {
+  const filteredExercises = useMemo(() => {
+    return searchExerciseLibrary(exercises, query).filter((exercise) => {
       const matchesCategory =
         selectedCategory === 'Toutes' || exercise.category === selectedCategory;
-      const matchesQuery =
-        normalizedQuery.length === 0 || exercise.name.toLowerCase().includes(normalizedQuery);
-
-      return matchesCategory && matchesQuery;
+      return matchesCategory;
     });
-  }, [query, selectedCategory]);
+  }, [exercises, query, selectedCategory]);
 
   const favoriteExerciseItems = useMemo(
-    () => mapStoredExercisesToItems(favoriteExercises),
-    [favoriteExercises]
+    () => mapStoredExercisesToItems(favoriteExercises, exercises),
+    [exercises, favoriteExercises]
   );
 
   const recentExerciseItems = useMemo(
     () =>
-      mapStoredExercisesToItems(recentExercises).filter(
-        (exercise) => !favoriteExercises.includes(exercise.name)
+      mapStoredExercisesToItems(recentExercises, exercises).filter(
+        (exercise) => !favoriteExercises.includes(getExerciseStorageKey(exercise))
       ),
-    [favoriteExercises, recentExercises]
+    [exercises, favoriteExercises, recentExercises]
   );
 
   const filteredExerciseItems = useMemo(() => {
     const favoriteSet = new Set(favoriteExercises);
 
     return [...filteredExercises].sort((left, right) => {
-      const leftIsFavorite = favoriteSet.has(left.name);
-      const rightIsFavorite = favoriteSet.has(right.name);
+      const leftIsFavorite = favoriteSet.has(getExerciseStorageKey(left));
+      const rightIsFavorite = favoriteSet.has(getExerciseStorageKey(right));
 
       if (leftIsFavorite && !rightIsFavorite) return -1;
       if (!leftIsFavorite && rightIsFavorite) return 1;
@@ -127,36 +153,37 @@ export function SessionExercisePicker({
     });
   }, [favoriteExercises, filteredExercises]);
 
-  const handleSelectExercise = (exerciseName: string) => {
-    onSelectExercise(exerciseName);
-    saveRecentExercise(exerciseName);
-    setRecentExercises(loadStoredExerciseNames(RECENT_EXERCISES_STORAGE_KEY, 10));
+  const handleSelectExercise = (exercise: ExerciseLibraryItem) => {
+    onSelectExercise(exercise);
+    saveRecentExercise(exercise);
+    setRecentExercises(loadStoredExerciseKeys(RECENT_EXERCISES_STORAGE_KEY, 10));
     setIsOpen(false);
     setQuery('');
     setSelectedCategory('Toutes');
   };
 
-  const handleToggleFavorite = (exerciseName: string) => {
-    setFavoriteExercises(toggleFavoriteExercise(exerciseName));
+  const handleToggleFavorite = (exercise: ExerciseLibraryItem) => {
+    setFavoriteExercises(toggleFavoriteExercise(exercise));
   };
 
   const renderExerciseItem = (exercise: ExerciseLibraryItem) => {
-    const isFavorite = favoriteExercises.includes(exercise.name);
+    const storageKey = getExerciseStorageKey(exercise);
+    const isFavorite = favoriteExercises.includes(storageKey);
 
     return (
-      <div key={exercise.name} className="session-exercise-picker-item">
+      <div key={exercise.id ?? exercise.slug} className="session-exercise-picker-item">
         <button
           type="button"
           className="session-exercise-picker-item__select"
-          onClick={() => handleSelectExercise(exercise.name)}
+          onClick={() => handleSelectExercise(exercise)}
         >
           <span>{exercise.name}</span>
-          <small>{exercise.category}</small>
+          <small>{exercise.category || 'Sans categorie'}</small>
         </button>
         <button
           type="button"
           className={`session-exercise-picker-favorite${isFavorite ? ' is-active' : ''}`}
-          onClick={() => handleToggleFavorite(exercise.name)}
+          onClick={() => handleToggleFavorite(exercise)}
           aria-label={isFavorite ? `Retirer ${exercise.name} des favoris` : `Ajouter ${exercise.name} aux favoris`}
           title={isFavorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
         >
@@ -199,11 +226,11 @@ export function SessionExercisePicker({
               <select
                 value={selectedCategory}
                 onChange={(event) =>
-                  setSelectedCategory(event.target.value as ExerciseCategory | 'Toutes')
+                  setSelectedCategory(event.target.value)
                 }
               >
                 <option value="Toutes">Toutes les categories</option>
-                {EXERCISE_CATEGORIES.map((category) => (
+                {categories.map((category) => (
                   <option key={category} value={category}>
                     {category}
                   </option>

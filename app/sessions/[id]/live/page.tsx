@@ -810,6 +810,8 @@ export default function LiveSessionPage() {
               {
                 block_id: candidateEntry.block_id,
                 block_name: candidateEntry.block_name,
+                exercise_id:
+                  typeof candidateEntry.exercise_id === 'string' ? candidateEntry.exercise_id : null,
                 set_number: normalizePositiveInteger(candidateEntry.set_number, 1),
                 planned_reps:
                   candidateEntry.planned_reps == null ? null : normalizePositiveInteger(candidateEntry.planned_reps, 0),
@@ -2008,6 +2010,7 @@ export default function LiveSessionPage() {
       {
         block_id: currentBlock.id,
         block_name: safeTrimText(currentBlock.name) || `Bloc ${currentIndex + 1}`,
+        exercise_id: currentBlock.exercise_id ?? null,
         set_number: setNumber,
         line_number: currentActivePerformanceLineIndex + 1,
         block_type: currentBlock.block_type,
@@ -2073,6 +2076,7 @@ export default function LiveSessionPage() {
       (_, index) => ({
         block_id: currentBlock.id,
         block_name: safeTrimText(currentBlock.name) || `Bloc ${currentIndex + 1}`,
+        exercise_id: currentBlock.exercise_id ?? null,
         set_number: currentCompletedSets + index + 1,
         line_number: currentActivePerformanceLineIndex + 1,
         block_type: currentBlock.block_type,
@@ -2236,6 +2240,7 @@ export default function LiveSessionPage() {
             finalSetPerformanceByKey.set(key, {
               block_id: block.id,
               block_name: blockName,
+              exercise_id: block.exercise_id ?? null,
               set_number: setNumber,
               line_number: lineIndex + 1,
               block_type: lineType,
@@ -2271,6 +2276,7 @@ export default function LiveSessionPage() {
             finalSetPerformanceByKey.set(key, {
               block_id: block.id,
               block_name: blockName,
+              exercise_id: block.exercise_id ?? null,
               set_number: setNumber,
               line_number: lineIndex + 1,
               block_type: lineType,

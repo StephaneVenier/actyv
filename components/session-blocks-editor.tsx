@@ -145,12 +145,22 @@ export function SessionBlocksEditor({
                       <div className="session-block-name-field">
                         <SessionExercisePicker
                           disabled={disabled}
-                          onSelectExercise={(exerciseName) => onUpdateBlock(block.id, { name: exerciseName })}
+                          onSelectExercise={(exercise) =>
+                            onUpdateBlock(block.id, {
+                              name: exercise.name,
+                              exerciseId: exercise.id,
+                            })
+                          }
                         />
                       </div>
                       <input
                         value={block.name}
-                        onChange={(event) => onUpdateBlock(block.id, { name: event.target.value })}
+                        onChange={(event) =>
+                          onUpdateBlock(block.id, {
+                            name: event.target.value,
+                            exerciseId: null,
+                          })
+                        }
                         placeholder="Ex : Pompes, Gainage, 400m rapide"
                         disabled={disabled}
                       />

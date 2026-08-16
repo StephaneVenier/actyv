@@ -7,6 +7,7 @@ import { TrainingSessionBlockInsert, TrainingSessionBlockRecord } from '@/lib/tr
 export type SessionBlockDraft = {
   id: string;
   name: string;
+  exerciseId: string | null;
   blockType: SessionBlockType;
   sets_count: number | '';
   targetValue: string;
@@ -18,6 +19,7 @@ export function createEmptySessionBlockDraft(index: number): SessionBlockDraft {
   return {
     id: `block-${Date.now()}-${index}`,
     name: '',
+    exerciseId: null,
     blockType: 'reps',
     sets_count: 1,
     targetValue: '',
@@ -30,6 +32,7 @@ export function mapSessionBlockRecordToDraft(block: TrainingSessionBlockRecord):
   return {
     id: block.id,
     name: block.name,
+    exerciseId: block.exercise_id ?? null,
     blockType: block.block_type,
     sets_count: normalizeSessionSetsCount(block.sets_count),
     targetValue:
@@ -59,6 +62,7 @@ export function normalizeDraftSessionBlocks(blocks: SessionBlockDraft[]): Traini
     .map((block, index) => ({
       position: index,
       name: block.name.trim(),
+      exercise_id: block.exerciseId,
       block_type: block.blockType,
       sets_count: normalizeSessionSetsCount(block.sets_count),
       target_value:

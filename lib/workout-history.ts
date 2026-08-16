@@ -3,6 +3,7 @@ import type { SessionBlockType } from '@/lib/session-blocks';
 export type WorkoutSetPerformance = {
   block_id: string;
   block_name: string;
+  exercise_id?: string | null;
   set_number: number;
   line_number?: number | null;
   block_type?: SessionBlockType | null;
@@ -18,6 +19,7 @@ export type WorkoutSetPerformance = {
 
 export type WorkoutSetLine = {
   id: string;
+  exercise_id?: string | null;
   line_number: number;
   sets_count: number;
   block_type: SessionBlockType;
@@ -85,6 +87,8 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
             {
               block_id: blockId,
               block_name: blockName,
+              exercise_id:
+                typeof candidateEntry.exercise_id === 'string' ? candidateEntry.exercise_id : null,
               set_number: setNumber,
               line_number: toPositiveNumber(candidateEntry.line_number) ?? null,
               block_type:
@@ -108,7 +112,48 @@ export function parseWorkoutCompletionMetadata(raw: unknown): WorkoutCompletionM
         })
       : undefined;
 
-  const setLines = parseSetPerformances(candidate.set_lines);
+  const parseSetLines = (value: unknown) =>
+    Array.isArray(value)
+      ? value.flatMap((entry) => {
+          if (!entry || typeof entry !== 'object' || Array.isArray(entry)) return [];
+          const candidateEntry = entry as Record<string, unknown>;
+          const id = typeof candidateEntry.id === 'string' ? candidateEntry.id : '';
+          const lineNumber = toPositiveNumber(candidateEntry.line_number);
+          const setsCount = toPositiveNumber(candidateEntry.sets_count);
+          const blockType =
+            candidateEntry.block_type === 'reps' ||
+            candidateEntry.block_type === 'duration' ||
+            candidateEntry.block_type === 'distance' ||
+            candidateEntry.block_type === 'free'
+              ? candidateEntry.block_type
+              : null;
+
+          if (!id || !lineNumber || !setsCount || !blockType) {
+            return [];
+          }
+
+          return [
+            {
+              id,
+              exercise_id:
+                typeof candidateEntry.exercise_id === 'string' ? candidateEntry.exercise_id : null,
+              line_number: lineNumber,
+              sets_count: setsCount,
+              block_type: blockType,
+              planned_reps: toPositiveNumber(candidateEntry.planned_reps) ?? null,
+              actual_reps: toPositiveNumber(candidateEntry.actual_reps) ?? null,
+              planned_charge_kg: toPositiveNumber(candidateEntry.planned_charge_kg) ?? null,
+              actual_charge_kg: toPositiveNumber(candidateEntry.actual_charge_kg) ?? null,
+              planned_value: toPositiveNumber(candidateEntry.planned_value) ?? null,
+              actual_value: toPositiveNumber(candidateEntry.actual_value) ?? null,
+              actual_text:
+                typeof candidateEntry.actual_text === 'string' ? candidateEntry.actual_text : null,
+            } satisfies WorkoutSetLine,
+          ];
+        })
+      : undefined;
+
+  const setLines = parseSetLines(candidate.set_lines);
 
   const actualSets = parseSetPerformances(candidate.actual_sets);
   const legacySetPerformances = parseSetPerformances(candidate.set_performances);

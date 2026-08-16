@@ -6,6 +6,7 @@ export type TrainingSessionBlockRecord = {
   session_id: string;
   position: number;
   name: string;
+  exercise_id?: string | null;
   block_type: SessionBlockType;
   sets_count: number | null;
   target_value: number | null;
@@ -16,12 +17,29 @@ export type TrainingSessionBlockRecord = {
 export type TrainingSessionBlockInsert = {
   position: number;
   name: string;
+  exercise_id?: string | null;
   block_type: SessionBlockType;
   sets_count: number;
   target_value: number | null;
   charge_kg: number | null;
   rest_seconds: number;
 };
+
+const TRAINING_SESSION_BLOCKS_SELECT_CANONICAL =
+  'id, session_id, position, name, exercise_id, block_type, sets_count, target_value, charge_kg, rest_seconds';
+
+const TRAINING_SESSION_BLOCKS_SELECT_LEGACY =
+  'id, session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds';
+
+function isMissingExerciseIdColumn(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+
+  return (
+    error.code === 'PGRST204' ||
+    error.code === '42703' ||
+    (error.message || '').toLowerCase().includes('exercise_id')
+  );
+}
 
 function normalizeRows(rows: any[]) {
   return rows.map(
@@ -30,6 +48,7 @@ function normalizeRows(rows: any[]) {
       session_id: row.session_id,
       position: Number(row.position ?? 0),
       name: row.name,
+      exercise_id: typeof row.exercise_id === 'string' ? row.exercise_id : null,
       block_type: row.block_type,
       sets_count: Number.isFinite(Number(row.sets_count)) ? Number(row.sets_count) : 1,
       target_value: Number.isFinite(Number(row.target_value)) ? Number(row.target_value) : null,
@@ -55,6 +74,7 @@ export async function insertTrainingSessionBlocks(
     session_id: sessionId,
     position: block.position,
     name: block.name,
+    exercise_id: block.exercise_id,
     block_type: block.block_type,
     sets_count: block.sets_count,
     target_value: block.target_value,
@@ -62,7 +82,15 @@ export async function insertTrainingSessionBlocks(
     rest_seconds: block.rest_seconds,
   }));
 
-  const { error } = await supabase.from('training_session_blocks').insert(rows);
+  let insertResponse = await supabase.from('training_session_blocks').insert(rows);
+
+  if (isMissingExerciseIdColumn(insertResponse.error)) {
+    insertResponse = await supabase.from('training_session_blocks').insert(
+      rows.map(({ exercise_id, ...legacyRow }) => legacyRow)
+    );
+  }
+
+  const { error } = insertResponse;
 
   if (error) {
     console.error('SESSION BLOCKS INSERT ERROR:', JSON.stringify(error, null, 2));
@@ -80,20 +108,30 @@ export async function fetchTrainingSessionBlocks(sessionIds: string[]) {
   const response = await applySessionFilter(
     supabase
       .from('training_session_blocks')
-      .select(
-        'id, session_id, position, name, block_type, sets_count, target_value, charge_kg, rest_seconds'
-      )
+      .select(TRAINING_SESSION_BLOCKS_SELECT_CANONICAL)
       .order('position', { ascending: true }),
     sessionIds
   );
 
-  if (response.error) {
-    console.error('SESSION BLOCKS SELECT ERROR:', JSON.stringify(response.error, null, 2));
-    return { data: [] as TrainingSessionBlockRecord[], error: response.error };
+  let resolvedResponse = response;
+
+  if (isMissingExerciseIdColumn(response.error)) {
+    resolvedResponse = await applySessionFilter(
+      supabase
+        .from('training_session_blocks')
+        .select(TRAINING_SESSION_BLOCKS_SELECT_LEGACY)
+        .order('position', { ascending: true }),
+      sessionIds
+    );
+  }
+
+  if (resolvedResponse.error) {
+    console.error('SESSION BLOCKS SELECT ERROR:', JSON.stringify(resolvedResponse.error, null, 2));
+    return { data: [] as TrainingSessionBlockRecord[], error: resolvedResponse.error };
   }
 
   return {
-    data: normalizeRows((response.data as any[]) || []),
+    data: normalizeRows((resolvedResponse.data as any[]) || []),
     error: null,
   };
 }
