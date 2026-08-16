@@ -22,6 +22,9 @@ create table if not exists public.exercise_library (
   updated_at timestamptz not null default now()
 );
 
+comment on column public.exercise_library.tracking_type is
+  'Mode de suivi par defaut de la fiche exercice. La verite d execution reste portee par le block_type de chaque bloc de seance, live et historique.';
+
 create index if not exists exercise_library_active_idx
   on public.exercise_library (active);
 
@@ -103,38 +106,6 @@ with curated_seed (
     ('kettlebell-swing', 'Kettlebell swing', 'fitness', 'Full body', 'hinge', 'reps', true, '{fessiers,ischio-jambiers}'::text[], '{epaules,cardio}'::text[], '{kettlebell}'::text[], 'intermediaire', '{"seed_source":"exercise-fallback"}'::jsonb),
     ('clean-and-press', 'Clean and press', 'musculation', 'Full body', 'olympic', 'reps', true, '{corps-entier}'::text[], '{cardio}'::text[], '{barre}'::text[], 'avance', '{"seed_source":"exercise-fallback"}'::jsonb),
     ('mountain-climbers', 'Mountain climbers', 'fitness', 'Full body', 'conditioning', 'reps', false, '{corps-entier,cardio}'::text[], '{abdominaux}'::text[], '{poids-du-corps}'::text[], 'debutant', '{"seed_source":"exercise-fallback"}'::jsonb)
-),
-existing_training_block_seed as (
-  select
-    public.normalize_mastery_exercise_key(tsb.name) as slug,
-    min(tsb.name) as name,
-    case
-      when bool_or(coalesce(tsb.charge_kg, 0) > 0) then 'musculation'
-      when min(tsb.block_type) = 'duration' then 'fitness'
-      when min(tsb.block_type) = 'distance' then 'cardio'
-      else 'fitness'
-    end as sport,
-    null::text as category,
-    null::text as movement_type,
-    coalesce(
-      (
-        array_agg(
-          tsb.block_type
-          order by
-            case tsb.block_type
-              when 'reps' then 1
-              when 'duration' then 2
-              when 'distance' then 3
-              else 4
-            end asc
-        )
-      )[1],
-      'free'
-    ) as tracking_type,
-    bool_or(coalesce(tsb.charge_kg, 0) > 0) as supports_load
-  from public.training_session_blocks tsb
-  where nullif(btrim(tsb.name), '') is not null
-  group by public.normalize_mastery_exercise_key(tsb.name)
 )
 insert into public.exercise_library (
   slug,
@@ -187,6 +158,50 @@ set
   difficulty = coalesce(public.exercise_library.difficulty, excluded.difficulty),
   metadata = public.exercise_library.metadata || excluded.metadata;
 
+with existing_training_block_seed as (
+  select
+    public.normalize_mastery_exercise_key(tsb.name) as slug,
+    min(tsb.name) as name,
+    case
+      when bool_or(coalesce(tsb.charge_kg, 0) > 0) then 'musculation'
+      when bool_or(tsb.block_type = 'distance') then 'cardio'
+      when bool_or(tsb.block_type = 'duration') then 'fitness'
+      else 'fitness'
+    end as sport,
+    null::text as category,
+    null::text as movement_type,
+    coalesce(
+      (
+        array_remove(
+          array[
+            case when bool_or(tsb.block_type = 'reps') then 'reps' end,
+            case when bool_or(tsb.block_type = 'duration') then 'duration' end,
+            case when bool_or(tsb.block_type = 'distance') then 'distance' end,
+            case when bool_or(tsb.block_type = 'free') then 'free' end
+          ],
+          null
+        )
+      )[1],
+      'free'
+    ) as tracking_type,
+    coalesce(
+      array_remove(
+        array[
+          case when bool_or(tsb.block_type = 'reps') then 'reps' end,
+          case when bool_or(tsb.block_type = 'duration') then 'duration' end,
+          case when bool_or(tsb.block_type = 'distance') then 'distance' end,
+          case when bool_or(tsb.block_type = 'free') then 'free' end
+        ],
+        null
+      ),
+      array['free']::text[]
+    ) as tracking_type_options,
+    count(distinct tsb.block_type) > 1 as has_multiple_tracking_types,
+    bool_or(coalesce(tsb.charge_kg, 0) > 0) as supports_load
+  from public.training_session_blocks tsb
+  where nullif(btrim(tsb.name), '') is not null
+  group by public.normalize_mastery_exercise_key(tsb.name)
+)
 insert into public.exercise_library (
   slug,
   name,
@@ -201,7 +216,13 @@ select
   existing_training_block_seed.sport,
   existing_training_block_seed.tracking_type,
   existing_training_block_seed.supports_load,
-  jsonb_build_object('seed_source', 'training_session_blocks')
+  jsonb_build_object(
+    'seed_source', 'training_session_blocks',
+    'tracking_type_role', 'default',
+    'available_tracking_types', to_jsonb(existing_training_block_seed.tracking_type_options),
+    'has_multiple_tracking_types', existing_training_block_seed.has_multiple_tracking_types,
+    'per_block_tracking_source', 'training_session_blocks.block_type'
+  )
 from existing_training_block_seed
 where existing_training_block_seed.slug <> ''
 on conflict (slug) do nothing;
