@@ -4,11 +4,13 @@ const path = require('node:path');
 
 const EXERCISE_VISUAL_FALLBACKS = {
   RUNNING: [
+    '45min',
     'accelerations-courtes',
     'course-en-cote',
     'course-tapis',
     'echauffement-footing',
     'footing-facile',
+    'seance-cote',
     'seuil',
     'tapis-incline',
   ],
@@ -21,6 +23,7 @@ const EXERCISE_VISUAL_FALLBACKS = {
   ],
   MOBILITY: [
     'cercles-d-epaules',
+    'echauffement',
     'echauffement-dynamique',
     'mobilite-dynamique',
     'mobilite-hanches',
@@ -39,14 +42,7 @@ const EXERCISE_VISUAL_FALLBACKS = {
   ],
 };
 
-const REVIEW_SLUGS = new Set([
-  '45min',
-  'echauffement',
-  'papillon',
-  'presse',
-  'rowing',
-  'seance-cote',
-]);
+const REVIEW_SLUGS = new Set([]);
 
 const DEFAULT_REPORT_PATH = path.resolve(process.cwd(), 'tmp/exercise-visual-fallback-report.json');
 
