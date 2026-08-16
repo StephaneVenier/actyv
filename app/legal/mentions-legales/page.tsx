@@ -57,6 +57,22 @@ export default function MentionsLegalesPage() {
           </section>
 
           <section className="legal-card legal-copy-stack">
+            <h2>Credits</h2>
+            <p className="legal-copy">
+              Exercise data by{' '}
+              <a href="https://repdb.co" target="_blank" rel="noreferrer">
+                RepDB (repdb.co)
+              </a>
+              .
+            </p>
+            <p className="legal-copy">
+              Certaines illustrations d&apos;exercices utilisees dans Actyv proviennent
+              du dataset free tier RepDB et sont integrees conformement a leur licence
+              avec attribution visible.
+            </p>
+          </section>
+
+          <section className="legal-card legal-copy-stack">
             <h2>Complements utiles</h2>
             <p className="legal-copy">
               Les informations relatives a l&apos;editeur, au responsable de
