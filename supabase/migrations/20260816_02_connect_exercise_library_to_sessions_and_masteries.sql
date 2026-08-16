@@ -33,6 +33,15 @@ declare
   v_auth_user_id uuid := auth.uid();
   v_history record;
   v_actual_sets jsonb := '[]'::jsonb;
+  v_entry_candidates jsonb := '[]'::jsonb;
+  v_before_unlocks jsonb := '[]'::jsonb;
+  v_inserted_entries jsonb := '[]'::jsonb;
+  v_new_unlocks jsonb := '[]'::jsonb;
+  v_processed_masteries jsonb := '[]'::jsonb;
+  v_ignored_blocks jsonb := '[]'::jsonb;
+  v_incompatible_mappings jsonb := '[]'::jsonb;
+  v_inserted_entries_count integer := 0;
+  v_xp_awarded_total integer := 0;
   v_result jsonb := '{}'::jsonb;
 begin
   if v_auth_user_id is null then
@@ -218,7 +227,7 @@ begin
       select
         candidate_links.*,
         row_number() over (
-          partition by candidate_links.block_id
+          partition by candidate_links.block_id, candidate_links.mastery_id
           order by
             candidate_links.match_priority asc,
             candidate_links.source_priority asc,
@@ -230,17 +239,17 @@ begin
   ),
   resolved_blocks as (
     select
-      aggregated_blocks.block_id,
-      aggregated_blocks.block_name,
-      aggregated_blocks.block_type,
-      aggregated_blocks.block_uuid,
-      aggregated_blocks.exercise_uuid,
-      aggregated_blocks.normalized_block_key,
-      aggregated_blocks.completed_sets,
-      aggregated_blocks.total_reps,
-      aggregated_blocks.total_duration_seconds,
-      aggregated_blocks.total_distance_km,
-      aggregated_blocks.total_volume_kg,
+      resolved_links.block_id,
+      resolved_links.block_name,
+      resolved_links.block_type,
+      resolved_links.block_uuid,
+      resolved_links.exercise_uuid,
+      resolved_links.normalized_block_key,
+      resolved_links.completed_sets,
+      resolved_links.total_reps,
+      resolved_links.total_duration_seconds,
+      resolved_links.total_distance_km,
+      resolved_links.total_volume_kg,
       resolved_links.mastery_id,
       resolved_links.mastery_slug,
       resolved_links.mastery_name,
@@ -261,29 +270,29 @@ begin
       public.compute_session_mastery_value(
         resolved_links.measurement_type,
         resolved_links.unit,
-        aggregated_blocks.block_type,
-        aggregated_blocks.completed_sets,
-        aggregated_blocks.total_reps,
-        aggregated_blocks.total_duration_seconds,
-        aggregated_blocks.total_distance_km,
-        aggregated_blocks.total_volume_kg
+        resolved_links.block_type,
+        resolved_links.completed_sets,
+        resolved_links.total_reps,
+        resolved_links.total_duration_seconds,
+        resolved_links.total_distance_km,
+        resolved_links.total_volume_kg
       ) as computed_value
-    from aggregated_blocks
-    left join resolved_links
-      on resolved_links.block_id = aggregated_blocks.block_id
+    from resolved_links
   ),
   ignored_blocks as (
     select
       jsonb_build_object(
-        'block_id', resolved_blocks.block_id,
-        'block_name', resolved_blocks.block_name,
-        'exercise_id', resolved_blocks.exercise_uuid,
-        'block_type', resolved_blocks.block_type,
-        'normalized_key', resolved_blocks.normalized_block_key,
+        'block_id', aggregated_blocks.block_id,
+        'block_name', aggregated_blocks.block_name,
+        'exercise_id', aggregated_blocks.exercise_uuid,
+        'block_type', aggregated_blocks.block_type,
+        'normalized_key', aggregated_blocks.normalized_block_key,
         'reason', 'no_mapping'
       ) as payload
-    from resolved_blocks
-    where resolved_blocks.mastery_id is null
+    from aggregated_blocks
+    left join resolved_links
+      on resolved_links.block_id = aggregated_blocks.block_id
+    where resolved_links.mastery_id is null
   ),
   incompatible_blocks as (
     select
@@ -339,15 +348,71 @@ begin
       and resolved_blocks.computed_value is not null
       and resolved_blocks.computed_value > 0
     group by resolved_blocks.mastery_id
-  ),
-  before_unlocks as (
+  )
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'mastery_id', entry_candidates.mastery_id,
+          'mastery_slug', entry_candidates.mastery_slug,
+          'mastery_name', entry_candidates.mastery_name,
+          'inserted_value', entry_candidates.inserted_value,
+          'contributing_blocks', entry_candidates.contributing_blocks
+        )
+        order by entry_candidates.mastery_name asc
+      ),
+      '[]'::jsonb
+    ),
+    coalesce((select jsonb_agg(ignored_blocks.payload) from ignored_blocks), '[]'::jsonb),
+    coalesce((select jsonb_agg(incompatible_blocks.payload) from incompatible_blocks), '[]'::jsonb)
+  into v_entry_candidates, v_ignored_blocks, v_incompatible_mappings
+  from entry_candidates;
+
+  with entry_candidates as (
     select
-      mastery_level_unlocks.mastery_id,
-      mastery_level_unlocks.level
-    from public.mastery_level_unlocks
-    join entry_candidates
-      on entry_candidates.mastery_id = mastery_level_unlocks.mastery_id
-    where mastery_level_unlocks.user_id = v_auth_user_id
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value,
+      candidate.contributing_blocks
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric,
+      contributing_blocks jsonb
+    )
+  )
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'mastery_id', mastery_level_unlocks.mastery_id,
+        'level', mastery_level_unlocks.level
+      )
+      order by mastery_level_unlocks.mastery_id, mastery_level_unlocks.level
+    ),
+    '[]'::jsonb
+  )
+  into v_before_unlocks
+  from public.mastery_level_unlocks
+  join entry_candidates
+    on entry_candidates.mastery_id = mastery_level_unlocks.mastery_id
+  where mastery_level_unlocks.user_id = v_auth_user_id;
+
+  with entry_candidates as (
+    select
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value,
+      candidate.contributing_blocks
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric,
+      contributing_blocks jsonb
+    )
   ),
   inserted_entries as (
     insert into public.mastery_entries (
@@ -381,6 +446,46 @@ begin
       mastery_entries.id,
       mastery_entries.mastery_id,
       mastery_entries.value
+  )
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'entry_id', inserted_entries.id,
+          'mastery_id', inserted_entries.mastery_id,
+          'value', inserted_entries.value
+        )
+        order by inserted_entries.mastery_id
+      ),
+      '[]'::jsonb
+    ),
+    count(*)
+  into v_inserted_entries, v_inserted_entries_count
+  from inserted_entries;
+
+  with entry_candidates as (
+    select
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value,
+      candidate.contributing_blocks
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric,
+      contributing_blocks jsonb
+    )
+  ),
+  before_unlocks as (
+    select
+      previous_unlock.mastery_id,
+      previous_unlock.level
+    from jsonb_to_recordset(v_before_unlocks) as previous_unlock(
+      mastery_id uuid,
+      level integer
+    )
   ),
   new_unlocks as (
     select
@@ -397,6 +502,59 @@ begin
         where before_unlocks.mastery_id = mastery_level_unlocks.mastery_id
           and before_unlocks.level = mastery_level_unlocks.level
       )
+  )
+  select
+    coalesce(
+      jsonb_agg(
+        jsonb_build_object(
+          'mastery_id', new_unlocks.mastery_id,
+          'level', new_unlocks.level,
+          'xp_awarded', new_unlocks.xp_awarded
+        )
+        order by new_unlocks.mastery_id, new_unlocks.level
+      ),
+      '[]'::jsonb
+    ),
+    coalesce(sum(new_unlocks.xp_awarded), 0)
+  into v_new_unlocks, v_xp_awarded_total
+  from new_unlocks;
+
+  with entry_candidates as (
+    select
+      candidate.mastery_id,
+      candidate.mastery_slug,
+      candidate.mastery_name,
+      candidate.inserted_value,
+      candidate.contributing_blocks
+    from jsonb_to_recordset(v_entry_candidates) as candidate(
+      mastery_id uuid,
+      mastery_slug text,
+      mastery_name text,
+      inserted_value numeric,
+      contributing_blocks jsonb
+    )
+  ),
+  inserted_entries as (
+    select
+      inserted_entry.entry_id,
+      inserted_entry.mastery_id,
+      inserted_entry.value
+    from jsonb_to_recordset(v_inserted_entries) as inserted_entry(
+      entry_id uuid,
+      mastery_id uuid,
+      value numeric
+    )
+  ),
+  new_unlocks as (
+    select
+      unlocked_entry.mastery_id,
+      unlocked_entry.level,
+      unlocked_entry.xp_awarded
+    from jsonb_to_recordset(v_new_unlocks) as unlocked_entry(
+      mastery_id uuid,
+      level integer,
+      xp_awarded integer
+    )
   ),
   processed_masteries as (
     select
@@ -405,8 +563,8 @@ begin
       entry_candidates.mastery_name,
       entry_candidates.inserted_value,
       entry_candidates.contributing_blocks,
-      inserted_entries.id as entry_id,
-      (inserted_entries.id is not null) as inserted,
+      inserted_entries.entry_id,
+      (inserted_entries.entry_id is not null) as inserted,
       coalesce(
         (
           select sum(new_unlocks.xp_awarded)
@@ -434,41 +592,41 @@ begin
     left join inserted_entries
       on inserted_entries.mastery_id = entry_candidates.mastery_id
   )
-  select jsonb_build_object(
+  select coalesce(
+    jsonb_agg(
+      jsonb_build_object(
+        'entry_id', processed_masteries.entry_id,
+        'mastery_id', processed_masteries.mastery_id,
+        'mastery_slug', processed_masteries.mastery_slug,
+        'mastery_name', processed_masteries.mastery_name,
+        'inserted', processed_masteries.inserted,
+        'inserted_value', processed_masteries.inserted_value,
+        'xp_awarded', processed_masteries.xp_awarded,
+        'unlocked_levels', processed_masteries.unlocked_levels,
+        'current_level', coalesce((processed_masteries.progress ->> 'current_level')::integer, 0),
+        'total_value', coalesce((processed_masteries.progress ->> 'total_value')::numeric, 0),
+        'progress_percent', coalesce((processed_masteries.progress ->> 'progress_percent')::numeric, 0),
+        'contributing_blocks', processed_masteries.contributing_blocks
+      )
+      order by processed_masteries.mastery_name asc
+    ),
+    '[]'::jsonb
+  )
+  into v_processed_masteries
+  from processed_masteries;
+
+  v_result := jsonb_build_object(
     'workout_history_id', v_history.id,
     'workout_id', v_history.workout_id,
     'workout_name', v_history.workout_name,
-    'candidate_masteries_count', coalesce((select count(*) from entry_candidates), 0),
-    'inserted_entries_count', coalesce((select count(*) from inserted_entries), 0),
-    'xp_awarded_total', coalesce((select sum(new_unlocks.xp_awarded) from new_unlocks), 0),
-    'processed_masteries', coalesce(
-      (
-        select jsonb_agg(
-          jsonb_build_object(
-            'entry_id', processed_masteries.entry_id,
-            'mastery_id', processed_masteries.mastery_id,
-            'mastery_slug', processed_masteries.mastery_slug,
-            'mastery_name', processed_masteries.mastery_name,
-            'inserted', processed_masteries.inserted,
-            'inserted_value', processed_masteries.inserted_value,
-            'xp_awarded', processed_masteries.xp_awarded,
-            'unlocked_levels', processed_masteries.unlocked_levels,
-            'current_level', coalesce((processed_masteries.progress ->> 'current_level')::integer, 0),
-            'total_value', coalesce((processed_masteries.progress ->> 'total_value')::numeric, 0),
-            'progress_percent', coalesce((processed_masteries.progress ->> 'progress_percent')::numeric, 0),
-            'contributing_blocks', processed_masteries.contributing_blocks
-          )
-          order by processed_masteries.mastery_name asc
-        )
-        from processed_masteries
-      ),
-      '[]'::jsonb
-    ),
-    'ignored_blocks', coalesce((select jsonb_agg(ignored_blocks.payload) from ignored_blocks), '[]'::jsonb),
-    'incompatible_mappings', coalesce((select jsonb_agg(incompatible_blocks.payload) from incompatible_blocks), '[]'::jsonb),
+    'candidate_masteries_count', jsonb_array_length(v_entry_candidates),
+    'inserted_entries_count', v_inserted_entries_count,
+    'xp_awarded_total', v_xp_awarded_total,
+    'processed_masteries', v_processed_masteries,
+    'ignored_blocks', v_ignored_blocks,
+    'incompatible_mappings', v_incompatible_mappings,
     'missing_actual_sets', false
-  )
-  into v_result;
+  );
 
   return coalesce(v_result, jsonb_build_object(
     'workout_history_id', v_history.id,
