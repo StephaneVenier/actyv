@@ -4,8 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
-import { MasteryIcon } from '@/components/MasteryIcon';
-import { SessionExerciseIcon } from '@/components/session-exercise-icon';
+import { MasteryVisual } from '@/components/MasteryVisual';
 import { addMasteryEntry, loadMasteryDetail } from '@/lib/masteries-api';
 import {
   type MasteryDetailData,
@@ -324,17 +323,7 @@ export default function MasteryDetailPage() {
 
           <div className="masteries-detail-shell__hero">
             <span className="mastery-detail-shell__icon-wrap">
-              {mastery.linkedExerciseImageUrl || mastery.linkedExerciseVisualCategory ? (
-                <SessionExerciseIcon
-                  exerciseName={mastery.linkedExerciseName || mastery.name}
-                  exerciseImageUrl={mastery.linkedExerciseImageUrl}
-                  visualCategory={mastery.linkedExerciseVisualCategory}
-                  size="lg"
-                  className="mastery-detail-shell__exercise-art"
-                />
-              ) : (
-                <MasteryIcon categoryId={mastery.categoryId} className="mastery-icon mastery-icon--hero" />
-              )}
+              <MasteryVisual mastery={mastery} size="hero" className="mastery-detail-shell__exercise-art" />
             </span>
             <div className="masteries-hero-card__copy masteries-hero-card__copy--detail">
               <h1>{mastery.name}</h1>

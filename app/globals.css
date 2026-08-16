@@ -2514,6 +2514,159 @@ img {
   padding: 4px;
 }
 
+.mastery-sport-visual {
+  --mastery-sport-accent: #4ade80;
+  --mastery-sport-bg: rgba(16, 185, 129, 0.14);
+  --mastery-sport-border: rgba(74, 222, 128, 0.24);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 28px;
+  border-radius: 999px;
+  color: var(--mastery-sport-accent);
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.08), transparent 58%),
+    var(--mastery-sport-bg);
+  border: 1px solid var(--mastery-sport-border);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+.mastery-sport-visual__sport {
+  width: 18px;
+  height: 18px;
+}
+
+.mastery-sport-visual__metric {
+  position: absolute;
+  right: -3px;
+  bottom: -3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 13px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  color: #f8fafc;
+  box-shadow: 0 3px 8px rgba(2, 6, 23, 0.32);
+}
+
+.mastery-sport-visual__metric-glyph {
+  width: 8px;
+  height: 8px;
+}
+
+.mastery-sport-visual__metric-label {
+  display: inline-block;
+  font-size: 0.42rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.mastery-card__exercise-art.mastery-sport-visual {
+  width: 34px;
+  height: 34px;
+  flex-basis: 34px;
+}
+
+.mastery-card__exercise-art.mastery-sport-visual .mastery-sport-visual__sport {
+  width: 18px;
+  height: 18px;
+}
+
+.mastery-card__exercise-art.mastery-sport-visual .mastery-sport-visual__metric {
+  min-width: 14px;
+  height: 14px;
+}
+
+.mastery-detail-shell__exercise-art.mastery-sport-visual {
+  width: 72px;
+  height: 72px;
+  flex-basis: 72px;
+}
+
+.mastery-detail-shell__exercise-art.mastery-sport-visual .mastery-sport-visual__sport {
+  width: 34px;
+  height: 34px;
+}
+
+.mastery-detail-shell__exercise-art.mastery-sport-visual .mastery-sport-visual__metric {
+  right: 2px;
+  bottom: 2px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+}
+
+.mastery-detail-shell__exercise-art.mastery-sport-visual .mastery-sport-visual__metric-glyph {
+  width: 14px;
+  height: 14px;
+}
+
+.mastery-detail-shell__exercise-art.mastery-sport-visual .mastery-sport-visual__metric-label {
+  font-size: 0.68rem;
+}
+
+.mastery-sport-visual--running,
+.mastery-sport-visual--trail {
+  --mastery-sport-accent: #4ade80;
+  --mastery-sport-bg: rgba(34, 197, 94, 0.16);
+  --mastery-sport-border: rgba(74, 222, 128, 0.28);
+}
+
+.mastery-sport-visual--walking {
+  --mastery-sport-accent: #84cc16;
+  --mastery-sport-bg: rgba(132, 204, 22, 0.16);
+  --mastery-sport-border: rgba(163, 230, 53, 0.3);
+}
+
+.mastery-sport-visual--cycling {
+  --mastery-sport-accent: #fb923c;
+  --mastery-sport-bg: rgba(249, 115, 22, 0.16);
+  --mastery-sport-border: rgba(251, 146, 60, 0.3);
+}
+
+.mastery-sport-visual--swimming,
+.mastery-sport-visual--water {
+  --mastery-sport-accent: #38bdf8;
+  --mastery-sport-bg: rgba(14, 165, 233, 0.16);
+  --mastery-sport-border: rgba(56, 189, 248, 0.3);
+}
+
+.mastery-sport-visual--snow {
+  --mastery-sport-accent: #c4b5fd;
+  --mastery-sport-bg: rgba(124, 58, 237, 0.16);
+  --mastery-sport-border: rgba(196, 181, 253, 0.28);
+}
+
+.mastery-sport-visual--climbing,
+.mastery-sport-visual--orienteering {
+  --mastery-sport-accent: #2dd4bf;
+  --mastery-sport-bg: rgba(20, 184, 166, 0.16);
+  --mastery-sport-border: rgba(45, 212, 191, 0.28);
+}
+
+.mastery-sport-visual--ball,
+.mastery-sport-visual--racket,
+.mastery-sport-visual--combat {
+  --mastery-sport-accent: #facc15;
+  --mastery-sport-bg: rgba(234, 179, 8, 0.16);
+  --mastery-sport-border: rgba(250, 204, 21, 0.28);
+}
+
+.mastery-sport-visual--triathlon,
+.mastery-sport-visual--fitness {
+  --mastery-sport-accent: #60a5fa;
+  --mastery-sport-bg: rgba(59, 130, 246, 0.16);
+  --mastery-sport-border: rgba(96, 165, 250, 0.28);
+}
+
 .mastery-card__copy {
   display: grid;
   gap: 2px;

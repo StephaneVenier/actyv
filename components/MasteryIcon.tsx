@@ -5,7 +5,7 @@ type MasteryIconProps = {
   className?: string;
 };
 
-function renderCategoryIcon(categoryId: string) {
+export function renderMasteryCategoryIcon(categoryId: string) {
   switch (categoryId) {
     case 'fitness':
       return (
@@ -76,7 +76,7 @@ export function MasteryIcon({ categoryId, className }: MasteryIconProps) {
   return (
     <span className={className || 'mastery-icon'} aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        {renderCategoryIcon(categoryId)}
+        {renderMasteryCategoryIcon(categoryId)}
       </svg>
     </span>
   );
