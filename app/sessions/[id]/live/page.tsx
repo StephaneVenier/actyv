@@ -36,6 +36,7 @@ import { processSessionMasteries } from '@/lib/masteries-api';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { WorkoutCompletionMetadata, WorkoutSetPerformance } from '@/lib/workout-history';
+import { normalizeLiveSetPerformances } from '@/lib/live-workout-snapshot';
 
 type TrainingSession = {
   id: string;
@@ -390,7 +391,7 @@ function formatLivePerformanceLineSummary(blockType: SessionBlockType, line: Liv
 }
 
 function getSetPerformanceKey(entry: Pick<WorkoutSetPerformance, 'block_id' | 'set_number' | 'status'>) {
-  return `${entry.block_id}:${entry.set_number}:${entry.status}`;
+  return `${entry.block_id}:${entry.set_number}`;
 }
 
 function formatLivePerformanceLineCompactMeta(blockType: SessionBlockType, line: LivePerformanceLineDraft) {
@@ -488,6 +489,7 @@ export default function LiveSessionPage() {
   const [completionLevelProgress, setCompletionLevelProgress] = useState<ActyvLevelProgress | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const savingHistoryRef = useRef(false);
+  const lastValidatedSeriesRef = useRef<string | null>(null);
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [isExerciseMenuOpen, setIsExerciseMenuOpen] = useState(false);
@@ -776,43 +778,7 @@ export default function LiveSessionPage() {
         setPerformanceDraftsByBlockId(nextPerformanceDrafts);
       }
       if (Array.isArray(parsedValue.setPerformances)) {
-        setSetPerformances(
-          parsedValue.setPerformances.flatMap((entry) => {
-            if (!entry || typeof entry !== 'object') return [];
-            const candidateEntry = entry as Partial<WorkoutSetPerformance>;
-            if (
-              typeof candidateEntry.block_id !== 'string' ||
-              typeof candidateEntry.block_name !== 'string' ||
-              typeof candidateEntry.set_number !== 'number' ||
-              (candidateEntry.status !== 'completed' && candidateEntry.status !== 'skipped')
-            ) {
-              return [];
-            }
-
-            return [
-              {
-                block_id: candidateEntry.block_id,
-                block_name: candidateEntry.block_name,
-                exercise_id:
-                  typeof candidateEntry.exercise_id === 'string' ? candidateEntry.exercise_id : null,
-                set_number: normalizePositiveInteger(candidateEntry.set_number, 1),
-                planned_reps:
-                  candidateEntry.planned_reps == null ? null : normalizePositiveInteger(candidateEntry.planned_reps, 0),
-                actual_reps:
-                  candidateEntry.actual_reps == null ? null : normalizePositiveInteger(candidateEntry.actual_reps, 0),
-                planned_charge_kg:
-                  candidateEntry.planned_charge_kg == null
-                    ? null
-                    : normalizeNonNegativeNumber(candidateEntry.planned_charge_kg, 0),
-                actual_charge_kg:
-                  candidateEntry.actual_charge_kg == null
-                    ? null
-                    : normalizeNonNegativeNumber(candidateEntry.actual_charge_kg, 0),
-                status: candidateEntry.status,
-              } satisfies WorkoutSetPerformance,
-            ];
-          })
-        );
+        setSetPerformances(normalizeLiveSetPerformances(parsedValue.setPerformances, hydratedBlocks || []));
       }
       if (typeof parsedValue.finishReviewOpen === 'boolean') {
         setFinishReviewOpen(parsedValue.finishReviewOpen);
@@ -1391,29 +1357,7 @@ export default function LiveSessionPage() {
       return;
     }
 
-    const sanitizedSetPerformances = setPerformances
-      .filter((entry) => validBlockIds.has(entry.block_id))
-      .map((entry) => ({
-        ...entry,
-        set_number: normalizePositiveInteger(entry.set_number, 1),
-        line_number: entry.line_number == null ? null : normalizePositiveInteger(entry.line_number, 1),
-        block_type:
-          entry.block_type === 'reps' ||
-          entry.block_type === 'duration' ||
-          entry.block_type === 'distance' ||
-          entry.block_type === 'free'
-            ? entry.block_type
-            : null,
-        planned_reps: entry.planned_reps == null ? null : normalizePositiveInteger(entry.planned_reps, 0),
-        actual_reps: entry.actual_reps == null ? null : normalizePositiveInteger(entry.actual_reps, 0),
-        planned_charge_kg:
-          entry.planned_charge_kg == null ? null : normalizeNonNegativeNumber(entry.planned_charge_kg, 0),
-        actual_charge_kg:
-          entry.actual_charge_kg == null ? null : normalizeNonNegativeNumber(entry.actual_charge_kg, 0),
-        planned_value: entry.planned_value == null ? null : normalizeNonNegativeNumber(entry.planned_value, 0),
-        actual_value: entry.actual_value == null ? null : normalizeNonNegativeNumber(entry.actual_value, 0),
-        actual_text: typeof entry.actual_text === 'string' ? entry.actual_text : null,
-      }));
+    const sanitizedSetPerformances = normalizeLiveSetPerformances(setPerformances, blocks);
 
     if (JSON.stringify(sanitizedSetPerformances) !== JSON.stringify(setPerformances)) {
       setSetPerformances(sanitizedSetPerformances);
@@ -1954,6 +1898,7 @@ export default function LiveSessionPage() {
   };
 
   const resetLiveProgress = () => {
+    lastValidatedSeriesRef.current = null;
     setCompletedBlockIds([]);
     setSkippedBlockIds([]);
     setCompletedSetsByBlockId({});
@@ -2007,7 +1952,10 @@ export default function LiveSessionPage() {
   };
 
   const handleValidateCurrent = () => {
-    if (!currentBlock) return;
+    if (!currentBlock || !canValidateCurrentBlock) return;
+    const validationKey = `${currentBlock.id}:${currentCompletedSets + 1}`;
+    if (lastValidatedSeriesRef.current === validationKey) return;
+    lastValidatedSeriesRef.current = validationKey;
 
     triggerHaptic(18);
     setStartedSeriesKey(null);
@@ -2238,7 +2186,7 @@ export default function LiveSessionPage() {
       setAuthUserId(currentUserId);
 
       const finalSetPerformanceByKey = new Map(
-        setPerformances.map((entry) => [getSetPerformanceKey(entry), entry])
+        normalizeLiveSetPerformances(setPerformances, blocks).map((entry) => [getSetPerformanceKey(entry), entry])
       );
 
       blocks.forEach((block, blockIndex) => {
@@ -2246,50 +2194,10 @@ export default function LiveSessionPage() {
           performanceDraftsByBlockId[block.id] || createDefaultLivePerformanceDraft(block);
         const liveLines = getLivePerformanceDraftLines(liveDraft, block);
         const totalSets = getLivePerformanceDraftTotalSets(liveDraft, block);
-        const completedSets = Math.min(
-          Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
-          totalSets
-        );
         const blockName = safeTrimText(block.name) || `Bloc ${blockIndex + 1}`;
 
-        for (let setNumber = 1; setNumber <= completedSets; setNumber += 1) {
-          const { line, lineIndex } = getLivePerformanceLineForSetNumber(liveLines, setNumber);
-          const normalizedTargetValue = line.targetValue == null ? null : normalizeNonNegativeNumber(line.targetValue, 0);
-          const normalizedChargeKg = line.chargeKg == null ? null : normalizeNonNegativeNumber(line.chargeKg, 0);
-          const lineType = block.block_type;
-          const key = getSetPerformanceKey({
-            block_id: block.id,
-            set_number: setNumber,
-            status: 'completed',
-          });
-
-          if (!finalSetPerformanceByKey.has(key)) {
-            finalSetPerformanceByKey.set(key, {
-              block_id: block.id,
-              block_name: blockName,
-              exercise_id: block.exercise_id ?? null,
-              set_number: setNumber,
-              line_number: lineIndex + 1,
-              block_type: lineType,
-              planned_reps: lineType === 'reps' ? normalizedTargetValue : null,
-              actual_reps: lineType === 'reps' ? normalizedTargetValue : null,
-              planned_charge_kg: lineType === 'reps' ? normalizedChargeKg : null,
-              actual_charge_kg: lineType === 'reps' ? normalizedChargeKg : null,
-              planned_value:
-                lineType === 'duration' || lineType === 'distance'
-                  ? normalizedTargetValue
-                  : null,
-              actual_value:
-                lineType === 'duration' || lineType === 'distance'
-                  ? normalizedTargetValue
-                  : null,
-              actual_text: lineType === 'free' ? safeTrimText(line.note) || null : null,
-              status: 'completed',
-            });
-          }
-        }
-
-        for (let setNumber = completedSets + 1; setNumber <= totalSets; setNumber += 1) {
+        // Only explicit validation creates completed rows; missing rows are skipped.
+        for (let setNumber = 1; setNumber <= totalSets; setNumber += 1) {
           const { line, lineIndex } = getLivePerformanceLineForSetNumber(liveLines, setNumber);
           const normalizedTargetValue = line.targetValue == null ? null : normalizeNonNegativeNumber(line.targetValue, 0);
           const lineType = block.block_type;
