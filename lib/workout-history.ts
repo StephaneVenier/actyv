@@ -33,6 +33,28 @@ export type WorkoutSetLine = {
   actual_text?: string | null;
 };
 
+export function getExerciseHistoryTotalReps(entry: {
+  actual_sets?: unknown;
+  block_type: string | null;
+  reps: number | null;
+  sets_count: number | null;
+}) {
+  if (Array.isArray(entry.actual_sets)) {
+    return parseWorkoutCompletionMetadata({ actual_sets: entry.actual_sets }).actual_sets?.reduce(
+      (total, set) => total + (
+        set.status === 'completed' && set.block_type === 'reps'
+          ? Math.max(Number(set.actual_reps ?? 0), 0)
+          : 0
+      ),
+      0
+    ) ?? 0;
+  }
+  // Legacy rows have no set snapshot; retain their existing interpretation.
+  const reps = entry.block_type === 'reps' ? Math.max(Number(entry.reps) || 0, 0) : 0;
+  const sets = Number(entry.sets_count) > 0 ? Number(entry.sets_count) : 1;
+  return reps * sets;
+}
+
 export type WorkoutCompletionMetadata = {
   stats_version?: number;
   total_blocks?: number;

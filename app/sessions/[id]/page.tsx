@@ -27,7 +27,7 @@ import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { formatPercent } from '@/lib/display-format';
-import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
+import { getExerciseHistoryTotalReps, parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
 type TrainingSession = {
   id: string;
@@ -52,6 +52,7 @@ type WorkoutHistoryEntry = {
 };
 
 type WorkoutHistoryExerciseEntry = {
+  actual_sets?: unknown;
   id: string;
   history_id: string | null;
   workout_id: string;
@@ -476,7 +477,7 @@ export default function SessionDetailPage() {
           const { data: historyExerciseRows, error: historyExerciseError } = await supabase
             .from('workout_exercise_history')
             .select(
-              'id, history_id, workout_id, exercise_name, block_type, sets_count, reps, duration_seconds, distance, charge_kg, volume, completed_at, created_at'
+              'id, history_id, workout_id, exercise_name, block_type, sets_count, reps, duration_seconds, distance, charge_kg, volume, completed_at, created_at, actual_sets'
             )
             .eq('user_id', user.id)
             .eq('workout_id', currentSession.id)
@@ -762,16 +763,7 @@ export default function SessionDetailPage() {
           return Math.max(best, value);
         }, 0);
         const totalReps = sortedEntries.reduce((total, entry) => {
-          const repsValue =
-            entry.block_type === 'reps' && Number.isFinite(Number(entry.reps)) && Number(entry.reps) > 0
-              ? Number(entry.reps)
-              : 0;
-          const setsValue =
-            Number.isFinite(Number(entry.sets_count)) && Number(entry.sets_count) > 0
-              ? Number(entry.sets_count)
-              : 1;
-
-          return total + repsValue * setsValue;
+          return total + getExerciseHistoryTotalReps(entry);
         }, 0);
         const bestDurationSeconds = sortedEntries.reduce((best, entry) => {
           const value =

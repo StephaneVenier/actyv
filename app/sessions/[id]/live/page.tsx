@@ -2332,7 +2332,6 @@ export default function LiveSessionPage() {
           .single();
       }
 
-      let reusedHistory = false;
       if (insertResponse.error?.code === '23505') {
         insertResponse = await supabase
           .from('workout_sessions_history')
@@ -2340,7 +2339,6 @@ export default function LiveSessionPage() {
           .eq('user_id', currentUserId)
           .eq('run_key', runKey)
           .single();
-        reusedHistory = !insertResponse.error;
       }
 
       const { data, error } = insertResponse;
@@ -2348,6 +2346,20 @@ export default function LiveSessionPage() {
       if (error) {
         console.error('Workout history insert error:', error);
         setHistoryMessage(`Impossible d'enregistrer l'historique de la seance : ${error.message || error.code || 'erreur inconnue'}`);
+        setSaveState('error');
+        return false;
+      }
+
+      // Repair from the persisted snapshot, including after a run_key conflict.
+      const { data: syncedExerciseHistory, error: syncExerciseHistoryError } = await supabase.rpc(
+        'sync_workout_exercise_history',
+        { p_history_id: data.id }
+      );
+      if (syncExerciseHistoryError) {
+        console.error('Workout exercise history synchronization error:', syncExerciseHistoryError);
+        setHistoryMessage(
+          `La seance est conservee, mais l'historique des exercices doit etre synchronise. Reessaie : ${syncExerciseHistoryError.message}`
+        );
         setSaveState('error');
         return false;
       }
@@ -2443,58 +2455,22 @@ export default function LiveSessionPage() {
         nextCompletionSummarySubtitle = 'Aucun XP supplementaire';
       }
 
-      let exerciseHistoryMessage: string | null = null;
+      const exerciseHistoryPayload = (syncedExerciseHistory || []) as Array<{
+        exercise_name: string;
+        reps: number;
+        duration_seconds: number;
+        charge_kg: number;
+        volume: number;
+      }>;
 
-      const exerciseHistoryPayload = blocks
-        .filter((block) => completedBlockIds.includes(block.id))
-        .filter((block) => safeTrimText(block.name).length > 0)
-        .map((block) => {
-          const normalizedSetsCount =
-            Number(completedSetsByBlockId[block.id] ?? 0) > 0
-              ? Math.min(
-                  Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0),
-                  normalizeSessionSetsCount(block.sets_count)
-                )
-              : normalizeSessionSetsCount(block.sets_count);
-          const normalizedTargetValue =
-            Number.isFinite(Number(block.target_value)) && Number(block.target_value) > 0
-              ? Number(block.target_value)
-              : 0;
-          const normalizedChargeKg =
-            Number.isFinite(Number(block.charge_kg)) && Number(block.charge_kg) > 0
-              ? Number(block.charge_kg)
-              : 0;
-          const normalizedBlockVolume =
-            getSessionBlockVolumeKg(
-              block.block_type,
-              block.target_value,
-              normalizedSetsCount,
-              block.charge_kg
-            ) ?? 0;
-
-          return {
-            history_id: data.id,
-            user_id: currentUserId,
-            workout_id: session.id,
-            exercise_name: safeTrimText(block.name) || `Bloc ${block.position + 1}`,
-            block_type: block.block_type,
-            sets_count: normalizedSetsCount,
-            reps: block.block_type === 'reps' ? normalizedTargetValue : 0,
-            duration_seconds: block.block_type === 'duration' ? Math.trunc(normalizedTargetValue) : 0,
-            distance: block.block_type === 'distance' ? normalizedTargetValue : 0,
-            charge_kg: normalizedChargeKg,
-            volume: normalizedBlockVolume,
-            completed_at: payload.completed_at,
-          };
-        });
-
-      if (!reusedHistory && exerciseHistoryPayload.length > 0) {
+      if (exerciseHistoryPayload.length > 0) {
         const exerciseNames = [...new Set(exerciseHistoryPayload.map((entry) => entry.exercise_name))];
         const { data: previousExerciseHistory, error: previousExerciseHistoryError } = await supabase
           .from('workout_exercise_history')
           .select('exercise_name, reps, duration_seconds, charge_kg, volume')
           .eq('user_id', currentUserId)
-          .in('exercise_name', exerciseNames);
+          .in('exercise_name', exerciseNames)
+          .or(`history_id.is.null,history_id.neq.${data.id}`);
 
         if (previousExerciseHistoryError) {
           console.error('Workout exercise history comparison error:', previousExerciseHistoryError);
@@ -2579,26 +2555,6 @@ export default function LiveSessionPage() {
             });
           }
         });
-
-        const { error: exerciseHistoryError } = await supabase
-          .from('workout_exercise_history')
-          .insert(exerciseHistoryPayload);
-
-        if (exerciseHistoryError) {
-          console.error('Workout exercise history insert error:', exerciseHistoryError);
-          console.error('Exercise history insert error:', exerciseHistoryError);
-          console.error('Exercise history insert error details:', {
-            message: exerciseHistoryError.message,
-            code: exerciseHistoryError.code,
-            details: exerciseHistoryError.details,
-            hint: exerciseHistoryError.hint,
-          });
-          console.error(
-            'Exercise history insert error full:',
-            JSON.stringify(exerciseHistoryError, null, 2)
-          );
-          exerciseHistoryMessage = "L'historique a ete enregistre, mais pas les records d'exercices.";
-        }
 
         setNewPersonalRecords(detectedNewRecords);
       }
@@ -2772,7 +2728,7 @@ export default function LiveSessionPage() {
       setHistorySaved(true);
       setFinishReviewOpen(true);
       setEarnedXpTotal(nextEarnedXpTotal);
-      setHistoryMessage(exerciseHistoryMessage || completionMessage);
+      setHistoryMessage(completionMessage);
       setSaveState('success');
       return true;
     } catch (error) {
