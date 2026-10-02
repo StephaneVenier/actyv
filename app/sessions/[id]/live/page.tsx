@@ -126,7 +126,11 @@ function createLiveRunKey() {
     return crypto.randomUUID();
   }
 
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 function triggerHaptic(pattern: number | number[]) {
@@ -483,6 +487,7 @@ export default function LiveSessionPage() {
   const [completionTotalXp, setCompletionTotalXp] = useState(0);
   const [completionLevelProgress, setCompletionLevelProgress] = useState<ActyvLevelProgress | null>(null);
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
+  const savingHistoryRef = useRef(false);
   const [validationFeedback, setValidationFeedback] = useState<string | null>(null);
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [isExerciseMenuOpen, setIsExerciseMenuOpen] = useState(false);
@@ -682,37 +687,6 @@ export default function LiveSessionPage() {
         hydratedBlocks = nextBlocks;
         setBlocks(nextBlocks);
       }
-      if (parsedValue.historySaved === true) {
-        clearPersistedLiveState();
-        hasHydratedLiveStateRef.current = false;
-        setCurrentIndex(0);
-        setBlocks([]);
-        setCompletedBlockIds([]);
-        setSkippedBlockIds([]);
-        setCompletedSetsByBlockId({});
-        setActualPerformanceDraftsByBlockId({});
-        setActualPerformanceCarryForwardByBlockId({});
-        setPerformanceDraftsByBlockId({});
-        setSetPerformances([]);
-        setFinishReviewOpen(false);
-        setRestAfterBlockId(null);
-        setRestResumeIndex(null);
-        setRestSecondsLeft(DEFAULT_REST_SECONDS);
-        setExerciseBlockId(null);
-        setExerciseSecondsLeft(0);
-        setAwaitingExerciseCompletion(false);
-        setElapsedSeconds(0);
-        setIsTimerPaused(false);
-        setHistorySaved(false);
-        setHistoryMessage(null);
-        setSaveState('idle');
-        setNewPersonalRecords([]);
-        setAwardedBadgeCodes([]);
-        setStartedSeriesKey(null);
-        setEarnedXpTotal(0);
-        setRunKey(createLiveRunKey());
-        return;
-      }
 
       if (typeof parsedValue.currentIndex === 'number') {
         setCurrentIndex(parsedValue.currentIndex);
@@ -899,6 +873,8 @@ export default function LiveSessionPage() {
       }
     } catch (error) {
       console.error('Erreur lecture etat live seance :', error);
+    } finally {
+      setRunKey((current) => current || createLiveRunKey());
     }
   }, [clearPersistedLiveState, liveStorageKey]);
 
@@ -940,12 +916,6 @@ export default function LiveSessionPage() {
       isCancelled = true;
     };
   }, [blocks]);
-
-  useEffect(() => {
-    if (!runKey) {
-      setRunKey(createLiveRunKey());
-    }
-  }, [runKey]);
 
   useEffect(() => {
     if (!validationFeedback) return;
@@ -1162,6 +1132,7 @@ export default function LiveSessionPage() {
     (allBlocksCompleted ||
       currentIndex >= blocks.length - 1 ||
       completedBlocksCount > 0 ||
+      setPerformances.some((entry) => entry.status === 'completed') ||
       skippedBlocksCount > 0);
   const finishReviewHint = canOpenFinishReview
     ? allBlocksCompleted
@@ -2239,14 +2210,22 @@ export default function LiveSessionPage() {
   }, [shouldKeepScreenAwake]);
 
   const saveCompletedSession = useCallback(async () => {
-    if (historySaved || !session || !runKey || saveState === 'saving') {
+    if (historySaved || !session || !runKey || savingHistoryRef.current || saveState === 'saving') {
       return false;
     }
 
+    savingHistoryRef.current = true;
     setSaveState('saving');
     setHistoryMessage(null);
 
     try {
+      // Local backup failures must not prevent saving the existing run key to Supabase.
+      try {
+        const persistedState = JSON.parse(window.localStorage.getItem(liveStorageKey) || '{}');
+        window.localStorage.setItem(liveStorageKey, JSON.stringify({ ...persistedState, runKey }));
+      } catch (storageError) {
+        console.error('Live session local backup failed; continuing history save:', storageError);
+      }
       const currentUserId = authUserId || (await resolveLiveAuthUserId());
 
       if (!currentUserId) {
@@ -2426,6 +2405,7 @@ export default function LiveSessionPage() {
 
       const payload = {
         user_id: currentUserId,
+        run_key: runKey,
         workout_id: session.id,
         workout_name: session.name,
         completed_at: new Date().toISOString(),
@@ -2462,11 +2442,22 @@ export default function LiveSessionPage() {
           .single();
       }
 
+      let reusedHistory = false;
+      if (insertResponse.error?.code === '23505') {
+        insertResponse = await supabase
+          .from('workout_sessions_history')
+          .select('id, workout_id, user_id, workout_name, duration_seconds, estimated_calories, total_volume, completed_exercises, completed_at, metadata')
+          .eq('user_id', currentUserId)
+          .eq('run_key', runKey)
+          .single();
+        reusedHistory = !insertResponse.error;
+      }
+
       const { data, error } = insertResponse;
 
       if (error) {
         console.error('Workout history insert error:', error);
-        setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
+        setHistoryMessage(`Impossible d'enregistrer l'historique de la seance : ${error.message || error.code || 'erreur inconnue'}`);
         setSaveState('error');
         return false;
       }
@@ -2607,7 +2598,7 @@ export default function LiveSessionPage() {
           };
         });
 
-      if (exerciseHistoryPayload.length > 0) {
+      if (!reusedHistory && exerciseHistoryPayload.length > 0) {
         const exerciseNames = [...new Set(exerciseHistoryPayload.map((entry) => entry.exercise_name))];
         const { data: previousExerciseHistory, error: previousExerciseHistoryError } = await supabase
           .from('workout_exercise_history')
@@ -2899,6 +2890,8 @@ export default function LiveSessionPage() {
       setHistoryMessage("Une erreur inattendue s'est produite pendant l'enregistrement.");
       setSaveState('error');
       return false;
+    } finally {
+      savingHistoryRef.current = false;
     }
   }, [
     authUserId,
@@ -2913,6 +2906,7 @@ export default function LiveSessionPage() {
     elapsedSeconds,
     estimatedCalories,
     historySaved,
+    liveStorageKey,
     isPartialCompletion,
     programId,
     programSessionId,
