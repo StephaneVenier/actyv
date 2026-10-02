@@ -11,6 +11,7 @@ export type WorkoutSetPerformance = {
   actual_reps: number | null;
   planned_charge_kg: number | null;
   actual_charge_kg: number | null;
+  // Live duration values are seconds; Live distance values are meters.
   planned_value?: number | null;
   actual_value?: number | null;
   actual_text?: string | null;

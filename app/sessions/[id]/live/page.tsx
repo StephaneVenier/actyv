@@ -200,9 +200,9 @@ function getPlannedReps(block: TrainingSessionBlockRecord | null) {
 }
 
 function getPlannedChargeKg(block: TrainingSessionBlockRecord | null) {
-  if (!block) return null;
+  if (!block || block.charge_kg == null) return null;
   const normalizedValue = normalizeNonNegativeNumber(block.charge_kg, 0);
-  return normalizedValue > 0 ? normalizedValue : null;
+  return normalizedValue;
 }
 
 function getPerformanceDraftFromBlock(block: TrainingSessionBlockRecord | null): ActualPerformanceDraft {
@@ -258,17 +258,17 @@ function normalizeLivePerformanceLineDraft(
         : fallback.id,
     setsCount: 1,
     targetValue:
-      line?.targetValue == null
+      line == null
         ? fallback.targetValue
-        : Number.isFinite(Number(line.targetValue)) && Number(line.targetValue) >= 0
+        : line.targetValue != null && Number.isFinite(Number(line.targetValue)) && Number(line.targetValue) >= 0
           ? Number(line.targetValue)
-          : fallback.targetValue,
+          : null,
     chargeKg:
-      line?.chargeKg == null
+      line == null
         ? fallback.chargeKg
-        : Number.isFinite(Number(line.chargeKg)) && Number(line.chargeKg) >= 0
+        : line.chargeKg != null && Number.isFinite(Number(line.chargeKg)) && Number(line.chargeKg) >= 0
           ? Number(line.chargeKg)
-          : fallback.chargeKg,
+          : null,
     restSeconds:
       line?.restSeconds == null
         ? fallback.restSeconds
@@ -380,7 +380,7 @@ function formatLivePerformanceLineSummary(blockType: SessionBlockType, line: Liv
 
   if (blockType === 'distance') {
     const distance = line.targetValue ?? 0;
-    return `${setsLabel} · ${distance} km`;
+    return `${setsLabel} · ${distance} m`;
   }
 
   if (line.note.trim()) {
@@ -414,7 +414,7 @@ function formatLivePerformanceLineCompactMeta(blockType: SessionBlockType, line:
   }
 
   if (blockType === 'distance') {
-    const distanceLabel = line.targetValue == null ? '-' : `${setsPrefix}${line.targetValue} km`;
+    const distanceLabel = line.targetValue == null ? '-' : `${setsPrefix}${line.targetValue} m`;
     const restLabel =
       line.restSeconds != null && line.restSeconds > 0 ? ` • repos ${formatTimerClock(line.restSeconds)}` : '';
     return `${distanceLabel}${restLabel}`;
@@ -1027,8 +1027,6 @@ export default function LiveSessionPage() {
   const restingBlockName =
     safeTrimText(restSourceBlock?.name) ||
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
-  const plannedRepsForCurrentBlock = getPlannedReps(currentBlock);
-  const plannedChargeKgForCurrentBlock = getPlannedChargeKg(currentBlock);
   const currentActivePerformanceLineIndex = getLivePerformanceLineIndexByCompletedSets(
     currentLivePerformanceLines,
     currentCompletedSets
@@ -1041,23 +1039,15 @@ export default function LiveSessionPage() {
     ? formatLivePerformanceLineCompactMeta(currentBlock.block_type, currentActivePerformanceLine)
     : null;
   const currentActualReps =
-    currentBlock?.block_type === 'reps'
-      ? currentActivePerformanceLine.targetValue == null
-        ? plannedRepsForCurrentBlock
-        : normalizePositiveInteger(currentActivePerformanceLine.targetValue, 0)
-      : currentBlock?.block_type === 'duration'
-        ? currentActivePerformanceLine.targetValue == null
-          ? Number(currentBlock?.target_value ?? 0)
-          : normalizePositiveInteger(currentActivePerformanceLine.targetValue, 0)
-        : currentBlock?.block_type === 'distance'
-          ? currentActivePerformanceLine.targetValue == null
-            ? Number(currentBlock?.target_value ?? 0)
-            : normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue, 0)
-        : null;
+    currentActivePerformanceLine.targetValue == null || currentBlock?.block_type === 'free'
+      ? null
+      : currentBlock?.block_type === 'distance'
+        ? normalizeNonNegativeNumber(currentActivePerformanceLine.targetValue, 0)
+        : normalizePositiveInteger(currentActivePerformanceLine.targetValue, 0);
   const currentActualChargeKg =
     currentBlock?.block_type === 'reps'
       ? currentActivePerformanceLine.chargeKg == null
-        ? plannedChargeKgForCurrentBlock
+        ? null
         : normalizeNonNegativeNumber(currentActivePerformanceLine.chargeKg, 0)
       : null;
   const currentActualText =
@@ -1965,13 +1955,9 @@ export default function LiveSessionPage() {
     const plannedReps = getPlannedReps(currentBlock);
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
     const plannedTargetValue =
-      currentBlock.block_type === 'reps'
-        ? currentActualReps ?? plannedReps
-        : currentBlock.block_type === 'duration'
-          ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
-          : currentBlock.block_type === 'distance'
-            ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
-            : null;
+      currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
+        ? currentBlock.target_value
+        : null;
 
     upsertSetPerformanceEntries([
       {
@@ -1982,10 +1968,10 @@ export default function LiveSessionPage() {
         line_number: currentActivePerformanceLineIndex + 1,
         block_type: currentBlock.block_type,
         planned_reps: plannedReps,
-        actual_reps: currentBlock.block_type === 'reps' ? currentActualReps ?? plannedReps : null,
+        actual_reps: currentBlock.block_type === 'reps' ? currentActualReps : null,
         planned_charge_kg: plannedChargeKg,
         actual_charge_kg:
-          currentBlock.block_type === 'reps' ? (currentActualChargeKg && currentActualChargeKg > 0 ? currentActualChargeKg : null) : null,
+          currentBlock.block_type === 'reps' ? currentActualChargeKg : null,
         planned_value: plannedTargetValue,
         actual_value:
           currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
@@ -2031,13 +2017,9 @@ export default function LiveSessionPage() {
     const plannedReps = getPlannedReps(currentBlock);
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
     const plannedTargetValue =
-      currentBlock.block_type === 'reps'
-        ? currentActualReps ?? plannedReps
-        : currentBlock.block_type === 'duration'
-          ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
-          : currentBlock.block_type === 'distance'
-            ? currentActualReps ?? Number(currentActivePerformanceLine.targetValue ?? 0)
-            : null;
+      currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
+        ? currentBlock.target_value
+        : null;
     const skippedEntries: WorkoutSetPerformance[] = Array.from(
       { length: Math.max(currentLiveBlockSetsTotal - currentCompletedSets, 0) },
       (_, index) => ({
