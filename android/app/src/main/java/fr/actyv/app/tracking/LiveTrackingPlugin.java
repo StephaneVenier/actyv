@@ -6,6 +6,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import androidx.core.content.ContextCompat;
 import com.getcapacitor.JSArray;
@@ -40,6 +42,8 @@ public class LiveTrackingPlugin extends Plugin {
 
     private BroadcastReceiver trackingReceiver;
     private boolean receiverRegistered = false;
+    private PluginCall pendingStopCall;
+    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
     public void load() {
@@ -187,14 +191,48 @@ public class LiveTrackingPlugin extends Plugin {
         }
 
         if (!LiveTrackingService.isServiceRunning()) {
+            LiveTrackingManager.markStopped(getContext());
             call.resolve(buildStatus("Le suivi GPS est déjà arrêté."));
             return;
         }
 
-        Intent serviceIntent = new Intent(getContext(), LiveTrackingService.class);
-        serviceIntent.setAction(LiveTrackingService.ACTION_STOP);
-        getContext().startService(serviceIntent);
-        call.resolve(buildStatus("Suivi GPS arrêté."));
+        mainHandler.post(() -> {
+            if (pendingStopCall != null) {
+                call.reject("LIVE_TRACKING_STOP_PENDING");
+                return;
+            }
+            pendingStopCall = call;
+            Intent serviceIntent = new Intent(getContext(), LiveTrackingService.class);
+            serviceIntent.setAction(LiveTrackingService.ACTION_STOP);
+            try {
+                getContext().startService(serviceIntent);
+            } catch (Exception error) {
+                pendingStopCall = null;
+                call.reject("LIVE_TRACKING_STOP_FAILED", error);
+                return;
+            }
+            mainHandler.postDelayed(() -> {
+                if (pendingStopCall == call) {
+                    pendingStopCall = null;
+                    call.reject("LIVE_TRACKING_STOP_TIMEOUT");
+                }
+            }, 15000);
+        });
+    }
+
+    @PluginMethod
+    public void clearSession(PluginCall call) {
+        String sessionId = call.getString("sessionId");
+        if (sessionId == null || !sessionId.matches("[A-Za-z0-9-]{1,100}")) {
+            call.reject("LIVE_TRACKING_SESSION_INVALID");
+            return;
+        }
+        if (LiveTrackingService.isServiceRunning() && sessionId.equals(LiveTrackingManager.getSessionId(getContext()))) {
+            call.reject("LIVE_TRACKING_SESSION_STILL_RUNNING");
+            return;
+        }
+        LiveTrackingManager.clearSession(getContext(), sessionId);
+        call.resolve(buildStatus(null));
     }
 
     @PluginMethod
@@ -202,7 +240,7 @@ public class LiveTrackingPlugin extends Plugin {
         String sessionId = call.getString("sessionId");
         Integer afterSequence = call.getInt("afterSequence", 0);
 
-        if (sessionId == null || sessionId.isEmpty()) {
+        if (sessionId == null || !sessionId.matches("[A-Za-z0-9-]{1,100}")) {
             call.reject("LIVE_TRACKING_SESSION_INVALID");
             return;
         }
@@ -222,7 +260,7 @@ public class LiveTrackingPlugin extends Plugin {
 
     private boolean ensureSession(PluginCall call) {
         String sessionId = call.getString("sessionId");
-        if (sessionId == null || sessionId.isEmpty()) {
+        if (sessionId == null || !sessionId.equals(LiveTrackingManager.getSessionId(getContext()))) {
             call.reject("LIVE_TRACKING_SESSION_INVALID");
             return false;
         }
@@ -281,6 +319,11 @@ public class LiveTrackingPlugin extends Plugin {
                         if (LiveTrackingService.BROADCAST_LOCATION_UPDATE.equals(action)) {
                             notifyListeners("locationUpdate", data, true);
                         } else if (LiveTrackingService.BROADCAST_STATUS.equals(action)) {
+                            if (LiveTrackingManager.STATUS_STOPPED.equals(data.getString("trackingStatus")) && pendingStopCall != null) {
+                                PluginCall stoppedCall = pendingStopCall;
+                                pendingStopCall = null;
+                                stoppedCall.resolve(data);
+                            }
                             notifyListeners("trackingStatus", data, true);
                         } else if (LiveTrackingService.BROADCAST_ERROR.equals(action)) {
                             notifyListeners("trackingError", data, true);

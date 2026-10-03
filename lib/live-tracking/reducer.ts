@@ -45,15 +45,23 @@ function handleGpsPointReceived(
   const gpsStatus = getGpsQuality(point);
 
   if (state.status === 'idle' || state.status === 'finished') {
-    return {
-      ...state,
-      lastPoint: point,
-      lastSequence: nextSequence,
-      gpsStatus,
-    };
+    return state;
   }
 
-  const evaluation = evaluateGpsPointSegment(state.referencePoint, point, state.sport);
+  if (state.startedAtMs != null && point.timestamp < state.startedAtMs) return { ...state, lastSequence: nextSequence };
+  const pointPaused = state.pausePeriods
+    ? state.pausePeriods.some((period) => point.timestamp >= period.startedAtMs &&
+        (period.endedAtMs == null || point.timestamp < period.endedAtMs))
+    : point.trackingPaused ?? state.status === 'paused';
+  point = { ...point, trackingPaused: pointPaused };
+  const needsRebase = state.referencePoint?.trackingPaused === true ||
+    (state.referencePoint != null && state.pausePeriods?.some((period) =>
+      state.referencePoint!.timestamp < period.startedAtMs && point.timestamp >= period.startedAtMs)) ||
+    (!state.pausePeriods && state.awaitingResumeRebase);
+
+  const reference = needsRebase && point.timestamp > (state.referencePoint?.timestamp ?? 0)
+    ? null : state.referencePoint;
+  const evaluation = evaluateGpsPointSegment(reference, point, state.sport);
   const nextStateBase: LiveTrackingState = {
     ...state,
     lastPoint: point,
@@ -68,18 +76,23 @@ function handleGpsPointReceived(
   const acceptedPoint: AcceptedGpsPoint = {
     ...point,
     segmentDistanceM:
-      state.status === 'running' && !state.awaitingResumeRebase ? evaluation.segmentDistanceM : 0,
+      !pointPaused && !needsRebase ? evaluation.segmentDistanceM : 0,
   };
 
-  if (state.status === 'paused') {
+  if (pointPaused) {
     return {
       ...nextStateBase,
       referencePoint: point,
+      speedWindowPoints: [],
+      elevationState: { ...state.elevationState, recentAltitudesM: [], lastSmoothedAltitudeM: null,
+        pendingGainM: 0, pendingLossM: 0 },
     };
   }
 
-  if (state.awaitingResumeRebase || !state.referencePoint || evaluation.reason === 'first-point') {
-    const nextElevationState = updateElevation(state.elevationState, point);
+  if (needsRebase || !state.referencePoint || evaluation.reason === 'first-point') {
+    const elevationBase = needsRebase ? { ...state.elevationState, recentAltitudesM: [],
+      lastSmoothedAltitudeM: null, pendingGainM: 0, pendingLossM: 0 } : state.elevationState;
+    const nextElevationState = updateElevation(elevationBase, point);
     return withUpdatedDerivedMetrics(
       {
         ...nextStateBase,
@@ -143,6 +156,7 @@ export function liveTrackingReducer(state: LiveTrackingState, action: LiveTracki
           ...state,
           status: 'paused',
           pausedAtMs: action.nowMs,
+          pausePeriods: [...(state.pausePeriods || []), { startedAtMs: action.nowMs, endedAtMs: null }],
           currentSpeedKmh: null,
           currentPaceSecondsPerKm: null,
           speedWindowPoints: [],
@@ -163,6 +177,8 @@ export function liveTrackingReducer(state: LiveTrackingState, action: LiveTracki
           accumulatedPausedMs:
             state.accumulatedPausedMs + Math.max(0, action.nowMs - state.pausedAtMs),
           pausedAtMs: null,
+          pausePeriods: (state.pausePeriods || [{ startedAtMs: state.pausedAtMs, endedAtMs: null }])
+            .map((period) => period.endedAtMs == null ? { ...period, endedAtMs: action.nowMs } : period),
           currentSpeedKmh: null,
           currentPaceSecondsPerKm: null,
           speedWindowPoints: [],

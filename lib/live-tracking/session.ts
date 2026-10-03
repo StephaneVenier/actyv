@@ -14,6 +14,8 @@ export function createInitialLiveTrackingState(
 ): LiveTrackingState {
   return {
     sessionId: null,
+    ownerUserId: null,
+    pausePeriods: [],
     status: 'idle',
     sport,
     startedAtMs: null,
@@ -43,7 +45,14 @@ export function createLiveSessionId() {
     return crypto.randomUUID();
   }
 
-  return `live-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  if (typeof crypto === 'undefined' || typeof crypto.getRandomValues !== 'function') {
+    throw new Error('Impossible de generer un identifiant Live securise.');
+  }
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
 export function buildPersistedSession(state: LiveTrackingState): PersistedLiveSession {

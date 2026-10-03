@@ -23,6 +23,7 @@ type LiveTrackingPluginApi = {
   pauseTracking?(options: LiveTrackingPauseOptions): Promise<LiveTrackingPluginResult>;
   resumeTracking?(options: LiveTrackingResumeOptions): Promise<LiveTrackingPluginResult>;
   stopTracking?(options: LiveTrackingStopOptions): Promise<LiveTrackingPluginResult>;
+  clearSession?(options: LiveTrackingStopOptions): Promise<LiveTrackingPluginResult>;
   getPendingPoints?(options: {
     sessionId: string;
     afterSequence?: number;
@@ -133,6 +134,8 @@ function normalizeStatus(result?: LiveTrackingPluginResult | null): LiveTracking
     lastSequence: typeof result.lastSequence === 'number' ? result.lastSequence : 0,
     pointsRecorded: typeof result.pointsRecorded === 'number' ? result.pointsRecorded : 0,
     message: typeof result.message === 'string' ? result.message : null,
+    finalizationVersion: result.finalizationVersion ?? 0,
+    stoppedAtMs: result.stoppedAtMs ?? null,
   });
 }
 
@@ -144,6 +147,7 @@ function normalizePoint(payload: any): LiveGpsPoint | null {
   return {
     sessionId: typeof payload.sessionId === 'string' ? payload.sessionId : null,
     sequence: typeof payload.sequence === 'number' ? payload.sequence : null,
+    trackingPaused: typeof payload.trackingPaused === 'boolean' ? payload.trackingPaused : undefined,
     latitude: payload.latitude,
     longitude: payload.longitude,
     altitude: typeof payload.altitude === 'number' ? payload.altitude : null,
@@ -227,7 +231,20 @@ export const liveTrackingPlatform: LiveTrackingPlatform = {
   },
 
   async stopTracking(options: LiveTrackingStopOptions) {
-    return normalizeStatus(await callPluginMethod('stopTracking', options));
+    const status = await this.getStatus();
+    if (status.finalizationVersion !== 1) {
+      throw new Error('Mets a jour l’application Android pour enregistrer les Lives sans perdre les derniers points.');
+    }
+    const stopped = normalizeStatus(await callPluginMethod('stopTracking', options));
+    if (stopped.trackingStatus !== 'stopped' || stopped.serviceRunning) {
+      throw new Error('Le suivi GPS n’est pas encore arrete. Reessaie.');
+    }
+    return stopped;
+  },
+
+  async clearSession(sessionId: string) {
+    if (isAndroidNative() && !getPlugin()?.clearSession) throw new Error('Nettoyage natif indisponible.');
+    await callPluginMethod('clearSession', { sessionId });
   },
 
   async getPendingPoints(

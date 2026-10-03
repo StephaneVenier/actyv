@@ -14,6 +14,7 @@ export type LiveGpsQuality = 'searching' | 'poor' | 'good' | 'excellent';
 export type LiveGpsPoint = {
   sessionId?: string | null;
   sequence?: number | null;
+  trackingPaused?: boolean;
   latitude: number;
   longitude: number;
   altitude: number | null;
@@ -40,11 +41,14 @@ export type LiveElevationState = {
 
 export type LiveTrackingState = {
   sessionId: string | null;
+  ownerUserId?: string | null;
+  pausePeriods?: Array<{ startedAtMs: number; endedAtMs: number | null }>;
   status: LiveTrackingStatus;
   sport: LiveActivitySport;
   startedAtMs: number | null;
   pausedAtMs: number | null;
   finishedAtMs: number | null;
+  collectionStoppedAtMs?: number | null;
   accumulatedPausedMs: number;
   distanceM: number;
   elevationGainM: number;
@@ -78,6 +82,24 @@ export type PersistedLiveSession = {
   version: 1;
   state: LiveTrackingState;
   updatedAtMs: number;
+};
+
+export type FinishedLiveActivity = {
+  version: 1;
+  sessionId: string;
+  ownerUserId: string | null;
+  sport: LiveActivitySport;
+  startedAtMs: number;
+  finishedAtMs: number;
+  distanceM: number;
+  activeDurationMs: number;
+  pausedDurationMs: number;
+  elapsedDurationMs: number;
+  elevationGainM: number;
+  elevationLossM: number;
+  state: LiveTrackingState;
+  syncStatus: 'pending' | 'activity_saved' | 'synced';
+  syncError: string | null;
 };
 
 export type LiveTrackingAction =

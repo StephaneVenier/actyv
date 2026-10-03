@@ -53,6 +53,7 @@ public class LiveTrackingService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
     private boolean locationUpdatesStarted = false;
+    private boolean stopping = false;
     private String sessionId;
     private String sport;
     private String trackingStatus = LiveTrackingManager.STATUS_IDLE;
@@ -93,6 +94,7 @@ public class LiveTrackingService extends Service {
             handleResume(intent);
         } else if (ACTION_STOP.equals(action)) {
             handleStop();
+            return START_NOT_STICKY;
         }
 
         return START_STICKY;
@@ -111,7 +113,8 @@ public class LiveTrackingService extends Service {
         String persistedSport = LiveTrackingManager.getSport(this);
         String persistedStatus = LiveTrackingManager.getStatus(this);
 
-        if (persistedSessionId == null || persistedSport == null) {
+        if (persistedSessionId == null || persistedSport == null ||
+            LiveTrackingManager.STATUS_STOPPED.equals(persistedStatus)) {
             stopSelf();
             return;
         }
@@ -176,12 +179,32 @@ public class LiveTrackingService extends Service {
     }
 
     private void handleStop() {
-        String activeSessionId = sessionId != null ? sessionId : LiveTrackingManager.getSessionId(this);
+        if (stopping) return;
+        stopping = true;
+        // Deliver any provider batch before removing the callback. Keep the NDJSON trace.
+        fusedLocationClient.flushLocations().addOnCompleteListener(flush -> {
+            if (!flush.isSuccessful()) {
+                stopping = false;
+                broadcastError("Impossible de recuperer les derniers points GPS. Reessaie.");
+                return;
+            }
+            fusedLocationClient.removeLocationUpdates(locationCallback).addOnCompleteListener(removed -> {
+                if (!removed.isSuccessful()) {
+                    stopping = false;
+                    broadcastError("Impossible d'arreter la collecte GPS. Reessaie.");
+                    return;
+                }
+                locationUpdatesStarted = false;
+                completeStop();
+            });
+        });
+    }
+
+    private void completeStop() {
         trackingStatus = LiveTrackingManager.STATUS_STOPPED;
         LiveTrackingManager.markStopped(this);
-        stopLocationUpdates();
+        serviceRunning = false;
         broadcastStatus("Suivi GPS arrêté.");
-        LiveTrackingManager.clearSession(this, activeSessionId);
         stopForeground(STOP_FOREGROUND_REMOVE);
         stopSelf();
         Log.i(TAG, "Live tracking stopped");
@@ -204,7 +227,7 @@ public class LiveTrackingService extends Service {
     }
 
     private void handleLocation(Location location) {
-        if (sessionId == null || sessionId.isEmpty()) {
+        if (sessionId == null || sessionId.isEmpty() || LiveTrackingManager.STATUS_STOPPED.equals(trackingStatus)) {
             return;
         }
 
@@ -213,6 +236,7 @@ public class LiveTrackingService extends Service {
             JSObject point = new JSObject();
             point.put("sessionId", sessionId);
             point.put("sequence", sequence);
+            point.put("trackingPaused", LiveTrackingManager.STATUS_PAUSED.equals(trackingStatus));
             point.put("latitude", location.getLatitude());
             point.put("longitude", location.getLongitude());
             point.put("altitude", location.hasAltitude() ? location.getAltitude() : null);
@@ -348,7 +372,7 @@ public class LiveTrackingService extends Service {
             "payload",
             LiveTrackingManager.buildStatus(
                 this,
-                true,
+                serviceRunning,
                 LiveTrackingManager.getLocationPermissionStatus(this),
                 LiveTrackingManager.getNotificationPermissionStatus(this),
                 message

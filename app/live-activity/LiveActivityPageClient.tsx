@@ -59,6 +59,11 @@ export default function LiveActivityPageClient() {
     platformStatus,
     platformError,
     nativeActionPending,
+    finishedActivity,
+    syncPending,
+    retrySync,
+    pendingActivities,
+    showPendingActivity,
     start,
     pause,
     resume,
@@ -168,6 +173,13 @@ export default function LiveActivityPageClient() {
 
           {state.status === 'idle' && (
             <section className="live-activity-idle">
+              {pendingActivities.length > 0 ? (
+                <div className="live-activity-actions">
+                  <button type="button" className="button ghost" onClick={showPendingActivity}>
+                    {pendingActivities.length} activite(s) a synchroniser
+                  </button>
+                </div>
+              ) : null}
               <div className="live-activity-sport-grid" role="radiogroup" aria-label="Choix du sport live">
                 {SPORT_OPTIONS.map((sport) => {
                   const active = selectedSport === sport.slug;
@@ -191,7 +203,7 @@ export default function LiveActivityPageClient() {
                   type="button"
                   className="button primary live-activity-start-button"
                   onClick={() => void start(selectedSport)}
-                  disabled={nativeActionPending}
+                  disabled={nativeActionPending || Boolean(restorableSession)}
                 >
                   {nativeActionPending ? 'Démarrage...' : 'Démarrer'}
                 </button>
@@ -325,13 +337,30 @@ export default function LiveActivityPageClient() {
               </div>
 
               <div className="live-activity-actions">
-                <button type="button" className="button primary" onClick={() => reset(selectedSport)}>
+                {finishedActivity && finishedActivity.syncStatus !== 'synced' ? (
+                  <button type="button" className="button primary" disabled={syncPending}
+                    onClick={() => void retrySync()}>
+                    {syncPending ? 'Synchronisation...' : 'Reessayer'}
+                  </button>
+                ) : null}
+                <button type="button" className="button primary" onClick={() => reset(selectedSport)}
+                  disabled={nativeActionPending}>
                   Nouvelle activité
                 </button>
-                <button type="button" className="button ghost" onClick={() => reset(selectedSport)}>
-                  Effacer
-                </button>
               </div>
+              <p className="live-activity-inline-message" role="status">
+                {finishedActivity?.syncStatus === 'synced'
+                  ? 'Activite enregistree. Maitrises mises a jour.'
+                  : finishedActivity?.syncStatus === 'activity_saved'
+                    ? 'Activite enregistree. Mise a jour des Maitrises a reessayer.'
+                    : 'Activite conservee sur ce telephone. Synchronisation en attente.'}
+              </p>
+              {finishedActivity?.syncError ? (
+                <p className="live-activity-inline-message live-activity-inline-message--warning">
+                  {finishedActivity.syncError}
+                </p>
+              ) : null}
+              {platformError ? <p className="live-activity-inline-message live-activity-inline-message--warning">{platformError}</p> : null}
             </section>
           )}
 

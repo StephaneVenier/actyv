@@ -1,6 +1,6 @@
 import type { LiveTrackingState } from '@/lib/live-tracking/types';
 
-export function getActiveDurationMs(state: Pick<LiveTrackingState, 'status' | 'startedAtMs' | 'pausedAtMs' | 'finishedAtMs' | 'accumulatedPausedMs'>, nowMs: number) {
+export function getActiveDurationMs(state: Pick<LiveTrackingState, 'status' | 'startedAtMs' | 'pausedAtMs' | 'finishedAtMs' | 'accumulatedPausedMs' | 'collectionStoppedAtMs'>, nowMs: number) {
   if (!state.startedAtMs) {
     return 0;
   }
@@ -13,6 +13,6 @@ export function getActiveDurationMs(state: Pick<LiveTrackingState, 'status' | 's
     return Math.max(0, state.finishedAtMs - state.startedAtMs - state.accumulatedPausedMs);
   }
 
-  return Math.max(0, nowMs - state.startedAtMs - state.accumulatedPausedMs);
+  return Math.max(0, (state.collectionStoppedAtMs ?? nowMs) - state.startedAtMs - state.accumulatedPausedMs);
 }
 

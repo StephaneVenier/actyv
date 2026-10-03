@@ -34,6 +34,7 @@ public final class LiveTrackingManager {
     private static final String KEY_ACCUMULATED_PAUSED_MS = "accumulated_paused_ms";
     private static final String KEY_LAST_SEQUENCE = "last_sequence";
     private static final String KEY_POINTS_RECORDED = "points_recorded";
+    private static final String KEY_STOPPED_AT_MS = "stopped_at_ms";
 
     private static final Object FILE_LOCK = new Object();
 
@@ -62,6 +63,7 @@ public final class LiveTrackingManager {
             .putLong(KEY_ACCUMULATED_PAUSED_MS, Math.max(0L, accumulatedPausedMs))
             .putLong(KEY_LAST_SEQUENCE, 0L)
             .putInt(KEY_POINTS_RECORDED, 0)
+            .remove(KEY_STOPPED_AT_MS)
             .apply();
     }
 
@@ -84,16 +86,20 @@ public final class LiveTrackingManager {
     }
 
     public static void markStopped(Context context) {
+        if (STATUS_STOPPED.equals(getStatus(context))) return;
         getPrefs(context)
             .edit()
             .putString(KEY_STATUS, STATUS_STOPPED)
-            .apply();
+            .putLong(KEY_STOPPED_AT_MS, System.currentTimeMillis())
+            .commit();
     }
 
     public static void clearSession(Context context, String sessionId) {
         if (sessionId != null && !sessionId.isEmpty()) {
             deleteSessionFile(context, sessionId);
         }
+
+        if (sessionId == null || !sessionId.equals(getSessionId(context))) return;
 
         getPrefs(context)
             .edit()
@@ -105,6 +111,7 @@ public final class LiveTrackingManager {
             .remove(KEY_ACCUMULATED_PAUSED_MS)
             .remove(KEY_LAST_SEQUENCE)
             .remove(KEY_POINTS_RECORDED)
+            .remove(KEY_STOPPED_AT_MS)
             .apply();
     }
 
@@ -223,7 +230,10 @@ public final class LiveTrackingManager {
 
         result.put("available", true);
         result.put("platform", "android");
-        result.put("trackingStatus", serviceRunning ? trackingStatus : STATUS_IDLE);
+        result.put("trackingStatus", trackingStatus);
+        result.put("finalizationVersion", 1);
+        result.put("stoppedAtMs", getPrefs(context).getLong(KEY_STOPPED_AT_MS, 0L) > 0
+            ? getPrefs(context).getLong(KEY_STOPPED_AT_MS, 0L) : null);
         result.put("permissionStatus", permissionStatus);
         result.put("notificationPermissionStatus", notificationPermissionStatus);
         result.put("gpsEnabled", isLocationEnabled(context));

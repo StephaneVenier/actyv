@@ -1,7 +1,8 @@
 import { buildPersistedSession } from '@/lib/live-tracking/session';
-import type { LiveTrackingState, PersistedLiveSession } from '@/lib/live-tracking/types';
+import type { FinishedLiveActivity, LiveTrackingState, PersistedLiveSession } from '@/lib/live-tracking/types';
 
 export const LIVE_TRACKING_STORAGE_KEY = 'actyv-live-tracking-v1';
+export const LIVE_ACTIVITY_OUTBOX_KEY = 'actyv-live-activity-outbox-v1';
 
 export type LiveTrackingStorage = {
   saveSession: (state: LiveTrackingState) => void;
@@ -63,4 +64,21 @@ export const liveTrackingStorage: LiveTrackingStorage = {
   loadSession: loadLiveTrackingSession,
   clearSession: clearLiveTrackingSession,
 };
+
+export function loadFinishedLiveActivities(): FinishedLiveActivity[] {
+  const raw = getStorage()?.getItem(LIVE_ACTIVITY_OUTBOX_KEY);
+  if (!raw) return [];
+  const rows: unknown = JSON.parse(raw);
+  if (!Array.isArray(rows)) throw new Error('Sauvegarde locale des activites illisible.');
+  return rows.filter((row): row is FinishedLiveActivity => row?.version === 1 &&
+    typeof row.sessionId === 'string' && row.state?.status === 'finished');
+}
+
+export function saveFinishedLiveActivity(snapshot: FinishedLiveActivity) {
+  const storage = getStorage();
+  if (!storage) throw new Error('Le stockage local est indisponible.');
+  const rows = loadFinishedLiveActivities().filter((row) => row.sessionId !== snapshot.sessionId &&
+    row.syncStatus !== 'synced');
+  storage.setItem(LIVE_ACTIVITY_OUTBOX_KEY, JSON.stringify([...rows, snapshot]));
+}
 

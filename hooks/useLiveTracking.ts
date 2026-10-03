@@ -1,6 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { supabase } from '@/lib/supabase';
+import { finalizeLiveActivity, replayLivePoints } from '@/lib/live-tracking/finalization';
+import { syncFinishedLiveActivity } from '@/lib/live-tracking/activity-api';
 import { liveTrackingReducer } from '@/lib/live-tracking/reducer';
 import {
   buildLiveTrackingSummary,
@@ -12,13 +15,15 @@ import {
   clearLiveTrackingSession,
   loadLiveTrackingSession,
   saveLiveTrackingSession,
+  loadFinishedLiveActivities,
+  saveFinishedLiveActivity,
 } from '@/lib/live-tracking/storage';
 import {
   liveTrackingPlatform,
   type LiveTrackingPlatformStatus,
 } from '@/lib/live-tracking/platform';
 import { getActiveDurationMs } from '@/lib/live-tracking/timer';
-import type { LiveActivitySport, LiveGpsPoint, PersistedLiveSession } from '@/lib/live-tracking/types';
+import type { FinishedLiveActivity, LiveActivitySport, LiveGpsPoint, LiveTrackingAction, PersistedLiveSession } from '@/lib/live-tracking/types';
 
 const WEB_STATUS: LiveTrackingPlatformStatus = {
   available: false,
@@ -39,11 +44,12 @@ const WEB_STATUS: LiveTrackingPlatformStatus = {
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  return error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+    ? error.message : fallback;
 }
 
 export function useLiveTracking() {
-  const [state, dispatch] = useReducer(liveTrackingReducer, createInitialLiveTrackingState());
+  const [state, setState] = useState(createInitialLiveTrackingState);
   const [restorableSession, setRestorableSession] = useState<PersistedLiveSession | null>(null);
   const [platformStatus, setPlatformStatus] = useState<LiveTrackingPlatformStatus>(WEB_STATUS);
   const [platformError, setPlatformError] = useState<string | null>(null);
@@ -51,11 +57,51 @@ export function useLiveTracking() {
   const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedInitialSessionRef = useRef(false);
   const stateRef = useRef(state);
+  const userIdRef = useRef<string | null>(null);
+  const actionLockRef = useRef(false);
+  const syncLockRef = useRef(false);
+  const drainChainRef = useRef<Promise<void>>(Promise.resolve());
+  const drainRequestedRef = useRef(false);
+  const [finishedActivity, setFinishedActivity] = useState<FinishedLiveActivity | null>(null);
+  const [syncPending, setSyncPending] = useState(false);
+  const [pendingActivities, setPendingActivities] = useState<FinishedLiveActivity[]>([]);
+  const [restorePendingOnLoad, setRestorePendingOnLoad] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
+  const dispatch = useCallback((action: LiveTrackingAction) => {
+    const next = liveTrackingReducer(stateRef.current, action);
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
+  const replaceState = useCallback((next: typeof state) => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
+  const refreshOutbox = useCallback(() => {
+    const pending = loadFinishedLiveActivities().filter((row) => row.syncStatus !== 'synced' &&
+      row.ownerUserId === userIdRef.current);
+    setPendingActivities(pending);
+    return pending;
+  }, []);
+
+  const persistCurrentState = useCallback(() => {
+    try { saveLiveTrackingSession(stateRef.current); }
+    catch { setPlatformError('Impossible de sauvegarder le Live sur ce telephone.'); }
+  }, []);
+
   useEffect(() => {
-    stateRef.current = state;
-  }, [state]);
+    let cancelled = false;
+    void supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string } } | null } }) => {
+      if (!cancelled) { userIdRef.current = data.session?.user.id ?? null; refreshOutbox(); }
+    }).catch(() => undefined);
+    const { data } = supabase.auth.onAuthStateChange((_event: string, session: { user: { id: string } } | null) => {
+      userIdRef.current = session?.user.id ?? null;
+      try { refreshOutbox(); } catch { setPlatformError('Impossible de lire les activites locales.'); }
+    });
+    return () => { cancelled = true; data.subscription.unsubscribe(); };
+  }, [refreshOutbox]);
 
   useEffect(() => {
     if (loadedInitialSessionRef.current) {
@@ -64,23 +110,30 @@ export function useLiveTracking() {
 
     loadedInitialSessionRef.current = true;
     const persistedSession = loadLiveTrackingSession();
-    if (isRestorableSession(persistedSession)) {
-      setRestorableSession(persistedSession);
-    }
+    try {
+      const finalized = loadFinishedLiveActivities().some((row) => row.sessionId === persistedSession?.state.sessionId);
+      if (!finalized && isRestorableSession(persistedSession)) setRestorableSession(persistedSession);
+    } catch { setPlatformError('Impossible de lire les activites locales.'); }
   }, []);
 
   const reconcilePendingPoints = useCallback(
-    async (sessionId: string, afterSequence: number) => {
+    (sessionId: string, _afterSequence: number = 0) => {
       if (!liveTrackingPlatform.isAvailable()) {
-        return;
+        return Promise.resolve();
       }
-
-      const pendingResult = await liveTrackingPlatform.getPendingPoints(sessionId, afterSequence);
-      pendingResult.points.forEach((point) => {
-        dispatch({ type: 'GPS_POINT_RECEIVED', point });
+      const next = drainChainRef.current.catch(() => undefined).then(async () => {
+        if (stateRef.current.sessionId !== sessionId) return;
+        const pendingResult = await liveTrackingPlatform.getPendingPoints(sessionId, stateRef.current.lastSequence);
+        if (stateRef.current.sessionId !== sessionId) return;
+        replaceState(replayLivePoints(stateRef.current, pendingResult.points));
+        if (stateRef.current.lastSequence < pendingResult.lastSequence) {
+          throw new Error('La trace GPS native est incomplete. Les donnees sont conservees pour reessayer.');
+        }
       });
+      drainChainRef.current = next;
+      return next;
     },
-    []
+    [replaceState]
   );
 
   const syncNativeStatus = useCallback(async () => {
@@ -94,9 +147,9 @@ export function useLiveTracking() {
 
     const currentState = stateRef.current;
     if (
-      nativeStatus.serviceRunning &&
       currentState.sessionId &&
-      nativeStatus.sessionId === currentState.sessionId
+      nativeStatus.sessionId === currentState.sessionId &&
+      (currentState.status === 'running' || currentState.status === 'paused')
     ) {
       await reconcilePendingPoints(currentState.sessionId, currentState.lastSequence);
     }
@@ -125,12 +178,12 @@ export function useLiveTracking() {
     }
 
     if (state.status === 'idle') {
-      clearLiveTrackingSession();
       return;
     }
 
     persistTimeoutRef.current = setTimeout(() => {
-      saveLiveTrackingSession(state);
+      try { saveLiveTrackingSession(state); }
+      catch { setPlatformError('Impossible de sauvegarder le Live sur ce telephone.'); }
     }, 700);
 
     return () => {
@@ -146,12 +199,19 @@ export function useLiveTracking() {
 
     const attachListeners = async () => {
       const locationHandle = await liveTrackingPlatform.addLocationListener((point) => {
+        if (cancelled) return;
         const currentSessionId = stateRef.current.sessionId;
         if (currentSessionId && point.sessionId && point.sessionId !== currentSessionId) {
           return;
         }
 
-        dispatch({ type: 'GPS_POINT_RECEIVED', point });
+        // Direct events are wake-up hints only. Read the authoritative file in sequence order.
+        if (currentSessionId && !drainRequestedRef.current && !actionLockRef.current) {
+          drainRequestedRef.current = true;
+          void reconcilePendingPoints(currentSessionId).catch(() => {
+            setPlatformError('Impossible de recuperer les points GPS.');
+          }).finally(() => { drainRequestedRef.current = false; });
+        }
       });
 
       const statusHandle = await liveTrackingPlatform.addStatusListener((status) => {
@@ -176,6 +236,11 @@ export function useLiveTracking() {
       }
       if (errorHandle) {
         removeHandles.push(() => errorHandle.remove());
+      }
+
+      if (cancelled) {
+        removeHandles.forEach((remove) => { void remove(); });
+        return;
       }
 
       try {
@@ -214,10 +279,27 @@ export function useLiveTracking() {
         }
       });
     };
-  }, [syncNativeStatus]);
+  }, [syncNativeStatus, reconcilePendingPoints]);
+
+  const showFinishedActivity = useCallback((snapshot: FinishedLiveActivity) => {
+    replaceState(snapshot.state);
+    setFinishedActivity(snapshot);
+    setRestorableSession(null);
+  }, [replaceState]);
+
+  useEffect(() => {
+    if (restorePendingOnLoad && state.status === 'idle' && !restorableSession && pendingActivities.length > 0) {
+      showFinishedActivity(pendingActivities[0]);
+    }
+  }, [restorePendingOnLoad, state.status, restorableSession, pendingActivities, showFinishedActivity]);
 
   const start = useCallback(
     async (sport: LiveActivitySport) => {
+      if (actionLockRef.current || stateRef.current.status !== 'idle' || restorableSession) return false;
+      if (!userIdRef.current) {
+        setPlatformError('Connecte-toi avant de demarrer une activite Live.');
+        return false;
+      }
       setPlatformError(null);
 
       if (!liveTrackingPlatform.isAvailable()) {
@@ -228,14 +310,22 @@ export function useLiveTracking() {
           nowMs: Date.now(),
           sessionId: createLiveSessionId(),
         });
+        replaceState({ ...stateRef.current, ownerUserId: userIdRef.current });
+        persistCurrentState();
         return true;
       }
 
       setNativeActionPending(true);
+      actionLockRef.current = true;
 
       try {
         let nativeStatus = await liveTrackingPlatform.checkPermissions();
         setPlatformStatus(nativeStatus);
+
+        if (nativeStatus.finalizationVersion !== 1) {
+          setPlatformError('Mets a jour l’application Android pour enregistrer les activites Live.');
+          return false;
+        }
 
         if (
           nativeStatus.permissionStatus === 'denied' ||
@@ -276,6 +366,8 @@ export function useLiveTracking() {
           nowMs: now,
           sessionId,
         });
+        replaceState({ ...stateRef.current, ownerUserId: userIdRef.current });
+        persistCurrentState();
 
         try {
           const startedStatus = await liveTrackingPlatform.startTracking({
@@ -294,24 +386,31 @@ export function useLiveTracking() {
         }
 
         return true;
+      } catch (error) {
+        setPlatformError(getErrorMessage(error, 'Impossible de demarrer le Live.'));
+        return false;
       } finally {
+        actionLockRef.current = false;
         setNativeActionPending(false);
       }
     },
-    []
+    [dispatch, persistCurrentState, replaceState, restorableSession]
   );
 
   const pause = useCallback(async () => {
+    if (actionLockRef.current || stateRef.current.status !== 'running') return;
     const now = Date.now();
     const sessionId = stateRef.current.sessionId;
     const accumulatedPausedMs = stateRef.current.accumulatedPausedMs;
 
     dispatch({ type: 'PAUSE', nowMs: now });
+    persistCurrentState();
 
     if (!liveTrackingPlatform.isAvailable() || !sessionId) {
       return;
     }
 
+    actionLockRef.current = true;
     setNativeActionPending(true);
     try {
       const nativeStatus = await liveTrackingPlatform.pauseTracking({
@@ -325,11 +424,13 @@ export function useLiveTracking() {
         getErrorMessage(error, 'Impossible de mettre le suivi GPS en pause.')
       );
     } finally {
+      actionLockRef.current = false;
       setNativeActionPending(false);
     }
-  }, []);
+  }, [dispatch, persistCurrentState]);
 
   const resume = useCallback(async () => {
+    if (actionLockRef.current || stateRef.current.status !== 'paused') return;
     const now = Date.now();
     const currentState = stateRef.current;
     const sessionId = currentState.sessionId;
@@ -340,11 +441,13 @@ export function useLiveTracking() {
         : currentState.accumulatedPausedMs;
 
     dispatch({ type: 'RESUME', nowMs: now });
+    persistCurrentState();
 
     if (!liveTrackingPlatform.isAvailable() || !sessionId) {
       return;
     }
 
+    actionLockRef.current = true;
     setNativeActionPending(true);
     try {
       const nativeStatus = await liveTrackingPlatform.resumeTracking({
@@ -359,38 +462,78 @@ export function useLiveTracking() {
         getErrorMessage(error, 'Impossible de reprendre le suivi GPS.')
       );
     } finally {
+      actionLockRef.current = false;
       setNativeActionPending(false);
     }
-  }, [reconcilePendingPoints]);
+  }, [dispatch, persistCurrentState, reconcilePendingPoints]);
+
+  const retrySync = useCallback(async (snapshot = finishedActivity) => {
+    if (!snapshot || syncLockRef.current || snapshot.syncStatus === 'synced') return;
+    syncLockRef.current = true;
+    setSyncPending(true);
+    try {
+      const synced = await syncFinishedLiveActivity(snapshot);
+      if (stateRef.current.sessionId === snapshot.sessionId) setFinishedActivity(synced);
+      refreshOutbox();
+      if (liveTrackingPlatform.isAvailable()) {
+        await liveTrackingPlatform.clearSession(snapshot.sessionId).catch(() => undefined);
+      }
+    } catch (error) {
+      const stored = loadFinishedLiveActivities().find((row) => row.sessionId === snapshot.sessionId) || snapshot;
+      const failed = { ...stored, syncError: getErrorMessage(error, 'Synchronisation impossible. Reessaie avec une connexion.') };
+      try { saveFinishedLiveActivity(failed); } catch { /* Existing durable snapshot retained. */ }
+      if (stateRef.current.sessionId === snapshot.sessionId) setFinishedActivity(failed);
+      refreshOutbox();
+    } finally {
+      syncLockRef.current = false;
+      setSyncPending(false);
+    }
+  }, [finishedActivity, refreshOutbox]);
 
   const finish = useCallback(async () => {
-    const now = Date.now();
+    if (actionLockRef.current || !['running', 'paused'].includes(stateRef.current.status)) return;
     const sessionId = stateRef.current.sessionId;
-
-    dispatch({ type: 'FINISH', nowMs: now });
-
-    if (!liveTrackingPlatform.isAvailable() || !sessionId) {
-      return;
-    }
-
+    if (!sessionId) return;
+    actionLockRef.current = true;
     setNativeActionPending(true);
     try {
-      const nativeStatus = await liveTrackingPlatform.stopTracking({ sessionId });
-      setPlatformStatus(nativeStatus);
+      const snapshot = await finalizeLiveActivity({
+        getState: () => stateRef.current,
+        async stopCollection() {
+          let stoppedAtMs = stateRef.current.collectionStoppedAtMs ?? Date.now();
+          if (liveTrackingPlatform.isAvailable()) {
+            const stopped = await liveTrackingPlatform.stopTracking({ sessionId });
+            setPlatformStatus(stopped);
+            stoppedAtMs = stopped.stoppedAtMs ?? stoppedAtMs;
+          }
+          replaceState({ ...stateRef.current, collectionStoppedAtMs: stoppedAtMs });
+          persistCurrentState();
+        },
+        drainPoints: () => reconcilePendingPoints(sessionId),
+        persist: saveFinishedLiveActivity,
+        cleanup: () => liveTrackingPlatform.clearSession(sessionId),
+        now: Date.now,
+      });
+      showFinishedActivity(snapshot);
+      persistCurrentState();
+      refreshOutbox();
+      void retrySync(snapshot);
     } catch (error) {
       setPlatformError(
         getErrorMessage(error, 'Impossible d’arrêter proprement le suivi GPS.')
       );
     } finally {
+      actionLockRef.current = false;
       setNativeActionPending(false);
     }
-  }, []);
+  }, [persistCurrentState, reconcilePendingPoints, showFinishedActivity, refreshOutbox, retrySync, replaceState]);
 
   const reset = useCallback(
     async (sport?: LiveActivitySport) => {
+      if (actionLockRef.current) return;
       const sessionId = stateRef.current.sessionId;
 
-      if (liveTrackingPlatform.isAvailable() && sessionId) {
+      if (liveTrackingPlatform.isAvailable() && sessionId && stateRef.current.status !== 'finished') {
         try {
           await liveTrackingPlatform.stopTracking({ sessionId });
         } catch {
@@ -401,23 +544,34 @@ export function useLiveTracking() {
       clearLiveTrackingSession();
       setRestorableSession(null);
       setPlatformError(null);
+      setFinishedActivity(null);
+      setRestorePendingOnLoad(false);
       dispatch({ type: 'RESET', sport });
       await syncNativeStatus().catch(() => undefined);
     },
-    [syncNativeStatus]
+    [dispatch, syncNativeStatus]
   );
 
   const ingestGpsPoint = useCallback((point: LiveGpsPoint) => {
     dispatch({ type: 'GPS_POINT_RECEIVED', point });
-  }, []);
+  }, [dispatch]);
 
   const restoreSession = useCallback(async () => {
     const persistedSession = restorableSession || loadLiveTrackingSession();
-    if (!persistedSession) {
+    if (!persistedSession || actionLockRef.current) {
       return;
     }
 
-    dispatch({ type: 'RESTORE_SESSION', session: persistedSession });
+    if (!userIdRef.current || (persistedSession.state.ownerUserId &&
+      persistedSession.state.ownerUserId !== userIdRef.current)) {
+      setPlatformError('Connecte-toi avec le compte de cette activite pour la reprendre.');
+      return;
+    }
+
+    // Pre-5B local sessions had no owner snapshot; explicit resume binds the current account.
+    dispatch({ type: 'RESTORE_SESSION', session: { ...persistedSession,
+      state: { ...persistedSession.state, ownerUserId: persistedSession.state.ownerUserId ?? userIdRef.current } } });
+    persistCurrentState();
     setRestorableSession(null);
 
     if (persistedSession.state.sessionId) {
@@ -428,7 +582,7 @@ export function useLiveTracking() {
     }
 
     await syncNativeStatus().catch(() => undefined);
-  }, [reconcilePendingPoints, restorableSession, syncNativeStatus]);
+  }, [dispatch, persistCurrentState, reconcilePendingPoints, restorableSession, syncNativeStatus]);
 
   const discardSession = useCallback(
     async (sport?: LiveActivitySport) => {
@@ -438,8 +592,10 @@ export function useLiveTracking() {
       if (liveTrackingPlatform.isAvailable() && sessionId) {
         try {
           await liveTrackingPlatform.stopTracking({ sessionId });
+          await liveTrackingPlatform.clearSession(sessionId);
         } catch {
-          // noop
+          setPlatformError('Impossible d’arreter cette activite. Reessaie avant de l’abandonner.');
+          return;
         }
       }
 
@@ -449,7 +605,7 @@ export function useLiveTracking() {
       dispatch({ type: 'RESET', sport });
       await syncNativeStatus().catch(() => undefined);
     },
-    [restorableSession, syncNativeStatus]
+    [dispatch, restorableSession, syncNativeStatus]
   );
 
   const activeDurationMs = useMemo(() => getActiveDurationMs(state, nowMs), [state, nowMs]);
@@ -469,6 +625,13 @@ export function useLiveTracking() {
     platformStatus,
     platformError,
     nativeActionPending,
+    finishedActivity,
+    syncPending,
+    retrySync,
+    pendingActivities,
+    showPendingActivity: () => {
+      if (stateRef.current.status === 'idle' && pendingActivities[0]) showFinishedActivity(pendingActivities[0]);
+    },
     start,
     pause,
     resume,

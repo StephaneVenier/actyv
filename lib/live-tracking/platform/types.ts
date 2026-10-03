@@ -22,6 +22,8 @@ export type LiveTrackingPlatformStatus = {
   lastSequence: number;
   pointsRecorded: number;
   message: string | null;
+  finalizationVersion?: number;
+  stoppedAtMs?: number | null;
 };
 
 export type LiveTrackingStartOptions = {
@@ -66,6 +68,7 @@ export interface LiveTrackingPlatform {
   pauseTracking(options: LiveTrackingPauseOptions): Promise<LiveTrackingPlatformStatus>;
   resumeTracking(options: LiveTrackingResumeOptions): Promise<LiveTrackingPlatformStatus>;
   stopTracking(options: LiveTrackingStopOptions): Promise<LiveTrackingPlatformStatus>;
+  clearSession(sessionId: string): Promise<void>;
   getPendingPoints(
     sessionId: string,
     afterSequence?: number
