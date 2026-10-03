@@ -12426,6 +12426,45 @@ img {
   gap: 14px;
 }
 
+.activity-detail {
+  padding: 16px;
+  background: #081224;
+  color: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 8px;
+}
+
+.activity-detail .detail-back-link,
+.activity-detail small {
+  color: #69e698;
+}
+
+.activity-detail h1 {
+  margin: 14px 0 6px;
+  font-size: 22px;
+  overflow-wrap: anywhere;
+}
+
+.activity-detail p,
+.activity-detail dt {
+  color: #cbd5e1;
+}
+
+.activity-detail__metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 16px 0 0;
+}
+
+.activity-detail__metrics > div {
+  padding: 12px 8px;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  min-width: 0;
+}
+
+.activity-detail dt { font-size: 12px; }
+.activity-detail dd { margin: 5px 0 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+
 .history-page-card {
   display: grid;
   gap: 12px;

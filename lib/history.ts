@@ -238,7 +238,7 @@ export function buildActivityHistoryEvent(row: ActivityHistoryRow): HistoryEvent
     metaLabel: formatHistoryMetaLabel(timestamp),
     accent: 'sport',
     badgeLabel: sportLabel,
-    href: null,
+    href: `/activities/${row.id}` as Route,
     sport: row.sport?.trim() || null,
     searchText: getEventSearchText([title, subtitle, sportLabel]),
     distanceKm: Number.isFinite(Number(row.distance_km)) ? Number(row.distance_km) : null,
