@@ -1,6 +1,7 @@
 import { LIVE_SPORT_CONFIG } from '@/lib/live-tracking/config';
 import { isLiveUuid } from '@/lib/live-tracking/finalization';
 import type { FinishedLiveActivity } from '@/lib/live-tracking/types';
+import { buildActivityRoute, intervalDurationMs } from '@/lib/activity-route';
 
 export function buildLiveActivityPayload(snapshot: FinishedLiveActivity, user: { id: string; email?: string | null }) {
   if (!isLiveUuid(snapshot.sessionId) || snapshot.ownerUserId !== user.id) {
@@ -20,7 +21,10 @@ export function buildLiveActivityPayload(snapshot: FinishedLiveActivity, user: {
       finished_at: new Date(snapshot.finishedAtMs).toISOString(),
       active_duration_ms: snapshot.activeDurationMs, paused_duration_ms: snapshot.pausedDurationMs,
       elapsed_duration_ms: snapshot.elapsedDurationMs, gps_point_count: snapshot.state.acceptedPoints.length,
-      duration_method: 'timestamps_minus_manual_pauses' },
+      manual_pause_duration_ms: intervalDurationMs(snapshot.state.pausePeriods, snapshot.startedAtMs, snapshot.finishedAtMs),
+      collection_gap_duration_ms: intervalDurationMs(snapshot.state.collectionGaps, snapshot.startedAtMs, snapshot.finishedAtMs),
+      route_trace: buildActivityRoute(snapshot),
+      duration_method: 'timestamps_minus_pause_gap_union' },
   };
 }
 

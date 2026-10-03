@@ -22,9 +22,13 @@ export function syncFinishedLiveActivity(snapshot: FinishedLiveActivity) {
     },
     async find(id) {
       const { data, error } = await supabase.from('activities')
-        .select('id,user_id,source,challenge_id,metadata').eq('id', id).abortSignal(controller.signal).maybeSingle();
+        .select('id,user_id,source,challenge_id,live_session_id:metadata->>live_session_id')
+        .eq('id', id).abortSignal(controller.signal).maybeSingle();
       if (error) throw error;
-      return data as ExistingLiveActivity | null;
+      if (!data) return null;
+      const row = data as Omit<ExistingLiveActivity, 'metadata'> & { live_session_id: string | null };
+      return { id: row.id, user_id: row.user_id, source: row.source, challenge_id: row.challenge_id,
+        metadata: row.live_session_id ? { live_session_id: row.live_session_id } : null };
     },
     async processMasteries(id) {
       const { error } = await supabase.rpc('process_activity_masteries', { p_activity_id: id })

@@ -12481,6 +12481,30 @@ img {
 .activity-detail dt { font-size: 12px; }
 .activity-detail dd { margin: 5px 0 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
 
+.activity-detail__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 18px 0; }
+.activity-detail__summary > div { min-width: 0; text-align: center; }
+.activity-detail__summary dt { font-size: 10px; }
+.activity-detail__summary dd { margin: 6px 0 0; font-size: 18px; font-weight: 700; overflow-wrap: anywhere; }
+.activity-detail__section { padding-top: 14px; margin-top: 14px; border-top: 1px solid rgba(148,163,184,.2); }
+.activity-detail__section h2 { color: #69e698; font-size: 12px; text-transform: uppercase; margin: 0 0 12px; }
+.activity-route-map { width: 100%; height: 260px; min-width: 0; background: #142332; border-radius: 6px; z-index: 0; }
+.activity-route-map .leaflet-control-attribution { font-size: 10px; color: #18212b; }
+.activity-route-map .leaflet-control-attribution a { color: #075c93; }
+.activity-contribution { display: block; padding: 12px 0; color: #f1f5f9; text-decoration: none; border-bottom: 1px solid rgba(148,163,184,.15); }
+.activity-contribution > div { display: flex; justify-content: space-between; gap: 12px; font-size: 14px; }
+.activity-contribution strong { min-width: 0; overflow-wrap: anywhere; }
+.activity-contribution__gain { color: #69e698; flex-shrink: 0; }
+.activity-contribution small { display: block; color: #cbd5e1; margin-top: 5px; font-size: 11px; }
+.activity-contribution progress { display: block; width: 100%; height: 4px; margin-top: 8px; appearance: none; border: none; background: #203344; }
+.activity-contribution progress::-webkit-progress-bar { background: #203344; }
+.activity-contribution progress::-webkit-progress-value { background: #48dcb1; }
+.activity-contribution progress::-moz-progress-bar { background: #48dcb1; }
+.activity-detail__warning { color: #f8d279 !important; font-size: 12px; }
+@media (max-width: 375px) {
+  .activity-detail__summary dd { font-size: 16px; }
+  .activity-detail__summary { gap: 5px; }
+}
+
 .history-page-card {
   display: grid;
   gap: 12px;
