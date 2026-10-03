@@ -348,7 +348,9 @@ export default function LiveActivityPageClient() {
                   Nouvelle activité
                 </button>
               </div>
-              <p className="live-activity-inline-message" role="status">
+              <p className={`live-activity-inline-message live-activity-inline-message--${
+                finishedActivity?.syncStatus === 'synced' ? 'success' : 'pending'
+              }`} role="status">
                 {finishedActivity?.syncStatus === 'synced'
                   ? 'Activite enregistree. Maitrises mises a jour.'
                   : finishedActivity?.syncStatus === 'activity_saved'
@@ -356,11 +358,11 @@ export default function LiveActivityPageClient() {
                     : 'Activite conservee sur ce telephone. Synchronisation en attente.'}
               </p>
               {finishedActivity?.syncError ? (
-                <p className="live-activity-inline-message live-activity-inline-message--warning">
+                <p className="live-activity-inline-message live-activity-inline-message--error">
                   {finishedActivity.syncError}
                 </p>
               ) : null}
-              {platformError ? <p className="live-activity-inline-message live-activity-inline-message--warning">{platformError}</p> : null}
+              {platformError ? <p className="live-activity-inline-message live-activity-inline-message--error">{platformError}</p> : null}
             </section>
           )}
 
