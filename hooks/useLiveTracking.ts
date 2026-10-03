@@ -23,6 +23,7 @@ import {
   type LiveTrackingPlatformStatus,
 } from '@/lib/live-tracking/platform';
 import { getActiveDurationMs } from '@/lib/live-tracking/timer';
+import { reconstructNativeSession, recoverCheckpointOnly, recoveryTimeline } from '@/lib/live-tracking/recovery';
 import type { FinishedLiveActivity, LiveActivitySport, LiveGpsPoint, LiveTrackingAction, PersistedLiveSession } from '@/lib/live-tracking/types';
 
 const WEB_STATUS: LiveTrackingPlatformStatus = {
@@ -54,6 +55,9 @@ export function useLiveTracking() {
   const [platformStatus, setPlatformStatus] = useState<LiveTrackingPlatformStatus>(WEB_STATUS);
   const [platformError, setPlatformError] = useState<string | null>(null);
   const [nativeActionPending, setNativeActionPending] = useState(false);
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null);
+  const [recoveryPending, setRecoveryPending] = useState(liveTrackingPlatform.isAvailable());
+  const [recoveryBlocked, setRecoveryBlocked] = useState(false);
   const persistTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedInitialSessionRef = useRef(false);
   const stateRef = useRef(state);
@@ -91,13 +95,22 @@ export function useLiveTracking() {
     catch { setPlatformError('Impossible de sauvegarder le Live sur ce telephone.'); }
   }, []);
 
+  const showFinishedActivity = useCallback((snapshot: FinishedLiveActivity) => {
+    replaceState(snapshot.state);
+    setFinishedActivity(snapshot);
+    setRestorableSession(null);
+  }, [replaceState]);
+
   useEffect(() => {
     let cancelled = false;
     void supabase.auth.getSession().then(({ data }: { data: { session: { user: { id: string } } | null } }) => {
-      if (!cancelled) { userIdRef.current = data.session?.user.id ?? null; refreshOutbox(); }
+      if (!cancelled) { userIdRef.current = data.session?.user.id ?? null;
+        setOwnerUserId(userIdRef.current); liveTrackingPlatform.setOwner(userIdRef.current); refreshOutbox(); }
     }).catch(() => undefined);
     const { data } = supabase.auth.onAuthStateChange((_event: string, session: { user: { id: string } } | null) => {
       userIdRef.current = session?.user.id ?? null;
+      setOwnerUserId(userIdRef.current);
+      liveTrackingPlatform.setOwner(userIdRef.current);
       try { refreshOutbox(); } catch { setPlatformError('Impossible de lire les activites locales.'); }
     });
     return () => { cancelled = true; data.subscription.unsubscribe(); };
@@ -109,12 +122,56 @@ export function useLiveTracking() {
     }
 
     loadedInitialSessionRef.current = true;
+    if (liveTrackingPlatform.isAvailable()) return;
     const persistedSession = loadLiveTrackingSession();
     try {
       const finalized = loadFinishedLiveActivities().some((row) => row.sessionId === persistedSession?.state.sessionId);
       if (!finalized && isRestorableSession(persistedSession)) setRestorableSession(persistedSession);
     } catch { setPlatformError('Impossible de lire les activites locales.'); }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRestorableSession(null);
+    setFinishedActivity(null);
+    if (stateRef.current.ownerUserId && stateRef.current.ownerUserId !== ownerUserId)
+      replaceState(createInitialLiveTrackingState());
+    if (!ownerUserId) { setRecoveryPending(false); return; }
+    setRecoveryPending(true);
+    void (async () => {
+      try {
+        const checkpoint = loadLiveTrackingSession();
+        const result = await liveTrackingPlatform.getRecoverySession(ownerUserId);
+        if (cancelled) return;
+        setRecoveryBlocked(Boolean(result.blocked));
+        if (result.blocked) {
+          setRestorableSession(null);
+          setPlatformError('Une activite conservee appartient a un autre compte ou son proprietaire ne peut pas etre verifie.');
+          return;
+        }
+        const finalized = loadFinishedLiveActivities().find(row => row.ownerUserId === ownerUserId &&
+          row.sessionId === (result.session?.sessionId || checkpoint?.state.sessionId));
+        if (finalized) {
+          if (result.session) await liveTrackingPlatform.clearSession(result.session.sessionId);
+          if (!cancelled && stateRef.current.status === 'idle') showFinishedActivity(finalized);
+          return;
+        }
+        if (result.session && stateRef.current.status === 'idle') {
+          setRestorableSession(reconstructNativeSession(result.session, ownerUserId));
+        } else if (isRestorableSession(checkpoint) && stateRef.current.status === 'idle') {
+          if (checkpoint!.state.ownerUserId !== ownerUserId) {
+            setRecoveryBlocked(true);
+            setPlatformError('Connecte-toi avec le compte de cette activite pour la recuperer.');
+          } else setRestorableSession(liveTrackingPlatform.isAvailable()
+            ? recoverCheckpointOnly(checkpoint!, ownerUserId) : checkpoint);
+        }
+      } catch (error) {
+        if (!cancelled) { setRecoveryBlocked(true); setPlatformError(getErrorMessage(error, 'Recuperation impossible. Les donnees sont conservees.')); }
+      } finally { if (!cancelled) setRecoveryPending(false); }
+    })();
+    return () => { cancelled = true; };
+  // Discovery is tied to the account, not to every GPS state change.
+  }, [ownerUserId, replaceState, showFinishedActivity]);
 
   const reconcilePendingPoints = useCallback(
     (sessionId: string, _afterSequence: number = 0) => {
@@ -125,6 +182,10 @@ export function useLiveTracking() {
         if (stateRef.current.sessionId !== sessionId) return;
         const pendingResult = await liveTrackingPlatform.getPendingPoints(sessionId, stateRef.current.lastSequence);
         if (stateRef.current.sessionId !== sessionId) return;
+        if (pendingResult.recovery) {
+          if (pendingResult.recovery.ownerUserId !== userIdRef.current) throw new Error('Cette activite appartient a un autre compte.');
+          replaceState({ ...stateRef.current, ...recoveryTimeline(pendingResult.recovery) });
+        }
         replaceState(replayLivePoints(stateRef.current, pendingResult.points));
         if (stateRef.current.lastSequence < pendingResult.lastSequence) {
           throw new Error('La trace GPS native est incomplete. Les donnees sont conservees pour reessayer.');
@@ -214,6 +275,10 @@ export function useLiveTracking() {
         }
       });
 
+      if (locationHandle) {
+        if (cancelled) { await locationHandle.remove(); return; }
+        removeHandles.push(() => locationHandle.remove());
+      }
       const statusHandle = await liveTrackingPlatform.addStatusListener((status) => {
         if (cancelled) {
           return;
@@ -221,6 +286,10 @@ export function useLiveTracking() {
         setPlatformStatus(status);
       });
 
+      if (statusHandle) {
+        if (cancelled) { await statusHandle.remove(); return; }
+        removeHandles.push(() => statusHandle.remove());
+      }
       const errorHandle = await liveTrackingPlatform.addErrorListener((message) => {
         if (cancelled) {
           return;
@@ -228,13 +297,8 @@ export function useLiveTracking() {
         setPlatformError(message);
       });
 
-      if (locationHandle) {
-        removeHandles.push(() => locationHandle.remove());
-      }
-      if (statusHandle) {
-        removeHandles.push(() => statusHandle.remove());
-      }
       if (errorHandle) {
+        if (cancelled) { await errorHandle.remove(); return; }
         removeHandles.push(() => errorHandle.remove());
       }
 
@@ -254,7 +318,10 @@ export function useLiveTracking() {
       }
     };
 
-    void attachListeners();
+    void attachListeners().catch(() => {
+      removeHandles.splice(0).forEach(remove => { void Promise.resolve(remove()).catch(() => undefined); });
+      if (!cancelled) setPlatformError('Impossible de connecter le suivi GPS natif.');
+    });
 
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
@@ -281,21 +348,15 @@ export function useLiveTracking() {
     };
   }, [syncNativeStatus, reconcilePendingPoints]);
 
-  const showFinishedActivity = useCallback((snapshot: FinishedLiveActivity) => {
-    replaceState(snapshot.state);
-    setFinishedActivity(snapshot);
-    setRestorableSession(null);
-  }, [replaceState]);
-
   useEffect(() => {
-    if (restorePendingOnLoad && state.status === 'idle' && !restorableSession && pendingActivities.length > 0) {
+    if (restorePendingOnLoad && !recoveryPending && !recoveryBlocked && state.status === 'idle' && !restorableSession && pendingActivities.length > 0) {
       showFinishedActivity(pendingActivities[0]);
     }
-  }, [restorePendingOnLoad, state.status, restorableSession, pendingActivities, showFinishedActivity]);
+  }, [restorePendingOnLoad, state.status, restorableSession, pendingActivities, showFinishedActivity, recoveryPending, recoveryBlocked]);
 
   const start = useCallback(
     async (sport: LiveActivitySport) => {
-      if (actionLockRef.current || stateRef.current.status !== 'idle' || restorableSession) return false;
+      if (actionLockRef.current || stateRef.current.status !== 'idle' || restorableSession || recoveryPending || recoveryBlocked) return false;
       if (!userIdRef.current) {
         setPlatformError('Connecte-toi avant de demarrer une activite Live.');
         return false;
@@ -322,8 +383,13 @@ export function useLiveTracking() {
         let nativeStatus = await liveTrackingPlatform.checkPermissions();
         setPlatformStatus(nativeStatus);
 
-        if (nativeStatus.finalizationVersion !== 1) {
+        if (nativeStatus.finalizationVersion !== 1 || nativeStatus.recoveryVersion !== 1) {
           setPlatformError('Mets a jour l’application Android pour enregistrer les activites Live.');
+          return false;
+        }
+
+        if (nativeStatus.sessionId) {
+          setPlatformError('Recupere ou abandonne l’activite conservee avant de demarrer un nouveau Live.');
           return false;
         }
 
@@ -375,6 +441,7 @@ export function useLiveTracking() {
             sport,
             startedAtMs: now,
             accumulatedPausedMs: 0,
+            ownerUserId: userIdRef.current ?? undefined,
           });
           setPlatformStatus(startedStatus);
         } catch (error) {
@@ -394,7 +461,7 @@ export function useLiveTracking() {
         setNativeActionPending(false);
       }
     },
-    [dispatch, persistCurrentState, replaceState, restorableSession]
+    [dispatch, persistCurrentState, replaceState, restorableSession, recoveryPending, recoveryBlocked]
   );
 
   const pause = useCallback(async () => {
@@ -501,7 +568,7 @@ export function useLiveTracking() {
         getState: () => stateRef.current,
         async stopCollection() {
           let stoppedAtMs = stateRef.current.collectionStoppedAtMs ?? Date.now();
-          if (liveTrackingPlatform.isAvailable()) {
+          if (liveTrackingPlatform.isAvailable() && !stateRef.current.checkpointOnly) {
             const stopped = await liveTrackingPlatform.stopTracking({ sessionId });
             setPlatformStatus(stopped);
             stoppedAtMs = stopped.stoppedAtMs ?? stoppedAtMs;
@@ -509,7 +576,7 @@ export function useLiveTracking() {
           replaceState({ ...stateRef.current, collectionStoppedAtMs: stoppedAtMs });
           persistCurrentState();
         },
-        drainPoints: () => reconcilePendingPoints(sessionId),
+        drainPoints: () => stateRef.current.checkpointOnly ? Promise.resolve() : reconcilePendingPoints(sessionId),
         persist: saveFinishedLiveActivity,
         cleanup: () => liveTrackingPlatform.clearSession(sessionId),
         now: Date.now,
@@ -562,34 +629,44 @@ export function useLiveTracking() {
       return;
     }
 
-    if (!userIdRef.current || (persistedSession.state.ownerUserId &&
-      persistedSession.state.ownerUserId !== userIdRef.current)) {
+    if (!userIdRef.current || persistedSession.state.ownerUserId !== userIdRef.current) {
       setPlatformError('Connecte-toi avec le compte de cette activite pour la reprendre.');
       return;
     }
 
-    // Pre-5B local sessions had no owner snapshot; explicit resume binds the current account.
-    dispatch({ type: 'RESTORE_SESSION', session: { ...persistedSession,
-      state: { ...persistedSession.state, ownerUserId: persistedSession.state.ownerUserId ?? userIdRef.current } } });
-    persistCurrentState();
-    setRestorableSession(null);
-
-    if (persistedSession.state.sessionId) {
-      await reconcilePendingPoints(
-        persistedSession.state.sessionId,
-        persistedSession.state.lastSequence
-      );
+    if (persistedSession.state.checkpointOnly || persistedSession.state.collectionStoppedAtMs) {
+      setPlatformError('Cette activite ne peut plus reprendre. Tu peux la terminer avec les donnees conservees.'); return;
     }
-
-    await syncNativeStatus().catch(() => undefined);
-  }, [dispatch, persistCurrentState, reconcilePendingPoints, restorableSession, syncNativeStatus]);
+    actionLockRef.current = true;
+    setNativeActionPending(true);
+    try {
+      let restored = persistedSession;
+      if (liveTrackingPlatform.isAvailable() && persistedSession.state.sessionId) {
+        await liveTrackingPlatform.recoverTracking(persistedSession.state.sessionId);
+        const result = await liveTrackingPlatform.getRecoverySession(userIdRef.current);
+        if (!result.session || result.blocked) throw new Error('Recuperation indisponible. Les donnees sont conservees.');
+        restored = reconstructNativeSession(result.session, userIdRef.current);
+      }
+      dispatch({ type: 'RESTORE_SESSION', session: restored });
+      persistCurrentState(); setRestorableSession(null);
+      await syncNativeStatus();
+    } catch (error) { setPlatformError(getErrorMessage(error, 'Impossible de reprendre cette activite.')); }
+    finally { actionLockRef.current = false; setNativeActionPending(false); }
+  }, [dispatch, persistCurrentState, restorableSession, syncNativeStatus]);
 
   const discardSession = useCallback(
     async (sport?: LiveActivitySport) => {
+      if (actionLockRef.current) return;
       const persistedSession = restorableSession || loadLiveTrackingSession();
       const sessionId = persistedSession?.state.sessionId || stateRef.current.sessionId;
-
-      if (liveTrackingPlatform.isAvailable() && sessionId) {
+      if (!userIdRef.current || persistedSession?.state.ownerUserId !== userIdRef.current) {
+        setPlatformError('Connecte-toi avec le compte de cette activite pour l’abandonner.'); return;
+      }
+      if (!window.confirm('Abandonner cette activite ? Les donnees locales seront supprimees.')) return;
+      actionLockRef.current = true;
+      setNativeActionPending(true);
+      try {
+      if (liveTrackingPlatform.isAvailable() && sessionId && !persistedSession?.state.checkpointOnly) {
         try {
           await liveTrackingPlatform.stopTracking({ sessionId });
           await liveTrackingPlatform.clearSession(sessionId);
@@ -601,14 +678,36 @@ export function useLiveTracking() {
 
       clearLiveTrackingSession();
       setRestorableSession(null);
+      setRecoveryBlocked(false);
       setPlatformError(null);
       dispatch({ type: 'RESET', sport });
       await syncNativeStatus().catch(() => undefined);
+      } finally {
+        actionLockRef.current = false;
+        setNativeActionPending(false);
+      }
     },
     [dispatch, restorableSession, syncNativeStatus]
   );
 
   const activeDurationMs = useMemo(() => getActiveDurationMs(state, nowMs), [state, nowMs]);
+  const finishRestoredSession = useCallback(async () => {
+    if (actionLockRef.current || !restorableSession || restorableSession.state.ownerUserId !== userIdRef.current) return;
+    actionLockRef.current = true;
+    setNativeActionPending(true);
+    try {
+      let recovered = restorableSession;
+      if (liveTrackingPlatform.isAvailable() && !recovered.state.checkpointOnly && userIdRef.current) {
+        const result = await liveTrackingPlatform.getRecoverySession(userIdRef.current);
+        if (!result.session || result.blocked) throw new Error('Recuperation indisponible. Les donnees sont conservees.');
+        recovered = reconstructNativeSession(result.session, userIdRef.current);
+      }
+      replaceState(recovered.state); setRestorableSession(null); persistCurrentState();
+      actionLockRef.current = false;
+      await finish();
+    } catch (error) { setPlatformError(getErrorMessage(error, 'Impossible de terminer cette activite.')); }
+    finally { actionLockRef.current = false; setNativeActionPending(false); }
+  }, [restorableSession, replaceState, persistCurrentState, finish]);
   const summary = useMemo(() => {
     if (state.status !== 'finished') {
       return null;
@@ -625,6 +724,9 @@ export function useLiveTracking() {
     platformStatus,
     platformError,
     nativeActionPending,
+    recoveryPending,
+    recoveryBlocked,
+    finishRestoredSession,
     finishedActivity,
     syncPending,
     retrySync,

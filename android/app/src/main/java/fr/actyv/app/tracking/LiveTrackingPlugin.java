@@ -43,6 +43,7 @@ public class LiveTrackingPlugin extends Plugin {
     private BroadcastReceiver trackingReceiver;
     private boolean receiverRegistered = false;
     private PluginCall pendingStopCall;
+    private PluginCall pendingStartCall;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     @Override
@@ -105,6 +106,11 @@ public class LiveTrackingPlugin extends Plugin {
         String sport = call.getString(LiveTrackingService.EXTRA_SPORT);
         Long startedAtMs = call.getLong(LiveTrackingService.EXTRA_STARTED_AT_MS);
         Long accumulatedPausedMs = call.getLong(LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS, 0L);
+        String owner = call.getString("ownerUserId");
+        if (owner == null || owner.isEmpty() || LiveTrackingManager.getSessionId(getContext()) != null) {
+            call.reject("LIVE_SESSION_UNRESOLVED_OR_OWNER_MISSING");
+            return;
+        }
 
         if (sessionId == null || sessionId.isEmpty() || sport == null || sport.isEmpty()) {
             call.reject("LIVE_TRACKING_SESSION_INVALID");
@@ -125,6 +131,7 @@ public class LiveTrackingPlugin extends Plugin {
         serviceIntent.setAction(LiveTrackingService.ACTION_START);
         serviceIntent.putExtra(LiveTrackingService.EXTRA_SESSION_ID, sessionId);
         serviceIntent.putExtra(LiveTrackingService.EXTRA_SPORT, sport);
+        serviceIntent.putExtra(LiveTrackingService.EXTRA_OWNER, owner);
         serviceIntent.putExtra(
             LiveTrackingService.EXTRA_STARTED_AT_MS,
             startedAtMs != null ? startedAtMs : System.currentTimeMillis()
@@ -134,8 +141,37 @@ public class LiveTrackingPlugin extends Plugin {
             accumulatedPausedMs != null ? accumulatedPausedMs : 0L
         );
 
-        ContextCompat.startForegroundService(getContext(), serviceIntent);
-        call.resolve(buildStatus("Suivi GPS actif."));
+        startAndAcknowledge(call, serviceIntent);
+    }
+
+    private void startAndAcknowledge(PluginCall call, Intent intent) {
+        mainHandler.post(() -> {
+            if (pendingStartCall != null) { call.reject("LIVE_START_PENDING"); return; }
+            pendingStartCall = call;
+            try { ContextCompat.startForegroundService(getContext(), intent); }
+            catch (Exception error) { pendingStartCall = null; call.reject("LIVE_START_FAILED", error); return; }
+            mainHandler.postDelayed(() -> {
+                if (pendingStartCall == call) { pendingStartCall = null; call.reject("LIVE_START_TIMEOUT"); }
+            }, 15000);
+        });
+    }
+
+    @PluginMethod
+    public void getRecoverySession(PluginCall call) {
+        try { call.resolve(LiveTrackingManager.recovery(getContext(), call.getString("ownerUserId"), LiveTrackingService.isServiceRunning())); }
+        catch (Exception error) { call.reject("LIVE_RECOVERY_CORRUPTED", error); }
+    }
+
+    @PluginMethod
+    public void recoverTracking(PluginCall call) {
+        if (!ensureSession(call)) return;
+        if (LiveTrackingManager.STATUS_STOPPED.equals(LiveTrackingManager.getStatus(getContext()))) {
+            call.reject("LIVE_SESSION_ALREADY_STOPPED"); return;
+        }
+        if (LiveTrackingService.isCollecting()) { call.resolve(buildStatus(null)); return; }
+        Intent intent = new Intent(getContext(), LiveTrackingService.class);
+        intent.setAction(LiveTrackingService.ACTION_RECOVER);
+        startAndAcknowledge(call, intent);
     }
 
     @PluginMethod
@@ -176,6 +212,7 @@ public class LiveTrackingPlugin extends Plugin {
 
         Intent serviceIntent = new Intent(getContext(), LiveTrackingService.class);
         serviceIntent.setAction(LiveTrackingService.ACTION_RESUME);
+        serviceIntent.putExtra("resumedAtMs", call.getLong("resumedAtMs", System.currentTimeMillis()));
         serviceIntent.putExtra(
             LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS,
             call.getLong(LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS, 0L)
@@ -191,6 +228,7 @@ public class LiveTrackingPlugin extends Plugin {
         }
 
         if (!LiveTrackingService.isServiceRunning()) {
+            LiveTrackingManager.markInterrupted(getContext());
             LiveTrackingManager.markStopped(getContext());
             call.resolve(buildStatus("Le suivi GPS est déjà arrêté."));
             return;
@@ -223,6 +261,7 @@ public class LiveTrackingPlugin extends Plugin {
     @PluginMethod
     public void clearSession(PluginCall call) {
         String sessionId = call.getString("sessionId");
+        if (!ensureSession(call)) return;
         if (sessionId == null || !sessionId.matches("[A-Za-z0-9-]{1,100}")) {
             call.reject("LIVE_TRACKING_SESSION_INVALID");
             return;
@@ -238,6 +277,7 @@ public class LiveTrackingPlugin extends Plugin {
     @PluginMethod
     public void getPendingPoints(PluginCall call) {
         String sessionId = call.getString("sessionId");
+        if (!ensureSession(call)) return;
         Integer afterSequence = call.getInt("afterSequence", 0);
 
         if (sessionId == null || !sessionId.matches("[A-Za-z0-9-]{1,100}")) {
@@ -245,22 +285,17 @@ public class LiveTrackingPlugin extends Plugin {
             return;
         }
 
-        JSArray points = LiveTrackingManager.readPointsAfter(
-            getContext(),
-            sessionId,
-            afterSequence != null ? afterSequence : 0
-        );
-
-        JSObject result = new JSObject();
-        result.put("sessionId", sessionId);
-        result.put("lastSequence", LiveTrackingManager.getLastSequence(getContext()));
-        result.put("points", points);
-        call.resolve(result);
+        try {
+        call.resolve(LiveTrackingManager.pending(getContext(), sessionId, call.getString("ownerUserId"),
+            afterSequence != null ? afterSequence : 0, LiveTrackingService.isServiceRunning()));
+        } catch (Exception error) { call.reject("LIVE_TRACE_CORRUPTED", error); }
     }
 
     private boolean ensureSession(PluginCall call) {
         String sessionId = call.getString("sessionId");
-        if (sessionId == null || !sessionId.equals(LiveTrackingManager.getSessionId(getContext()))) {
+        String owner = call.getString("ownerUserId");
+        if (sessionId == null || !sessionId.equals(LiveTrackingManager.getSessionId(getContext())) ||
+            owner == null || !owner.equals(LiveTrackingManager.getOwner(getContext()))) {
             call.reject("LIVE_TRACKING_SESSION_INVALID");
             return false;
         }
@@ -319,6 +354,10 @@ public class LiveTrackingPlugin extends Plugin {
                         if (LiveTrackingService.BROADCAST_LOCATION_UPDATE.equals(action)) {
                             notifyListeners("locationUpdate", data, true);
                         } else if (LiveTrackingService.BROADCAST_STATUS.equals(action)) {
+                            if (pendingStartCall != null && LiveTrackingService.isServiceRunning() &&
+                                !LiveTrackingManager.STATUS_STOPPED.equals(data.getString("trackingStatus"))) {
+                                PluginCall started = pendingStartCall; pendingStartCall = null; started.resolve(data);
+                            }
                             if (LiveTrackingManager.STATUS_STOPPED.equals(data.getString("trackingStatus")) && pendingStopCall != null) {
                                 PluginCall stoppedCall = pendingStopCall;
                                 pendingStopCall = null;
@@ -326,6 +365,8 @@ public class LiveTrackingPlugin extends Plugin {
                             }
                             notifyListeners("trackingStatus", data, true);
                         } else if (LiveTrackingService.BROADCAST_ERROR.equals(action)) {
+                            if (pendingStartCall != null) { PluginCall failed = pendingStartCall; pendingStartCall = null;
+                                failed.reject(data.getString("message")); }
                             notifyListeners("trackingError", data, true);
                         }
                     } catch (Exception error) {

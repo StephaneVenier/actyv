@@ -49,6 +49,9 @@ export type LiveTrackingState = {
   pausedAtMs: number | null;
   finishedAtMs: number | null;
   collectionStoppedAtMs?: number | null;
+  collectionGaps?: Array<{ startedAtMs: number; endedAtMs: number | null; estimated: boolean }>;
+  recoveryWarning?: string | null;
+  checkpointOnly?: boolean;
   accumulatedPausedMs: number;
   distanceM: number;
   elevationGainM: number;

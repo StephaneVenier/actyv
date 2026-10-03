@@ -49,12 +49,16 @@ function handleGpsPointReceived(
   }
 
   if (state.startedAtMs != null && point.timestamp < state.startedAtMs) return { ...state, lastSequence: nextSequence };
+  if (state.collectionGaps?.some(g => point.timestamp > g.startedAtMs &&
+      (g.endedAtMs == null || point.timestamp < g.endedAtMs))) return { ...state, lastSequence: nextSequence };
   const pointPaused = state.pausePeriods
     ? state.pausePeriods.some((period) => point.timestamp >= period.startedAtMs &&
         (period.endedAtMs == null || point.timestamp < period.endedAtMs))
     : point.trackingPaused ?? state.status === 'paused';
   point = { ...point, trackingPaused: pointPaused };
-  const needsRebase = state.referencePoint?.trackingPaused === true ||
+  const needsRebase = state.collectionGaps?.some(g => state.referencePoint != null &&
+    state.referencePoint.timestamp <= g.startedAtMs && g.endedAtMs != null && point.timestamp >= g.endedAtMs) ||
+    state.referencePoint?.trackingPaused === true ||
     (state.referencePoint != null && state.pausePeriods?.some((period) =>
       state.referencePoint!.timestamp < period.startedAtMs && point.timestamp >= period.startedAtMs)) ||
     (!state.pausePeriods && state.awaitingResumeRebase);

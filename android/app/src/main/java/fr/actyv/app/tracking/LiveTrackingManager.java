@@ -9,13 +9,10 @@ import android.content.pm.PackageManager;
 import android.Manifest;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import org.json.JSONObject;
+import org.json.JSONArray;
 
 public final class LiveTrackingManager {
     public static final String PREFS_NAME = "actyv_live_tracking";
@@ -35,6 +32,13 @@ public final class LiveTrackingManager {
     private static final String KEY_LAST_SEQUENCE = "last_sequence";
     private static final String KEY_POINTS_RECORDED = "points_recorded";
     private static final String KEY_STOPPED_AT_MS = "stopped_at_ms";
+    private static final String KEY_OWNER = "owner_user_id";
+    private static final String KEY_EVENTS = "events";
+    private static final String KEY_COLLECTION_ACTIVE = "collection_active";
+    private static final String KEY_LAST_COLLECTION_AT = "last_collection_at_ms";
+    private static final String KEY_TRACE_WARNING = "trace_warning";
+    private static String scannedSessionId;
+    private static LiveTrackingFile.Scan cachedScan;
 
     private static final Object FILE_LOCK = new Object();
 
@@ -49,14 +53,22 @@ public final class LiveTrackingManager {
         String sessionId,
         String sport,
         long startedAtMs,
-        long accumulatedPausedMs
+        long accumulatedPausedMs,
+        String ownerUserId
     ) {
-        deleteSessionFile(context, sessionId);
+        if (getSessionId(context) != null) throw new IllegalStateException("LIVE_SESSION_UNRESOLVED");
+        if (ownerUserId == null || ownerUserId.isEmpty()) throw new IllegalStateException("LIVE_OWNER_REQUIRED");
+        if (getSessionFile(context, sessionId).exists()) throw new IllegalStateException("LIVE_TRACE_ALREADY_EXISTS");
 
         getPrefs(context)
             .edit()
             .putString(KEY_SESSION_ID, sessionId)
             .putString(KEY_SPORT, sport)
+            .putString(KEY_OWNER, ownerUserId)
+            .putString(KEY_EVENTS, new JSONArray().put(event("START", startedAtMs, false)).toString())
+            .putBoolean(KEY_COLLECTION_ACTIVE, false)
+            .putBoolean(KEY_TRACE_WARNING, false)
+            .putLong(KEY_LAST_COLLECTION_AT, startedAtMs)
             .putString(KEY_STATUS, STATUS_RUNNING)
             .putLong(KEY_STARTED_AT_MS, startedAtMs)
             .putLong(KEY_PAUSED_AT_MS, 0L)
@@ -64,7 +76,7 @@ public final class LiveTrackingManager {
             .putLong(KEY_LAST_SEQUENCE, 0L)
             .putInt(KEY_POINTS_RECORDED, 0)
             .remove(KEY_STOPPED_AT_MS)
-            .apply();
+            .commit();
     }
 
     public static void markPaused(Context context, long pausedAtMs, long accumulatedPausedMs) {
@@ -73,16 +85,18 @@ public final class LiveTrackingManager {
             .putString(KEY_STATUS, STATUS_PAUSED)
             .putLong(KEY_PAUSED_AT_MS, Math.max(0L, pausedAtMs))
             .putLong(KEY_ACCUMULATED_PAUSED_MS, Math.max(0L, accumulatedPausedMs))
-            .apply();
+            .putString(KEY_EVENTS, eventsWith(context, "PAUSE", pausedAtMs, false).toString())
+            .commit();
     }
 
-    public static void markRunning(Context context, long accumulatedPausedMs) {
+    public static void markRunning(Context context, long accumulatedPausedMs, long resumedAtMs) {
         getPrefs(context)
             .edit()
             .putString(KEY_STATUS, STATUS_RUNNING)
             .putLong(KEY_PAUSED_AT_MS, 0L)
             .putLong(KEY_ACCUMULATED_PAUSED_MS, Math.max(0L, accumulatedPausedMs))
-            .apply();
+            .putString(KEY_EVENTS, eventsWith(context, "RESUME", resumedAtMs, false).toString())
+            .commit();
     }
 
     public static void markStopped(Context context) {
@@ -91,6 +105,8 @@ public final class LiveTrackingManager {
             .edit()
             .putString(KEY_STATUS, STATUS_STOPPED)
             .putLong(KEY_STOPPED_AT_MS, System.currentTimeMillis())
+            .putBoolean(KEY_COLLECTION_ACTIVE, false)
+            .putString(KEY_EVENTS, eventsWith(context, "STOP", System.currentTimeMillis(), false).toString())
             .commit();
     }
 
@@ -112,7 +128,10 @@ public final class LiveTrackingManager {
             .remove(KEY_LAST_SEQUENCE)
             .remove(KEY_POINTS_RECORDED)
             .remove(KEY_STOPPED_AT_MS)
-            .apply();
+            .remove(KEY_OWNER).remove(KEY_EVENTS).remove(KEY_COLLECTION_ACTIVE).remove(KEY_LAST_COLLECTION_AT).remove(KEY_TRACE_WARNING)
+            .commit();
+        scannedSessionId = null;
+        cachedScan = null;
     }
 
     public static String getSessionId(Context context) {
@@ -147,73 +166,138 @@ public final class LiveTrackingManager {
         return getPrefs(context).getInt(KEY_POINTS_RECORDED, 0);
     }
 
-    public static int getNextSequence(Context context) {
-        SharedPreferences prefs = getPrefs(context);
-        int nextSequence = (int) prefs.getLong(KEY_LAST_SEQUENCE, 0L) + 1;
-        prefs.edit().putLong(KEY_LAST_SEQUENCE, nextSequence).apply();
-        return nextSequence;
-    }
-
-    public static void incrementPointsRecorded(Context context) {
-        SharedPreferences prefs = getPrefs(context);
-        int nextCount = prefs.getInt(KEY_POINTS_RECORDED, 0) + 1;
-        prefs.edit().putInt(KEY_POINTS_RECORDED, nextCount).apply();
-    }
-
     public static void appendPoint(Context context, String sessionId, JSObject point) throws IOException {
         if (sessionId == null || sessionId.isEmpty()) {
             return;
         }
 
-        File sessionFile = getSessionFile(context, sessionId);
-        File parentDir = sessionFile.getParentFile();
-        if (parentDir != null && !parentDir.exists()) {
-            parentDir.mkdirs();
-        }
-
         synchronized (FILE_LOCK) {
-            try (FileOutputStream outputStream = new FileOutputStream(sessionFile, true)) {
-                outputStream.write(point.toString().getBytes(StandardCharsets.UTF_8));
-                outputStream.write('\n');
-                outputStream.flush();
+            if (!sessionId.equals(scannedSessionId) || cachedScan == null) {
+                cachedScan = scan(context, sessionId, null);
+                scannedSessionId = sessionId;
+                if (cachedScan.truncatedTail) getPrefs(context).edit().putBoolean(KEY_TRACE_WARNING, true).commit();
             }
+            point.put("sequence", cachedScan.lastSequence + 1);
+            try { LiveTrackingFile.append(getSessionFile(context, sessionId), cachedScan, point.toString()); }
+            catch (IOException error) { cachedScan = null; throw error; }
+            getPrefs(context).edit().putLong(KEY_LAST_SEQUENCE, cachedScan.lastSequence)
+                .putInt(KEY_POINTS_RECORDED, cachedScan.lastSequence).commit();
         }
-
-        incrementPointsRecorded(context);
     }
 
-    public static JSArray readPointsAfter(Context context, String sessionId, int afterSequence) {
+    public static JSArray readPointsAfter(Context context, String sessionId, int afterSequence) throws IOException {
         JSArray result = new JSArray();
         if (sessionId == null || sessionId.isEmpty()) {
             return result;
         }
 
-        File sessionFile = getSessionFile(context, sessionId);
-        if (!sessionFile.exists()) {
-            return result;
-        }
-
         synchronized (FILE_LOCK) {
-            try (BufferedReader reader = new BufferedReader(new FileReader(sessionFile, StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    if (line.trim().isEmpty()) {
-                        continue;
-                    }
-
-                    JSONObject object = new JSONObject(line);
-                    int sequence = object.optInt("sequence", 0);
-                    if (sequence <= afterSequence) {
-                        continue;
-                    }
-
-                    result.put(new JSObject(object.toString()));
-                }
-            } catch (Exception ignored) {
-            }
+            LiveTrackingFile.Scan valid = scan(context, sessionId, line -> {
+                JSONObject object = new JSONObject(line);
+                if (object.getInt("sequence") > afterSequence) result.put(new JSObject(line));
+            });
+            if (sessionId.equals(getSessionId(context))) getPrefs(context).edit()
+                .putLong(KEY_LAST_SEQUENCE, valid.lastSequence).putInt(KEY_POINTS_RECORDED, valid.lastSequence).commit();
         }
 
         return result;
+    }
+
+    private static LiveTrackingFile.Scan scan(Context context, String sessionId, LiveTrackingFile.Visitor visitor) throws IOException {
+        return LiveTrackingFile.scan(getSessionFile(context, sessionId), line -> {
+            JSONObject point = new JSONObject(line);
+            if (!sessionId.equals(point.optString("sessionId", null)) || !point.has("latitude") || !point.has("longitude") ||
+                !point.has("timestamp") || !point.has("sequence")) throw new IOException("GPS_POINT_INVALID");
+            try {
+                double latitude = point.getDouble("latitude"), longitude = point.getDouble("longitude");
+                if (!Double.isFinite(latitude) || !Double.isFinite(longitude) || Math.abs(latitude) > 90 ||
+                    Math.abs(longitude) > 180 || point.getLong("timestamp") <= 0) throw new IOException("GPS_POINT_INVALID");
+                return point.getInt("sequence");
+            } catch (org.json.JSONException error) { throw new IOException("GPS_POINT_INVALID", error); }
+        }, visitor);
+    }
+
+    public static String getOwner(Context context) { return getPrefs(context).getString(KEY_OWNER, null); }
+
+    private static JSONObject event(String type, long atMs, boolean estimated) {
+        JSONObject result = new JSONObject();
+        try { result.put("type", type); result.put("atMs", atMs); result.put("estimated", estimated); }
+        catch (Exception error) { throw new IllegalStateException(error); }
+        return result;
+    }
+
+    public static JSONArray getEvents(Context context) {
+        try { return new JSONArray(getPrefs(context).getString(KEY_EVENTS, "[]")); }
+        catch (Exception error) { throw new IllegalStateException("LIVE_JOURNAL_CORRUPTED", error); }
+    }
+
+    private static JSONArray eventsWith(Context context, String type, long atMs, boolean estimated) {
+        return getEvents(context).put(event(type, atMs, estimated));
+    }
+
+    public static void heartbeat(Context context) {
+        if (getPrefs(context).getBoolean(KEY_COLLECTION_ACTIVE, false)) getPrefs(context).edit()
+            .putLong(KEY_LAST_COLLECTION_AT, System.currentTimeMillis()).commit();
+    }
+
+    public static void markInterrupted(Context context) {
+        if (!getPrefs(context).getBoolean(KEY_COLLECTION_ACTIVE, false)) return;
+        getPrefs(context).edit().putBoolean(KEY_COLLECTION_ACTIVE, false)
+            .putString(KEY_EVENTS, eventsWith(context, "INTERRUPTION",
+                lastKnownCollectionAt(context), true).toString()).commit();
+    }
+
+    private static long lastKnownCollectionAt(Context context) {
+        final long[] last = { getPrefs(context).getLong(KEY_LAST_COLLECTION_AT, getStartedAtMs(context)) };
+        try { scan(context, getSessionId(context), line -> {
+            last[0] = Math.max(last[0], new JSONObject(line).getLong("timestamp"));
+        }); } catch (IOException error) { throw new IllegalStateException("LIVE_TRACE_CORRUPTED", error); }
+        return Math.min(System.currentTimeMillis(), last[0]);
+    }
+
+    public static void markCollectionStarted(Context context) {
+        getPrefs(context).edit().putBoolean(KEY_COLLECTION_ACTIVE, true)
+            .putLong(KEY_LAST_COLLECTION_AT, System.currentTimeMillis())
+            .putString(KEY_EVENTS, eventsWith(context, "COLLECTION_RESUME", System.currentTimeMillis(), false).toString()).commit();
+    }
+
+    public static JSObject recovery(Context context, String owner, boolean serviceRunning) throws IOException {
+        return recovery(context, owner, serviceRunning, true);
+    }
+
+    private static JSObject recovery(Context context, String owner, boolean serviceRunning, boolean includePoints) throws IOException {
+        JSObject result = new JSObject();
+        String sessionId = getSessionId(context);
+        if (sessionId == null) { result.put("session", null); return result; }
+        if (owner == null || !owner.equals(getOwner(context))) { result.put("blocked", true); return result; }
+        synchronized (FILE_LOCK) {
+            JSObject session = new JSObject();
+            JSArray points = includePoints ? readPointsAfter(context, sessionId, 0) : new JSArray();
+            LiveTrackingFile.Scan valid = scan(context, sessionId, null);
+            JSONArray events = getEvents(context);
+            if (!serviceRunning && getPrefs(context).getBoolean(KEY_COLLECTION_ACTIVE, false))
+                events.put(event("INTERRUPTION", lastKnownCollectionAt(context), true));
+            session.put("sessionId", sessionId); session.put("ownerUserId", getOwner(context));
+            session.put("sport", getSport(context)); session.put("startedAtMs", getStartedAtMs(context));
+            session.put("trackingStatus", getStatus(context)); session.put("serviceRunning", serviceRunning);
+            session.put("lastSequence", valid.lastSequence); session.put("points", points);
+            session.put("events", events); session.put("truncatedTail", valid.truncatedTail || getPrefs(context).getBoolean(KEY_TRACE_WARNING, false));
+            session.put("stoppedAtMs", getPrefs(context).getLong(KEY_STOPPED_AT_MS, 0L));
+            result.put("session", session);
+        }
+        return result;
+    }
+
+    public static JSObject pending(Context context, String sessionId, String owner, int afterSequence, boolean running) throws IOException {
+        synchronized (FILE_LOCK) {
+            JSObject result = new JSObject();
+            JSArray points = readPointsAfter(context, sessionId, afterSequence);
+            JSObject session = recovery(context, owner, running, false).getJSObject("session");
+            if (session == null) throw new IOException("LIVE_OWNER_MISMATCH");
+            result.put("sessionId", sessionId); result.put("points", points);
+            result.put("lastSequence", session.getInteger("lastSequence")); result.put("recovery", session);
+            return result;
+        }
     }
 
     public static JSObject buildStatus(
@@ -232,6 +316,8 @@ public final class LiveTrackingManager {
         result.put("platform", "android");
         result.put("trackingStatus", trackingStatus);
         result.put("finalizationVersion", 1);
+        result.put("recoveryVersion", 1);
+        result.put("ownerUserId", getOwner(context));
         result.put("stoppedAtMs", getPrefs(context).getLong(KEY_STOPPED_AT_MS, 0L) > 0
             ? getPrefs(context).getLong(KEY_STOPPED_AT_MS, 0L) : null);
         result.put("permissionStatus", permissionStatus);

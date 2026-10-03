@@ -16,6 +16,7 @@ import {
   formatSpeedKmh,
 } from '@/lib/live-tracking/format';
 import type { LiveActivitySport } from '@/lib/live-tracking/types';
+import { getActiveDurationMs } from '@/lib/live-tracking/timer';
 
 const SPORT_OPTIONS = Object.values(LIVE_SPORT_CONFIG);
 
@@ -59,6 +60,9 @@ export default function LiveActivityPageClient() {
     platformStatus,
     platformError,
     nativeActionPending,
+    recoveryPending,
+    recoveryBlocked,
+    finishRestoredSession,
     finishedActivity,
     syncPending,
     retrySync,
@@ -146,23 +150,26 @@ export default function LiveActivityPageClient() {
                   {LIVE_SPORT_CONFIG[restorableSession.state.sport].label} •{' '}
                   {formatDistanceKm(restorableSession.state.distanceM)} •{' '}
                   {formatDuration(
-                    Math.max(
-                      0,
-                      (restorableSession.state.pausedAtMs || Date.now()) -
-                        (restorableSession.state.startedAtMs || Date.now()) -
-                        restorableSession.state.accumulatedPausedMs
-                    )
+                    getActiveDurationMs(restorableSession.state, Date.now())
                   )}
                 </p>
+                <p>Depart : {new Date(restorableSession.state.startedAtMs || restorableSession.updatedAtMs)
+                  .toLocaleString('fr-FR')}</p>
+                {restorableSession.state.recoveryWarning ? <p className="live-activity-inline-message live-activity-inline-message--warning">
+                  {restorableSession.state.recoveryWarning}</p> : null}
               </div>
 
               <div className="live-activity-actions">
-                <button type="button" className="button primary" onClick={restoreSession}>
-                  Reprendre
+                <button type="button" className="button primary" onClick={() => void restoreSession()}
+                  disabled={nativeActionPending || Boolean(restorableSession.state.checkpointOnly || restorableSession.state.collectionStoppedAtMs)}>
+                  Reprendre l&apos;activite
                 </button>
+                <button type="button" className="button ghost" disabled={nativeActionPending}
+                  onClick={() => void finishRestoredSession()}>Terminer</button>
                 <button
                   type="button"
                   className="button ghost"
+                  disabled={nativeActionPending}
                   onClick={() => discardSession(selectedSport)}
                 >
                   Abandonner
@@ -203,9 +210,9 @@ export default function LiveActivityPageClient() {
                   type="button"
                   className="button primary live-activity-start-button"
                   onClick={() => void start(selectedSport)}
-                  disabled={nativeActionPending || Boolean(restorableSession)}
+                  disabled={nativeActionPending || recoveryPending || recoveryBlocked || Boolean(restorableSession)}
                 >
-                  {nativeActionPending ? 'Démarrage...' : 'Démarrer'}
+                  {recoveryPending ? 'Verification...' : nativeActionPending ? 'Démarrage...' : 'Démarrer'}
                 </button>
               </div>
 
@@ -219,6 +226,8 @@ export default function LiveActivityPageClient() {
 
           {(state.status === 'running' || state.status === 'paused') && (
             <section className="live-activity-dashboard">
+              {state.recoveryWarning ? <p className="live-activity-inline-message live-activity-inline-message--warning">
+                {state.recoveryWarning}</p> : null}
               <div className="live-activity-dashboard__status-row">
                 <div className="stack" style={{ gap: '0.28rem' }}>
                   <span className="section-kicker">{LIVE_SPORT_CONFIG[state.sport].label}</span>

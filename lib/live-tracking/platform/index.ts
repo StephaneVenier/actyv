@@ -1,4 +1,5 @@
 import type { LiveActivitySport, LiveGpsPoint } from '@/lib/live-tracking/types';
+import type { NativeRecoverySession } from '@/lib/live-tracking/recovery';
 import type {
   LiveTrackingListenerHandle,
   LiveTrackingPendingPointsResult,
@@ -12,6 +13,9 @@ import type {
 
 type LiveTrackingPluginResult = Partial<LiveTrackingPlatformStatus> & {
   points?: LiveGpsPoint[];
+  blocked?: boolean;
+  session?: NativeRecoverySession | null;
+  recovery?: NativeRecoverySession | null;
 };
 
 type LiveTrackingPluginApi = {
@@ -24,6 +28,8 @@ type LiveTrackingPluginApi = {
   resumeTracking?(options: LiveTrackingResumeOptions): Promise<LiveTrackingPluginResult>;
   stopTracking?(options: LiveTrackingStopOptions): Promise<LiveTrackingPluginResult>;
   clearSession?(options: LiveTrackingStopOptions): Promise<LiveTrackingPluginResult>;
+  getRecoverySession?(options: { ownerUserId: string }): Promise<LiveTrackingPluginResult>;
+  recoverTracking?(options: LiveTrackingStopOptions): Promise<LiveTrackingPluginResult>;
   getPendingPoints?(options: {
     sessionId: string;
     afterSequence?: number;
@@ -136,6 +142,8 @@ function normalizeStatus(result?: LiveTrackingPluginResult | null): LiveTracking
     message: typeof result.message === 'string' ? result.message : null,
     finalizationVersion: result.finalizationVersion ?? 0,
     stoppedAtMs: result.stoppedAtMs ?? null,
+    recoveryVersion: result.recoveryVersion ?? 0,
+    ownerUserId: result.ownerUserId ?? null,
   });
 }
 
@@ -201,7 +209,21 @@ async function addPluginListener(
   return handle || null;
 }
 
+let currentOwnerUserId: string | null = null;
+
 export const liveTrackingPlatform: LiveTrackingPlatform = {
+  setOwner(ownerUserId) { currentOwnerUserId = ownerUserId; },
+  async getRecoverySession(ownerUserId) {
+    if (!isAndroidNative()) return { session: null };
+    if (!getPlugin()?.getRecoverySession) throw new Error('Mets a jour l’application Android pour recuperer les Lives.');
+    const result = await callPluginMethod('getRecoverySession', { ownerUserId });
+    if (!result) throw new Error('Recuperation native indisponible. Les donnees sont conservees.');
+    return result;
+  },
+  async recoverTracking(sessionId) {
+    if (!getPlugin()?.recoverTracking) throw new Error('Reprise native indisponible. Mets a jour l’application.');
+    return normalizeStatus(await callPluginMethod('recoverTracking', { sessionId, ownerUserId: currentOwnerUserId }));
+  },
   isAvailable() {
     return isAndroidNative() && Boolean(getPlugin());
   },
@@ -223,11 +245,11 @@ export const liveTrackingPlatform: LiveTrackingPlatform = {
   },
 
   async pauseTracking(options: LiveTrackingPauseOptions) {
-    return normalizeStatus(await callPluginMethod('pauseTracking', options));
+    return normalizeStatus(await callPluginMethod('pauseTracking', { ...options, ownerUserId: currentOwnerUserId }));
   },
 
   async resumeTracking(options: LiveTrackingResumeOptions) {
-    return normalizeStatus(await callPluginMethod('resumeTracking', options));
+    return normalizeStatus(await callPluginMethod('resumeTracking', { ...options, ownerUserId: currentOwnerUserId }));
   },
 
   async stopTracking(options: LiveTrackingStopOptions) {
@@ -235,7 +257,7 @@ export const liveTrackingPlatform: LiveTrackingPlatform = {
     if (status.finalizationVersion !== 1) {
       throw new Error('Mets a jour l’application Android pour enregistrer les Lives sans perdre les derniers points.');
     }
-    const stopped = normalizeStatus(await callPluginMethod('stopTracking', options));
+    const stopped = normalizeStatus(await callPluginMethod('stopTracking', { ...options, ownerUserId: currentOwnerUserId }));
     if (stopped.trackingStatus !== 'stopped' || stopped.serviceRunning) {
       throw new Error('Le suivi GPS n’est pas encore arrete. Reessaie.');
     }
@@ -244,7 +266,7 @@ export const liveTrackingPlatform: LiveTrackingPlatform = {
 
   async clearSession(sessionId: string) {
     if (isAndroidNative() && !getPlugin()?.clearSession) throw new Error('Nettoyage natif indisponible.');
-    await callPluginMethod('clearSession', { sessionId });
+    await callPluginMethod('clearSession', { sessionId, ownerUserId: currentOwnerUserId });
   },
 
   async getPendingPoints(
@@ -254,6 +276,7 @@ export const liveTrackingPlatform: LiveTrackingPlatform = {
     const result = await callPluginMethod('getPendingPoints', {
       sessionId,
       afterSequence,
+      ownerUserId: currentOwnerUserId,
     });
 
     const rawPoints = Array.isArray(result?.points) ? result.points : [];
@@ -262,6 +285,7 @@ export const liveTrackingPlatform: LiveTrackingPlatform = {
       sessionId: typeof result?.sessionId === 'string' ? result.sessionId : sessionId,
       lastSequence: typeof result?.lastSequence === 'number' ? result.lastSequence : afterSequence,
       points: rawPoints.map(normalizePoint).filter((point): point is LiveGpsPoint => Boolean(point)),
+      recovery: result?.recovery ?? null,
     };
   },
 

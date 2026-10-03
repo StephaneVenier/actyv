@@ -1,4 +1,5 @@
 import type { LiveActivitySport, LiveGpsPoint } from '@/lib/live-tracking/types';
+import type { NativeRecoverySession } from '@/lib/live-tracking/recovery';
 
 export type LiveTrackingPermissionStatus = 'unknown' | 'granted' | 'denied' | 'limited';
 
@@ -24,6 +25,8 @@ export type LiveTrackingPlatformStatus = {
   message: string | null;
   finalizationVersion?: number;
   stoppedAtMs?: number | null;
+  recoveryVersion?: number;
+  ownerUserId?: string | null;
 };
 
 export type LiveTrackingStartOptions = {
@@ -31,6 +34,7 @@ export type LiveTrackingStartOptions = {
   sport: LiveActivitySport;
   startedAtMs: number;
   accumulatedPausedMs?: number;
+  ownerUserId?: string;
 };
 
 export type LiveTrackingPauseOptions = {
@@ -53,6 +57,7 @@ export type LiveTrackingPendingPointsResult = {
   sessionId: string | null;
   lastSequence: number;
   points: LiveGpsPoint[];
+  recovery?: NativeRecoverySession | null;
 };
 
 export type LiveTrackingListenerHandle = {
@@ -60,6 +65,9 @@ export type LiveTrackingListenerHandle = {
 };
 
 export interface LiveTrackingPlatform {
+  setOwner(ownerUserId: string | null): void;
+  getRecoverySession(ownerUserId: string): Promise<{ blocked?: boolean; session?: NativeRecoverySession | null }>;
+  recoverTracking(sessionId: string): Promise<LiveTrackingPlatformStatus>;
   isAvailable(): boolean;
   getStatus(): Promise<LiveTrackingPlatformStatus>;
   checkPermissions(): Promise<LiveTrackingPlatformStatus>;

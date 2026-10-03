@@ -12,6 +12,7 @@ import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.Handler;
 import android.util.Log;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
@@ -30,6 +31,8 @@ public class LiveTrackingService extends Service {
     public static final String ACTION_PAUSE = "fr.actyv.app.tracking.PAUSE";
     public static final String ACTION_RESUME = "fr.actyv.app.tracking.RESUME";
     public static final String ACTION_STOP = "fr.actyv.app.tracking.STOP";
+    public static final String ACTION_RECOVER = "fr.actyv.app.tracking.RECOVER";
+    public static final String EXTRA_OWNER = "ownerUserId";
 
     public static final String BROADCAST_LOCATION_UPDATE = "fr.actyv.app.tracking.LOCATION_UPDATE";
     public static final String BROADCAST_STATUS = "fr.actyv.app.tracking.STATUS";
@@ -52,15 +55,24 @@ public class LiveTrackingService extends Service {
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationCallback locationCallback;
-    private boolean locationUpdatesStarted = false;
+    private static volatile boolean locationUpdatesStarted = false;
     private boolean stopping = false;
     private String sessionId;
     private String sport;
     private String trackingStatus = LiveTrackingManager.STATUS_IDLE;
+    private final Handler heartbeatHandler = new Handler(Looper.getMainLooper());
+    private final Runnable heartbeat = new Runnable() {
+        @Override public void run() {
+            LiveTrackingManager.heartbeat(LiveTrackingService.this);
+            heartbeatHandler.postDelayed(this, 10000);
+        }
+    };
 
     public static boolean isServiceRunning() {
         return serviceRunning;
     }
+
+    public static boolean isCollecting() { return serviceRunning && locationUpdatesStarted; }
 
     @Override
     public void onCreate() {
@@ -88,6 +100,8 @@ public class LiveTrackingService extends Service {
         String action = intent.getAction();
         if (ACTION_START.equals(action)) {
             handleStart(intent);
+        } else if (ACTION_RECOVER.equals(action)) {
+            restorePersistedSessionIfNeeded();
         } else if (ACTION_PAUSE.equals(action)) {
             handlePause(intent);
         } else if (ACTION_RESUME.equals(action)) {
@@ -102,6 +116,11 @@ public class LiveTrackingService extends Service {
 
     @Override
     public void onDestroy() {
+        heartbeatHandler.removeCallbacks(heartbeat);
+        if (!LiveTrackingManager.STATUS_STOPPED.equals(trackingStatus)) {
+            try { LiveTrackingManager.markInterrupted(this); }
+            catch (Exception error) { Log.e(TAG, "Unable to journal interruption; trace preserved", error); }
+        }
         stopLocationUpdates();
         serviceRunning = false;
         Log.i(TAG, "LiveTrackingService destroyed");
@@ -122,10 +141,15 @@ public class LiveTrackingService extends Service {
         sessionId = persistedSessionId;
         sport = persistedSport;
         trackingStatus = persistedStatus;
-
         startForeground(NOTIFICATION_ID, buildNotification());
+        try { LiveTrackingManager.markInterrupted(this); }
+        catch (Exception error) {
+            broadcastError("Trace Live invalide. Les donnees sont conservees.");
+            stopForeground(STOP_FOREGROUND_REMOVE);
+            stopSelf();
+            return;
+        }
         startLocationUpdates();
-        broadcastStatus("Suivi GPS restauré.");
     }
 
     private void handleStart(Intent intent) {
@@ -144,10 +168,16 @@ public class LiveTrackingService extends Service {
         sport = nextSport;
         trackingStatus = LiveTrackingManager.STATUS_RUNNING;
 
-        LiveTrackingManager.beginSession(this, sessionId, sport, startedAtMs, accumulatedPausedMs);
+        try {
+            LiveTrackingManager.beginSession(this, sessionId, sport, startedAtMs, accumulatedPausedMs,
+                intent.getStringExtra(EXTRA_OWNER));
+        } catch (Exception error) {
+            broadcastError("Une activite non resolue existe deja. Recupere-la avant de demarrer.");
+            stopSelf();
+            return;
+        }
         startForeground(NOTIFICATION_ID, buildNotification());
         startLocationUpdates();
-        broadcastStatus("Suivi GPS actif.");
         Log.i(TAG, "Live tracking started for session " + sessionId);
     }
 
@@ -172,7 +202,7 @@ public class LiveTrackingService extends Service {
         );
 
         trackingStatus = LiveTrackingManager.STATUS_RUNNING;
-        LiveTrackingManager.markRunning(this, accumulatedPausedMs);
+        LiveTrackingManager.markRunning(this, accumulatedPausedMs, intent.getLongExtra("resumedAtMs", System.currentTimeMillis()));
         updateNotification();
         broadcastStatus("Suivi repris.");
         Log.i(TAG, "Live tracking resumed");
@@ -201,6 +231,7 @@ public class LiveTrackingService extends Service {
     }
 
     private void completeStop() {
+        heartbeatHandler.removeCallbacks(heartbeat);
         trackingStatus = LiveTrackingManager.STATUS_STOPPED;
         LiveTrackingManager.markStopped(this);
         serviceRunning = false;
@@ -232,10 +263,8 @@ public class LiveTrackingService extends Service {
         }
 
         try {
-            int sequence = LiveTrackingManager.getNextSequence(this);
             JSObject point = new JSObject();
             point.put("sessionId", sessionId);
-            point.put("sequence", sequence);
             point.put("trackingPaused", LiveTrackingManager.STATUS_PAUSED.equals(trackingStatus));
             point.put("latitude", location.getLatitude());
             point.put("longitude", location.getLongitude());
@@ -283,8 +312,18 @@ public class LiveTrackingService extends Service {
                     .setMinUpdateDistanceMeters(MIN_DISTANCE_M)
                     .build();
 
-            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper());
-            locationUpdatesStarted = true;
+            fusedLocationClient.requestLocationUpdates(request, locationCallback, Looper.getMainLooper())
+                .addOnCompleteListener(task -> {
+                    if (!task.isSuccessful()) {
+                        broadcastError("Impossible de demarrer la collecte GPS. Les donnees sont conservees.");
+                        return;
+                    }
+                    locationUpdatesStarted = true;
+                    LiveTrackingManager.markCollectionStarted(this);
+                    heartbeatHandler.removeCallbacks(heartbeat);
+                    heartbeatHandler.post(heartbeat);
+                    broadcastStatus("Suivi GPS actif.");
+                });
             Log.i(TAG, "Location updates started");
         } catch (SecurityException error) {
             Log.e(TAG, "Location permission missing", error);
