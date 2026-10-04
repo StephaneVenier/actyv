@@ -64,12 +64,12 @@ assert.equal(normalizeLiveSetPerformances([row, { ...row, status: 'skipped' }], 
 
 const guardStart = page.indexOf('    if (!currentBlock || !canValidateCurrentBlock) return;');
 const guardEnd = page.indexOf('    triggerHaptic(18);', guardStart);
-const validate = new Function('currentBlock', 'canValidateCurrentBlock', 'currentCompletedSets', 'lastValidatedSeriesRef',
+const validate = new Function('currentBlock', 'canValidateCurrentBlock', 'currentActivePerformanceLine', 'lastValidatedSeriesRef',
   page.slice(guardStart, guardEnd) + '\nreturn true;');
 const lock = { current: null };
-assert.equal(validate(block, true, 0, lock), true);
-assert.equal(validate(block, true, 0, lock), undefined);
-assert.equal(validate(block, false, 1, lock), undefined);
-assert.equal(validate(block, true, 1, lock), true);
+assert.equal(validate(block, true, { id: 'first' }, lock), true);
+assert.equal(validate(block, true, { id: 'first' }, lock), undefined);
+assert.equal(validate(block, false, { id: 'second' }, lock), undefined);
+assert.equal(validate(block, true, { id: 'second' }, lock), true);
 console.log('PASS A-F: one/two sets, restoration, duration/distance/free, skipped excluded, missing actual values preserved.');
 console.log('PASS: repeated validation and resting guard; one record per set; no fabricated completion.');

@@ -6,6 +6,7 @@ export type WorkoutSetPerformance = {
   exercise_id?: string | null;
   set_number: number;
   line_number?: number | null;
+  live_line_id?: string;
   block_type?: SessionBlockType | null;
   planned_reps: number | null;
   actual_reps: number | null;

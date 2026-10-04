@@ -56,10 +56,11 @@ const validate = new Function('currentBlock', 'canValidateCurrentBlock', 'curren
   'triggerHaptic', 'setStartedSeriesKey', 'setValidationFeedback', 'usesSetBySetValidation', 'currentLiveBlockSetsTotal',
   'getPlannedReps', 'getPlannedChargeKg', 'currentActualReps', 'currentActualChargeKg', 'currentActivePerformanceLineIndex',
   'safeTrimText', 'currentIndex', 'currentActivePerformanceLine', 'upsertSetPerformanceEntries',
+  'setOpenPerformanceLineIndex',
   ts.transpile(page.slice(validationStart, validationEnd), { target: ts.ScriptTarget.ES2020 }));
 let captured;
 validate(block, true, 0, { current: null }, () => {}, () => {}, () => {}, true, 4,
-  b => b.target_value, b => b.charge_kg, 8, 0, 0, text => text.trim(), 0, {}, rows => { captured = rows[0]; });
+  b => b.target_value, b => b.charge_kg, 8, 0, 0, text => text.trim(), 0, { id: 'line' }, rows => { captured = rows[0]; }, () => {});
 assert.equal(captured.actual_charge_kg, 0);
 assert.equal(captured.actual_reps, 8);
 assert.equal(captured.planned_charge_kg, 40);

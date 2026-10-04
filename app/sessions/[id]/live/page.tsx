@@ -37,6 +37,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { WorkoutCompletionMetadata, WorkoutSetPerformance } from '@/lib/workout-history';
 import { normalizeLiveSetPerformances } from '@/lib/live-workout-snapshot';
+import { reconcileLiveSeries, isLiveSeriesCompleted, removeLiveSeries, uncheckLiveSeries } from '@/lib/live-workout-series';
 import { workoutStorageKey, readOwnedSnapshot } from '@/lib/account-storage';
 
 type TrainingSession = {
@@ -288,17 +289,7 @@ function normalizeLivePerformanceDraft(
   const fallback = createDefaultLivePerformanceDraft(block);
   const draftLines = Array.isArray(draft?.lines) ? draft.lines : [];
   const nextLines = draftLines.length > 0
-    ? draftLines.length === 1 && normalizeSessionSetsCount(block?.sets_count ?? 1) > 1
-      ? Array.from({ length: normalizeSessionSetsCount(block?.sets_count ?? 1) }, (_, index) =>
-          normalizeLivePerformanceLineDraft(
-            {
-              ...draftLines[0],
-              id: `${draftLines[0]?.id || fallback.lines[0].id}-copy-${index + 1}`,
-            },
-            block
-          )
-        )
-      : draftLines.map((line) => normalizeLivePerformanceLineDraft(line, block))
+    ? draftLines.map((line) => normalizeLivePerformanceLineDraft(line, block))
     : fallback.lines;
 
   return {
@@ -348,14 +339,6 @@ function getLivePerformanceDraftLines(
 ) {
   const normalizedDraft = normalizeLivePerformanceDraft(draft, block);
   return normalizedDraft.lines;
-}
-
-function getLivePerformanceLineIndexByCompletedSets(
-  lines: LivePerformanceLineDraft[],
-  completedSets: number
-) {
-  const normalizedCompletedSets = Math.max(Math.trunc(Number(completedSets) || 0), 0);
-  return Math.min(normalizedCompletedSets, Math.max(lines.length - 1, 0));
 }
 
 function getLivePerformanceLineForSetNumber(lines: LivePerformanceLineDraft[], setNumber: number) {
@@ -935,7 +918,7 @@ export default function LiveSessionPage() {
     [elapsedSeconds, session?.sport]
   );
   const allBlocksCompleted = blocks.length > 0 && completedBlocksCount === blocks.length;
-  const isFinishReviewVisible = historySaved || finishReviewOpen || allBlocksCompleted;
+  const isFinishReviewVisible = historySaved || finishReviewOpen;
   const globalProgressPercent =
     blocks.length > 0 ? Math.min(100, Math.max(0, Math.round((completedBlocksCount / blocks.length) * 100))) : 0;
   const currentBlock = blocks[currentIndex] || null;
@@ -943,7 +926,6 @@ export default function LiveSessionPage() {
     () => blocks.find((block) => block.id === restAfterBlockId) || null,
     [blocks, restAfterBlockId]
   );
-  const currentBlockSetsTotal = currentBlock ? normalizeSessionSetsCount(currentBlock.sets_count) : 1;
   const currentBlockRestSeconds =
     currentBlock && Number.isFinite(Number(currentBlock.rest_seconds))
       ? Math.max(0, Math.trunc(Number(currentBlock.rest_seconds)))
@@ -966,8 +948,8 @@ export default function LiveSessionPage() {
     currentLivePerformanceDraft,
     currentBlock
   );
-  const currentLiveBlockSetsTotal = Math.max(currentBlockSetsTotal, currentLivePerformanceTotalSets);
-  const rawCurrentCompletedSets = currentBlock ? Number(completedSetsByBlockId[currentBlock.id] ?? 0) : 0;
+  const currentLiveBlockSetsTotal = currentLivePerformanceTotalSets;
+  const rawCurrentCompletedSets = currentBlock ? setPerformances.filter(row => row.block_id === currentBlock.id && row.status === 'completed').length : 0;
   const currentCompletedSets = currentBlock
     ? Math.min(
         Number.isFinite(rawCurrentCompletedSets) ? Math.max(Math.trunc(rawCurrentCompletedSets), 0) : 0,
@@ -977,17 +959,28 @@ export default function LiveSessionPage() {
   const isDurationBlock = currentBlock?.block_type === 'duration';
   const usesSetBySetValidation =
     Boolean(currentBlock) &&
-    currentLiveBlockSetsTotal > 1 &&
-    !resolvedBlockIds.includes(currentBlock.id);
+    currentLiveBlockSetsTotal > 1;
   const displayedSeriesStep = currentBlock
     ? Math.min(currentCompletedSets + (resolvedBlockIds.includes(currentBlock.id) ? 0 : 1), currentLiveBlockSetsTotal)
     : 1;
   const isCurrentBlockSkipped = Boolean(currentBlock) && skippedBlockIds.includes(currentBlock.id);
   const isResting = Boolean(restAfterBlockId) && !isFinishReviewVisible;
-  const currentSeriesKey = currentBlock ? `${currentBlock.id}:${currentCompletedSets}` : null;
+  const firstPendingLineIndex = currentLivePerformanceLines.findIndex((line, index) =>
+    !currentBlock || !isLiveSeriesCompleted(setPerformances, currentBlock.id, line, index));
+  const timedLineIndex = currentBlock && (exerciseBlockId === currentBlock.id || awaitingExerciseCompletion)
+    ? currentLivePerformanceLines.findIndex((line, index) =>
+        startedSeriesKey === `${currentBlock.id}:${line.id}` || startedSeriesKey === `${currentBlock.id}:${index}`)
+    : -1;
+  const selectedPendingLineIndex = timedLineIndex >= 0 ? timedLineIndex :
+    openPerformanceLineIndex != null && currentLivePerformanceLines[openPerformanceLineIndex] &&
+    currentBlock && !isLiveSeriesCompleted(setPerformances, currentBlock.id, currentLivePerformanceLines[openPerformanceLineIndex], openPerformanceLineIndex)
+    ? openPerformanceLineIndex : firstPendingLineIndex;
+  const activeLineIndex = Math.max(selectedPendingLineIndex, 0);
+  const currentSeriesKey = currentBlock ? `${currentBlock.id}:${currentLivePerformanceLines[activeLineIndex]?.id}` : null;
   const isSeriesStarted =
     Boolean(currentSeriesKey) &&
-    startedSeriesKey === currentSeriesKey &&
+    (startedSeriesKey === currentSeriesKey ||
+      (timedLineIndex >= 0 && startedSeriesKey === `${currentBlock?.id}:${timedLineIndex}`)) &&
     !resolvedBlockIds.includes(currentBlock?.id ?? '');
   const isExercising =
     Boolean(currentBlock) && (Boolean(isSeriesStarted) || awaitingExerciseCompletion) && !isResting;
@@ -1032,10 +1025,7 @@ export default function LiveSessionPage() {
   const restingBlockName =
     safeTrimText(restSourceBlock?.name) ||
     (restSourceBlock ? `Bloc ${restSourceBlock.position + 1}` : currentBlockName);
-  const currentActivePerformanceLineIndex = getLivePerformanceLineIndexByCompletedSets(
-    currentLivePerformanceLines,
-    currentCompletedSets
-  );
+  const currentActivePerformanceLineIndex = activeLineIndex;
   const currentActivePerformanceLine =
     currentLivePerformanceLines[currentActivePerformanceLineIndex] ||
     currentLivePerformanceLines[0] ||
@@ -1075,17 +1065,23 @@ export default function LiveSessionPage() {
           : 'Clique sur Terminer pour enregistrer ta seance.';
   const canValidateCurrentBlock =
     Boolean(currentBlock) &&
+    !historySaved && saveState !== 'saving' &&
     currentPhase !== 'completed' &&
     currentPhase !== 'resting' &&
-    !resolvedBlockIds.includes(currentBlock?.id ?? '') &&
-    (!isDurationBlock || currentPhase !== 'exercising' || awaitingExerciseCompletion);
+    firstPendingLineIndex >= 0 &&
+    !skippedBlockIds.includes(currentBlock?.id ?? '') &&
+    (!isDurationBlock || !exerciseBlockId || awaitingExerciseCompletion);
   const canAdjustCurrentPerformance =
     Boolean(currentBlock) &&
     (currentBlock.block_type === 'reps' ||
       currentBlock.block_type === 'duration' ||
       currentBlock.block_type === 'distance' ||
       currentBlock.block_type === 'free') &&
-    !resolvedBlockIds.includes(currentBlock.id);
+    firstPendingLineIndex >= 0 &&
+    !skippedBlockIds.includes(currentBlock.id) &&
+    !(openPerformanceLineIndex != null && currentLivePerformanceLines[openPerformanceLineIndex] &&
+      isLiveSeriesCompleted(setPerformances, currentBlock.id, currentLivePerformanceLines[openPerformanceLineIndex], openPerformanceLineIndex)) &&
+    !(currentBlock.block_type === 'duration' && (exerciseBlockId === currentBlock.id || awaitingExerciseCompletion));
   const canOpenFinishReview =
     Boolean(session) &&
     blocks.length > 0 &&
@@ -1190,26 +1186,7 @@ export default function LiveSessionPage() {
     });
   }, [currentBlock, performanceDraftsByBlockId, resolvedBlockIds]);
 
-  const validatedSeriesCount = useMemo(
-    () =>
-      blocks.reduce((total, block) => {
-        if (!completedBlockIds.includes(block.id)) {
-          return total;
-        }
-
-        const recordedSets = Number(
-          completedSetsByBlockId[block.id] ??
-            getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block)
-        );
-        const normalizedSets = Math.min(
-          Math.max(Number.isFinite(recordedSets) ? Math.trunc(recordedSets) : 0, 0),
-          getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block)
-        );
-
-        return total + normalizedSets;
-      }, 0),
-    [blocks, completedBlockIds, completedSetsByBlockId, performanceDraftsByBlockId]
-  );
+  const validatedSeriesCount = setPerformances.filter(row => row.status === 'completed').length;
   const actualCompletedSetPerformances = useMemo(
     () => setPerformances.filter((entry) => entry.status === 'completed'),
     [setPerformances]
@@ -1280,12 +1257,20 @@ export default function LiveSessionPage() {
     if (typeof window === 'undefined' || blocks.length === 0 || !storageReady || !liveStorageKey || !authUserId) return;
 
     const validBlockIds = new Set(blocks.map((block) => block.id));
-    const sanitizedIds = completedBlockIds.filter((blockId) => validBlockIds.has(blockId));
+    let sanitizedSetPerformances = normalizeLiveSetPerformances(setPerformances, blocks);
+    blocks.forEach(block => {
+      const lines = performanceDraftsByBlockId[block.id]?.lines;
+      if (lines) sanitizedSetPerformances = reconcileLiveSeries(sanitizedSetPerformances, block.id, lines);
+    });
+    const sanitizedIds = blocks.filter(block => {
+      const count = sanitizedSetPerformances.filter(row => row.block_id === block.id && row.status === 'completed').length;
+      return count === getLivePerformanceDraftTotalSets(performanceDraftsByBlockId[block.id], block);
+    }).map(block => block.id);
     const sanitizedSkippedIds = skippedBlockIds.filter(
       (blockId) => validBlockIds.has(blockId) && !sanitizedIds.includes(blockId)
     );
 
-    if (sanitizedIds.length !== completedBlockIds.length) {
+    if (JSON.stringify(sanitizedIds) !== JSON.stringify(completedBlockIds)) {
       setCompletedBlockIds(sanitizedIds);
       return;
     }
@@ -1296,13 +1281,7 @@ export default function LiveSessionPage() {
     }
 
     const sanitizedCompletedSetsByBlockId = Object.fromEntries(
-      Object.entries(completedSetsByBlockId)
-        .filter(([blockId]) => validBlockIds.has(blockId))
-        .map(([blockId, completedSets]) => {
-          const matchingBlock = blocks.find((block) => block.id === blockId);
-          const maxSets = normalizeSessionSetsCount(matchingBlock?.sets_count ?? 1);
-          return [blockId, Math.min(Math.max(Math.trunc(completedSets), 0), maxSets)];
-        })
+      blocks.map(block => [block.id, sanitizedSetPerformances.filter(row => row.block_id === block.id && row.status === 'completed').length])
     );
 
     if (
@@ -1351,8 +1330,6 @@ export default function LiveSessionPage() {
       setActualPerformanceCarryForwardByBlockId(sanitizedActualPerformanceCarryForwardByBlockId);
       return;
     }
-
-    const sanitizedSetPerformances = normalizeLiveSetPerformances(setPerformances, blocks);
 
     if (JSON.stringify(sanitizedSetPerformances) !== JSON.stringify(setPerformances)) {
       setSetPerformances(sanitizedSetPerformances);
@@ -1629,15 +1606,12 @@ export default function LiveSessionPage() {
   };
 
   const updateCurrentPerformanceLine = (changes: Partial<LivePerformanceLineDraft>) => {
-    if (!currentBlock) return;
+    if (!currentBlock || !canAdjustCurrentPerformance || historySaved || saveState === 'saving') return;
 
     setPerformanceDraftsByBlockId((current) => {
       const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
       const nextLines = existingDraft.lines.length > 0 ? [...existingDraft.lines] : [createLivePerformanceLineDraftFromBlock(currentBlock)];
-      const lineIndex = Math.min(
-        getLivePerformanceLineIndexByCompletedSets(nextLines, currentCompletedSets),
-        nextLines.length - 1
-      );
+      const lineIndex = currentActivePerformanceLineIndex;
       const currentLine = nextLines[lineIndex] || createLivePerformanceLineDraftFromBlock(currentBlock);
 
       nextLines[lineIndex] = {
@@ -1683,7 +1657,9 @@ export default function LiveSessionPage() {
   };
 
   const updateCurrentPerformanceLineAt = (lineIndex: number, changes: Partial<LivePerformanceLineDraft>) => {
-    if (!currentBlock) return;
+    if (!currentBlock || !currentLivePerformanceLines[lineIndex] || historySaved || saveState === 'saving' ||
+      isLiveSeriesCompleted(setPerformances, currentBlock.id, currentLivePerformanceLines[lineIndex], lineIndex) ||
+      (currentBlock.block_type === 'duration' && (exerciseBlockId === currentBlock.id || awaitingExerciseCompletion))) return;
 
     setPerformanceDraftsByBlockId((current) => {
       const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
@@ -1714,7 +1690,10 @@ export default function LiveSessionPage() {
   };
 
   const addCurrentPerformanceLine = () => {
-    if (!currentBlock) return;
+    if (!currentBlock || historySaved || saveState === 'saving' || isExerciseSwitchLocked) return;
+    setCompletedBlockIds(current => current.filter(id => id !== currentBlock.id));
+    setSkippedBlockIds(current => current.filter(id => id !== currentBlock.id));
+    lastValidatedSeriesRef.current = null;
 
     setPerformanceDraftsByBlockId((current) => {
       const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
@@ -1733,7 +1712,12 @@ export default function LiveSessionPage() {
   };
 
   const duplicateCurrentPerformanceLine = (lineIndex: number) => {
-    if (!currentBlock) return;
+    if (!currentBlock || historySaved || saveState === 'saving' || isExerciseSwitchLocked) return;
+    // Adopt positional legacy rows before inserting a neighbouring line.
+    setSetPerformances(current => reconcileLiveSeries(current, currentBlock.id, currentLivePerformanceLines));
+    setCompletedBlockIds(current => current.filter(id => id !== currentBlock.id));
+    setSkippedBlockIds(current => current.filter(id => id !== currentBlock.id));
+    lastValidatedSeriesRef.current = null;
 
     setPerformanceDraftsByBlockId((current) => {
       const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
@@ -1764,27 +1748,16 @@ export default function LiveSessionPage() {
   };
 
   const removeCurrentPerformanceLine = (lineIndex: number) => {
-    if (!currentBlock) return;
-
-    const existingDraft = performanceDraftsByBlockId[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
-    const nextLength = Math.max(existingDraft.lines.length - 1, 1);
-
-    setPerformanceDraftsByBlockId((current) => {
-      const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
-      if (existingDraft.lines.length <= 1 || lineIndex < 0 || lineIndex >= existingDraft.lines.length) {
-        return current;
-      }
-
-      const nextLines = existingDraft.lines.filter((_, index) => index !== lineIndex);
-
-      return {
-        ...current,
-        [currentBlock.id]: {
-          ...existingDraft,
-          lines: nextLines.length > 0 ? nextLines : [createLivePerformanceLineDraftFromBlock(currentBlock)],
-        },
-      };
-    });
+    if (!currentBlock || historySaved || saveState === 'saving' || isExerciseSwitchLocked) return;
+    const result = removeLiveSeries(setPerformances, currentBlock.id, currentLivePerformanceLines, lineIndex);
+    if (!result) {
+      setValidationFeedback('Decoche la serie avant de la retirer. Une serie minimum est conservee.');
+      return;
+    }
+    const nextLength = result.lines.length;
+    setSetPerformances(result.rows);
+    setPerformanceDraftsByBlockId(current => ({ ...current, [currentBlock.id]: { ...currentLivePerformanceDraft, lines: result.lines } }));
+    lastValidatedSeriesRef.current = null;
     setOpenPerformanceLineIndex((current) => {
       if (current == null) return null;
       if (current === lineIndex) {
@@ -1798,11 +1771,16 @@ export default function LiveSessionPage() {
   };
 
   const resetCurrentPerformanceDraft = () => {
-    if (!currentBlock) return;
+    if (!currentBlock || !canAdjustCurrentPerformance || historySaved || saveState === 'saving') return;
 
     setPerformanceDraftsByBlockId((current) => ({
       ...current,
-      [currentBlock.id]: createDefaultLivePerformanceDraft(currentBlock),
+      [currentBlock.id]: {
+        ...currentLivePerformanceDraft,
+        lines: currentLivePerformanceLines.map((line, index) =>
+          isLiveSeriesCompleted(setPerformances, currentBlock.id, line, index) ? line :
+          { ...createLivePerformanceLineDraftFromBlock(currentBlock), id: line.id }),
+      },
     }));
     setActualPerformanceDraftsByBlockId((current) => {
       const nextState = { ...current };
@@ -1814,12 +1792,12 @@ export default function LiveSessionPage() {
   };
 
   const applyCurrentPerformanceToRemainingSets = () => {
-    if (!currentBlock) return;
+    if (!currentBlock || !canAdjustCurrentPerformance || historySaved || saveState === 'saving') return;
 
     setPerformanceDraftsByBlockId((current) => {
       const existingDraft = current[currentBlock.id] || createDefaultLivePerformanceDraft(currentBlock);
       const nextLines = existingDraft.lines.map((line, index) =>
-        index < currentActivePerformanceLineIndex
+        isLiveSeriesCompleted(setPerformances, currentBlock.id, line, index)
           ? line
           : currentBlock.block_type === 'free'
             ? {
@@ -1949,9 +1927,22 @@ export default function LiveSessionPage() {
         beginRest(currentBlock.id, currentIndex + 1, currentLineRestSeconds);
   };
 
+  const handleUncheckSeries = (lineIndex: number) => {
+    if (!currentBlock || historySaved || saveState === 'saving' ||
+      !isLiveSeriesCompleted(setPerformances, currentBlock.id, currentLivePerformanceLines[lineIndex], lineIndex)) return;
+    setSetPerformances(current => uncheckLiveSeries(current, currentBlock.id, currentLivePerformanceLines, lineIndex));
+    setCompletedBlockIds(current => current.filter(id => id !== currentBlock.id));
+    setSkippedBlockIds(current => current.filter(id => id !== currentBlock.id));
+    clearRestState();
+    clearExerciseState();
+    lastValidatedSeriesRef.current = null;
+    setOpenPerformanceLineIndex(lineIndex);
+    setValidationFeedback('Serie decochee : modifie ses valeurs puis revalide.');
+  };
+
   const handleValidateCurrent = () => {
     if (!currentBlock || !canValidateCurrentBlock) return;
-    const validationKey = `${currentBlock.id}:${currentCompletedSets + 1}`;
+    const validationKey = `${currentBlock.id}:${currentActivePerformanceLine.id}`;
     if (lastValidatedSeriesRef.current === validationKey) return;
     lastValidatedSeriesRef.current = validationKey;
 
@@ -1959,7 +1950,7 @@ export default function LiveSessionPage() {
     setStartedSeriesKey(null);
     setValidationFeedback(usesSetBySetValidation ? 'Serie validee' : 'Bloc valide');
 
-    const setNumber = Math.min(currentCompletedSets + 1, currentLiveBlockSetsTotal);
+    const setNumber = currentActivePerformanceLineIndex + 1;
     const plannedReps = getPlannedReps(currentBlock);
     const plannedChargeKg = getPlannedChargeKg(currentBlock);
     const plannedTargetValue =
@@ -1973,6 +1964,7 @@ export default function LiveSessionPage() {
         block_name: safeTrimText(currentBlock.name) || `Bloc ${currentIndex + 1}`,
         exercise_id: currentBlock.exercise_id ?? null,
         set_number: setNumber,
+        live_line_id: currentActivePerformanceLine.id,
         line_number: currentActivePerformanceLineIndex + 1,
         block_type: currentBlock.block_type,
         planned_reps: plannedReps,
@@ -1989,6 +1981,7 @@ export default function LiveSessionPage() {
         status: 'completed',
       },
     ]);
+    setOpenPerformanceLineIndex(null);
 
     if (usesSetBySetValidation) {
       const nextCompletedSets = Math.min(currentCompletedSets + 1, currentLiveBlockSetsTotal);
@@ -2028,14 +2021,14 @@ export default function LiveSessionPage() {
       currentBlock.block_type === 'duration' || currentBlock.block_type === 'distance'
         ? currentBlock.target_value
         : null;
-    const skippedEntries: WorkoutSetPerformance[] = Array.from(
-      { length: Math.max(currentLiveBlockSetsTotal - currentCompletedSets, 0) },
-      (_, index) => ({
+    const skippedEntries: WorkoutSetPerformance[] = currentLivePerformanceLines.flatMap((line, index) =>
+      isLiveSeriesCompleted(setPerformances, currentBlock.id, line, index) ? [] : [{
         block_id: currentBlock.id,
         block_name: safeTrimText(currentBlock.name) || `Bloc ${currentIndex + 1}`,
         exercise_id: currentBlock.exercise_id ?? null,
-        set_number: currentCompletedSets + index + 1,
-        line_number: currentActivePerformanceLineIndex + 1,
+        set_number: index + 1,
+        line_number: index + 1,
+        live_line_id: line.id,
         block_type: currentBlock.block_type,
         planned_reps: plannedReps,
         actual_reps: null,
@@ -2045,7 +2038,7 @@ export default function LiveSessionPage() {
         actual_value: null,
         actual_text: null,
         status: 'skipped' as const,
-      })
+      }]
     );
     upsertSetPerformanceEntries(skippedEntries);
     setSkippedBlockIds((current) => (current.includes(currentBlock.id) ? current : [...current, currentBlock.id]));
@@ -2059,7 +2052,7 @@ export default function LiveSessionPage() {
 
   const handleStartCurrentSeries = () => {
     try {
-      if (!currentBlock) return;
+      if (!currentBlock || !canAdjustCurrentPerformance || isResting || historySaved || saveState === 'saving') return;
 
       triggerHaptic(18);
       setValidationFeedback(null);
@@ -3138,7 +3131,7 @@ export default function LiveSessionPage() {
                       const liveDraft = performanceDraftsByBlockId[block.id] || createDefaultLivePerformanceDraft(block);
                       const liveLines = getLivePerformanceDraftLines(liveDraft, block);
                       const totalSets = getLivePerformanceDraftTotalSets(liveDraft, block);
-                      const completedSets = Math.min(Math.max(Number(completedSetsByBlockId[block.id] ?? 0), 0), totalSets);
+                      const completedSets = liveLines.filter((line, index) => isLiveSeriesCompleted(setPerformances, block.id, line, index)).length;
                       const isResolved = completedBlockIds.includes(block.id);
                       const isSkipped = skippedBlockIds.includes(block.id);
                       const isActiveBlock = index === currentIndex;
@@ -3241,16 +3234,21 @@ export default function LiveSessionPage() {
                                         )} / ${formatTimerClock(Number(currentActualReps ?? 0))}`
                                       : formatTimerClock(Number(currentActualReps ?? 0))}
                                   </span>
+                                  {exerciseBlockId || awaitingExerciseCompletion ? (
+                                    <button type="button" className="button ghost" onClick={clearExerciseState}>
+                                      Reinitialiser le chrono
+                                    </button>
+                                  ) : null}
                                 </div>
                               ) : null}
 
                               <div className="session-live-set-list">
                                 {currentLivePerformanceLines.map((line, lineIndex) => {
-                                  const isDoneLine = lineIndex < currentCompletedSets;
+                                  const isDoneLine = isLiveSeriesCompleted(setPerformances, currentBlock.id, line, lineIndex);
                                   const isActiveLine =
                                     lineIndex === currentActivePerformanceLineIndex &&
                                     !resolvedBlockIds.includes(currentBlock.id);
-                                  const isSkippedLine = isCurrentBlockSkipped && lineIndex >= currentCompletedSets;
+                                  const isSkippedLine = isCurrentBlockSkipped && !isDoneLine;
                                   const primaryLabel =
                                     currentBlock.block_type === 'reps'
                                       ? `${line.targetValue ?? 0} reps`
@@ -3288,10 +3286,17 @@ export default function LiveSessionPage() {
                                         isSkippedLine ? 'skipped' : isDoneLine ? 'done' : isActiveLine ? 'active' : 'upcoming'
                                       }
                                       isOpen={lineIndex === (openPerformanceLineIndex ?? currentActivePerformanceLineIndex)}
-                                      onOpen={() => setOpenPerformanceLineIndex(lineIndex)}
+                                      onOpen={() => {
+                                        if (exerciseBlockId || awaitingExerciseCompletion || isResting) return;
+                                        setOpenPerformanceLineIndex(lineIndex);
+                                      }}
                                       control={
                                         isDoneLine ? (
-                                          <span className="session-live-set-check is-done">✓</span>
+                                          <button type="button" className="session-live-set-check is-done"
+                                            onClick={() => handleUncheckSeries(lineIndex)}
+                                            aria-label={`Decocher la serie ${lineIndex + 1} pour la modifier`}>
+                                            ✓
+                                          </button>
                                         ) : isSkippedLine ? (
                                           <span className="session-live-set-check is-skipped">—</span>
                                         ) : isActiveLine ? (
@@ -3344,6 +3349,13 @@ export default function LiveSessionPage() {
                                   );
                                 })}
                               </div>
+
+                              {openPerformanceLineIndex != null && currentLivePerformanceLines[openPerformanceLineIndex] &&
+                                isLiveSeriesCompleted(setPerformances, currentBlock.id, currentLivePerformanceLines[openPerformanceLineIndex], openPerformanceLineIndex) ? (
+                                <p className="session-live-actions__hint">Decoche cette serie avant de la modifier ou de la retirer.</p>
+                              ) : isDurationBlock && (exerciseBlockId || awaitingExerciseCompletion) ? (
+                                <p className="session-live-actions__hint">Duree verrouillee. Reinitialise le chrono pour la modifier. La duree validee est la cible de la serie.</p>
+                              ) : null}
 
                               {canAdjustCurrentPerformance ? (
                                 <div className="session-live-compact-editor">
@@ -3441,14 +3453,18 @@ export default function LiveSessionPage() {
                               ) : null}
 
                               <div className="session-live-compact-actions">
-                                <button type="button" className="button ghost" onClick={addCurrentPerformanceLine}>
+                                <button type="button" className="button ghost" onClick={addCurrentPerformanceLine} disabled={isExerciseSwitchLocked}>
                                   + Ajouter une serie
                                 </button>
                                 {currentLivePerformanceLines.length > 1 ? (
                                   <button
                                     type="button"
                                     className="button ghost"
-                                    onClick={() => removeCurrentPerformanceLine(currentActivePerformanceLineIndex)}
+                                    onClick={() => removeCurrentPerformanceLine(openPerformanceLineIndex ?? currentActivePerformanceLineIndex)}
+                                    disabled={isExerciseSwitchLocked || isLiveSeriesCompleted(setPerformances, currentBlock.id,
+                                      currentLivePerformanceLines[openPerformanceLineIndex ?? currentActivePerformanceLineIndex],
+                                      openPerformanceLineIndex ?? currentActivePerformanceLineIndex)}
+                                    title="Une serie realisee doit d'abord etre decochee"
                                   >
                                     Retirer la serie
                                   </button>
