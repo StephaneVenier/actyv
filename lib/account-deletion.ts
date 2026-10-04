@@ -16,9 +16,14 @@ async function confirmMarker(marker: AccountPurgeMarker) {
 }
 
 let purgeQueue: Promise<void> = Promise.resolve();
+function queueAccountOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = purgeQueue.catch(() => undefined).then(operation);
+  purgeQueue = result.then(() => undefined, () => undefined);
+  return result;
+}
+
 export function resumeAccountPurges() {
-  purgeQueue = purgeQueue.catch(() => undefined).then(runAccountPurges);
-  return purgeQueue;
+  return queueAccountOperation(runAccountPurges);
 }
 
 async function runAccountPurges() {
@@ -33,7 +38,11 @@ async function runAccountPurges() {
   } finally { release(); }
 }
 
-export async function requestAccountDeletion(owner: string, password?: string) {
+export function requestAccountDeletion(owner: string, password?: string) {
+  return queueAccountOperation(() => deleteAccount(owner, password));
+}
+
+async function deleteAccount(owner: string, password?: string) {
   const release = beginAccountTransition();
   try {
     let marker = readAccountPurgeMarkers(window.localStorage).find(row => row.owner === owner);

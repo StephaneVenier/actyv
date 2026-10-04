@@ -8,7 +8,7 @@ const read = file => fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 function moduleFrom(file, requireModule=()=>({}), extras={}) {
   const exports={};
   vm.runInNewContext(ts.transpileModule(read(file),{fileName:file,compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,jsx:ts.JsxEmit.ReactJSX}}).outputText,
-    {exports,require:requireModule,URL,console,Date,JSON,...extras});
+    {exports,require:requireModule,URL,console,Date,JSON,Error,...extras});
   return exports;
 }
 const navigation=moduleFrom('lib/auth-navigation.ts');
@@ -67,7 +67,7 @@ async function testOfflineAccountTransition(){
     name==='@/lib/supabase'?{supabase:{auth:{getUser:async()=>({data:{user:null},error:{name:'AuthRetryableFetchError'}}),
       onAuthStateChange(fn){handler=fn;return {data:{subscription:{unsubscribe(){}}}};}}}}:
     name==='react/jsx-runtime'?{jsx:()=>null,jsxs:()=>null}:{},
-    {document:{addEventListener(){},removeEventListener(){}},window:{location:{pathname:'/',replace(){}}}});
+    {document:{addEventListener(){},removeEventListener(){}},window:{location:{pathname:'/',replace(){}},addEventListener(){},removeEventListener(){}}});
   shell.AppShell({children:null});await new Promise(setImmediate);
   assert.deepEqual(transitions,[],'network failure must not stop native tracking');
   handler('SIGNED_OUT');await new Promise(setImmediate);
@@ -86,7 +86,7 @@ async function testPendingDeletionShell() {
     name==='@/lib/supabase'?{supabase:{auth:{getUser:async()=>({data:{user:{id:'A'}},error:null}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})},
       rpc:async name=>{calls.push(name);assert.equal(name,'get_own_account_deletion_status');return {data:true,error:null};}}}:
     name==='react/jsx-runtime'?{jsx:()=>null,jsxs:()=>null}:{},
-    {document:{addEventListener(){},removeEventListener(){}},window:{location:{pathname:'/',replace(){throw new Error('Unexpected redirect');}}}});
+    {document:{addEventListener(){},removeEventListener(){}},window:{location:{pathname:'/',replace(){throw new Error('Unexpected redirect');}},addEventListener(){},removeEventListener(){}}});
   shell.AppShell({children:'private Live'});await new Promise(setImmediate);
   assert.equal(states[1],false);
   assert.equal(states[2],'A');
@@ -169,6 +169,103 @@ async function testUnavailableDailyPage() {
   assert.equal(states[6],false);
   assert.ok(!queries.includes('training_sessions'),'NULL source must never be queried');
   console.log('PASS actual daily page: NULL source, saved B completion retained, unavailable state, no source lookup/crash');
+}
+
+async function testCompletedDeletionVisitor() {
+  for(const platform of ['web','android']) {
+    const values=new Map(),calls=[],window={location:{pathname:'/login',replace:url=>calls.push(url)},sessionStorage:{removeItem(){}},
+      localStorage:{getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k),key:i=>[...values.keys()][i],get length(){return values.size;}},
+      addEventListener(){},removeEventListener(){}};
+    const local=window.localStorage;
+    let session={user:{id:'A'},access_token:'A-token'},deleted=false;
+    const auth={getSession:async()=>({data:{session},error:null}),getUser:async()=>({data:{user:session?.user||null},error:session?null:{name:'AuthSessionMissingError'}}),
+      stopAutoRefresh:async()=>{},signOut:async()=>{session=null;return {error:null};},onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})};
+    const native={transitionOwner:async owner=>calls.push(['owner',owner]),purgeOwner:async owner=>calls.push(['purge',platform,owner])};
+    const lifecycle=moduleFrom('lib/account-lifecycle.ts',name=>name==='@/lib/supabase'?{supabase:{auth},AUTH_STORAGE_KEY:'auth-key'}:
+      name==='@/lib/live-tracking/platform'?{liveTrackingPlatform:native}:storage,{window});
+    const deletion=moduleFrom('lib/account-deletion.ts',name=>name==='@/lib/supabase'?{supabase:{auth}}:
+      name==='@/lib/live-tracking/platform'?{liveTrackingPlatform:native}:name==='@/lib/account-lifecycle'?lifecycle:storage,
+      {window,crypto:{randomUUID},fetch:async(_url,options)=>{
+        assert.equal(options.method,'POST');assert.ok(local.getItem('actyv-account-deletions-v1'));
+        deleted=true;return {ok:true,json:async()=>({success:true})};
+      }});
+    local.setItem('auth-key',JSON.stringify(session));
+    for(const owner of ['A','B'])local.setItem(storage.workoutStorageKey('live',owner,'S'),JSON.stringify({ownerUserId:owner}));
+    local.setItem('actyv-live-tracking-v1',JSON.stringify({state:{ownerUserId:'A'}}));
+    local.setItem('actyv-live-activity-outbox-v1',JSON.stringify([{ownerUserId:'A'},{ownerUserId:'B'}]));
+    // Both startup replay and a second click race with the successful request.
+    const finished=deletion.requestAccountDeletion('A','secret');
+    const replay=deletion.resumeAccountPurges();
+    await finished;await replay;
+    assert.equal(deleted,true);assert.equal(session,null);
+    assert.equal(local.getItem('actyv-account-deletions-v1'),null);
+    assert.equal(local.getItem(storage.workoutStorageKey('live','A','S')),null);
+    assert.equal(local.getItem('actyv-live-tracking-v1'),null);
+    assert.deepEqual(JSON.parse(local.getItem('actyv-live-activity-outbox-v1')),[{ownerUserId:'B'}]);
+    assert.ok(local.getItem(storage.workoutStorageKey('live','B','S')));
+    assert.equal(lifecycle.isAccountTransitionInProgress(),false);
+    assert.equal(calls.filter(row=>Array.isArray(row)&&row[0]==='purge').length,1);
+    async function mountShell() {
+      const states=[];
+      const shell=moduleFrom('components/AppShell.tsx',name=>name==='react'?{useState(value){const i=states.push(value)-1;return [value,next=>states[i]=next];},useRef:value=>({current:value}),useEffect:fn=>fn()}:
+        name==='next/navigation'?{usePathname:()=>'/login'}:name==='@/lib/account-lifecycle'?lifecycle:name==='@/lib/account-deletion'?deletion:
+        name==='@/lib/live-tracking/platform'?{liveTrackingPlatform:native}:name==='@/lib/supabase'?{supabase:{auth,rpc:async()=>({data:false,error:null}),from:()=>({select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{username:'B'},error:null}),order:async()=>({data:[],error:null})})}}:
+        name==='react/jsx-runtime'?{jsx:()=>null,jsxs:()=>null}:{},{window,document:{addEventListener(){},removeEventListener(){}}});
+      shell.AppShell({children:'signup/login form'});await new Promise(setImmediate);
+      assert.equal(states[1],true,'Auth pages must be accessible after completed purge');
+      assert.equal(states[2],null);assert.equal(states[3],'');
+    }
+    await mountShell();
+    session={user:{id:'B',email:'b@test.invalid'},access_token:'B-token'};
+    await mountShell();
+    assert.equal(local.getItem('actyv-account-deletions-v1'),null);
+    console.log('PASS complete '+platform+' flow: successful POST, actual lifecycle purge, marker removed, visitor/signup/login gate open, B unaffected, concurrent replay deduplicated');
+  }
+}
+
+async function testVerificationRetry() {
+  const values=new Map(),states=[],events={},local={getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)};
+  storage.writeAccountPurgeMarker(local,{owner:'A',proof:randomUUID(),confirmed:false});
+  let networkAvailable=false,purged=0;
+  const lifecycle={beginAccountTransition:()=>()=>{},isAccountTransitionInProgress:()=>false,purgeDeletedAccount:async()=>{purged++;}};
+  const window={localStorage:local,location:{pathname:'/signup',replace(){}},addEventListener:(event,fn)=>events[event]=fn,removeEventListener(){}};
+  const deletion=moduleFrom('lib/account-deletion.ts',name=>name==='@/lib/account-storage'?storage:name==='@/lib/account-lifecycle'?lifecycle:{},
+    {window,fetch:async()=>({ok:networkAvailable,json:async()=>({confirmed:true})})});
+  const shell=moduleFrom('components/AppShell.tsx',name=>name==='react'?{useState(value){const i=states.push(value)-1;return [value,next=>states[i]=next];},useRef:value=>({current:value}),useEffect:fn=>fn()}:
+    name==='next/navigation'?{usePathname:()=>'/signup'}:name==='@/lib/account-lifecycle'?lifecycle:name==='@/lib/account-deletion'?deletion:
+    name==='@/lib/live-tracking/platform'?{liveTrackingPlatform:{transitionOwner:async()=>{}}}:name==='@/lib/supabase'?{supabase:{auth:{getUser:async()=>({data:{user:null},error:{name:'AuthSessionMissingError'}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}}}:
+    name==='react/jsx-runtime'?{jsx:()=>null,jsxs:()=>null}:{},{window,document:{addEventListener(){},removeEventListener(){}},console:{error(){}}});
+  shell.AppShell({children:'signup'});await new Promise(setImmediate);
+  assert.equal(states[1],false);assert.match(states[3],/Connexion requise/);
+  assert.equal(storage.readAccountPurgeMarkers(local).length,1);assert.equal(purged,0);
+  networkAvailable=true;events.online();await new Promise(setImmediate);
+  assert.equal(purged,1);assert.equal(local.getItem('actyv-account-deletions-v1'),null);
+  assert.equal(states[1],true);assert.equal(states[2],null);assert.equal(states[3],'');
+  console.log('PASS regression reproduction: failed confirmation blocked signup; online/focus retry confirms, purges, clears marker/error and restores visitor');
+}
+
+async function testAuthFormsAfterDeletion() {
+  function findForm(node) {
+    if (!node || typeof node !== 'object') return null;
+    if (node.type==='form') return node;
+    const children=node.props?.children;
+    for(const child of Array.isArray(children)?children:[children]){const found=findForm(child);if(found)return found;}
+    return null;
+  }
+  for(const form of ['signup','login']) {
+    let index=0;const actions=[];
+    const initial=form==='signup'?['new@test.invalid','secret','New user','',false,false]:['b@test.invalid','secret','',false];
+    const page=moduleFrom('app/(auth)/'+form+'/page.tsx',name=>name==='react'?{useState:()=>[initial[index++],()=>{}],useMemo:fn=>fn()}:
+      name==='next/navigation'?{useRouter:()=>({push:href=>actions.push(['redirect',href]),replace:href=>actions.push(['redirect',href]),refresh(){}})}:
+      name==='@/lib/auth-navigation'?navigation:name==='@/lib/supabase'?{supabase:{auth:{signUp:async data=>{actions.push(['signup',data.email]);return {data:{user:{id:'new'},session:null},error:null};},
+      signInWithPassword:async data=>{actions.push(['login',data.email]);return {error:null};}}}}:
+      name==='react/jsx-runtime'?{jsx:(type,props)=>({type,props}),jsxs:(type,props)=>({type,props})}:{},
+      {window:{location:{search:''}},URLSearchParams});
+    const rendered=page.default(),submit=findForm(rendered);
+    assert.ok(submit);await submit.props.onSubmit({preventDefault(){}});
+    assert.equal(actions[0][0],form);assert.equal(actions[0][1],initial[0]);
+  }
+  console.log('PASS actual signup/login forms after visitor gate: new-account request and B login remain available; no deleted-owner marker dependency');
 }
 
 async function testSql(){
@@ -263,4 +360,4 @@ async function testSql(){
     console.log('PASS current production schema/FKs; double migration; private cleanup/anon denial; personal GPS/data deletion; collective survival; B retained; retry');
   }finally{await db.close();}
 }
-(async()=>{await testRecoveryPage();await testOfflineAccountTransition();await testPendingDeletionShell();await testDeleteRoute();await testDurablePurge();await testUnavailableDailyPage();await testSql();})().catch(error=>{console.error(error);process.exitCode=1;});
+(async()=>{await testRecoveryPage();await testOfflineAccountTransition();await testPendingDeletionShell();await testDeleteRoute();await testDurablePurge();await testUnavailableDailyPage();await testCompletedDeletionVisitor();await testVerificationRetry();await testAuthFormsAfterDeletion();await testSql();})().catch(error=>{console.error(error);process.exitCode=1;});

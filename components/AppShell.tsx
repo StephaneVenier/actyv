@@ -45,6 +45,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [pendingDeletionOwner, setPendingDeletionOwner] = useState<string | null>(null);
   const [accountError, setAccountError] = useState('');
   const [finalizingDeletion, setFinalizingDeletion] = useState(false);
+  const [accountCheckAttempt, setAccountCheckAttempt] = useState(0);
   const [username, setUsername] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
@@ -157,6 +158,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           totalDurationSeconds,
         });
       } catch (err) {
+        if (generation !== authLoadRef.current || isAccountTransitionInProgress()) return;
         setAccountReady(false);
         setAccountError(err instanceof Error ? err.message : 'Verification du compte indisponible.');
         console.error('Erreur AppShell :', err);
@@ -174,11 +176,17 @@ export function AppShell({ children }: { children: ReactNode }) {
       loadUser(event === 'SIGNED_OUT');
     });
 
+    const recheckAccount = () => { void loadUser(); };
+    window.addEventListener('online', recheckAccount);
+    window.addEventListener('focus', recheckAccount);
+
     return () => {
       authLoadRef.current += 1;
       subscription.unsubscribe();
+      window.removeEventListener('online', recheckAccount);
+      window.removeEventListener('focus', recheckAccount);
     };
-  }, []);
+  }, [accountCheckAttempt]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -353,7 +361,15 @@ export function AppShell({ children }: { children: ReactNode }) {
               <button type="button" className="button" onClick={handleLogout}>Se deconnecter</button>
               {accountError && <p role="alert">{accountError}</p>}
             </section>
-          ) : accountReady ? children : <p role="status">{accountError || 'Verification du compte...'}</p>}
+          ) : accountReady ? children : (
+            <section>
+              <p role="status">{accountError || 'Verification du compte...'}</p>
+              {accountError && <button type="button" className="button" onClick={() => {
+                setAccountError('');
+                setAccountCheckAttempt(attempt => attempt + 1);
+              }}>Reessayer la verification</button>}
+            </section>
+          )}
           <footer className="site-footer" aria-label="Informations legales">
             <div className="site-footer__inner">
               <span className="site-footer__brand">Actyv</span>

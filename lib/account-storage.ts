@@ -51,5 +51,7 @@ export function writeAccountPurgeMarker(storage: Storage, marker: AccountPurgeMa
   storage.setItem(PURGE_MARKERS_KEY, JSON.stringify([...readAccountPurgeMarkers(storage).filter(row => row.owner !== marker.owner), marker]));
 }
 export function removeAccountPurgeMarker(storage: Storage, owner: string) {
-  storage.setItem(PURGE_MARKERS_KEY, JSON.stringify(readAccountPurgeMarkers(storage).filter(row => row.owner !== owner)));
+  const remaining = readAccountPurgeMarkers(storage).filter(row => row.owner !== owner);
+  if (remaining.length) storage.setItem(PURGE_MARKERS_KEY, JSON.stringify(remaining));
+  else storage.removeItem(PURGE_MARKERS_KEY);
 }
