@@ -230,13 +230,15 @@ async function testVerificationRetry() {
   const lifecycle={beginAccountTransition:()=>()=>{},isAccountTransitionInProgress:()=>false,purgeDeletedAccount:async()=>{purged++;}};
   const window={localStorage:local,location:{pathname:'/signup',replace(){}},addEventListener:(event,fn)=>events[event]=fn,removeEventListener(){}};
   const deletion=moduleFrom('lib/account-deletion.ts',name=>name==='@/lib/account-storage'?storage:name==='@/lib/account-lifecycle'?lifecycle:{},
-    {window,fetch:async()=>({ok:networkAvailable,json:async()=>({confirmed:true})})});
+    {window,fetch:async()=>({ok:networkAvailable,status:networkAvailable?200:503,json:async()=>({confirmed:true})})});
   const shell=moduleFrom('components/AppShell.tsx',name=>name==='react'?{useState(value){const i=states.push(value)-1;return [value,next=>states[i]=next];},useRef:value=>({current:value}),useEffect:fn=>fn()}:
     name==='next/navigation'?{usePathname:()=>'/signup'}:name==='@/lib/account-lifecycle'?lifecycle:name==='@/lib/account-deletion'?deletion:
     name==='@/lib/live-tracking/platform'?{liveTrackingPlatform:{transitionOwner:async()=>{}}}:name==='@/lib/supabase'?{supabase:{auth:{getUser:async()=>({data:{user:null},error:{name:'AuthSessionMissingError'}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}}}:
     name==='react/jsx-runtime'?{jsx:()=>null,jsxs:()=>null}:{},{window,document:{addEventListener(){},removeEventListener(){}},console:{error(){}}});
   shell.AppShell({children:'signup'});await new Promise(setImmediate);
-  assert.equal(states[1],false);assert.match(states[3],/Connexion requise/);
+  assert.equal(states[1],false);assert.equal(states[3],'Vérification temporairement indisponible. Réessaie plus tard.');
+  assert.ok(read('components/AppShell.tsx').includes('Reessayer la verification'));
+  assert.match(read('app/profile/page.tsx'),/deleteAccountMessage \? \([\s\S]*?className="form-feedback form-feedback--error"/);
   assert.equal(storage.readAccountPurgeMarkers(local).length,1);assert.equal(purged,0);
   networkAvailable=true;events.online();await new Promise(setImmediate);
   assert.equal(purged,1);assert.equal(local.getItem('actyv-account-deletions-v1'),null);

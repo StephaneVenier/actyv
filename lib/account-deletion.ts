@@ -6,7 +6,11 @@ import { readAccountPurgeMarkers, removeAccountPurgeMarker, writeAccountPurgeMar
 async function confirmMarker(marker: AccountPurgeMarker) {
   if (marker.confirmed) return true;
   const response = await fetch('/api/account/delete', { headers: { 'x-actyv-deletion-proof': marker.proof }, cache: 'no-store' });
-  if (!response.ok) throw new Error('Connexion requise pour verifier la suppression du compte.');
+  if (!response.ok) {
+    throw new Error(response.status === 503
+      ? 'Vérification temporairement indisponible. Réessaie plus tard.'
+      : 'Suppression non confirmée. Réessaie la vérification.');
+  }
   const result = await response.json();
   if (result.confirmed === true) {
     marker.confirmed = true;

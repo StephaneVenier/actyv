@@ -2100,7 +2100,7 @@ export default function ProfilePage() {
 
                 {deleteAccountMessage ? (
                   <p
-                    className={`form-feedback ${deleteAccountMessage.includes('Impossible') || deleteAccountMessage.includes('manquante') ? 'form-feedback--error' : 'form-feedback--success'}`}
+                    className="form-feedback form-feedback--error"
                   >
                     {deleteAccountMessage}
                   </p>
