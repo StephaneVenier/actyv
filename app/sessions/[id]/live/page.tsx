@@ -2692,7 +2692,7 @@ export default function LiveSessionPage() {
       }
 
       const badgeResult = await refreshUserBadges(currentUserId);
-      const awardedBadgeCodes = badgeResult.awarded.map((award) => award.badgeCode);
+      const awardedBadgeCodes = badgeResult.awarded;
 
       if (badgeResult.error) {
         console.error('Erreur refresh badges seance live :', badgeResult.error);

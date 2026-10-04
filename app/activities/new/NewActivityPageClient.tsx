@@ -7,7 +7,7 @@ import { AppShell } from '@/components/AppShell';
 import { queuePendingToast } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 import { sports } from '@/components/challenge-data';
-import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
+import { getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 import {
   resolveActivityMasterySport,
   supportsActivityDistanceMetric,
@@ -384,33 +384,6 @@ export default function NewActivityPageClient() {
         }
       }
 
-      if (createdActivity?.id) {
-        const xpResult = await awardXp({
-          userId: user.id,
-          source: 'activity_added',
-          metadata: { target_id: createdActivity.id },
-        });
-
-        if (xpResult?.awarded) {
-          queuePendingToast({ message: '⬆️ XP gagnée', tone: 'info' });
-        }
-      }
-
-      const nextProgress =
-        selectedChallengeProgress + getActivityValue(insertPayload, selectedGoalType);
-
-      if (
-        selectedGoalValue &&
-        selectedGoalValue > 0 &&
-        selectedChallengeProgress < selectedGoalValue &&
-        nextProgress >= selectedGoalValue
-      ) {
-        await awardXp({
-          userId: user.id,
-          source: 'challenge_completed',
-          metadata: { target_id: selectedChallengeId },
-        });
-      }
 
       const badgeResult = await refreshUserBadges(user.id);
 

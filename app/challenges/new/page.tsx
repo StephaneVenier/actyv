@@ -6,7 +6,7 @@ import { queuePendingToast } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
 import { AppShell } from '@/components/AppShell';
 import { sports } from '@/components/challenge-data';
-import { awardXp, getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
+import { getBadgeByCode, refreshUserBadges } from '@/lib/gamification';
 
 type GoalType = 'distance' | 'duration' | 'reps';
 
@@ -150,11 +150,6 @@ export default function NewChallengePage() {
         console.error('Erreur ajout createur challenge_participants :', participantError);
       }
 
-      const xpResult = await awardXp({
-        userId: user.id,
-        source: 'challenge_created',
-        metadata: { target_id: challenge.id },
-      });
 
       const badgeResult = await refreshUserBadges(user.id);
 
@@ -164,9 +159,6 @@ export default function NewChallengePage() {
 
       queuePendingToast({ message: '✅ Challenge créé', tone: 'success' });
 
-      if (xpResult?.awarded) {
-        queuePendingToast({ message: '⬆️ XP gagnée', tone: 'info' });
-      }
 
       badgeResult.awarded.forEach((badgeCode) => {
         const badge = getBadgeByCode(badgeCode);

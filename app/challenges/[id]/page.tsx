@@ -733,7 +733,7 @@ const handleLike = async (activityId: string) => {
         return;
       }
     } else {
-      const { data: createdInteraction, error } = await supabase
+      const { error } = await supabase
         .from('activity_interactions')
         .insert({
           activity_id: activityId,
@@ -747,22 +747,6 @@ const handleLike = async (activityId: string) => {
         console.error('Erreur ajout like :', error);
         queuePendingToast({ message: "Impossible d'ajouter le like pour le moment.", tone: 'error' });
         return;
-      }
-
-      const activity = activities.find((item) => item.id === activityId);
-
-      if (
-        activity &&
-        createdInteraction?.id &&
-        activity.user_id !== currentUserId &&
-        activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
-      ) {
-        await awardXp({
-          userId: activity.user_id,
-          userEmail: activity.user_email,
-          source: 'like_received',
-          metadata: { target_id: createdInteraction.id },
-        });
       }
 
       const badgeResult = await refreshUserBadges(currentUserId);
@@ -812,7 +796,7 @@ const handleBoost = async (activityId: string) => {
         return;
       }
     } else {
-      const { data: createdInteraction, error } = await supabase
+      const { error } = await supabase
         .from('activity_interactions')
         .insert({
           activity_id: activityId,
@@ -826,22 +810,6 @@ const handleBoost = async (activityId: string) => {
         console.error('Erreur ajout boost :', error);
         queuePendingToast({ message: "Impossible d'ajouter le boost pour le moment.", tone: 'error' });
         return;
-      }
-
-      const activity = activities.find((item) => item.id === activityId);
-
-      if (
-        activity &&
-        createdInteraction?.id &&
-        activity.user_id !== currentUserId &&
-        activity.user_email?.toLowerCase() !== currentUserEmail?.toLowerCase()
-      ) {
-        await awardXp({
-          userId: activity.user_id,
-          userEmail: activity.user_email,
-          source: 'boost_received',
-          metadata: { target_id: createdInteraction.id },
-        });
       }
 
       const badgeResult = await refreshUserBadges(currentUserId);
