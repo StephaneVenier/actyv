@@ -96,6 +96,7 @@ async function testSignup() {
     let calls = 0, redirected = false, message = '';
     const context = {
       email: 'b@test.invalid', password: 'password', username: ' B ', redirectTo: '/login',
+      ACTYV_AUTH_ORIGIN: 'https://a-ctyv.fr',
       setMessage: value => { message = value; }, setLoading: () => {}, router: { push: () => { redirected = true; } },
       supabase: {
         auth: { signUp: async options => {
@@ -107,8 +108,9 @@ async function testSignup() {
     };
     await vm.runInNewContext(ts.transpile(`const signup = ${handler}; signup;`), context)({ preventDefault() {} });
     assert.equal(calls, scenario === 'confirmation' ? 0 : 1);
-    assert.equal(redirected, scenario !== 'missingProfile');
-    assert.equal(message === 'Compte créé avec succès.', scenario !== 'missingProfile');
+    assert.equal(redirected, scenario === 'immediate');
+    assert.equal(message === 'Compte créé avec succès.', scenario === 'immediate');
+    if (scenario === 'confirmation') assert.match(message, /confirmer ton compte/);
   }
   console.log('PASS signup: immediate session validates returned profile; email confirmation defers provisioning; missing profile never reports success');
 }

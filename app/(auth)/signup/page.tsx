@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
+import { ACTYV_AUTH_ORIGIN, safeLocalRedirect } from '@/lib/auth-navigation';
 
 export default function SignupPage() {
   const router = useRouter();
@@ -20,10 +21,7 @@ export default function SignupPage() {
       return '/login';
     }
     const nextValue = new URLSearchParams(window.location.search).get('redirectTo');
-    if (!nextValue || !nextValue.startsWith('/')) {
-      return '/login';
-    }
-    return nextValue;
+    return safeLocalRedirect(nextValue, '/login');
   }, []);
 
   const handleSignup = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -36,18 +34,18 @@ export default function SignupPage() {
     }
 
     setLoading(true);
-
+    try {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: 'https://actyv-iota.vercel.app/auth/callback',
+        emailRedirectTo: `${ACTYV_AUTH_ORIGIN}/auth/callback`,
         data: { username: username.trim() },
       },
     });
 
     if (error || !data.user) {
-      setMessage(error?.message || "Erreur lors de l'inscription.");
+      setMessage("Inscription impossible. Vérifie les champs ou essaie de te connecter si tu as déjà un compte.");
       setLoading(false);
       return;
     }
@@ -61,10 +59,16 @@ export default function SignupPage() {
       }
     }
 
+    if (!data.session) {
+      setMessage('Vérifie ta boîte email pour confirmer ton compte, puis connecte-toi.');
+      return;
+    }
     setMessage('Compte créé avec succès.');
     setLoading(false);
 
     router.push(redirectTo);
+    } catch { setMessage('Connexion indisponible. Réessaie.'); }
+    finally { setLoading(false); }
   };
 
   return (

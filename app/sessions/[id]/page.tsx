@@ -25,6 +25,7 @@ import { XP_RULES } from '@/lib/gamification';
 import type { ExerciseVisualCategory } from '@/lib/exercise-library';
 import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { supabase } from '@/lib/supabase';
+import { workoutStorageKey, readOwnedSnapshot } from '@/lib/account-storage';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { formatPercent } from '@/lib/display-format';
 import { getExerciseHistoryTotalReps, parseWorkoutCompletionMetadata } from '@/lib/workout-history';
@@ -288,8 +289,10 @@ export default function SessionDetailPage() {
   const [loadError, setLoadError] = useState<Error | null>(null);
   const [debugSnapshot, setDebugSnapshot] = useState<Record<string, unknown> | null>(null);
 
-  const completionStorageKey = `actyv.session.completed.${id}`;
-  const liveStorageKey = `actyv.session.live.${id}`;
+  const [storageOwner, setStorageOwner] = useState<string | null>(null);
+  const [completionLoaded, setCompletionLoaded] = useState(false);
+  const completionStorageKey = workoutStorageKey('completed', storageOwner, id);
+  const liveStorageKey = workoutStorageKey('live', storageOwner, id);
 
   useEffect(() => {
     const loadSession = async () => {
@@ -320,6 +323,7 @@ export default function SessionDetailPage() {
           return;
         }
 
+        setStorageOwner(user.id);
         const { data: sessionRow, error: sessionError } = await supabase
           .from('training_sessions')
           .select('id, user_id, name, sport, description, visibility, created_at')
@@ -562,38 +566,35 @@ export default function SessionDetailPage() {
   }, [blocks]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !completionStorageKey || !storageOwner) return;
 
     try {
-      const savedValue = window.localStorage.getItem(completionStorageKey);
-      if (!savedValue) {
+      window.localStorage.removeItem(`actyv.session.completed.${id}`);
+      const parsedValue = readOwnedSnapshot<{ownerUserId:string; completedBlockIds:string[]}>(window.localStorage, completionStorageKey, storageOwner);
+      if (!parsedValue) {
         setCompletedBlockIds([]);
         return;
       }
 
-      const parsedValue = JSON.parse(savedValue);
-      setCompletedBlockIds(Array.isArray(parsedValue) ? parsedValue.filter(Boolean) : []);
+      setCompletedBlockIds(Array.isArray(parsedValue.completedBlockIds) ? parsedValue.completedBlockIds.filter(Boolean) : []);
     } catch (error) {
       console.error('Erreur lecture progression seance :', error);
       setCompletedBlockIds([]);
     }
-  }, [completionStorageKey]);
+    finally { setCompletionLoaded(true); }
+  }, [completionStorageKey, storageOwner, id]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !liveStorageKey || !storageOwner) return;
 
     try {
-      const savedValue = window.localStorage.getItem(liveStorageKey);
-      if (!savedValue) {
+      const parsedValue = readOwnedSnapshot<{ownerUserId:string; elapsedSeconds?:number; completedBlockIds?:string[]}>(window.localStorage, liveStorageKey, storageOwner);
+      if (!parsedValue) {
         setLastLiveElapsedSeconds(0);
         setLastLiveCompletedCount(0);
         return;
       }
 
-      const parsedValue = JSON.parse(savedValue) as {
-        elapsedSeconds?: number;
-        completedBlockIds?: string[];
-      };
 
       setLastLiveElapsedSeconds(
         typeof parsedValue.elapsedSeconds === 'number' && Number.isFinite(parsedValue.elapsedSeconds)
@@ -608,10 +609,10 @@ export default function SessionDetailPage() {
       setLastLiveElapsedSeconds(0);
       setLastLiveCompletedCount(0);
     }
-  }, [liveStorageKey]);
+  }, [liveStorageKey, storageOwner]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !completionLoaded || !completionStorageKey || !storageOwner) return;
 
     const validBlockIds = new Set(blocks.map((block) => block.id));
     const sanitizedIds = completedBlockIds.filter((blockId) => validBlockIds.has(blockId));
@@ -625,12 +626,12 @@ export default function SessionDetailPage() {
       if (sanitizedIds.length === 0) {
         window.localStorage.removeItem(completionStorageKey);
       } else {
-        window.localStorage.setItem(completionStorageKey, JSON.stringify(sanitizedIds));
+        window.localStorage.setItem(completionStorageKey, JSON.stringify({ownerUserId:storageOwner, completedBlockIds:sanitizedIds}));
       }
     } catch (error) {
       console.error('Erreur sauvegarde progression seance :', error);
     }
-  }, [blocks, completedBlockIds, completionStorageKey]);
+  }, [blocks, completedBlockIds, completionStorageKey, completionLoaded, storageOwner]);
 
   const completedBlocksCount = useMemo(
     () => blocks.filter((block) => completedBlockIds.includes(block.id)).length,

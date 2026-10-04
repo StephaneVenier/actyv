@@ -29,6 +29,7 @@ import java.io.IOException;
 public class LiveTrackingService extends Service {
     public static final String ACTION_START = "fr.actyv.app.tracking.START";
     public static final String ACTION_PAUSE = "fr.actyv.app.tracking.PAUSE";
+    private boolean acceptingLocations = true;
     public static final String ACTION_RESUME = "fr.actyv.app.tracking.RESUME";
     public static final String ACTION_STOP = "fr.actyv.app.tracking.STOP";
     public static final String ACTION_RECOVER = "fr.actyv.app.tracking.RECOVER";
@@ -116,12 +117,14 @@ public class LiveTrackingService extends Service {
 
     @Override
     public void onDestroy() {
+        acceptingLocations = false;
         heartbeatHandler.removeCallbacks(heartbeat);
         if (!LiveTrackingManager.STATUS_STOPPED.equals(trackingStatus)) {
             try { LiveTrackingManager.markInterrupted(this); }
             catch (Exception error) { Log.e(TAG, "Unable to journal interruption; trace preserved", error); }
         }
         stopLocationUpdates();
+        stopForeground(STOP_FOREGROUND_REMOVE);
         serviceRunning = false;
         Log.i(TAG, "LiveTrackingService destroyed");
         super.onDestroy();
@@ -258,7 +261,7 @@ public class LiveTrackingService extends Service {
     }
 
     private void handleLocation(Location location) {
-        if (sessionId == null || sessionId.isEmpty() || LiveTrackingManager.STATUS_STOPPED.equals(trackingStatus)) {
+        if (!acceptingLocations || sessionId == null || sessionId.isEmpty() || LiveTrackingManager.STATUS_STOPPED.equals(trackingStatus)) {
             return;
         }
 

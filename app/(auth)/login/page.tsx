@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { supabase } from '@/lib/supabase';
+import Link from 'next/link';
+import { safeLocalRedirect } from '@/lib/auth-navigation';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,10 +20,7 @@ export default function LoginPage() {
       return '/';
     }
     const nextValue = new URLSearchParams(window.location.search).get('redirectTo');
-    if (!nextValue || !nextValue.startsWith('/')) {
-      return '/';
-    }
-    return nextValue;
+    return safeLocalRedirect(nextValue);
   }, []);
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -36,7 +35,7 @@ export default function LoginPage() {
       });
 
       if (error) {
-        setMessage(error.message);
+        setMessage('Connexion impossible. Vérifie tes identifiants et la confirmation de ton email.');
         return;
       }
 
@@ -88,6 +87,7 @@ export default function LoginPage() {
             {loading ? 'Connexion...' : 'Se connecter'}
           </button>
         </form>
+        <Link href="/forgot-password">Mot de passe oublié ?</Link>
       </div>
     </AppShell>
   );

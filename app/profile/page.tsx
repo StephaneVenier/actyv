@@ -35,6 +35,7 @@ import {
   upsertTodaySteps,
 } from '@/lib/steps';
 import { supabase } from '@/lib/supabase';
+import { requestAccountDeletion } from '@/lib/account-deletion';
 import { parseWorkoutCompletionMetadata } from '@/lib/workout-history';
 
 type GoalType = 'distance' | 'duration' | 'reps';
@@ -443,6 +444,7 @@ export default function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteAccountMessage, setDeleteAccountMessage] = useState('');
+  const [deletePassword, setDeletePassword] = useState('');
   const [message, setMessage] = useState('');
 
   useEffect(() => {
@@ -1479,47 +1481,14 @@ export default function ProfilePage() {
 
   const handleDeleteAccount = async () => {
     if (!profile || deletingAccount) return;
-
     setDeletingAccount(true);
     setDeleteAccountMessage('');
-
     try {
-      const {
-        data: { session },
-        error: sessionError,
-      } = await supabase.auth.getSession();
-
-      if (sessionError || !session?.access_token) {
-        setDeleteAccountMessage('Session invalide. Reconnecte-toi puis reessaie.');
-        setDeletingAccount(false);
-        return;
-      }
-
-      const response = await fetch('/api/account/delete', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
-      });
-
-      const payload = (await response.json().catch(() => null)) as
-        | { error?: string; success?: boolean }
-        | null;
-
-      if (!response.ok || !payload?.success) {
-        setDeleteAccountMessage(
-          payload?.error || 'Impossible de supprimer le compte pour le moment.'
-        );
-        setDeletingAccount(false);
-        return;
-      }
-
-      setDeleteAccountMessage('Compte supprime. Deconnexion en cours...');
-      await supabase.auth.signOut();
-      window.location.href = '/';
+      await requestAccountDeletion(profile.id, deletePassword);
     } catch (error) {
-      console.error('Erreur suppression compte profil :', error);
-      setDeleteAccountMessage('Impossible de supprimer le compte pour le moment.');
+      setDeleteAccountMessage(error instanceof Error ? error.message : 'Suppression non confirmee. Reessaie.');
+    } finally {
+      setDeletePassword('');
       setDeletingAccount(false);
     }
   };
@@ -2100,6 +2069,7 @@ export default function ProfilePage() {
 
                 {showDeleteConfirm ? (
                   <div className="profile-danger-confirm">
+                    <label>Mot de passe<input type="password" autoComplete="current-password" value={deletePassword} onChange={e=>setDeletePassword(e.target.value)} disabled={deletingAccount}/></label>
                     <p>Cette action est irreversible.</p>
                     <p>
                       L&apos;ensemble de vos donnees personnelles sera supprime ou

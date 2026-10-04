@@ -70,8 +70,8 @@ type TrainingProgramRow = {
 
 type TrainingProgramCompletionRow = {
   id: string;
-  program_id: string;
-  program_session_id: string;
+  program_id: string | null;
+  program_session_id: string | null;
   session_id: string | null;
   completed_at: string;
 };

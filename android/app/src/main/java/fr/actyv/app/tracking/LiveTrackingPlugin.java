@@ -45,6 +45,53 @@ public class LiveTrackingPlugin extends Plugin {
     private PluginCall pendingStopCall;
     private PluginCall pendingStartCall;
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
+    private String activeOwner;
+    private int accountGeneration;
+
+    @PluginMethod
+    public void setActiveOwner(PluginCall call) {
+        accountGeneration++;
+        String nextOwner = call.getString("ownerUserId");
+        if (nextOwner == null || !nextOwner.equals(LiveTrackingManager.getOwner(getContext()))) {
+            activeOwner = null;
+            getContext().stopService(new Intent(getContext(), LiveTrackingService.class));
+        }
+        waitForAccountTransition(call, nextOwner, false, System.currentTimeMillis(), accountGeneration);
+    }
+
+    @PluginMethod
+    public void purgeOwner(PluginCall call) {
+        String owner = call.getString("ownerUserId");
+        if (owner == null || !owner.equals(activeOwner)) { call.reject("LIVE_OWNER_REQUIRED"); return; }
+        getContext().stopService(new Intent(getContext(), LiveTrackingService.class));
+        waitForAccountTransition(call, owner, true, System.currentTimeMillis(), ++accountGeneration);
+    }
+
+    private void waitForAccountTransition(PluginCall call, String nextOwner, boolean purge, long started, int generation) {
+        mainHandler.postDelayed(() -> {
+            if (generation != accountGeneration) { call.reject("LIVE_ACCOUNT_TRANSITION_REPLACED"); return; }
+            boolean changing = nextOwner == null || !nextOwner.equals(LiveTrackingManager.getOwner(getContext()));
+            if ((changing || purge) && LiveTrackingService.isServiceRunning()) {
+                if (System.currentTimeMillis() - started > 15000) { call.reject("LIVE_ACCOUNT_STOP_TIMEOUT"); return; }
+                waitForAccountTransition(call, nextOwner, purge, started, generation); return;
+            }
+            if (purge) {
+                // Legacy orphan journals have no trustworthy owner; delete only GPS journals.
+                java.io.File directory = new java.io.File(getContext().getFilesDir(), LiveTrackingManager.TRACKING_DIR_NAME);
+                java.io.File[] traces = directory.listFiles((dir, name) -> name.endsWith(".ndjson"));
+                if (directory.exists() && traces == null) { call.reject("LIVE_PURGE_FAILED"); return; }
+                if (traces != null) for (java.io.File trace : traces) {
+                    if (!trace.isFile() || !trace.delete()) { call.reject("LIVE_PURGE_FAILED"); return; }
+                }
+                LiveTrackingManager.clearSession(getContext(), LiveTrackingManager.getSessionId(getContext()));
+                if (!getContext().getSharedPreferences(LiveTrackingManager.PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit()) {
+                    call.reject("LIVE_PURGE_FAILED"); return;
+                }
+            }
+            activeOwner = purge ? null : nextOwner;
+            call.resolve();
+        }, 50);
+    }
 
     @Override
     public void load() {
@@ -107,7 +154,7 @@ public class LiveTrackingPlugin extends Plugin {
         Long startedAtMs = call.getLong(LiveTrackingService.EXTRA_STARTED_AT_MS);
         Long accumulatedPausedMs = call.getLong(LiveTrackingService.EXTRA_ACCUMULATED_PAUSED_MS, 0L);
         String owner = call.getString("ownerUserId");
-        if (owner == null || owner.isEmpty() || LiveTrackingManager.getSessionId(getContext()) != null) {
+        if (owner == null || !owner.equals(activeOwner) || LiveTrackingManager.getSessionId(getContext()) != null) {
             call.reject("LIVE_SESSION_UNRESOLVED_OR_OWNER_MISSING");
             return;
         }
@@ -158,6 +205,7 @@ public class LiveTrackingPlugin extends Plugin {
 
     @PluginMethod
     public void getRecoverySession(PluginCall call) {
+        if (activeOwner == null || !activeOwner.equals(call.getString("ownerUserId"))) { call.reject("LIVE_OWNER_REQUIRED"); return; }
         try { call.resolve(LiveTrackingManager.recovery(getContext(), call.getString("ownerUserId"), LiveTrackingService.isServiceRunning())); }
         catch (Exception error) { call.reject("LIVE_RECOVERY_CORRUPTED", error); }
     }
@@ -295,7 +343,7 @@ public class LiveTrackingPlugin extends Plugin {
         String sessionId = call.getString("sessionId");
         String owner = call.getString("ownerUserId");
         if (sessionId == null || !sessionId.equals(LiveTrackingManager.getSessionId(getContext())) ||
-            owner == null || !owner.equals(LiveTrackingManager.getOwner(getContext()))) {
+            owner == null || !owner.equals(activeOwner) || !owner.equals(LiveTrackingManager.getOwner(getContext()))) {
             call.reject("LIVE_TRACKING_SESSION_INVALID");
             return false;
         }
@@ -325,6 +373,15 @@ public class LiveTrackingPlugin extends Plugin {
     }
 
     private JSObject buildStatus(String message) {
+        if (activeOwner == null || !activeOwner.equals(LiveTrackingManager.getOwner(getContext()))) {
+            JSObject empty = new JSObject();
+            empty.put("available", true); empty.put("trackingStatus", "idle");
+            empty.put("permissionStatus", getLocationPermissionStatus());
+            empty.put("notificationPermissionStatus", getNotificationPermissionStatus());
+            empty.put("gpsEnabled", LiveTrackingManager.isLocationEnabled(getContext()));
+            empty.put("finalizationVersion", 1); empty.put("recoveryVersion", 1);
+            return empty;
+        }
         return LiveTrackingManager.buildStatus(
             getContext(),
             LiveTrackingService.isServiceRunning(),
@@ -343,6 +400,7 @@ public class LiveTrackingPlugin extends Plugin {
             new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context context, Intent intent) {
+                    if (activeOwner == null || !activeOwner.equals(LiveTrackingManager.getOwner(context))) return;
                     String payload = intent.getStringExtra("payload");
                     if (payload == null || payload.isEmpty()) {
                         return;
@@ -352,7 +410,7 @@ public class LiveTrackingPlugin extends Plugin {
                         JSObject data = new JSObject(payload);
                         String action = intent.getAction();
                         if (LiveTrackingService.BROADCAST_LOCATION_UPDATE.equals(action)) {
-                            notifyListeners("locationUpdate", data, true);
+                            notifyListeners("locationUpdate", data, false);
                         } else if (LiveTrackingService.BROADCAST_STATUS.equals(action)) {
                             if (pendingStartCall != null && LiveTrackingService.isServiceRunning() &&
                                 !LiveTrackingManager.STATUS_STOPPED.equals(data.getString("trackingStatus"))) {
@@ -363,11 +421,11 @@ public class LiveTrackingPlugin extends Plugin {
                                 pendingStopCall = null;
                                 stoppedCall.resolve(data);
                             }
-                            notifyListeners("trackingStatus", data, true);
+                            notifyListeners("trackingStatus", data, false);
                         } else if (LiveTrackingService.BROADCAST_ERROR.equals(action)) {
                             if (pendingStartCall != null) { PluginCall failed = pendingStartCall; pendingStartCall = null;
                                 failed.reject(data.getString("message")); }
-                            notifyListeners("trackingError", data, true);
+                            notifyListeners("trackingError", data, false);
                         }
                     } catch (Exception error) {
                         Log.e(TAG, "Failed to relay live tracking broadcast", error);

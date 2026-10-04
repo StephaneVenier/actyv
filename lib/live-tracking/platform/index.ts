@@ -19,6 +19,8 @@ type LiveTrackingPluginResult = Partial<LiveTrackingPlatformStatus> & {
 };
 
 type LiveTrackingPluginApi = {
+  setActiveOwner?(options: {ownerUserId:string|null}): Promise<LiveTrackingPluginResult>;
+  purgeOwner?(options: {ownerUserId:string}): Promise<LiveTrackingPluginResult>;
   isAvailable?(): Promise<LiveTrackingPluginResult>;
   getTrackingStatus?(): Promise<LiveTrackingPluginResult>;
   checkPermissions?(): Promise<LiveTrackingPluginResult>;
@@ -210,9 +212,31 @@ async function addPluginListener(
 }
 
 let currentOwnerUserId: string | null = null;
+let transitionQueue: Promise<void> = Promise.resolve();
+let requestedOwner: string | null | undefined;
 
 export const liveTrackingPlatform: LiveTrackingPlatform = {
   setOwner(ownerUserId) { currentOwnerUserId = ownerUserId; },
+  async transitionOwner(ownerUserId) {
+    if (requestedOwner === ownerUserId) return transitionQueue;
+    requestedOwner = ownerUserId;
+    transitionQueue = transitionQueue.catch(()=>undefined).then(async()=>{
+      if (isAndroidNative()) {
+        if (!getPlugin()?.setActiveOwner) throw new Error('Mets à jour l’application Android avant de changer de compte.');
+        await callPluginMethod('setActiveOwner', {ownerUserId});
+      }
+      currentOwnerUserId = ownerUserId;
+    }).catch(error=>{requestedOwner=undefined;throw error;});
+    return transitionQueue;
+  },
+  async purgeOwner(ownerUserId) {
+    if (isAndroidNative()) {
+      if (!getPlugin()?.purgeOwner) throw new Error('Mets à jour l’application Android pour nettoyer les données locales.');
+      await callPluginMethod('purgeOwner', {ownerUserId});
+    }
+    requestedOwner = undefined;
+    currentOwnerUserId = null;
+  },
   async getRecoverySession(ownerUserId) {
     if (!isAndroidNative()) return { session: null };
     if (!getPlugin()?.getRecoverySession) throw new Error('Mets a jour l’application Android pour recuperer les Lives.');

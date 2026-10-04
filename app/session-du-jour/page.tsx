@@ -78,6 +78,52 @@ export default function DailySessionPage() {
 
         setDailySession(selectedDailySession);
 
+
+        if (!user) {
+          setCompletion(null);
+          setStreakDays(0);
+          setBestStreakDays(0);
+        } else {
+          const [completionResponse, streakResponse] = await Promise.all([
+            supabase
+              .from('daily_session_completions')
+              .select('id, daily_session_id, user_id, session_id, workout_history_id, scheduled_for, completed_at, created_at')
+              .eq('user_id', user.id)
+              .eq('daily_session_id', selectedDailySession.id)
+              .maybeSingle(),
+            supabase
+              .from('daily_session_completions')
+              .select('scheduled_for')
+              .eq('user_id', user.id)
+              .order('scheduled_for', { ascending: false })
+              .limit(120),
+          ]);
+
+          if (completionResponse.error) {
+            console.error('Erreur chargement completion seance du jour :', completionResponse.error);
+            setCompletion(null);
+          } else {
+            setCompletion((completionResponse.data as DailySessionCompletion | null) || null);
+          }
+
+          if (streakResponse.error) {
+            console.error('Erreur chargement streak seance du jour :', streakResponse.error);
+            setStreakDays(0);
+            setBestStreakDays(0);
+          } else {
+            const streakRows =
+              ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || []);
+            setStreakDays(getDailySessionStreakDays(streakRows));
+            setBestStreakDays(getBestDailySessionStreakDays(streakRows));
+          }
+        }
+        if (!selectedDailySession.session_id) {
+          setSession(null);
+          setBlocks([]);
+          setMessage('Seance indisponible.');
+          return;
+        }
+
         const { data: sessionRow, error: sessionError } = await supabase
           .from('training_sessions')
           .select('id, user_id, name, sport, difficulty, description, visibility, created_at')
@@ -89,7 +135,6 @@ export default function DailySessionPage() {
           console.error('Erreur chargement seance publique du jour :', sessionError);
           setSession(null);
           setBlocks([]);
-          setCompletion(null);
           setMessage("Impossible de charger la seance du jour.");
           return;
         }
@@ -97,8 +142,7 @@ export default function DailySessionPage() {
         if (!sessionRow) {
           setSession(null);
           setBlocks([]);
-          setCompletion(null);
-          setMessage("La seance du jour referencee est introuvable.");
+          setMessage("Seance indisponible.");
           return;
         }
 
@@ -110,46 +154,6 @@ export default function DailySessionPage() {
           setBlocks([]);
         } else {
           setBlocks(blockRows || []);
-        }
-
-        if (!user) {
-          setCompletion(null);
-          setStreakDays(0);
-          setBestStreakDays(0);
-          return;
-        }
-
-        const [completionResponse, streakResponse] = await Promise.all([
-          supabase
-            .from('daily_session_completions')
-            .select('id, daily_session_id, user_id, session_id, workout_history_id, scheduled_for, completed_at, created_at')
-            .eq('user_id', user.id)
-            .eq('daily_session_id', selectedDailySession.id)
-            .maybeSingle(),
-          supabase
-            .from('daily_session_completions')
-            .select('scheduled_for')
-            .eq('user_id', user.id)
-            .order('scheduled_for', { ascending: false })
-            .limit(120),
-        ]);
-
-        if (completionResponse.error) {
-          console.error('Erreur chargement completion seance du jour :', completionResponse.error);
-          setCompletion(null);
-        } else {
-          setCompletion((completionResponse.data as DailySessionCompletion | null) || null);
-        }
-
-        if (streakResponse.error) {
-          console.error('Erreur chargement streak seance du jour :', streakResponse.error);
-          setStreakDays(0);
-          setBestStreakDays(0);
-        } else {
-          const streakRows =
-            ((streakResponse.data as Array<Pick<DailySessionCompletion, 'scheduled_for'>>) || []);
-          setStreakDays(getDailySessionStreakDays(streakRows));
-          setBestStreakDays(getBestDailySessionStreakDays(streakRows));
         }
       } finally {
         setLoading(false);
@@ -186,6 +190,7 @@ export default function DailySessionPage() {
         ) : !dailySession || !session ? (
           <div className="challenge-state">
             <p>{message || "Aucune seance du jour n'est disponible."}</p>
+            {completion && <p>Validation conservee pour {formatDailySessionDateLabel(completion.scheduled_for)}.</p>}
             <div className="session-empty-actions">
               <Link href="/banque" className="button primary">
                 Ouvrir la Banque Actyv

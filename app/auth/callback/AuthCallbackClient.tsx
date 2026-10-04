@@ -45,6 +45,11 @@ export function AuthCallbackClient() {
     };
 
     const handleCallback = async () => {
+      const recoveryHash = new URLSearchParams(window.location.hash.slice(1));
+      if (recoveryHash.get('type') === 'recovery') {
+        window.location.replace(`/reset-password${window.location.search}${window.location.hash}`);
+        return;
+      }
       if (errorMessage) {
         finishWithError(errorMessage);
         return;
@@ -54,12 +59,14 @@ export function AuthCallbackClient() {
         const code = searchParams.get('code');
 
         if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
           if (error) {
             finishWithError(error.message || 'Le lien de confirmation est invalide ou expire.');
             return;
           }
+
+          if (data?.redirectType === 'recovery') { router.replace('/reset-password'); return; }
 
           finishWithSuccess('Compte verifie. Redirection en cours...');
           return;

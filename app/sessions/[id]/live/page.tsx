@@ -37,6 +37,7 @@ import { supabase } from '@/lib/supabase';
 import { fetchTrainingSessionBlocks, TrainingSessionBlockRecord } from '@/lib/training-session-blocks-db';
 import { WorkoutCompletionMetadata, WorkoutSetPerformance } from '@/lib/workout-history';
 import { normalizeLiveSetPerformances } from '@/lib/live-workout-snapshot';
+import { workoutStorageKey, readOwnedSnapshot } from '@/lib/account-storage';
 
 type TrainingSession = {
   id: string;
@@ -68,6 +69,7 @@ type LivePerformanceDraft = {
 };
 
 type LiveState = {
+  ownerUserId: string;
   currentIndex: number;
   blocks: TrainingSessionBlockRecord[];
   completedBlockIds: string[];
@@ -503,9 +505,11 @@ export default function LiveSessionPage() {
   const [openPerformanceLineIndex, setOpenPerformanceLineIndex] = useState<number | null>(null);
   const hasHydratedLiveStateRef = useRef(false);
 
-  const liveStorageKey = `actyv.session.live.${id}`;
+  const liveStorageKey = workoutStorageKey('live', authUserId, id);
+  const [storageReady, setStorageReady] = useState(false);
 
   const clearPersistedLiveState = useCallback(() => {
+    if (!liveStorageKey) return;
     if (typeof window === 'undefined') return;
 
     try {
@@ -638,13 +642,13 @@ export default function LiveSessionPage() {
   }, [id, resolveLiveAuthUserId]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === 'undefined' || !liveStorageKey || !authUserId) return;
 
     try {
-      const savedValue = window.localStorage.getItem(liveStorageKey);
-      if (!savedValue) return;
-
-      const parsedValue = JSON.parse(savedValue) as Partial<LiveState>;
+      // Ownerless legacy snapshots are deliberately never adopted.
+      window.localStorage.removeItem(`actyv.session.live.${id}`);
+      const parsedValue = readOwnedSnapshot<LiveState>(window.localStorage, liveStorageKey, authUserId);
+      if (!parsedValue) return;
       let hydratedBlocks: TrainingSessionBlockRecord[] | null = null;
       if (Array.isArray(parsedValue.blocks)) {
         hasHydratedLiveStateRef.current = true;
@@ -841,8 +845,9 @@ export default function LiveSessionPage() {
       console.error('Erreur lecture etat live seance :', error);
     } finally {
       setRunKey((current) => current || createLiveRunKey());
+      setStorageReady(true);
     }
-  }, [clearPersistedLiveState, liveStorageKey]);
+  }, [authUserId, id, clearPersistedLiveState, liveStorageKey]);
 
   useEffect(() => {
     const exerciseIds = Array.from(
@@ -1272,7 +1277,7 @@ export default function LiveSessionPage() {
   const displayedEarnedXp = historySaved ? earnedXpTotal : XP_RULES.session_completed.xp;
 
   useEffect(() => {
-    if (typeof window === 'undefined' || blocks.length === 0) return;
+    if (typeof window === 'undefined' || blocks.length === 0 || !storageReady || !liveStorageKey || !authUserId) return;
 
     const validBlockIds = new Set(blocks.map((block) => block.id));
     const sanitizedIds = completedBlockIds.filter((blockId) => validBlockIds.has(blockId));
@@ -1395,6 +1400,7 @@ export default function LiveSessionPage() {
 
     try {
       const payload: LiveState = {
+        ownerUserId: authUserId,
         currentIndex: nextIndex,
         blocks,
         completedBlockIds: sanitizedIds,
@@ -1434,6 +1440,8 @@ export default function LiveSessionPage() {
     currentIndex,
     finishReviewOpen,
     liveStorageKey,
+    storageReady,
+    authUserId,
     restAfterBlockId,
     restResumeIndex,
     restTotalSeconds,
@@ -2140,7 +2148,7 @@ export default function LiveSessionPage() {
   }, [shouldKeepScreenAwake]);
 
   const saveCompletedSession = useCallback(async () => {
-    if (historySaved || !session || !runKey || savingHistoryRef.current || saveState === 'saving') {
+    if (historySaved || !session || !runKey || !liveStorageKey || savingHistoryRef.current || saveState === 'saving') {
       return false;
     }
 
@@ -2156,9 +2164,9 @@ export default function LiveSessionPage() {
       } catch (storageError) {
         console.error('Live session local backup failed; continuing history save:', storageError);
       }
-      const currentUserId = authUserId || (await resolveLiveAuthUserId());
+      const currentUserId = (await supabase.auth.getUser()).data.user?.id ?? null;
 
-      if (!currentUserId) {
+      if (!currentUserId || currentUserId !== authUserId) {
         console.error('Workout history insert error:', new Error('No authenticated user'));
         setHistoryMessage("Impossible d'enregistrer l'historique de la seance.");
         setSaveState('error');

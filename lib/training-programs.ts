@@ -28,8 +28,8 @@ export type TrainingProgramSession = {
 export type TrainingProgramCompletion = {
   id: string;
   user_id: string;
-  program_id: string;
-  program_session_id: string;
+  program_id: string | null;
+  program_session_id: string | null;
   session_id: string | null;
   workout_history_id: string | null;
   completed_at: string;

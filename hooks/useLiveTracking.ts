@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { resumeAccountPurges } from '@/lib/account-deletion';
 import { finalizeLiveActivity, replayLivePoints } from '@/lib/live-tracking/finalization';
 import { syncFinishedLiveActivity } from '@/lib/live-tracking/activity-api';
 import { liveTrackingReducer } from '@/lib/live-tracking/reducer';
@@ -140,6 +141,11 @@ export function useLiveTracking() {
     setRecoveryPending(true);
     void (async () => {
       try {
+        await resumeAccountPurges();
+        if (cancelled) return;
+        const deletionStatus = await supabase.rpc('get_own_account_deletion_status');
+        if (deletionStatus.error || deletionStatus.data === true) throw new Error('Verification du compte requise avant recuperation du Live.');
+        await liveTrackingPlatform.transitionOwner(ownerUserId);
         const checkpoint = loadLiveTrackingSession();
         const result = await liveTrackingPlatform.getRecoverySession(ownerUserId);
         if (cancelled) return;

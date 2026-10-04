@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 
 export type DailySession = {
   id: string;
-  session_id: string;
+  session_id: string | null;
   scheduled_for: string;
   bonus_xp: number;
   created_at: string | null;

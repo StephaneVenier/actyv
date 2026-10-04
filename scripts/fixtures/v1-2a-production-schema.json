@@ -1,0 +1,2494 @@
+[
+  {
+    "name": "auth.users",
+    "columns": [
+      {
+        "name": "instance_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "aud",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "role",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "encrypted_password",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "email_confirmed_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "invited_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "confirmation_token",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "confirmation_sent_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "recovery_token",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "recovery_sent_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "email_change_token_new",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "email_change",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "email_change_sent_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "last_sign_in_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "raw_app_meta_data",
+        "type": "jsonb",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "raw_user_meta_data",
+        "type": "jsonb",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "phone",
+        "type": "text",
+        "not_null": false,
+        "default": "NULL::character varying"
+      },
+      {
+        "name": "phone_confirmed_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "phone_change",
+        "type": "text",
+        "not_null": false,
+        "default": "''::character varying"
+      },
+      {
+        "name": "phone_change_token",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": "''::character varying"
+      },
+      {
+        "name": "phone_change_sent_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "confirmed_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": "LEAST(email_confirmed_at, phone_confirmed_at)"
+      },
+      {
+        "name": "email_change_token_current",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": "''::character varying"
+      },
+      {
+        "name": "email_change_confirm_status",
+        "type": "smallint",
+        "not_null": false,
+        "default": "0"
+      },
+      {
+        "name": "banned_until",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "reauthentication_token",
+        "type": "character varying(255)",
+        "not_null": false,
+        "default": "''::character varying"
+      },
+      {
+        "name": "reauthentication_sent_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "is_sso_user",
+        "type": "boolean",
+        "not_null": true,
+        "default": "false"
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "is_anonymous",
+        "type": "boolean",
+        "not_null": true,
+        "default": "false"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "users_email_change_confirm_status_check",
+        "definition": "CHECK (((email_change_confirm_status >= 0) AND (email_change_confirm_status <= 2)))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "users_phone_key",
+        "definition": "UNIQUE (phone)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "users_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.activities",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "user_email",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "distance_km",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "duration_minutes",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp without time zone",
+        "not_null": false,
+        "default": "now()"
+      },
+      {
+        "name": "unit_type",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "unit_value",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "exercise_type",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "likes_count",
+        "type": "integer",
+        "not_null": false,
+        "default": "0"
+      },
+      {
+        "name": "boosts_count",
+        "type": "integer",
+        "not_null": false,
+        "default": "0"
+      },
+      {
+        "name": "activity_name",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "not_null": true,
+        "default": "'manual'::text"
+      },
+      {
+        "name": "occurred_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "elevation_gain_m",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "elevation_loss_m",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "metadata",
+        "type": "jsonb",
+        "not_null": true,
+        "default": "'{}'::jsonb"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "activities_challenge_id_fkey",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id)",
+        "referenced_table": "challenges"
+      },
+      {
+        "name": "activities_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "activities_unit_type_check",
+        "definition": "CHECK ((unit_type = ANY (ARRAY['distance'::text, 'duration'::text, 'reps'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "activities_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.activity_interactions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "activity_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "activity_interactions_activity_id_fkey",
+        "definition": "FOREIGN KEY (activity_id) REFERENCES activities(id) ON DELETE CASCADE",
+        "referenced_table": "activities"
+      },
+      {
+        "name": "activity_interactions_activity_id_user_id_type_key",
+        "definition": "UNIQUE (activity_id, user_id, type)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "activity_interactions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "activity_interactions_type_check",
+        "definition": "CHECK ((type = ANY (ARRAY['like'::text, 'boost'::text, 'fire'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "activity_interactions_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.challenge_members",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "user_email",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "not_null": false,
+        "default": "'member'::text"
+      },
+      {
+        "name": "joined_at",
+        "type": "timestamp without time zone",
+        "not_null": false,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "challenge_members_challenge_id_fkey",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id)",
+        "referenced_table": "challenges"
+      },
+      {
+        "name": "challenge_members_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenge_members_role_check",
+        "definition": "CHECK ((role = ANY (ARRAY['owner'::text, 'member'::text])))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.challenge_participants",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "not_null": true,
+        "default": "'participant'::text"
+      },
+      {
+        "name": "joined_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "challenge_participants_challenge_id_fkey",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE",
+        "referenced_table": "challenges"
+      },
+      {
+        "name": "challenge_participants_challenge_id_user_id_key",
+        "definition": "UNIQUE (challenge_id, user_id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenge_participants_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenge_participants_role_check",
+        "definition": "CHECK ((role = ANY (ARRAY['admin'::text, 'participant'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenge_participants_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.challenges",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "start_date",
+        "type": "date",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "end_date",
+        "type": "date",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp without time zone",
+        "not_null": false,
+        "default": "now()"
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "goal_km",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "visibility",
+        "type": "text",
+        "not_null": true,
+        "default": "'private'::text"
+      },
+      {
+        "name": "invite_code",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "goal_type",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "goal_value",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "not_null": false,
+        "default": "'active'::text"
+      },
+      {
+        "name": "is_deleted",
+        "type": "boolean",
+        "not_null": true,
+        "default": "false"
+      },
+      {
+        "name": "is_public",
+        "type": "boolean",
+        "not_null": false,
+        "default": "false"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "challenges_created_by_fkey",
+        "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "challenges_goal_type_check",
+        "definition": "CHECK ((goal_type = ANY (ARRAY['distance'::text, 'duration'::text, 'reps'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenges_invite_code_key",
+        "definition": "UNIQUE (invite_code)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenges_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenges_status_check",
+        "definition": "CHECK ((status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text, 'deleted'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "challenges_visibility_check",
+        "definition": "CHECK ((visibility = ANY (ARRAY['private'::text, 'community'::text])))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.daily_session_completions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "daily_session_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "workout_history_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "scheduled_for",
+        "type": "date",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "daily_session_completions_daily_session_id_fkey",
+        "definition": "FOREIGN KEY (daily_session_id) REFERENCES daily_sessions(id) ON DELETE CASCADE",
+        "referenced_table": "daily_sessions"
+      },
+      {
+        "name": "daily_session_completions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "daily_session_completions_session_id_fkey",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE SET NULL",
+        "referenced_table": "training_sessions"
+      },
+      {
+        "name": "daily_session_completions_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "daily_session_completions_workout_history_id_fkey",
+        "definition": "FOREIGN KEY (workout_history_id) REFERENCES workout_sessions_history(id) ON DELETE SET NULL",
+        "referenced_table": "workout_sessions_history"
+      }
+    ]
+  },
+  {
+    "name": "public.daily_sessions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "scheduled_for",
+        "type": "date",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "bonus_xp",
+        "type": "integer",
+        "not_null": true,
+        "default": "25"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "daily_sessions_bonus_xp_check",
+        "definition": "CHECK ((bonus_xp >= 0))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "daily_sessions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "daily_sessions_session_id_fkey",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE CASCADE",
+        "referenced_table": "training_sessions"
+      }
+    ]
+  },
+  {
+    "name": "public.daily_steps",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "step_date",
+        "type": "date",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "steps_count",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "not_null": true,
+        "default": "'manual'::text"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "synced_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "distance_meters",
+        "type": "double precision",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "walk_run_distance_meters",
+        "type": "double precision",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "bike_distance_meters",
+        "type": "double precision",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "daily_steps_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "daily_steps_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "daily_steps_user_id_step_date_key",
+        "definition": "UNIQUE (user_id, step_date)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.exercise_library",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "slug",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "category",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "movement_type",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "tracking_type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "supports_load",
+        "type": "boolean",
+        "not_null": true,
+        "default": "false"
+      },
+      {
+        "name": "primary_muscles",
+        "type": "text[]",
+        "not_null": true,
+        "default": "'{}'::text[]"
+      },
+      {
+        "name": "secondary_muscles",
+        "type": "text[]",
+        "not_null": true,
+        "default": "'{}'::text[]"
+      },
+      {
+        "name": "equipment",
+        "type": "text[]",
+        "not_null": true,
+        "default": "'{}'::text[]"
+      },
+      {
+        "name": "difficulty",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "instructions",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "image_path",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "not_null": true,
+        "default": "true"
+      },
+      {
+        "name": "metadata",
+        "type": "jsonb",
+        "not_null": true,
+        "default": "'{}'::jsonb"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "exercise_library_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "exercise_library_slug_key",
+        "definition": "UNIQUE (slug)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "exercise_library_tracking_type_check",
+        "definition": "CHECK ((tracking_type = ANY (ARRAY['reps'::text, 'duration'::text, 'distance'::text, 'free'::text])))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.masteries",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "slug",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "category_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "measurement_type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "unit",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "not_null": true,
+        "default": "true"
+      },
+      {
+        "name": "sort_order",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "masteries_category_id_fkey",
+        "definition": "FOREIGN KEY (category_id) REFERENCES mastery_categories(id) ON DELETE RESTRICT",
+        "referenced_table": "mastery_categories"
+      },
+      {
+        "name": "masteries_measurement_type_check",
+        "definition": "CHECK ((measurement_type = ANY (ARRAY['reps'::text, 'duration'::text, 'distance'::text, 'elevation'::text, 'volume'::text, 'count'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "masteries_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "masteries_slug_key",
+        "definition": "UNIQUE (slug)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.mastery_categories",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "slug",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "sort_order",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "active",
+        "type": "boolean",
+        "not_null": true,
+        "default": "true"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "mastery_categories_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_categories_slug_key",
+        "definition": "UNIQUE (slug)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.mastery_entries",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "mastery_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "value",
+        "type": "numeric",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "source_ref_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "metadata",
+        "type": "jsonb",
+        "not_null": true,
+        "default": "'{}'::jsonb"
+      },
+      {
+        "name": "performed_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "mastery_entries_mastery_id_fkey",
+        "definition": "FOREIGN KEY (mastery_id) REFERENCES masteries(id) ON DELETE CASCADE",
+        "referenced_table": "masteries"
+      },
+      {
+        "name": "mastery_entries_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_entries_source_check",
+        "definition": "CHECK ((source = ANY (ARRAY['manual'::text, 'session'::text, 'activity'::text, 'import'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_entries_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "mastery_entries_value_check",
+        "definition": "CHECK ((value > (0)::numeric))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.mastery_exercise_links",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "mastery_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "exercise_key",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "exercise_name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "exercise_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "source_type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "mastery_exercise_links_mastery_id_fkey",
+        "definition": "FOREIGN KEY (mastery_id) REFERENCES masteries(id) ON DELETE CASCADE",
+        "referenced_table": "masteries"
+      },
+      {
+        "name": "mastery_exercise_links_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_exercise_links_source_type_check",
+        "definition": "CHECK ((source_type = ANY (ARRAY['exercise_library'::text, 'training_block'::text, 'alias'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_exercise_links_source_type_exercise_name_key",
+        "definition": "UNIQUE (source_type, exercise_name)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.mastery_level_unlocks",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "mastery_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "level",
+        "type": "integer",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "xp_awarded",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "unlocked_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "mastery_level_unlocks_level_check",
+        "definition": "CHECK ((level > 0))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_level_unlocks_mastery_id_fkey",
+        "definition": "FOREIGN KEY (mastery_id) REFERENCES masteries(id) ON DELETE CASCADE",
+        "referenced_table": "masteries"
+      },
+      {
+        "name": "mastery_level_unlocks_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_level_unlocks_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "mastery_level_unlocks_user_id_mastery_id_level_key",
+        "definition": "UNIQUE (user_id, mastery_id, level)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_level_unlocks_xp_awarded_check",
+        "definition": "CHECK ((xp_awarded >= 0))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.mastery_levels",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "mastery_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "level",
+        "type": "integer",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "threshold",
+        "type": "numeric",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "xp_reward",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "mastery_levels_level_check",
+        "definition": "CHECK ((level > 0))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_levels_mastery_id_fkey",
+        "definition": "FOREIGN KEY (mastery_id) REFERENCES masteries(id) ON DELETE CASCADE",
+        "referenced_table": "masteries"
+      },
+      {
+        "name": "mastery_levels_mastery_id_level_key",
+        "definition": "UNIQUE (mastery_id, level)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_levels_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_levels_threshold_check",
+        "definition": "CHECK ((threshold > (0)::numeric))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_levels_xp_reward_check",
+        "definition": "CHECK ((xp_reward >= 0))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.mastery_muscles",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "mastery_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "muscle_key",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "weight",
+        "type": "numeric",
+        "not_null": true,
+        "default": "1"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "mastery_muscles_mastery_id_fkey",
+        "definition": "FOREIGN KEY (mastery_id) REFERENCES masteries(id) ON DELETE CASCADE",
+        "referenced_table": "masteries"
+      },
+      {
+        "name": "mastery_muscles_mastery_id_muscle_key_key",
+        "definition": "UNIQUE (mastery_id, muscle_key)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_muscles_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "mastery_muscles_weight_check",
+        "definition": "CHECK ((weight > (0)::numeric))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.profiles",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "username",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": "now()"
+      },
+      {
+        "name": "total_xp",
+        "type": "integer",
+        "not_null": false,
+        "default": "0"
+      },
+      {
+        "name": "level",
+        "type": "integer",
+        "not_null": false,
+        "default": "1"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "profiles_email_key",
+        "definition": "UNIQUE (email)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "profiles_id_fkey",
+        "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "profiles_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "profiles_username_key",
+        "definition": "UNIQUE (username)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.program_sessions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "week_number",
+        "type": "integer",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "target_duration",
+        "type": "integer",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "target_distance",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "program_sessions_challenge_id_fkey",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id)",
+        "referenced_table": "challenges"
+      },
+      {
+        "name": "program_sessions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.training_program_completions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "program_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "program_session_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "workout_history_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_program_completions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_program_completions_program_id_fkey",
+        "definition": "FOREIGN KEY (program_id) REFERENCES training_programs(id) ON DELETE CASCADE",
+        "referenced_table": "training_programs"
+      },
+      {
+        "name": "training_program_completions_program_session_id_fkey",
+        "definition": "FOREIGN KEY (program_session_id) REFERENCES training_program_sessions(id) ON DELETE CASCADE",
+        "referenced_table": "training_program_sessions"
+      },
+      {
+        "name": "training_program_completions_session_id_fkey",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE SET NULL",
+        "referenced_table": "training_sessions"
+      },
+      {
+        "name": "training_program_completions_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "training_program_completions_user_program_session_key",
+        "definition": "UNIQUE (user_id, program_id, program_session_id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_program_completions_workout_history_id_fkey",
+        "definition": "FOREIGN KEY (workout_history_id) REFERENCES workout_sessions_history(id) ON DELETE SET NULL",
+        "referenced_table": "workout_sessions_history"
+      }
+    ]
+  },
+  {
+    "name": "public.training_program_sessions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "program_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "workout_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "week_number",
+        "type": "integer",
+        "not_null": true,
+        "default": "1"
+      },
+      {
+        "name": "day_number",
+        "type": "integer",
+        "not_null": true,
+        "default": "1"
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "day_of_week",
+        "type": "integer",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "session_name",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "order_index",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_program_sessions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_program_sessions_program_id_fkey",
+        "definition": "FOREIGN KEY (program_id) REFERENCES training_programs(id) ON DELETE CASCADE",
+        "referenced_table": "training_programs"
+      },
+      {
+        "name": "training_program_sessions_session_id_fkey",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE SET NULL",
+        "referenced_table": "training_sessions"
+      },
+      {
+        "name": "training_program_sessions_workout_id_fkey",
+        "definition": "FOREIGN KEY (workout_id) REFERENCES training_sessions(id) ON DELETE SET NULL",
+        "referenced_table": "training_sessions"
+      }
+    ]
+  },
+  {
+    "name": "public.training_programs",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "duration_weeks",
+        "type": "integer",
+        "not_null": true,
+        "default": "1"
+      },
+      {
+        "name": "start_date",
+        "type": "date",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "visibility",
+        "type": "text",
+        "not_null": true,
+        "default": "'private'::text"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "invite_code",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": "now()"
+      },
+      {
+        "name": "copied_from_program_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "difficulty",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_programs_copied_from_program_id_fkey",
+        "definition": "FOREIGN KEY (copied_from_program_id) REFERENCES training_programs(id) ON DELETE SET NULL",
+        "referenced_table": "training_programs"
+      },
+      {
+        "name": "training_programs_copies_not_shared",
+        "definition": "CHECK (((copied_from_program_id IS NULL) OR (visibility <> 'shared'::text)))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_programs_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_programs_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      },
+      {
+        "name": "training_programs_visibility_check",
+        "definition": "CHECK ((visibility = ANY (ARRAY['private'::text, 'shared'::text, 'public'::text])))",
+        "referenced_table": "-"
+      }
+    ]
+  },
+  {
+    "name": "public.training_session_blocks",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "block_type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "target_value",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "charge_kg",
+        "type": "numeric",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "sets_count",
+        "type": "integer",
+        "not_null": true,
+        "default": "1"
+      },
+      {
+        "name": "rest_seconds",
+        "type": "integer",
+        "not_null": true,
+        "default": "60"
+      },
+      {
+        "name": "exercise_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_session_blocks_block_type_check",
+        "definition": "CHECK ((block_type = ANY (ARRAY['reps'::text, 'duration'::text, 'distance'::text, 'free'::text])))",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_session_blocks_exercise_id_fkey",
+        "definition": "FOREIGN KEY (exercise_id) REFERENCES exercise_library(id) ON DELETE SET NULL",
+        "referenced_table": "exercise_library"
+      },
+      {
+        "name": "training_session_blocks_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_session_blocks_session_id_fkey",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE CASCADE",
+        "referenced_table": "training_sessions"
+      }
+    ]
+  },
+  {
+    "name": "public.training_sessions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "visibility",
+        "type": "text",
+        "not_null": true,
+        "default": "'private'::text"
+      },
+      {
+        "name": "copied_from_session_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "difficulty",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_sessions_copied_from_session_id_fkey",
+        "definition": "FOREIGN KEY (copied_from_session_id) REFERENCES training_sessions(id) ON DELETE SET NULL",
+        "referenced_table": "training_sessions"
+      },
+      {
+        "name": "training_sessions_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "training_sessions_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.user_badges",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "badge_code",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "unlocked_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "user_badges_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "user_badges_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.user_xp_events",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "event_type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "source_type",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "source_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "xp_amount",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "user_xp_events_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "user_xp_events_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.workout_exercise_history",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "history_id",
+        "type": "uuid",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "workout_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "exercise_name",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "block_type",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "sets_count",
+        "type": "integer",
+        "not_null": true,
+        "default": "1"
+      },
+      {
+        "name": "reps",
+        "type": "numeric",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "duration_seconds",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "distance",
+        "type": "numeric",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "charge_kg",
+        "type": "numeric",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "volume",
+        "type": "numeric",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "actual_sets",
+        "type": "jsonb",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "workout_exercise_history_history_id_fkey",
+        "definition": "FOREIGN KEY (history_id) REFERENCES workout_sessions_history(id) ON DELETE CASCADE",
+        "referenced_table": "workout_sessions_history"
+      },
+      {
+        "name": "workout_exercise_history_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "workout_exercise_history_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.workout_sessions_history",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "workout_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "workout_name",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "duration_seconds",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "estimated_calories",
+        "type": "numeric",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "total_volume",
+        "type": "numeric",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "completed_exercises",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": true,
+        "default": "now()"
+      },
+      {
+        "name": "metadata",
+        "type": "jsonb",
+        "not_null": true,
+        "default": "'{}'::jsonb"
+      },
+      {
+        "name": "run_key",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      }
+    ],
+    "constraints": [
+      {
+        "name": "workout_sessions_history_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "workout_sessions_history_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  },
+  {
+    "name": "public.xp_events",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "not_null": true,
+        "default": "gen_random_uuid()"
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "event_type",
+        "type": "text",
+        "not_null": true,
+        "default": null
+      },
+      {
+        "name": "xp_amount",
+        "type": "integer",
+        "not_null": true,
+        "default": "0"
+      },
+      {
+        "name": "target_id",
+        "type": "text",
+        "not_null": false,
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "not_null": false,
+        "default": "now()"
+      }
+    ],
+    "constraints": [
+      {
+        "name": "xp_events_pkey",
+        "definition": "PRIMARY KEY (id)",
+        "referenced_table": "-"
+      },
+      {
+        "name": "xp_events_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE",
+        "referenced_table": "auth.users"
+      }
+    ]
+  }
+]

@@ -66,6 +66,8 @@ export type LiveTrackingListenerHandle = {
 
 export interface LiveTrackingPlatform {
   setOwner(ownerUserId: string | null): void;
+  transitionOwner(ownerUserId: string | null): Promise<void>;
+  purgeOwner(ownerUserId: string): Promise<void>;
   getRecoverySession(ownerUserId: string): Promise<{ blocked?: boolean; session?: NativeRecoverySession | null }>;
   recoverTracking(sessionId: string): Promise<LiveTrackingPlatformStatus>;
   isAvailable(): boolean;

@@ -5,6 +5,9 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { ToastProvider } from '@/components/ToastProvider';
 import { supabase } from '@/lib/supabase';
+import { isAccountTransitionInProgress, logoutAccount } from '@/lib/account-lifecycle';
+import { liveTrackingPlatform } from '@/lib/live-tracking/platform';
+import { requestAccountDeletion, resumeAccountPurges } from '@/lib/account-deletion';
 
 type Profile = {
   username: string | null;
@@ -38,6 +41,10 @@ function formatQuickStatsDuration(totalSeconds: number) {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [accountReady, setAccountReady] = useState(false);
+  const [pendingDeletionOwner, setPendingDeletionOwner] = useState<string | null>(null);
+  const [accountError, setAccountError] = useState('');
+  const [finalizingDeletion, setFinalizingDeletion] = useState(false);
   const [username, setUsername] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [quickMenuOpen, setQuickMenuOpen] = useState(false);
@@ -45,14 +52,46 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const menuRef = useRef<HTMLDivElement | null>(null);
   const quickMenuRef = useRef<HTMLDivElement | null>(null);
+  const accountRef = useRef<string | null | undefined>(undefined);
+  const authLoadRef = useRef(0);
 
   useEffect(() => {
-    const loadUser = async () => {
+    const loadUser = async (signedOut = false) => {
+      if (isAccountTransitionInProgress()) return;
+      const generation = ++authLoadRef.current;
       try {
+        await resumeAccountPurges();
         const {
           data: { user },
           error: userError,
-        } = await supabase.auth.getUser();
+        } = signedOut ? {data:{user:null},error:null} : await supabase.auth.getUser();
+        if (generation !== authLoadRef.current || isAccountTransitionInProgress()) return;
+        // A temporary network failure is not an account transition.
+        if (userError && userError.name !== 'AuthSessionMissingError') {
+          setAccountError('Connexion requise pour verifier ton compte. Recharge la page pour reessayer.');
+          return;
+        }
+        const nextOwner = user?.id ?? null;
+        if (user) {
+          const status = await supabase.rpc('get_own_account_deletion_status');
+          if (status.error) throw new Error('Verification de suppression indisponible. Recharge la page pour reessayer.');
+          if (status.data === true) {
+            await liveTrackingPlatform.transitionOwner(null);
+            setPendingDeletionOwner(user.id);
+            setAccountReady(false);
+            return;
+          }
+        }
+        setPendingDeletionOwner(null);
+        await liveTrackingPlatform.transitionOwner(nextOwner);
+        if (generation !== authLoadRef.current || isAccountTransitionInProgress()) return;
+        if (accountRef.current !== undefined && accountRef.current !== nextOwner) {
+          window.location.replace(window.location.pathname === '/reset-password' ? '/reset-password' : nextOwner ? '/' : '/login');
+          return;
+        }
+        accountRef.current = nextOwner;
+        setAccountError('');
+        setAccountReady(true);
 
         if (userError) {
           console.error('Erreur getUser :', userError);
@@ -118,6 +157,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           totalDurationSeconds,
         });
       } catch (err) {
+        setAccountReady(false);
+        setAccountError(err instanceof Error ? err.message : 'Verification du compte indisponible.');
         console.error('Erreur AppShell :', err);
         setUserEmail(null);
         setUsername(null);
@@ -129,11 +170,12 @@ export function AppShell({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
+    } = supabase.auth.onAuthStateChange((event:string) => {
+      loadUser(event === 'SIGNED_OUT');
     });
 
     return () => {
+      authLoadRef.current += 1;
       subscription.unsubscribe();
     };
   }, []);
@@ -154,9 +196,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, []);
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setMenuOpen(false);
-    window.location.href = '/login';
+    try { await logoutAccount(); }
+    catch { window.alert('Déconnexion impossible. Le suivi est arrêté ; réessaie avec du réseau et un APK à jour.'); }
   };
 
   const profileLabel = username || userEmail || 'Mon profil';
@@ -300,7 +341,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         </header>
 
         <main className="page-content">
-          {children}
+          {pendingDeletionOwner ? (
+            <section className="card">
+              <h1>La suppression de ton compte doit etre finalisee</h1>
+              <button type="button" className="button" disabled={finalizingDeletion} onClick={async () => {
+                setFinalizingDeletion(true);
+                try { await requestAccountDeletion(pendingDeletionOwner); }
+                catch (error) { setAccountError(error instanceof Error ? error.message : 'Reessaie.'); }
+                finally { setFinalizingDeletion(false); }
+              }}>{finalizingDeletion ? 'Suppression...' : 'Reessayer'}</button>
+              <button type="button" className="button" onClick={handleLogout}>Se deconnecter</button>
+              {accountError && <p role="alert">{accountError}</p>}
+            </section>
+          ) : accountReady ? children : <p role="status">{accountError || 'Verification du compte...'}</p>}
           <footer className="site-footer" aria-label="Informations legales">
             <div className="site-footer__inner">
               <span className="site-footer__brand">Actyv</span>
