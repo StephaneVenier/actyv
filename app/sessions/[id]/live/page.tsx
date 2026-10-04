@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { AppShell } from '@/components/AppShell';
+import { SessionExercisePicker } from '@/components/session-exercise-picker';
 import { BadgeArtwork } from '@/components/badge-artwork';
 import {
   LiveBlockCard,
@@ -29,7 +30,7 @@ import {
 } from '@/lib/session-blocks';
 import { awardXp, getBadgeByCode, getUserTotalXp, refreshUserBadges, XP_RULES } from '@/lib/gamification';
 import { formatPercent } from '@/lib/display-format';
-import type { ExerciseVisualCategory } from '@/lib/exercise-library';
+import type { ExerciseVisualCategory, ExerciseLibraryItem } from '@/lib/exercise-library';
 import { getExercisesByIds } from '@/lib/exercise-library-api';
 import { getActyvLevel, type ActyvLevelProgress } from '@/lib/levels';
 import { processSessionMasteries } from '@/lib/masteries-api';
@@ -479,6 +480,7 @@ export default function LiveSessionPage() {
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState(false);
   const [isExerciseMenuOpen, setIsExerciseMenuOpen] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
+  const [newExerciseLibraryItem, setNewExerciseLibraryItem] = useState<ExerciseLibraryItem | null>(null);
   const [newExerciseType, setNewExerciseType] = useState<SessionBlockType>('reps');
   const [newExerciseSets, setNewExerciseSets] = useState('1');
   const [newExerciseTargetValue, setNewExerciseTargetValue] = useState('');
@@ -560,6 +562,7 @@ export default function LiveSessionPage() {
     }
 
     const loadSession = async () => {
+      hasHydratedLiveStateRef.current = false;
       setLoading(true);
       setMessage(null);
       setHistoryMessage(null);
@@ -610,7 +613,8 @@ export default function LiveSessionPage() {
           return;
         }
 
-        setBlocks(blockRows || []);
+        // A late source fetch must not replace this run's added/removed exercises.
+        setBlocks((current) => hasHydratedLiveStateRef.current && current.length > 0 ? current : blockRows || []);
       } catch (error) {
         console.error('Erreur inattendue seance live :', error);
         setMessage('Impossible de charger cette seance.');
@@ -1544,7 +1548,7 @@ export default function LiveSessionPage() {
   };
 
   const addExerciseToLive = () => {
-    if (!newExerciseName.trim() || !session) return;
+    if (!newExerciseName.trim() || !session || historySaved || saveState === 'saving' || isExerciseSwitchLocked) return;
 
     const sanitizedSets = Math.max(Math.trunc(Number(newExerciseSets) || 1), 1);
     const sanitizedTargetValue =
@@ -1560,10 +1564,11 @@ export default function LiveSessionPage() {
     const sanitizedRestSeconds = Math.max(Math.trunc(Number(newExerciseRestSeconds) || 0), 0);
 
     const nextBlock: TrainingSessionBlockRecord = {
-      id: `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `live-${crypto.randomUUID()}`,
       session_id: session.id,
       position: blocks.length,
       name: newExerciseName.trim(),
+      exercise_id: newExerciseLibraryItem?.id ?? null,
       block_type: newExerciseType,
       sets_count: sanitizedSets,
       target_value: sanitizedTargetValue,
@@ -1572,7 +1577,6 @@ export default function LiveSessionPage() {
     };
 
     setBlocks((current) => [...current, nextBlock]);
-    setCurrentIndex(blocks.length);
     const nextDraft = createDefaultLivePerformanceDraft(nextBlock);
     if (newExerciseType === 'free' && newExerciseFreeText.trim()) {
       nextDraft.freeText = newExerciseFreeText.trim();
@@ -1596,6 +1600,7 @@ export default function LiveSessionPage() {
     }));
     setIsAddExerciseOpen(false);
     setNewExerciseName('');
+    setNewExerciseLibraryItem(null);
     setNewExerciseType('reps');
     setNewExerciseSets('1');
     setNewExerciseTargetValue('');
@@ -1603,6 +1608,44 @@ export default function LiveSessionPage() {
     setNewExerciseRestSeconds('60');
     setNewExerciseFreeText('');
     setValidationFeedback('Exercice ajoute');
+  };
+
+  const removeExerciseFromLive = (blockId: string) => {
+    if (historySaved || saveState === 'saving' || isExerciseSwitchLocked) return;
+    if (setPerformances.some((row) => row.block_id === blockId && row.status === 'completed')) {
+      setValidationFeedback('Decoche les series realisees avant de retirer cet exercice.');
+      return;
+    }
+    if (blocks.length <= 1) {
+      setValidationFeedback('Conserve au moins un exercice dans le Live.');
+      return;
+    }
+    const removedIndex = blocks.findIndex((block) => block.id === blockId);
+    if (removedIndex < 0) return;
+    const activeId = blocks[currentIndex]?.id;
+    const nextBlocks = blocks.filter((block) => block.id !== blockId)
+      .map((block, position) => ({ ...block, position }));
+    const nextActiveIndex = nextBlocks.findIndex((block) => block.id === activeId);
+    setBlocks(nextBlocks);
+    setCurrentIndex(nextActiveIndex >= 0 ? nextActiveIndex : Math.min(removedIndex, nextBlocks.length - 1));
+    const omitBlock = <T,>(values: Record<string, T>) => {
+      const next = { ...values };
+      delete next[blockId];
+      return next;
+    };
+    setPerformanceDraftsByBlockId(omitBlock);
+    setActualPerformanceDraftsByBlockId(omitBlock);
+    setActualPerformanceCarryForwardByBlockId(omitBlock);
+    setCompletedSetsByBlockId(omitBlock);
+    setCompletedBlockIds((current) => current.filter((value) => value !== blockId));
+    setSkippedBlockIds((current) => current.filter((value) => value !== blockId));
+    setSetPerformances((current) => current.filter((row) => row.block_id !== blockId));
+    if (activeId === blockId) {
+      clearExerciseState();
+      clearRestState();
+      lastValidatedSeriesRef.current = null;
+    }
+    setValidationFeedback('Exercice retire du Live uniquement.');
   };
 
   const updateCurrentPerformanceLine = (changes: Partial<LivePerformanceLineDraft>) => {
@@ -3475,6 +3518,11 @@ export default function LiveSessionPage() {
                                 <button type="button" className="button ghost" onClick={handleSkipCurrentBlock}>
                                   Passer l'exercice
                                 </button>
+                                <button type="button" className="button ghost"
+                                  onClick={() => removeExerciseFromLive(block.id)}
+                                  disabled={isExerciseSwitchLocked || historySaved || saveState === 'saving'}>
+                                  Retirer l'exercice
+                                </button>
                                 <button
                                   type="button"
                                   className="button ghost"
@@ -4122,12 +4170,33 @@ export default function LiveSessionPage() {
                     </div>
 
                     <div className="session-live-performance-grid session-live-performance-grid--compact">
+                      <SessionExercisePicker
+                        disabled={isExerciseSwitchLocked || historySaved || saveState === 'saving'}
+                        onSelectExercise={(exercise) => {
+                          setNewExerciseLibraryItem(exercise);
+                          setNewExerciseName(exercise.name);
+                          setNewExerciseType(exercise.trackingType);
+                          setNewExerciseSets('1');
+                          setNewExerciseTargetValue('');
+                          setNewExerciseChargeKg('');
+                          setNewExerciseRestSeconds('0');
+                          setNewExerciseFreeText('');
+                        }}
+                      />
+                      {newExerciseLibraryItem && !newExerciseLibraryItem.id ? (
+                        <p className="session-live-actions__hint">
+                          Bibliotheque indisponible : exercice local sans UUID, mapping Maitrises non garanti.
+                        </p>
+                      ) : null}
                       <label className="session-live-performance-field session-live-performance-field--full">
                         <span>Nom</span>
                         <input
                           type="text"
                           value={newExerciseName}
-                          onChange={(event) => setNewExerciseName(event.target.value)}
+                          onChange={(event) => {
+                            setNewExerciseName(event.target.value);
+                            setNewExerciseLibraryItem(null);
+                          }}
                           placeholder="Developpe couche"
                         />
                       </label>
@@ -4215,7 +4284,8 @@ export default function LiveSessionPage() {
                     </div>
 
                     <div className="session-live-performance-card__actions">
-                      <button type="button" className="button primary" onClick={addExerciseToLive}>
+                      <button type="button" className="button primary" onClick={addExerciseToLive}
+                        disabled={!newExerciseName.trim() || isExerciseSwitchLocked || historySaved || saveState === 'saving'}>
                         Ajouter l'exercice
                       </button>
                       <button
