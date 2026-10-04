@@ -157,20 +157,6 @@ export async function POST(request: NextRequest) {
     await safeDeleteByUserId(adminClient, 'challenge_participants', user.id, notes);
     await safeDeleteByUserId(adminClient, 'activity_interactions', user.id, notes);
 
-    const { error: membersByUserError } = await adminClient
-      .from('challenge_members')
-      .delete()
-      .eq('user_id', user.id);
-
-    if (membersByUserError) {
-      const message = getErrorMessage(membersByUserError).toLowerCase();
-      if (message.includes('relation') && message.includes('does not exist')) {
-        notes.push('Table challenge_members absente de cette base, suppression ignoree.');
-      } else {
-        throw membersByUserError;
-      }
-    }
-
     await safeDeleteByEmail(adminClient, 'challenge_members', 'user_email', user.email ?? null, notes);
 
     const { error: usersByIdError } = await adminClient.from('users').delete().eq('id', user.id);

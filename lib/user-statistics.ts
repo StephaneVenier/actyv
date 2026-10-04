@@ -287,15 +287,11 @@ export async function loadUserStatistics(userId: string, userEmail: string | nul
           'challenge_members',
           supabase
             .from('challenge_members')
-            .select('challenge_id, user_id, user_email, joined_at')
-            .or(`user_id.eq.${userId},user_email.eq.${userEmail}`),
+            .select('challenge_id, user_email, joined_at')
+            .eq('user_email', userEmail),
           []
         )
-      : safeQuery(
-          'challenge_members',
-          supabase.from('challenge_members').select('challenge_id, user_id, user_email, joined_at').eq('user_id', userId),
-          []
-        ),
+      : Promise.resolve({ data: [], error: null }),
     safeQuery(
       'workout_sessions_history',
       supabase

@@ -307,27 +307,13 @@ setShareMessage('');
     hasAccess = Boolean(memberData);
   }
 
-  if (!hasAccess && user?.id) {
-    const { data: memberData, error: memberError } = await supabase
-      .from('challenge_members')
-      .select('id')
-      .eq('challenge_id', id)
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (memberError) {
-      console.error('Erreur verification acces challenge_members user_id :', memberError);
-    }
-
-    hasAccess = Boolean(memberData);
-  }
-
   if (!hasAccess && user?.email) {
     const { data: memberData, error: memberError } = await supabase
       .from('challenge_members')
       .select('id')
       .eq('challenge_id', id)
       .eq('user_email', user.email)
+      .limit(1)
       .maybeSingle();
 
     if (memberError) {
@@ -371,7 +357,7 @@ setShareMessage('');
 
       supabase
         .from('challenge_members')
-        .select('challenge_id, user_id, user_email')
+        .select('challenge_id, user_email')
         .eq('challenge_id', id),
 
       supabase
@@ -434,7 +420,7 @@ setShareMessage('');
 
   if (uniqueUserIds.length > 0) {
     const { data, error } = await supabase
-      .from('public_profiles')
+      .from('v1a_public_profiles')
       .select('id, username, level')
       .in('id', uniqueUserIds);
 

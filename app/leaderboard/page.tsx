@@ -100,13 +100,7 @@ export default function LeaderboardPage() {
       let joinedChallengeIds: string[] = [];
 
       if (userId || userEmail) {
-        const [membersResponse, legacyMembersResponse, participantsResponse] = await Promise.all([
-          userId
-            ? supabase
-                .from('challenge_members')
-                .select('challenge_id')
-                .eq('user_id', userId)
-            : Promise.resolve({ data: [], error: null }),
+        const [legacyMembersResponse, participantsResponse] = await Promise.all([
           userEmail
             ? supabase
                 .from('challenge_members')
@@ -121,10 +115,6 @@ export default function LeaderboardPage() {
             : Promise.resolve({ data: [], error: null }),
         ]);
 
-        if (membersResponse.error) {
-          console.error('Erreur chargement challenge_members leaderboard :', membersResponse.error);
-        }
-
         if (participantsResponse.error) {
           console.error(
             'Erreur chargement challenge_participants leaderboard :',
@@ -133,9 +123,6 @@ export default function LeaderboardPage() {
         }
 
         joinedChallengeIds = [
-          ...(((membersResponse.data as { challenge_id: string }[] | null) || []).map(
-            (row) => row.challenge_id
-          )),
           ...(((legacyMembersResponse.data as { challenge_id: string }[] | null) || []).map(
             (row) => row.challenge_id
           )),
@@ -247,7 +234,7 @@ export default function LeaderboardPage() {
 
       if (allowedUserIds.size > 0) {
         const { data, error } = await supabase
-          .from('public_profiles')
+          .from('v1a_public_profiles')
           .select('id, username, total_xp, level')
           .in('id', Array.from(allowedUserIds));
 

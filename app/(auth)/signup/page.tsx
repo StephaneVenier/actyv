@@ -30,7 +30,7 @@ export default function SignupPage() {
     e.preventDefault();
     setMessage('');
 
-    if (!email || !password || !username) {
+    if (!email || !password || !username.trim()) {
       setMessage('Tous les champs sont obligatoires.');
       return;
     }
@@ -42,6 +42,7 @@ export default function SignupPage() {
       password,
       options: {
         emailRedirectTo: 'https://actyv-iota.vercel.app/auth/callback',
+        data: { username: username.trim() },
       },
     });
 
@@ -51,18 +52,13 @@ export default function SignupPage() {
       return;
     }
 
-    const { error: profileError } = await supabase.from('profiles').insert({
-      id: data.user.id,
-      email,
-      username,
-      total_xp: 0,
-      level: 1,
-    });
-
-    if (profileError) {
-      setMessage("Compte créé, mais erreur lors de l'enregistrement du profil.");
-      setLoading(false);
-      return;
+    if (data.session) {
+      const { data: createdProfile, error: profileError } = await supabase.rpc('ensure_own_profile');
+      if (profileError || !createdProfile || createdProfile.id !== data.user.id) {
+        setMessage("Compte créé, mais erreur lors de l'enregistrement du profil.");
+        setLoading(false);
+        return;
+      }
     }
 
     setMessage('Compte créé avec succès.');

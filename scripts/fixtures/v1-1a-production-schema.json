@@ -1,0 +1,1521 @@
+[
+  {
+    "schema_name": "auth",
+    "relation_name": "users",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "instance_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "aud",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "role",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "email",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "encrypted_password",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "email_confirmed_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "invited_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "confirmation_token",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "confirmation_sent_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "recovery_token",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "recovery_sent_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "email_change_token_new",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "email_change",
+        "type": "character varying(255)",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "email_change_sent_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "last_sign_in_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "raw_app_meta_data",
+        "type": "jsonb",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "raw_user_meta_data",
+        "type": "jsonb",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "is_super_admin",
+        "type": "boolean",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "phone",
+        "type": "text",
+        "default": "NULL::character varying",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "phone_confirmed_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "phone_change",
+        "type": "text",
+        "default": "''::character varying",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "phone_change_token",
+        "type": "character varying(255)",
+        "default": "''::character varying",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "phone_change_sent_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "confirmed_at",
+        "type": "timestamp with time zone",
+        "default": "LEAST(email_confirmed_at, phone_confirmed_at)",
+        "identity": "",
+        "not_null": false,
+        "generated": "s"
+      },
+      {
+        "name": "email_change_token_current",
+        "type": "character varying(255)",
+        "default": "''::character varying",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "email_change_confirm_status",
+        "type": "smallint",
+        "default": "0",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "banned_until",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "reauthentication_token",
+        "type": "character varying(255)",
+        "default": "''::character varying",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "reauthentication_sent_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "is_sso_user",
+        "type": "boolean",
+        "default": "false",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp with time zone",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "is_anonymous",
+        "type": "boolean",
+        "default": "false",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "users_email_change_confirm_status_check",
+        "type": "c",
+        "definition": "CHECK (email_change_confirm_status >= 0 AND email_change_confirm_status <= 2)"
+      },
+      {
+        "name": "users_phone_key",
+        "type": "u",
+        "definition": "UNIQUE (phone)"
+      },
+      {
+        "name": "users_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "confirmation_token_idx",
+        "definition": "CREATE UNIQUE INDEX confirmation_token_idx ON auth.users USING btree (confirmation_token) WHERE ((confirmation_token)::text !~ '^[0-9 ]*$'::text)"
+      },
+      {
+        "name": "email_change_token_current_idx",
+        "definition": "CREATE UNIQUE INDEX email_change_token_current_idx ON auth.users USING btree (email_change_token_current) WHERE ((email_change_token_current)::text !~ '^[0-9 ]*$'::text)"
+      },
+      {
+        "name": "email_change_token_new_idx",
+        "definition": "CREATE UNIQUE INDEX email_change_token_new_idx ON auth.users USING btree (email_change_token_new) WHERE ((email_change_token_new)::text !~ '^[0-9 ]*$'::text)"
+      },
+      {
+        "name": "reauthentication_token_idx",
+        "definition": "CREATE UNIQUE INDEX reauthentication_token_idx ON auth.users USING btree (reauthentication_token) WHERE ((reauthentication_token)::text !~ '^[0-9 ]*$'::text)"
+      },
+      {
+        "name": "recovery_token_idx",
+        "definition": "CREATE UNIQUE INDEX recovery_token_idx ON auth.users USING btree (recovery_token) WHERE ((recovery_token)::text !~ '^[0-9 ]*$'::text)"
+      },
+      {
+        "name": "users_email_partial_key",
+        "definition": "CREATE UNIQUE INDEX users_email_partial_key ON auth.users USING btree (email) WHERE (is_sso_user = false)"
+      },
+      {
+        "name": "users_instance_id_email_idx",
+        "definition": "CREATE INDEX users_instance_id_email_idx ON auth.users USING btree (instance_id, lower((email)::text))"
+      },
+      {
+        "name": "users_instance_id_idx",
+        "definition": "CREATE INDEX users_instance_id_idx ON auth.users USING btree (instance_id)"
+      },
+      {
+        "name": "users_is_anonymous_idx",
+        "definition": "CREATE INDEX users_is_anonymous_idx ON auth.users USING btree (is_anonymous)"
+      },
+      {
+        "name": "users_phone_key",
+        "definition": "CREATE UNIQUE INDEX users_phone_key ON auth.users USING btree (phone)"
+      },
+      {
+        "name": "users_pkey",
+        "definition": "CREATE UNIQUE INDEX users_pkey ON auth.users USING btree (id)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "activities",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "user_email",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "distance_km",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "duration_minutes",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp without time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "unit_type",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "unit_value",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "exercise_type",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "likes_count",
+        "type": "integer",
+        "default": "0",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "boosts_count",
+        "type": "integer",
+        "default": "0",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "activity_name",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "source",
+        "type": "text",
+        "default": "'manual'::text",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "occurred_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "elevation_gain_m",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "elevation_loss_m",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "metadata",
+        "type": "jsonb",
+        "default": "'{}'::jsonb",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "activities_challenge_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id)"
+      },
+      {
+        "name": "activities_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "activities_unit_type_check",
+        "type": "c",
+        "definition": "CHECK (unit_type = ANY (ARRAY['distance'::text, 'duration'::text, 'reps'::text]))"
+      },
+      {
+        "name": "activities_user_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "activities_pkey",
+        "definition": "CREATE UNIQUE INDEX activities_pkey ON public.activities USING btree (id)"
+      },
+      {
+        "name": "idx_activities_challenge_id",
+        "definition": "CREATE INDEX idx_activities_challenge_id ON public.activities USING btree (challenge_id)"
+      },
+      {
+        "name": "idx_activities_user_email",
+        "definition": "CREATE INDEX idx_activities_user_email ON public.activities USING btree (user_email)"
+      },
+      {
+        "name": "idx_activities_user_id",
+        "definition": "CREATE INDEX idx_activities_user_id ON public.activities USING btree (user_id)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "challenge_members",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "user_email",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "default": "'member'::text",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "joined_at",
+        "type": "timestamp without time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "challenge_members_challenge_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id)"
+      },
+      {
+        "name": "challenge_members_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "challenge_members_role_check",
+        "type": "c",
+        "definition": "CHECK (role = ANY (ARRAY['owner'::text, 'member'::text]))"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "challenge_members_pkey",
+        "definition": "CREATE UNIQUE INDEX challenge_members_pkey ON public.challenge_members USING btree (id)"
+      },
+      {
+        "name": "idx_challenge_members_challenge_id",
+        "definition": "CREATE INDEX idx_challenge_members_challenge_id ON public.challenge_members USING btree (challenge_id)"
+      },
+      {
+        "name": "idx_challenge_members_user_email",
+        "definition": "CREATE INDEX idx_challenge_members_user_email ON public.challenge_members USING btree (user_email)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "challenge_participants",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "role",
+        "type": "text",
+        "default": "'participant'::text",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "joined_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "challenge_participants_challenge_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "challenge_participants_challenge_id_user_id_key",
+        "type": "u",
+        "definition": "UNIQUE (challenge_id, user_id)"
+      },
+      {
+        "name": "challenge_participants_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "challenge_participants_role_check",
+        "type": "c",
+        "definition": "CHECK (role = ANY (ARRAY['admin'::text, 'participant'::text]))"
+      },
+      {
+        "name": "challenge_participants_user_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "challenge_participants_challenge_id_user_id_key",
+        "definition": "CREATE UNIQUE INDEX challenge_participants_challenge_id_user_id_key ON public.challenge_participants USING btree (challenge_id, user_id)"
+      },
+      {
+        "name": "challenge_participants_pkey",
+        "definition": "CREATE UNIQUE INDEX challenge_participants_pkey ON public.challenge_participants USING btree (id)"
+      },
+      {
+        "name": "idx_challenge_participants_challenge_id",
+        "definition": "CREATE INDEX idx_challenge_participants_challenge_id ON public.challenge_participants USING btree (challenge_id)"
+      },
+      {
+        "name": "idx_challenge_participants_user_id",
+        "definition": "CREATE INDEX idx_challenge_participants_user_id ON public.challenge_participants USING btree (user_id)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "challenges",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "start_date",
+        "type": "date",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "end_date",
+        "type": "date",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp without time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "goal_km",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "created_by",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "visibility",
+        "type": "text",
+        "default": "'private'::text",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "invite_code",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "goal_type",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "goal_value",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "default": "'active'::text",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "is_deleted",
+        "type": "boolean",
+        "default": "false",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "is_public",
+        "type": "boolean",
+        "default": "false",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "challenges_created_by_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "challenges_goal_type_check",
+        "type": "c",
+        "definition": "CHECK (goal_type = ANY (ARRAY['distance'::text, 'duration'::text, 'reps'::text]))"
+      },
+      {
+        "name": "challenges_invite_code_key",
+        "type": "u",
+        "definition": "UNIQUE (invite_code)"
+      },
+      {
+        "name": "challenges_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "challenges_status_check",
+        "type": "c",
+        "definition": "CHECK (status = ANY (ARRAY['active'::text, 'completed'::text, 'archived'::text, 'deleted'::text]))"
+      },
+      {
+        "name": "challenges_visibility_check",
+        "type": "c",
+        "definition": "CHECK (visibility = ANY (ARRAY['private'::text, 'community'::text]))"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "challenges_invite_code_key",
+        "definition": "CREATE UNIQUE INDEX challenges_invite_code_key ON public.challenges USING btree (invite_code)"
+      },
+      {
+        "name": "challenges_pkey",
+        "definition": "CREATE UNIQUE INDEX challenges_pkey ON public.challenges USING btree (id)"
+      },
+      {
+        "name": "idx_challenges_created_by",
+        "definition": "CREATE INDEX idx_challenges_created_by ON public.challenges USING btree (created_by)"
+      },
+      {
+        "name": "idx_challenges_is_deleted",
+        "definition": "CREATE INDEX idx_challenges_is_deleted ON public.challenges USING btree (is_deleted)"
+      },
+      {
+        "name": "idx_challenges_visibility",
+        "definition": "CREATE INDEX idx_challenges_visibility ON public.challenges USING btree (visibility)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "profiles",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "false",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "email",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "username",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "total_xp",
+        "type": "integer",
+        "default": "0",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "level",
+        "type": "integer",
+        "default": "1",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "profiles_email_key",
+        "type": "u",
+        "definition": "UNIQUE (email)"
+      },
+      {
+        "name": "profiles_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "profiles_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "profiles_username_key",
+        "type": "u",
+        "definition": "UNIQUE (username)"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "profiles_email_key",
+        "definition": "CREATE UNIQUE INDEX profiles_email_key ON public.profiles USING btree (email)"
+      },
+      {
+        "name": "profiles_pkey",
+        "definition": "CREATE UNIQUE INDEX profiles_pkey ON public.profiles USING btree (id)"
+      },
+      {
+        "name": "profiles_username_key",
+        "definition": "CREATE UNIQUE INDEX profiles_username_key ON public.profiles USING btree (username)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "program_sessions",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "false",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "challenge_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "week_number",
+        "type": "integer",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "title",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "target_duration",
+        "type": "integer",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "target_distance",
+        "type": "numeric",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "program_sessions_challenge_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (challenge_id) REFERENCES challenges(id)"
+      },
+      {
+        "name": "program_sessions_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "program_sessions_pkey",
+        "definition": "CREATE UNIQUE INDEX program_sessions_pkey ON public.program_sessions USING btree (id)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "public_profiles",
+    "relation_exists": "false",
+    "relation_kind": "null",
+    "rls_enabled": "null",
+    "columns": [],
+    "constraints": [],
+    "indexes": []
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "training_program_completions",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "program_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "program_session_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "workout_history_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_program_completions_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "training_program_completions_program_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (program_id) REFERENCES training_programs(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "training_program_completions_program_session_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (program_session_id) REFERENCES training_program_sessions(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "training_program_completions_session_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "training_program_completions_user_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "training_program_completions_user_program_session_key",
+        "type": "u",
+        "definition": "UNIQUE (user_id, program_id, program_session_id)"
+      },
+      {
+        "name": "training_program_completions_workout_history_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (workout_history_id) REFERENCES workout_sessions_history(id) ON DELETE SET NULL"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "training_program_completions_pkey",
+        "definition": "CREATE UNIQUE INDEX training_program_completions_pkey ON public.training_program_completions USING btree (id)"
+      },
+      {
+        "name": "training_program_completions_unique_user_program_session",
+        "definition": "CREATE UNIQUE INDEX training_program_completions_unique_user_program_session ON public.training_program_completions USING btree (user_id, program_id, program_session_id)"
+      },
+      {
+        "name": "training_program_completions_user_program_session_key",
+        "definition": "CREATE UNIQUE INDEX training_program_completions_user_program_session_key ON public.training_program_completions USING btree (user_id, program_id, program_session_id)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "training_program_sessions",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "program_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "workout_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "week_number",
+        "type": "integer",
+        "default": "1",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "day_number",
+        "type": "integer",
+        "default": "1",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "position",
+        "type": "integer",
+        "default": "0",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "session_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "day_of_week",
+        "type": "integer",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "session_name",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "order_index",
+        "type": "integer",
+        "default": "0",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_program_sessions_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "training_program_sessions_program_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (program_id) REFERENCES training_programs(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "training_program_sessions_session_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (session_id) REFERENCES training_sessions(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "training_program_sessions_workout_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (workout_id) REFERENCES training_sessions(id) ON DELETE SET NULL"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "training_program_sessions_pkey",
+        "definition": "CREATE UNIQUE INDEX training_program_sessions_pkey ON public.training_program_sessions USING btree (id)"
+      }
+    ]
+  },
+  {
+    "schema_name": "public",
+    "relation_name": "training_programs",
+    "relation_exists": "true",
+    "relation_kind": "r",
+    "rls_enabled": "true",
+    "columns": [
+      {
+        "name": "id",
+        "type": "uuid",
+        "default": "gen_random_uuid()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "user_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "sport",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "duration_weeks",
+        "type": "integer",
+        "default": "1",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "start_date",
+        "type": "date",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "visibility",
+        "type": "text",
+        "default": "'private'::text",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": true,
+        "generated": ""
+      },
+      {
+        "name": "invite_code",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp with time zone",
+        "default": "now()",
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "copied_from_program_id",
+        "type": "uuid",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      },
+      {
+        "name": "difficulty",
+        "type": "text",
+        "default": null,
+        "identity": "",
+        "not_null": false,
+        "generated": ""
+      }
+    ],
+    "constraints": [
+      {
+        "name": "training_programs_copied_from_program_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (copied_from_program_id) REFERENCES training_programs(id) ON DELETE SET NULL"
+      },
+      {
+        "name": "training_programs_copies_not_shared",
+        "type": "c",
+        "definition": "CHECK (copied_from_program_id IS NULL OR visibility <> 'shared'::text)"
+      },
+      {
+        "name": "training_programs_pkey",
+        "type": "p",
+        "definition": "PRIMARY KEY (id)"
+      },
+      {
+        "name": "training_programs_user_id_fkey",
+        "type": "f",
+        "definition": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "training_programs_visibility_check",
+        "type": "c",
+        "definition": "CHECK (visibility = ANY (ARRAY['private'::text, 'shared'::text, 'public'::text]))"
+      }
+    ],
+    "indexes": [
+      {
+        "name": "training_programs_invite_code_key",
+        "definition": "CREATE UNIQUE INDEX training_programs_invite_code_key ON public.training_programs USING btree (invite_code) WHERE (invite_code IS NOT NULL)"
+      },
+      {
+        "name": "training_programs_pkey",
+        "definition": "CREATE UNIQUE INDEX training_programs_pkey ON public.training_programs USING btree (id)"
+      }
+    ]
+  }
+]

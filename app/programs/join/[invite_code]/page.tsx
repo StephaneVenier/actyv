@@ -116,12 +116,10 @@ export default function JoinSharedProgramPage() {
 
         setUserId(user?.id || null);
 
-        const { data: programRow, error: programError } = await supabase
-          .from('training_programs')
-          .select('id, user_id, name, description, sport, duration_weeks, visibility, invite_code, start_date, created_at')
-          .eq('invite_code', inviteCode)
-          .eq('visibility', 'shared')
-          .maybeSingle();
+        const { data: preview, error: programError } = await supabase.rpc(
+          'get_shared_program_preview', { p_invite_code: inviteCode }
+        );
+        const programRow = preview?.program as SharedProgramRecord | undefined;
 
         if (programError) {
           console.error('Erreur chargement programme partage :', programError);
@@ -140,23 +138,9 @@ export default function JoinSharedProgramPage() {
 
         setProgram(programRow as SharedProgramRecord);
 
-        const [{ data: sessionsRows, error: sessionsError }, profileResponse] = await Promise.all([
-          supabase
-            .from('training_program_sessions')
-            .select('id, program_id, session_id, session_name, sport, week_number, day_of_week, order_index, created_at')
-            .eq('program_id', programRow.id)
-            .order('week_number', { ascending: true })
-            .order('day_of_week', { ascending: true })
-            .order('order_index', { ascending: true }),
-          supabase.from('public_profiles').select('username').eq('id', programRow.user_id).maybeSingle(),
-        ]);
-
-        if (sessionsError) {
-          console.error('Erreur chargement seances programme partage :', sessionsError);
-          setProgramSessions([]);
-        } else {
-          setProgramSessions(sortProgramSessions((sessionsRows as TrainingProgramSession[]) || []));
-        }
+        setProgramSessions(sortProgramSessions((preview.sessions as TrainingProgramSession[]) || []));
+        const profileResponse = await supabase.from('v1a_public_profiles')
+          .select('username').eq('id', programRow.user_id).maybeSingle();
 
         if (profileResponse.error) {
           setCreatorProfile(null);

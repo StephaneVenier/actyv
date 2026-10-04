@@ -128,7 +128,7 @@ export async function fetchPublicCreatorProfiles(userIds: string[]) {
   }
 
   const { data, error } = await supabase
-    .from('public_profiles')
+    .from('v1a_public_profiles')
     .select('id, username, level')
     .in('id', userIds);
 

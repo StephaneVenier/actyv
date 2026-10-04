@@ -459,19 +459,16 @@ export default function ProfilePage() {
         return;
       }
 
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('id, email, username, total_xp, level')
-        .eq('id', user.id)
-        .single();
-
-      const nextProfile = profileData || {
-        id: user.id,
-        email: user.email || null,
-        username: null,
-        total_xp: 0,
-        level: 1,
-      };
+      const { data: profileData, error: provisionError } = await supabase.rpc('ensure_own_profile');
+      if (provisionError) {
+        console.error('Erreur initialisation profil :', provisionError);
+      }
+      if (provisionError || !profileData || profileData.id !== user.id) {
+        setMessage("Impossible de charger ton profil. Reessaie apres reconnexion.");
+        setLoading(false);
+        return;
+      }
+      const nextProfile = profileData as Profile;
 
       const xpTotalResult = await getUserTotalXp(user.id, nextProfile.total_xp || 0);
 
@@ -537,8 +534,8 @@ export default function ProfilePage() {
             )
             .or(`user_id.eq.${user.id}${user.email ? `,user_email.eq.${user.email}` : ''}`)
             .order('created_at', { ascending: false }),
-          user.id
-            ? supabase.from('challenge_members').select('challenge_id').eq('user_id', user.id)
+          user.email
+            ? supabase.from('challenge_members').select('challenge_id').eq('user_email', user.email)
             : Promise.resolve({ data: [], error: null }),
           supabase.from('challenge_participants').select('challenge_id').eq('user_id', user.id),
           supabase.from('user_badges').select('badge_code, unlocked_at').eq('user_id', user.id),
@@ -1162,7 +1159,7 @@ export default function ProfilePage() {
   }, [activities, badges, recentWorkoutHistory, xpEvents]);
 
   const handleSaveUsername = async () => {
-    if (!profile) return;
+    if (!profile || savingUsername) return;
 
     setSavingUsername(true);
     setMessage('');
@@ -1175,25 +1172,35 @@ export default function ProfilePage() {
       return;
     }
 
-    const { error } = await supabase.from('profiles').upsert({
-      id: profile.id,
-      email: profile.email,
-      username: trimmed,
-      total_xp: profile.total_xp || 0,
-      level: getActyvLevel(totalXp).level,
-    });
-
-    if (error) {
-      console.error('Erreur mise a jour pseudo :', error);
-      setMessage("Impossible d'enregistrer le pseudo.");
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user || user.id !== profile.id) {
+        setMessage('Session expiree. Reconnecte-toi avant de modifier ton pseudo.');
+        return;
+      }
+      const { data, error } = await supabase.from('profiles')
+        .update({ username: trimmed })
+        .eq('id', user.id)
+        .select('id, username')
+        .maybeSingle();
+      if (error) {
+        setMessage(error.code === '23505' ? 'Ce pseudo est deja utilise.'
+          : error.code === '42501' ? "Tu n'as pas l'autorisation de modifier ce profil."
+          : "Impossible d'enregistrer le pseudo. Reessaie.");
+        return;
+      }
+      if (!data || data.id !== user.id || data.username !== trimmed) {
+        setMessage('Profil introuvable ou modification non confirmee. Recharge la page.');
+        return;
+      }
+      setProfile((prev) => (prev ? { ...prev, username: data.username } : prev));
+      setMessage('Pseudo mis a jour.');
+      setEditMode(false);
+    } catch {
+      setMessage('Connexion indisponible. Reessaie pour enregistrer ton pseudo.');
+    } finally {
       setSavingUsername(false);
-      return;
     }
-
-    setProfile((prev) => (prev ? { ...prev, username: trimmed } : prev));
-    setMessage('Pseudo mis a jour.');
-    setEditMode(false);
-    setSavingUsername(false);
   };
 
   const handleSaveTodaySteps = async () => {

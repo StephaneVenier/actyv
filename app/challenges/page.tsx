@@ -118,17 +118,11 @@ export default function ChallengesPage() {
       const userId = user?.id || null;
       let visibleChallengeIds: string[] = [];
 
-      const [memberRowsResponse, legacyMemberRowsResponse, participantRowsResponse] = await Promise.all([
-        userId
-          ? supabase
-              .from('challenge_members')
-              .select('challenge_id, user_id, user_email')
-              .eq('user_id', userId)
-          : Promise.resolve({ data: [], error: null }),
+      const [legacyMemberRowsResponse, participantRowsResponse] = await Promise.all([
         userEmail
           ? supabase
               .from('challenge_members')
-              .select('challenge_id, user_id, user_email')
+              .select('challenge_id, user_email')
               .eq('user_email', userEmail)
           : Promise.resolve({ data: [], error: null }),
         userId
@@ -138,12 +132,6 @@ export default function ChallengesPage() {
               .eq('user_id', userId)
           : Promise.resolve({ data: [], error: null }),
       ]);
-
-      if (memberRowsResponse.error) {
-        console.error('Erreur chargement challenge_members :', memberRowsResponse.error);
-      } else {
-        visibleChallengeIds = ((memberRowsResponse.data as ChallengeMember[] | null) || []).map((row) => row.challenge_id);
-      }
 
       if (legacyMemberRowsResponse.error) {
         console.error('Erreur chargement challenge_members legacy :', legacyMemberRowsResponse.error);
@@ -223,7 +211,7 @@ export default function ChallengesPage() {
             .in('challenge_id', challengeIds),
           supabase
             .from('challenge_members')
-            .select('challenge_id, user_id, user_email')
+            .select('challenge_id, user_email')
             .in('challenge_id', challengeIds),
           supabase
             .from('challenge_participants')

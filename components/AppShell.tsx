@@ -72,13 +72,18 @@ export function AppShell({ children }: { children: ReactNode }) {
         const email = user.email || null;
         setUserEmail(email);
 
+        const { error: provisionError } = await supabase.rpc('ensure_own_profile');
+        if (provisionError) {
+          console.error('Erreur initialisation profil :', provisionError);
+        }
+
         if (!email) {
           setUsername(null);
         } else {
           const { data, error: profileError } = await supabase
             .from('profiles')
             .select('username')
-            .eq('email', email)
+            .eq('id', user.id)
             .maybeSingle();
 
           if (profileError) {
