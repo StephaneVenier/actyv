@@ -2058,7 +2058,7 @@ export default function SessionDetailPage() {
                         <div className="session-block-card__top">
                           <div className="session-block-check__label">
                             <strong>{block.name?.trim() || 'Exercice'}</strong>
-                            <small>{formatSessionBlockSummary(block)}</small>
+                            <small>{formatSessionBlockSummary(block.block_type, block.target_value, block.sets_count, block.charge_kg)}</small>
                           </div>
                         </div>
 

@@ -13072,6 +13072,32 @@ img {
   }
 }
 
+.legal-public {
+  min-height: 100dvh;
+  padding: 0 16px 32px;
+  background: #07121c;
+  color: #f1f5f9;
+}
+
+.legal-public__nav {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 16px 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.legal-public__nav img { object-fit: contain; }
+.legal-public__nav nav { display: flex; flex-wrap: wrap; gap: 10px 16px; }
+.legal-public__nav a { color: #85f4d0; }
+.legal-public .legal-page__intro { color: #d9e2ec; }
+.legal-public .legal-page__title { font-size: 28px; letter-spacing: 0; text-shadow: none; }
+.legal-public .legal-page__eyebrow { letter-spacing: 0; }
+.legal-public .legal-copy-stack { padding: 16px 0; border-top: 1px solid #29404b; }
+.legal-public .legal-copy { overflow-wrap: anywhere; }
+
 .legal-page {
   display: grid;
   gap: 16px;

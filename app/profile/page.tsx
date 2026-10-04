@@ -1255,12 +1255,6 @@ export default function ProfilePage() {
       }
 
       setStepsMessage('Pas du jour mis a jour.');
-      if (xpResult.awardedXp > 0) {
-        queuePendingToast({
-          message: `+${xpResult.awardedXp} XP grâce à tes pas`,
-          tone: 'info',
-        });
-      }
     } catch (error) {
       console.error('Erreur enregistrement daily_steps profil :', error);
       setStepsMessage("Impossible d'enregistrer les pas du jour.");

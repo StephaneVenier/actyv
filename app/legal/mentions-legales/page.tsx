@@ -1,95 +1,34 @@
-'use client';
-
 import Link from 'next/link';
-import { AppShell } from '@/components/AppShell';
+import type { Metadata } from 'next';
+
+export const metadata: Metadata = { title: 'Mentions légales | Actyv' };
 
 export default function MentionsLegalesPage() {
-  return (
-    <AppShell>
-      <div className="legal-page">
-        <header className="legal-page__header">
-          <span className="legal-page__eyebrow">Informations legales</span>
-          <h1 className="legal-page__title">Mentions legales</h1>
-          <p className="legal-page__intro">
-            Cette page regroupe les principales informations d&apos;identification du
-            site Actyv. Les champs encore provisoires sont clairement signales pour
-            pouvoir etre completes avant mise en production definitive.
-          </p>
-        </header>
-
-        <div className="legal-stack">
-          <section className="legal-card">
-            <dl className="legal-definition-list">
-              <div className="legal-definition-list__row">
-                <dt>Nom du site</dt>
-                <dd>Actyv</dd>
-              </div>
-              <div className="legal-definition-list__row">
-                <dt>Domaine</dt>
-                <dd>a-ctyv.fr</dd>
-              </div>
-              <div className="legal-definition-list__row">
-                <dt>Objet du site</dt>
-                <dd>
-                  Application de defis sportifs, seances, programmes et progression
-                  collective.
-                </dd>
-              </div>
-              <div className="legal-definition-list__row">
-                <dt>Editeur</dt>
-                <dd>A completer</dd>
-              </div>
-              <div className="legal-definition-list__row">
-                <dt>Responsable de publication</dt>
-                <dd>A completer</dd>
-              </div>
-              <div className="legal-definition-list__row">
-                <dt>Contact</dt>
-                <dd>
-                  <a href="mailto:contact@a-ctyv.fr">contact@a-ctyv.fr</a>
-                </dd>
-              </div>
-              <div className="legal-definition-list__row">
-                <dt>Hebergeur</dt>
-                <dd>Vercel</dd>
-              </div>
-            </dl>
-          </section>
-
-          <section className="legal-card legal-copy-stack">
-            <h2>Credits</h2>
-            <p className="legal-copy">
-              Exercise data by{' '}
-              <a href="https://repdb.co" target="_blank" rel="noreferrer">
-                RepDB (repdb.co)
-              </a>
-              .
-            </p>
-            <p className="legal-copy">
-              Certaines illustrations d&apos;exercices utilisees dans Actyv proviennent
-              du dataset free tier RepDB et sont integrees conformement a leur licence
-              avec attribution visible.
-            </p>
-          </section>
-
-          <section className="legal-card legal-copy-stack">
-            <h2>Complements utiles</h2>
-            <p className="legal-copy">
-              Les informations relatives a l&apos;editeur, au responsable de
-              publication et au contact doivent etre confirmees avant publication
-              commerciale ou communication externe.
-            </p>
-            <p className="legal-copy">
-              Pour consulter les details sur le traitement des donnees et l&apos;usage
-              des cookies, vous pouvez aussi lire les pages dediees ci-dessous.
-            </p>
-            <div className="legal-links">
-              <Link href="/legal/confidentialite">Politique de confidentialite</Link>
-              <Link href="/legal/cookies">Gestion des cookies</Link>
-            </div>
-          </section>
-        </div>
-      </div>
-    </AppShell>
-  );
+  return <div className="legal-page">
+    <header className="legal-page__header">
+      <span className="legal-page__eyebrow">Informations légales</span>
+      <h1 className="legal-page__title">Mentions légales</h1>
+      <p className="legal-page__intro">Actyv, accessible sur https://a-ctyv.fr, est un service sportif édité à titre non professionnel, entièrement gratuit, sans publicité et sans achat intégré.</p>
+    </header>
+    <div className="legal-stack">
+      <section className="legal-copy-stack">
+        <h2>Éditeur et contact</h2>
+        <p className="legal-copy">L&apos;éditeur non professionnel d&apos;Actyv a choisi de préserver son anonymat public dans le cadre de l&apos;article 1-1, II de la loi pour la confiance dans l&apos;économie numérique. Les éléments d&apos;identification requis ont été communiqués à son hébergeur.</p>
+        <p className="legal-copy">Contact du service et du responsable du traitement des données : <a href="mailto:contact@a-ctyv.fr">contact@a-ctyv.fr</a>.</p>
+      </section>
+      <section className="legal-copy-stack">
+        <h2>Hébergement</h2>
+        <p className="legal-copy">Le site public et ses API sont hébergés par Vercel Inc., 440 N Barranca Ave #4133, Covina, CA 91723, États-Unis. Informations du prestataire : <a href="https://vercel.com/legal">vercel.com/legal</a>.</p>
+        <p className="legal-copy">Supabase fournit l&apos;authentification, la base de données et le stockage. IONOS assure l&apos;acheminement SMTP des emails. Le rôle des services techniques et cartographiques est décrit dans la <Link href="/legal/confidentialite">politique de confidentialité</Link>.</p>
+      </section>
+      <section className="legal-copy-stack">
+        <h2>Crédits</h2>
+        <p className="legal-copy">Exercise data by <a href="https://repdb.co">RepDB (repdb.co)</a>. Certaines illustrations proviennent du dataset free tier RepDB et sont intégrées avec attribution conformément à sa licence. Les cartes utilisent les données et tuiles OpenStreetMap, avec l&apos;attribution affichée sur la carte.</p>
+      </section>
+      <section className="legal-copy-stack">
+        <h2>Données et demandes</h2>
+        <p className="legal-copy">Les demandes relatives au service ou à vos données peuvent être adressées à <a href="mailto:contact@a-ctyv.fr">contact@a-ctyv.fr</a>, sans connexion à Actyv. Consultez les <Link href="/legal/suppression-compte">informations pour demander la suppression du compte</Link> et la page <Link href="/legal/cookies">stockage local et cookies</Link>.</p>
+      </section>
+    </div>
+  </div>;
 }
