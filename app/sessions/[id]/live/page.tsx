@@ -1128,10 +1128,10 @@ export default function LiveSessionPage() {
       min?: number;
     }
   ) => (
-    <label className="session-live-compact-stepper">
+    <div className="session-live-compact-stepper">
       <span>{label}</span>
       <div className="session-live-compact-stepper__controls">
-        <button type="button" className="button ghost" onClick={onDecrease}>
+        <button type="button" className="button ghost" onClick={onDecrease} aria-label={`Diminuer ${label}`} title={`Diminuer ${label}`}>
           {options?.decreaseLabel ?? '-'}
         </button>
         <input
@@ -1140,13 +1140,14 @@ export default function LiveSessionPage() {
           step={options?.step ?? '1'}
           inputMode={options?.inputMode ?? 'numeric'}
           value={value}
+          aria-label={label}
           onChange={(event) => onChange(event.target.value)}
         />
-        <button type="button" className="button ghost" onClick={onIncrease}>
+        <button type="button" className="button ghost" onClick={onIncrease} aria-label={`Augmenter ${label}`} title={`Augmenter ${label}`}>
           {options?.increaseLabel ?? '+'}
         </button>
       </div>
-    </label>
+    </div>
   );
 
   useEffect(() => {
@@ -2835,10 +2836,10 @@ export default function LiveSessionPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page sessions-page--dark session-live-page">
-        <Link href={`/sessions/${id}`} className="detail-back-link">
+      <section className="sessions-page sessions-page--dark session-live-page session-live-page--m3">
+        {(!currentBlock || isFinishReviewVisible) ? <Link href={`/sessions/${id}`} className="detail-back-link">
           &larr; Retour a la seance
-        </Link>
+        </Link> : null}
 
         {loading ? (
           <div className="challenge-state">
@@ -2881,7 +2882,7 @@ export default function LiveSessionPage() {
           </div>
         ) : (
           <>
-            <SessionLiveHeader
+            {isFinishReviewVisible ? <SessionLiveHeader
               sportBadge={
                 <div className={getSportBadgeClassName(session.sport, 'badge', 'Sport')}>
                   {formatSportBadgeLabel(session.sport, 'Sport')}
@@ -2904,7 +2905,7 @@ export default function LiveSessionPage() {
               onTogglePause={() => setIsTimerPaused((current) => !current)}
               isPaused={isTimerPaused || isFinishReviewVisible}
               quitHref={`/sessions/${id}` as Route}
-            />
+            /> : null}
 
             {isFinishReviewVisible ? (
               <article className="card session-live-finished session-live-finished--v1">
@@ -3143,18 +3144,19 @@ export default function LiveSessionPage() {
               <>
                 <article className="card session-live-compact-shell">
                   <div className="session-live-compact-shell__top">
-                    <Link href={`/sessions/${id}` as Route} className="button ghost session-live-compact-shell__back">
+                    <Link href={`/sessions/${id}` as Route} className="button ghost session-live-compact-shell__back" aria-label="Retour a la seance" title="Retour a la seance">
                       ←
                     </Link>
                     <div className="session-live-compact-shell__title">
-                      <strong>{session?.sport ? `Live ${formatSportBadgeLabel(session.sport, 'Seance')}` : 'Live seance'}</strong>
-                      <span>{session.name}</span>
+                      <strong title={session.name}>{session.name}</strong>
                     </div>
                     <span className="session-live-compact-shell__timer">{compactElapsedLabel}</span>
                     <button
                       type="button"
                       className="button ghost session-live-compact-shell__pause"
                       onClick={() => setIsTimerPaused((current) => !current)}
+                      aria-label={isTimerPaused ? 'Reprendre la seance' : 'Mettre la seance en pause'}
+                      title={isTimerPaused ? 'Reprendre la seance' : 'Mettre la seance en pause'}
                     >
                       {isTimerPaused ? '▶' : '⏸'}
                     </button>
@@ -3170,7 +3172,9 @@ export default function LiveSessionPage() {
 
                 <article className="card session-live-board">
                   <div className="session-live-board__list">
-                    {blocks.map((block, index) => {
+                    {blocks.map((block, index) => ({ block, index }))
+                      .sort((left, right) => Number(right.index === currentIndex) - Number(left.index === currentIndex))
+                      .map(({ block, index }) => {
                       const liveDraft = performanceDraftsByBlockId[block.id] || createDefaultLivePerformanceDraft(block);
                       const liveLines = getLivePerformanceDraftLines(liveDraft, block);
                       const totalSets = getLivePerformanceDraftTotalSets(liveDraft, block);
@@ -3231,20 +3235,16 @@ export default function LiveSessionPage() {
                                   <span className="section-kicker">
                                     {currentBlock.block_type === 'free' ? currentSeriesLabel : currentEditableSeriesLabel}
                                   </span>
-                                  <strong>{currentBlockName}</strong>
+                                  <span>{getSessionBlockTypeLabel(currentBlock.block_type)}</span>
                                 </div>
                                 <div className="session-live-board__expanded-summary">
-                                  <span>{currentCompactValueLabel}</span>
                                   <span>{`Repos ${formatTimerClock(currentLineRestSeconds)}`}</span>
-                                  {currentBlock.block_type === 'reps' ? (
-                                    <span>{formatSessionVolumeKg((currentActualReps ?? 0) * (currentActualChargeKg ?? 0)) || '0 kg'}</span>
-                                  ) : null}
                                 </div>
                               </div>
 
                               {isResting ? (
                                 <div className="session-live-rest-row">
-                                  <strong>{`Repos • ${restingBlockName}`}</strong>
+                                  <strong>Repos</strong>
                                   <span>{formatTimerClock(restSecondsLeft)}</span>
                                   <div className="session-live-rest-row__actions">
                                     <button type="button" className="button ghost" onClick={() => adjustRestSeconds(-15)}>
@@ -3254,8 +3254,10 @@ export default function LiveSessionPage() {
                                       type="button"
                                       className="button ghost"
                                       onClick={() => setIsTimerPaused((current) => !current)}
+                                      aria-label={isTimerPaused ? 'Reprendre le repos' : 'Mettre le repos en pause'}
+                                      title={isTimerPaused ? 'Reprendre le repos' : 'Mettre le repos en pause'}
                                     >
-                                      {isTimerPaused ? 'Reprendre' : 'Pause'}
+                                      {isTimerPaused ? '▶' : '⏸'}
                                     </button>
                                     <button type="button" className="button ghost" onClick={() => adjustRestSeconds(15)}>
                                       +15s
@@ -3269,7 +3271,7 @@ export default function LiveSessionPage() {
 
                               {isDurationBlock ? (
                                 <div className="session-live-timer-row">
-                                  <strong>{awaitingExerciseCompletion ? 'Serie prete' : 'Chrono actif'}</strong>
+                                  <strong>{awaitingExerciseCompletion ? 'A valider' : isExercising ? isTimerPaused ? 'En pause' : 'Chrono' : 'Duree cible'}</strong>
                                   <span>
                                     {isExercising && !awaitingExerciseCompletion
                                       ? `${formatTimerClock(
@@ -3279,12 +3281,17 @@ export default function LiveSessionPage() {
                                   </span>
                                   {exerciseBlockId || awaitingExerciseCompletion ? (
                                     <button type="button" className="button ghost" onClick={clearExerciseState}>
-                                      Reinitialiser le chrono
+                                      Reinitialiser
                                     </button>
                                   ) : null}
                                 </div>
                               ) : null}
 
+                              <div className="session-live-table-head" aria-hidden="true">
+                                <span>Serie</span>
+                                <span>{currentBlock.block_type === 'reps' ? 'Reps / kg' : currentBlock.block_type === 'duration' ? 'Secondes' : currentBlock.block_type === 'distance' ? 'Metres' : 'Consigne'}</span>
+                                <span>Etat</span><span>✓</span>
+                              </div>
                               <div className="session-live-set-list">
                                 {currentLivePerformanceLines.map((line, lineIndex) => {
                                   const isDoneLine = isLiveSeriesCompleted(setPerformances, currentBlock.id, line, lineIndex);
@@ -3305,9 +3312,7 @@ export default function LiveSessionPage() {
                                       ? line.chargeKg != null && Number(line.chargeKg) > 0
                                         ? `${line.chargeKg} kg`
                                         : null
-                                      : line.restSeconds != null && Number(line.restSeconds) > 0
-                                        ? `Repos ${formatTimerClock(Number(line.restSeconds))}`
-                                        : null;
+                                      : null;
                                   const trailingLabel = isSkippedLine
                                     ? 'Passe'
                                     : isDoneLine
@@ -3324,6 +3329,28 @@ export default function LiveSessionPage() {
                                       index={lineIndex}
                                       primaryLabel={primaryLabel}
                                       secondaryLabel={secondaryLabel}
+                                      primaryControl={currentBlock.block_type !== 'free' ? (
+                                        <input type="number" min="0" step={currentBlock.block_type === 'distance' ? '0.1' : '1'}
+                                          inputMode={currentBlock.block_type === 'distance' ? 'decimal' : 'numeric'}
+                                          value={line.targetValue ?? ''}
+                                          onFocus={() => setOpenPerformanceLineIndex(lineIndex)}
+                                          aria-label={`Serie ${lineIndex + 1} : ${currentBlock.block_type === 'reps' ? 'repetitions' : currentBlock.block_type === 'duration' ? 'secondes' : 'metres'}`}
+                                          disabled={isDoneLine || isSkippedLine || isResting || historySaved || saveState === 'saving' ||
+                                            (isDurationBlock && Boolean(exerciseBlockId || awaitingExerciseCompletion))}
+                                          onChange={(event) => updateCurrentPerformanceLineAt(lineIndex, {
+                                            targetValue: event.target.value === '' ? null : currentBlock.block_type === 'distance'
+                                              ? normalizeNonNegativeNumber(event.target.value, 0) : normalizePositiveInteger(event.target.value, 0),
+                                          })} />
+                                      ) : undefined}
+                                      secondaryControl={currentBlock.block_type === 'reps' ? (
+                                        <input type="number" min="0" step="0.5" inputMode="decimal" value={line.chargeKg ?? ''}
+                                          onFocus={() => setOpenPerformanceLineIndex(lineIndex)}
+                                          aria-label={`Serie ${lineIndex + 1} : charge en kg`}
+                                          disabled={isDoneLine || isSkippedLine || isResting || historySaved || saveState === 'saving'}
+                                          onChange={(event) => updateCurrentPerformanceLineAt(lineIndex, {
+                                            chargeKg: event.target.value === '' ? null : normalizeNonNegativeNumber(event.target.value, 0),
+                                          })} />
+                                      ) : undefined}
                                       trailingLabel={trailingLabel}
                                       state={
                                         isSkippedLine ? 'skipped' : isDoneLine ? 'done' : isActiveLine ? 'active' : 'upcoming'
@@ -3397,7 +3424,7 @@ export default function LiveSessionPage() {
                                 isLiveSeriesCompleted(setPerformances, currentBlock.id, currentLivePerformanceLines[openPerformanceLineIndex], openPerformanceLineIndex) ? (
                                 <p className="session-live-actions__hint">Decoche cette serie avant de la modifier ou de la retirer.</p>
                               ) : isDurationBlock && (exerciseBlockId || awaitingExerciseCompletion) ? (
-                                <p className="session-live-actions__hint">Duree verrouillee. Reinitialise le chrono pour la modifier. La duree validee est la cible de la serie.</p>
+                                <p className="session-live-actions__hint">Duree verrouillee. Reinitialise le chrono pour la modifier.</p>
                               ) : null}
 
                               {canAdjustCurrentPerformance ? (
@@ -3497,8 +3524,11 @@ export default function LiveSessionPage() {
 
                               <div className="session-live-compact-actions">
                                 <button type="button" className="button ghost" onClick={addCurrentPerformanceLine} disabled={isExerciseSwitchLocked}>
-                                  + Ajouter une serie
+                                  + Serie
                                 </button>
+                                <details className="session-live-secondary-menu" key={currentBlock.id}>
+                                  <summary aria-label="Actions secondaires de l'exercice" title="Actions de l'exercice">•••</summary>
+                                  <div>
                                 {currentLivePerformanceLines.length > 1 ? (
                                   <button
                                     type="button"
@@ -3523,6 +3553,8 @@ export default function LiveSessionPage() {
                                   disabled={isExerciseSwitchLocked || historySaved || saveState === 'saving'}>
                                   Retirer l'exercice
                                 </button>
+                                  </div>
+                                </details>
                                 <button
                                   type="button"
                                   className="button ghost"
@@ -3561,7 +3593,7 @@ export default function LiveSessionPage() {
                         setIsAddExerciseOpen((current) => !current);
                       }}
                     >
-                      + Ajouter un exercice
+                      + Exercice
                     </button>
                     <button
                       type="button"
@@ -3574,7 +3606,7 @@ export default function LiveSessionPage() {
                         setFinishReviewOpen(true);
                       }}
                     >
-                      ⚑ Terminer la seance
+                      Terminer la seance
                     </button>
                   </div>
                 </article>

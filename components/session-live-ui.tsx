@@ -96,6 +96,8 @@ type LiveSetRowProps = {
   control: ReactNode;
   isOpen?: boolean;
   onOpen?: () => void;
+  primaryControl?: ReactNode;
+  secondaryControl?: ReactNode;
 };
 
 type LiveBlockPreviewRailProps = {
@@ -438,6 +440,8 @@ export function LiveWorkoutRow({
       type="button"
       className={`session-live-workout-row is-${state}${isExpanded ? ' is-expanded' : ''}`}
       onClick={onClick}
+      aria-expanded={isExpanded}
+      aria-label={`${title}, ${progressLabel} series, ${state === 'done' ? 'termine' : state === 'skipped' ? 'passe' : state === 'active' ? 'exercice actif' : 'a venir'}`}
     >
       <span className="session-live-workout-row__state" aria-hidden="true">
         {stateIcon}
@@ -476,26 +480,24 @@ export function LiveSetRow({
   control,
   isOpen = false,
   onOpen,
+  primaryControl,
+  secondaryControl,
 }: LiveSetRowProps) {
   return (
     <div className={`session-live-set-row is-${state}${isOpen ? ' is-open' : ''}`}>
       <span className="session-live-set-row__index">{index + 1}</span>
       <span className="session-live-set-row__control">{control}</span>
-      <button
-        type="button"
-        className="session-live-set-row__body"
-        onClick={onOpen}
-        disabled={!onOpen}
-      >
+      <div className="session-live-set-row__body">
         <span className="session-live-set-row__labels">
-          <strong>{primaryLabel}</strong>
-          {secondaryLabel ? <span>{secondaryLabel}</span> : null}
+          {primaryControl || <strong>{primaryLabel}</strong>}
+          {secondaryControl || (secondaryLabel ? <span>{secondaryLabel}</span> : null)}
         </span>
-        <span className="session-live-set-row__trail">
+        <button type="button" className="session-live-set-row__trail" onClick={onOpen} disabled={!onOpen}
+          aria-label={`Selectionner la serie ${index + 1}, ${trailingLabel}`} aria-pressed={isOpen}>
           <em>{trailingLabel}</em>
           {onOpen ? <span aria-hidden="true">{isOpen ? '⌃' : '›'}</span> : null}
-        </span>
-      </button>
+        </button>
+      </div>
     </div>
   );
 }
