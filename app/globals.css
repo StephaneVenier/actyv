@@ -13281,6 +13281,67 @@ img {
   }
 }
 
+/* Compact editor is opt-in; program forms keep the existing editor. */
+.session-editor-page--compact { max-width: 760px; width: 100%; margin-inline: auto; gap: 8px; }
+.session-editor-page--compact .card { border-radius: 8px; box-shadow: none; will-change: auto; transform: none; }
+.session-editor-page--compact .session-hero-card { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.session-editor-page--compact .session-hero-copy h1 { font-size: 20px; margin: 0; }
+.session-editor-page--compact .session-hero-copy :is(p, .section-kicker) { display: none; }
+.session-editor-page--compact .session-hero-actions .button { min-height: 40px; padding: 0 8px; font-size: 11px; }
+.session-editor-page--compact .session-creation-overview { display: flex; flex-wrap: wrap; gap: 6px 12px; padding: 8px 12px; }
+.session-editor-page--compact .session-creation-overview summary { width: 100%; min-height: 24px; font-size: 12px; color: #bccdcc; cursor: pointer; }
+.session-editor-page--compact .session-creation-overview:not([open]) > :not(summary) { display: none; }
+.session-editor-page--compact .session-creation-overview__stat { display: flex; gap: 4px; align-items: center; padding: 0; min-width: 0; background: transparent; border: 0; }
+.session-editor-page--compact .session-creation-overview__stat :is(span, strong) { font-size: 11px; }
+.session-editor-page--compact .sessions-layout { gap: 8px; }
+.session-editor-page--compact .session-general-grid { grid-template-columns: 1fr; gap: 0; }
+.session-editor-page--compact .session-advice-card { display: none; }
+.session-editor-page--compact .session-general-card { padding: 10px 12px; gap: 6px; }
+.session-editor-page--compact .session-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.session-editor-page--compact .field { min-width: 0; gap: 3px; }
+.session-editor-page--compact .field label { font-size: 12px; }
+.session-editor-page--compact .field :is(input, select, textarea) { min-width: 0; width: 100%; min-height: 40px; padding: 6px 8px; font-size: 16px; border-radius: 4px; background: #10242c; color: #f4f7f6; border-color: #38515a; }
+.session-editor-page--compact .session-editor-description { grid-column: 1 / -1; font-size: 12px; color: #bccdcc; }
+.session-editor-page--compact .session-editor-description summary { min-height: 32px; cursor: pointer; }
+.session-editor-page--compact .session-editor-footer { position: sticky; bottom: calc(116px + env(safe-area-inset-bottom)); z-index: 20; padding: 8px; gap: 6px; background: #08171c; }
+.session-editor-page--compact .session-editor-footer > div:first-child { display: none; }
+.session-editor-page--compact .session-summary-actions { width: 100%; display: flex; gap: 6px; }
+.session-editor-page--compact .session-summary-actions .button { min-height: 40px; padding: 0 8px; font-size: 12px; }
+.session-editor-page--compact .session-editor-card--compact { padding: 8px 10px; gap: 6px; background: #08171c; }
+.session-editor-page--compact .session-blocks-header { gap: 6px; margin: 0; }
+.session-editor-page--compact .session-blocks-header h2 { font-size: 14px; }
+.session-editor-page--compact .session-blocks-header .section-kicker { display: none; }
+.session-editor-page--compact .session-blocks-header .button { min-height: 40px; padding: 0 8px; font-size: 11px; }
+.session-editor-page--compact .session-block-list--editor { gap: 6px; }
+.session-editor-card--compact .session-editor-block { border-radius: 6px; background: #10242c; overflow: visible; }
+.session-editor-card--compact .session-editor-block__compact { position: relative; grid-template-columns: minmax(0, 1fr) 40px; gap: 2px 6px; min-height: 68px; padding: 6px 8px; }
+.session-editor-card--compact .session-editor-block__open { position: absolute; inset: 0; width: 100%; border: 0; border-radius: 6px; background: transparent; cursor: pointer; z-index: 1; }
+.session-editor-card--compact .session-editor-block__lead { grid-column: 1; gap: 6px; pointer-events: none; }
+.session-editor-card--compact .session-editor-block__index { min-width: 18px; }
+.session-editor-card--compact .session-editor-block__accent { width: 2px; min-height: 30px; }
+.session-editor-card--compact .session-editor-block__identity { gap: 1px; }
+.session-editor-card--compact .session-editor-block__identity strong { font-size: 14px; line-height: 1.2; }
+.session-editor-card--compact .session-editor-block__identity small { display: none; }
+.session-editor-card--compact .session-editor-block__summary { grid-column: 1; padding-left: 62px; gap: 1px; pointer-events: none; }
+.session-editor-card--compact .session-editor-block__inline-meta { font-size: 11px; line-height: 1.35; color: #bccdcc; }
+.session-editor-card--compact .session-editor-block__main { gap: 6px; }
+.session-editor-card--compact .session-editor-block__main :is(span, strong) { font-size: 11px; color: #bccdcc; }
+.session-editor-card--compact .session-editor-block__chips { gap: 2px 6px; }
+.session-editor-card--compact .session-editor-block__chip { min-height: 0; padding: 0; border: 0; background: transparent; font-size: 10px; color: #bccdcc; }
+.session-editor-card--compact .session-editor-block__controls { grid-column: 2; grid-row: 1 / 3; width: auto; z-index: 2; }
+.session-editor-card--compact .session-editor-block__controls .button { width: 40px; height: 40px; min-height: 40px; padding: 0; font-size: 18px; flex: none; border: 0; background: transparent; }
+.session-editor-card--compact .session-editor-block__details { padding: 8px; gap: 6px; }
+.session-editor-card--compact .session-editor-block__details > .session-block-remove { justify-self: end; min-height: 40px; padding: 0 8px; font-size: 11px; }
+.session-editor-card--compact .session-block-preview { font-size: 11px; margin: 0; }
+.session-editor-card--compact .session-editor-block__details .field.full { grid-column: auto; }
+.session-editor-card--compact .session-exercise-picker-overlay { z-index: 2000; padding: 12px; }
+.session-editor-card--compact .session-exercise-picker-modal { max-height: calc(100dvh - 24px); padding: 12px; gap: 8px; background: #08171c; }
+.session-editor-page--compact :is(button, a, summary, input, select):focus-visible { outline: 2px solid #5bd6ff; outline-offset: 2px; }
+@media (max-width: 768px) {
+  .session-editor-page--compact { padding-bottom: 160px; }
+  .session-editor-page--compact .session-editor-footer { position: fixed; left: 14px; right: 14px; width: auto; margin: 0; }
+}
+
 /* Session consultation: scoped so Live and editors keep their own layout. */
 .session-detail-page--compact { width: 100%; max-width: 760px; margin-inline: auto; gap: 10px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
 .session-detail-page--compact .session-summary-header { padding: 10px 12px; gap: 6px; border-radius: 8px; box-shadow: none; background: #08171c; }

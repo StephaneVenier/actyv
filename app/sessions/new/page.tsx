@@ -195,7 +195,7 @@ export default function NewSessionPage() {
 
   return (
     <AppShell>
-      <section className="sessions-page sessions-page--dark">
+      <section className="sessions-page sessions-page--dark session-editor-page--compact">
         <article className="card session-hero-card">
           <div className="session-hero-copy">
             <span className="section-kicker">Seances</span>
@@ -212,7 +212,8 @@ export default function NewSessionPage() {
           </div>
         </article>
 
-        <article className="card session-creation-overview">
+        <details className="card session-creation-overview">
+          <summary>Estimations et progression</summary>
           <div className="session-creation-overview__stat">
             <span>Duree estimee</span>
             <strong>{formatDurationLabel(estimatedDurationSeconds)}</strong>
@@ -233,7 +234,7 @@ export default function NewSessionPage() {
             <span>Progression</span>
             <strong>{progressLabel}</strong>
           </div>
-        </article>
+        </details>
 
         <form className="sessions-layout" onSubmit={handleSubmit}>
           <div className="session-general-grid">
@@ -267,17 +268,20 @@ export default function NewSessionPage() {
                   </select>
                 </div>
 
+                <details className="session-editor-description">
+                  <summary>Description et consignes</summary>
                 <div className="field full">
                   <label htmlFor="session-description">Description</label>
                   <textarea
                     id="session-description"
-                    rows={4}
+                    rows={2}
                     value={description}
                     onChange={(event) => setDescription(event.target.value)}
                     placeholder="Objectif de la seance, intensite, consigne generale..."
                     disabled={loading}
                   />
                 </div>
+                </details>
               </div>
 
               {message ? <p className={`form-feedback form-feedback--${messageTone}`}>{message}</p> : null}
@@ -294,6 +298,7 @@ export default function NewSessionPage() {
           </div>
 
           <SessionBlocksEditor
+            compact
             blocks={blocks}
             disabled={loading}
             onAddBlock={addBlock}
