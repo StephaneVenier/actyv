@@ -13281,6 +13281,52 @@ img {
   }
 }
 
+/* Session consultation: scoped so Live and editors keep their own layout. */
+.session-detail-page--compact { width: 100%; max-width: 760px; margin-inline: auto; gap: 10px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.session-detail-page--compact .session-summary-header { padding: 10px 12px; gap: 6px; border-radius: 8px; box-shadow: none; background: #08171c; }
+.session-detail-page--compact .session-summary-header__main { display: grid; gap: 8px; }
+.session-detail-page--compact .session-summary-header__copy { gap: 4px; }
+.session-detail-page--compact .session-summary-header__copy h1 { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+.session-detail-page--compact .session-summary-header__copy p { margin: 0; font-size: 12px; line-height: 1.35; color: #bccdcc; }
+.session-detail-page--compact .session-summary-header__badge { display: none; }
+.session-detail-page--compact .session-summary-header__side { width: 100%; gap: 6px; }
+.session-detail-page--compact .session-summary-header__side > .session-progress-pill { display: none; }
+.session-detail-page--compact .session-summary-header__stats-bar { min-height: 24px; padding: 0; background: transparent; border: 0; }
+.session-detail-page--compact .session-summary-header__stat-inline { padding: 0 8px; }
+.session-detail-page--compact .session-summary-header__stat-inline strong { font-size: 12px; color: #bccdcc; }
+.session-detail-page--compact .session-detail-actions--coach { display: flex; align-items: center; gap: 8px; }
+.session-detail-page--compact .session-detail-actions__secondary { display: flex; gap: 6px; }
+.session-detail-page--compact .session-detail-actions .button { min-height: 40px; padding: 0 8px; font-size: 12px; border-radius: 6px; flex: 0 0 auto; }
+.session-detail-page--compact .session-detail-actions > .session-detail-actions__primary { flex: 1 1 auto; }
+.session-detail-page--compact > .detail-back-link { color: #27757b; margin: 0; font-size: 12px; }
+.session-detail-page--compact .session-form-card--coach { padding: 10px; gap: 8px; border-radius: 8px; box-shadow: none; background: #08171c; }
+.session-detail-page--compact .session-blocks-header--coach { gap: 6px; margin: 0; }
+.session-detail-page--compact .session-blocks-header--coach h2 { font-size: 16px; margin: 0; }
+.session-detail-page--compact .session-progress-pill { font-size: 11px; padding: 4px 6px; }
+.session-detail-page--compact .session-block-list--compact { gap: 7px; }
+.session-detail-page--compact .compact-exercise-card { grid-template-columns: 22px 2px minmax(0, 1fr); gap: 6px; border-radius: 6px; background: #10242c; box-shadow: none; }
+.session-detail-page--compact .compact-exercise-card__accent { width: 2px; }
+.session-detail-page--compact .compact-exercise-card__content { gap: 2px; padding: 6px 8px 6px 0; }
+.session-detail-page--compact .compact-exercise-card__identity { flex-wrap: nowrap; gap: 5px; align-items: center; }
+.session-detail-page--compact .compact-exercise-card__identity-main { min-width: 0; gap: 6px; }
+.session-detail-page--compact .compact-exercise-card__identity strong { font-size: 14px; line-height: 1.2; overflow-wrap: anywhere; }
+.session-detail-page--compact .session-block-chip { padding: 0 4px; min-height: 20px; font-size: 9px; letter-spacing: 0; flex-shrink: 0; }
+.session-detail-page--compact .compact-exercise-card__summary-main { font-size: 11px !important; font-weight: 500 !important; line-height: 1.4; color: #bccdcc !important; }
+.session-detail-page--compact .compact-exercise-card__actions { width: auto; flex-wrap: nowrap; justify-content: flex-end; gap: 6px; }
+.session-detail-page--compact .compact-exercise-card__actions .button { flex: 0 1 auto; min-height: 40px; padding: 0 10px; font-size: 12px; border-radius: 4px; }
+.session-detail-page--compact .session-block-timeline { padding-top: 10px; gap: 4px; }
+.session-detail-page--compact .session-block-timeline__line { width: 1px; min-height: 0; }
+.session-detail-page--compact .compact-exercise-card__details-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; padding-top: 6px; }
+.session-detail-page--compact .compact-exercise-card__details-grid > div { display: grid; gap: 2px; }
+.session-detail-page--compact .compact-exercise-card__details-grid span { font-size: 10px; color: #bccdcc; letter-spacing: 0; }
+.session-detail-page--compact .compact-exercise-card__details-grid strong { font-size: 12px; }
+.session-detail-page--compact :is(button, a, summary):focus-visible { outline: 2px solid #5bd6ff; outline-offset: 2px; }
+@media (max-width: 375px) {
+  .session-detail-page--compact .session-form-card--coach { padding: 8px; }
+  .session-detail-page--compact .compact-exercise-card__identity { flex-wrap: wrap; }
+  .session-detail-page--compact .session-block-chip { margin-left: 40px; }
+}
+
 /* M3: presentation only; the workout state and validation handlers stay shared. */
 .session-live-page--m3 {
   width: 100%;

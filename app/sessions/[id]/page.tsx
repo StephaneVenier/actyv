@@ -1445,7 +1445,7 @@ export default function SessionDetailPage() {
       snapshot={debugSnapshot}
     >
       <AppShell>
-        <section className="sessions-page sessions-page--dark">
+        <section className="sessions-page sessions-page--dark session-detail-page--compact">
           <Link href="/sessions" className="detail-back-link">
             &larr; Retour aux seances
           </Link>
@@ -1523,7 +1523,7 @@ export default function SessionDetailPage() {
                   label: 'Duree estimee',
                   value: formatDurationLabel(averageDurationSeconds) || '-',
                 },
-                { label: 'Blocs', value: blocks.length },
+                { label: 'Blocs', value: `${blocks.length} blocs` },
               ]}
             />
 
@@ -1585,6 +1585,9 @@ export default function SessionDetailPage() {
                             {[
                               formatBlockMainValue(block),
                               Number(block.charge_kg || 0) > 0 ? `${block.charge_kg} kg` : null,
+                              formatSessionRestSeconds(block.rest_seconds) || 'Sans repos',
+                              formatSessionVolumeKg(blockVolume) || null,
+                              isCompleted ? 'Termine' : isCurrent ? 'En cours' : 'A venir',
                             ]
                               .filter(Boolean)
                               .join(' • ')}
