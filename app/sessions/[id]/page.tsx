@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/AppShell';
 import { CompactAccordion } from '@/components/CompactAccordion';
@@ -276,6 +276,9 @@ export default function SessionDetailPage() {
   const [blocks, setBlocks] = useState<TrainingSessionBlockRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(false);
+  const deletionLock = useRef(false);
+  const deletionDialog = useRef<HTMLDialogElement>(null);
+  const [linkedProgramCount, setLinkedProgramCount] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [completedBlockIds, setCompletedBlockIds] = useState<string[]>([]);
   const [lastLiveElapsedSeconds, setLastLiveElapsedSeconds] = useState(0);
@@ -1406,33 +1409,51 @@ export default function SessionDetailPage() {
     );
   };
 
+  const openDeleteSession = () => {
+    if (!session || session.user_id !== storageOwner || deletionLock.current) return;
+    setMessage(null);
+    setLinkedProgramCount(null);
+    deletionDialog.current?.showModal();
+    void (async () => {
+      try {
+        const { data, error } = await supabase.from('training_program_sessions').select('program_id')
+          .or(`session_id.eq.${session.id},workout_id.eq.${session.id}`);
+        if (!error && data) setLinkedProgramCount(new Set((data as { program_id: string }[]).map(row => row.program_id)).size);
+      } catch {
+        // The generic dependency warning remains available if this optional lookup fails.
+      }
+    })();
+  };
+
   const handleDeleteSession = async () => {
-    if (!session || deleting) return;
-
-    const confirmed = window.confirm(
-      'Supprimer cette seance ? Tous les blocs lies seront supprimes aussi.'
-    );
-
-    if (!confirmed) return;
-
+    if (!session || session.user_id !== storageOwner || deletionLock.current) return;
+    deletionLock.current = true;
     setDeleting(true);
     setMessage(null);
 
     try {
-      const { error } = await supabase.from('training_sessions').delete().eq('id', session.id);
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user || user.id !== session.user_id) {
+        setMessage('Connecte-toi avec le compte proprietaire pour supprimer cette seance.');
+        return;
+      }
+      const { data, error } = await supabase.from('training_sessions').delete()
+        .eq('id', session.id).eq('user_id', user.id).select('id');
 
-      if (error) {
+      if (error || data?.length !== 1 || data[0].id !== session.id) {
         console.error('Erreur suppression seance :', error);
         setMessage("Impossible de supprimer la seance pour le moment.");
         return;
       }
 
       queuePendingToast({ message: 'Seance supprimee', tone: 'info' });
+      deletionDialog.current?.close();
       router.push('/sessions');
     } catch (error) {
       console.error('Erreur inattendue suppression seance :', error);
       setMessage("Une erreur inattendue s'est produite.");
     } finally {
+      deletionLock.current = false;
       setDeleting(false);
     }
   };
@@ -1503,15 +1524,15 @@ export default function SessionDetailPage() {
                         <Link href="/sessions/new" className="session-overflow-menu__item">
                           Nouvelle seance
                         </Link>
-                        <button
+                        {session.user_id === storageOwner ? <button
                           type="button"
                           className="session-overflow-menu__item session-overflow-menu__item--danger"
-                          onClick={handleDeleteSession}
+                          onClick={openDeleteSession}
                           disabled={deleting}
                           aria-busy={deleting}
                         >
-                          {deleting ? 'Suppression...' : 'Supprimer'}
-                        </button>
+                          {deleting ? 'Suppression...' : 'Supprimer la séance'}
+                        </button> : null}
                       </div>
                     </details>
                   </div>
@@ -1527,6 +1548,22 @@ export default function SessionDetailPage() {
               ]}
             />
 
+            <dialog ref={deletionDialog} className="session-delete-dialog"
+              aria-labelledby="session-delete-title" aria-describedby="session-delete-description"
+              onCancel={event => { if (deletionLock.current) event.preventDefault(); }}>
+              <h2 id="session-delete-title">Supprimer cette séance ?</h2>
+              <p id="session-delete-description">Cette action est définitive.</p>
+              {linkedProgramCount !== null && linkedProgramCount > 0 ? (
+                <p>Cette séance sera détachée de {linkedProgramCount} programme(s) accessible(s). Leur planning sera conservé, mais cette séance ne pourra plus être lancée depuis ces programmes.</p>
+              ) : <p>Si des programmes référencent cette séance, elle en sera détachée. L’historique des séances réalisées est conservé.</p>}
+              {message ? <p role="alert" className="session-delete-dialog__error">{message}</p> : null}
+              <div className="session-delete-dialog__actions">
+                <button type="button" className="button ghost" disabled={deleting}
+                  onClick={() => deletionDialog.current?.close()}>Annuler</button>
+                <button type="button" className="button primary" disabled={deleting} aria-busy={deleting}
+                  onClick={handleDeleteSession}>{deleting ? 'Suppression...' : 'Supprimer'}</button>
+              </div>
+            </dialog>
             <article className="card session-form-card session-form-card--coach stack">
               <div className="session-blocks-header session-blocks-header--coach">
                 <div>

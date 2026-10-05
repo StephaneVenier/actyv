@@ -13281,6 +13281,15 @@ img {
   }
 }
 
+.session-delete-dialog { width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; margin: auto; padding: 20px; border: 1px solid #38515a; border-radius: 8px; background: #08171c; color: #f1f5f9; }
+.session-detail-page--compact .session-summary-header:has(.session-overflow-menu[open]) { position: relative; z-index: 30; overflow: visible; }
+.session-delete-dialog::backdrop { background: rgb(0 0 0 / 65%); }
+.session-delete-dialog h2 { margin: 0 0 12px; font-size: 20px; }
+.session-delete-dialog p { color: #cbd5e1; font-size: 14px; line-height: 1.45; }
+.session-delete-dialog .session-delete-dialog__error { color: #fda4af; }
+.session-delete-dialog__actions { display: flex; gap: 8px; margin-top: 18px; }
+.session-delete-dialog__actions .button { flex: 1; min-height: 44px; }
+
 /* Compact editor is opt-in; program forms keep the existing editor. */
 .session-editor-page--compact { max-width: 760px; width: 100%; margin-inline: auto; gap: 8px; }
 .session-editor-page--compact .card { border-radius: 8px; box-shadow: none; will-change: auto; transform: none; }

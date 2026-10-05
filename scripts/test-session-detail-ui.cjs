@@ -6,12 +6,17 @@ const { execFileSync } = require('node:child_process');
 const sourcePath = 'app/sessions/[id]/page.tsx';
 const source = fs.readFileSync(sourcePath, 'utf8').replace(/\r\n/g, '\n');
 const baseline = execFileSync('git', ['show', `HEAD:${sourcePath}`], { encoding: 'utf8' }).replace(/\r\n/g, '\n');
-assert.equal(source.slice(0, source.indexOf('  return (\n    <SessionDebugBoundary')),
-  baseline.slice(0, baseline.indexOf('  return (\n    <SessionDebugBoundary')), 'All loading, calculations and handlers unchanged');
+function unchangedLogic(value) {
+  return value.slice(0, value.indexOf('  const handleDeleteSession ='))
+    .split('  const openDeleteSession =')[0]
+    .replace('useEffect, useMemo, useRef, useState', 'useEffect, useMemo, useState')
+    .replace(/  const deletionLock =[^\n]*\n  const deletionDialog =[^\n]*\n  const \[linkedProgramCount[^\n]*\n/, '');
+}
+assert.equal(unchangedLogic(source), unchangedLogic(baseline), 'Loading, calculations and unrelated handlers unchanged');
 assert.ok(source.includes('onAction={isCompleted ? undefined : () => toggleBlockCompleted(block.id)}'));
 assert.ok(source.includes('href={`/sessions/${session.id}/live`}'));
 assert.ok(source.includes('href={`/sessions/${session.id}/edit`}'));
-assert.ok(source.includes('onClick={handleDeleteSession}'));
+assert.ok(source.includes('onClick={openDeleteSession}'));
 console.log('PASS detail: loading, calculations, handlers and action targets unchanged');
 if (!process.argv.includes('--visual')) process.exit(0);
 
