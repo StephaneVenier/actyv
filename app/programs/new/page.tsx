@@ -7,7 +7,7 @@ import { ProgramEditorForm } from '@/components/program-editor-form';
 export default function NewProgramPage() {
   return (
     <AppShell>
-      <section className="sessions-page">
+      <section className="sessions-page sessions-page--dark programs-page--dense">
         <article className="card session-hero-card">
           <div className="session-hero-copy">
             <span className="section-kicker">Programmes</span>

@@ -26,7 +26,7 @@ function changes(source) {
 }
 for (const call of changes(headEditor)) assert.ok(changes(editor).includes(call), 'Existing update/delete payload unchanged');
 assert.ok(editor.includes('compact = false'));
-assert.ok(!fs.readFileSync('components/program-editor-form.tsx', 'utf8').includes('session-editor-page--compact'));
+assert.ok(editor.includes('compact = false'), 'Shared editor keeps its default mode; callers may explicitly opt in');
 function compile(source, resolve) {
   const compiledModule = { exports: {} };
   const code = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX, target: ts.ScriptTarget.ES2020 } }).outputText;

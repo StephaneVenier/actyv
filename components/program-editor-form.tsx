@@ -1,10 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { sports } from '@/components/challenge-data';
 import { SessionBlocksEditor } from '@/components/session-blocks-editor';
+import { SessionExerciseIcon } from '@/components/session-exercise-icon';
 import { queuePendingToast } from '@/components/ToastProvider';
 import {
   createEmptySessionBlockDraft,
@@ -18,6 +19,8 @@ import { supabase } from '@/lib/supabase';
 import {
   clampProgramDay,
   clampProgramWeek,
+  formatProgramDayLabel,
+  formatProgramPlannedDateLabel,
   PROGRAM_DAY_OPTIONS,
   TrainingProgram,
   TrainingProgramSession,
@@ -462,7 +465,7 @@ export function ProgramEditorForm({
         description: description.trim() || null,
         sport,
         duration_weeks: durationWeeks,
-        visibility: 'private',
+        ...(mode === 'edit' ? {} : { visibility: 'private' as const }),
         start_date: startDate,
       };
 
@@ -582,8 +585,27 @@ export function ProgramEditorForm({
     }
   };
 
+  const [selectedWeek, setSelectedWeek] = useState(1);
+  const [expandedSession, setExpandedSession] = useState<string | null>(null);
+  const pendingSlot = useRef<{ previousIds: string[]; update: (id: string) => void } | null>(null);
+  const visibleWeek = Math.min(selectedWeek, durationWeeks);
+  useEffect(() => {
+    const pending = pendingSlot.current;
+    if (!pending) return;
+    const added = draftSessions.find(entry => !pending.previousIds.includes(entry.id));
+    if (!added) return;
+    pendingSlot.current = null;
+    pending.update(added.id);
+    setExpandedSession(added.id);
+  }, [draftSessions]);
+  const addToDay = (day: number) => {
+    if (pendingSlot.current) return;
+    pendingSlot.current = { previousIds: draftSessions.map(entry => entry.id), update: id => updateDraftSession(id, { weekNumber: visibleWeek, dayOfWeek: day }) };
+    addDraftSession();
+  };
+
   return (
-    <form className="sessions-layout" onSubmit={handleSubmit}>
+    <form className="sessions-layout program-editor--dense session-editor-page--compact" onSubmit={handleSubmit}>
       <article className="card session-form-card stack">
         <div className="session-form-grid">
           <div className="field">
@@ -638,17 +660,18 @@ export function ProgramEditorForm({
             />
           </div>
 
-          <div className="field full">
+          <details className="field full program-editor-description">
+            <summary>Description</summary>
             <label htmlFor="program-description">Description</label>
             <textarea
               id="program-description"
-              rows={4}
+              rows={2}
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               placeholder="Objectif, rythme, points d'attention..."
               disabled={loading}
             />
-          </div>
+          </details>
         </div>
 
         {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
@@ -661,7 +684,7 @@ export function ProgramEditorForm({
             <h2>Seances du programme</h2>
           </div>
 
-          <button type="button" className="button ghost" onClick={addDraftSession} disabled={loading}>
+          <button type="button" className="button ghost" onClick={() => addToDay(1)} disabled={loading}>
             + Ajouter une seance
           </button>
         </div>
@@ -672,11 +695,33 @@ export function ProgramEditorForm({
           </div>
         ) : null}
 
-        <div className="session-block-list">
-          {draftSessions.map((entry, index) => (
-            <article key={entry.id} className="session-block-card">
+        <nav className="program-week-nav" aria-label="Semaine du programme">
+          <button type="button" aria-label="Semaine précédente" disabled={visibleWeek <= 1} onClick={() => { setSelectedWeek(visibleWeek - 1); setExpandedSession(null); }}>‹</button>
+          <select aria-label="Semaine affichée" value={visibleWeek} onChange={event => { setSelectedWeek(Number(event.target.value)); setExpandedSession(null); }}>
+            {weekOptions.map(option => <option key={option.value} value={option.value}>{option.label} / {durationWeeks}</option>)}
+          </select>
+          <button type="button" aria-label="Semaine suivante" disabled={visibleWeek >= durationWeeks} onClick={() => { setSelectedWeek(visibleWeek + 1); setExpandedSession(null); }}>›</button>
+        </nav>
+        <p className="program-week-count">{draftSessions.filter(entry => entry.weekNumber === visibleWeek && (entry.mode === 'existing' ? entry.existingSessionId.trim().length > 0 : entry.sessionDraft.name.trim().length > 0)).length} séance(s) planifiée(s)</p>
+        <div className="program-editor-days">
+          {PROGRAM_DAY_OPTIONS.map(day => (
+            <section key={day.value} className="program-editor-day">
+              <div className="program-editor-day__heading"><strong>{formatProgramDayLabel(startDate, visibleWeek, day.value)} <small>{formatProgramPlannedDateLabel(startDate, visibleWeek, day.value)}</small></strong>
+                <button type="button" className="button ghost" disabled={loading} onClick={() => addToDay(day.value)}>+ Séance</button>
+              </div>
+              {!draftSessions.some(entry => entry.weekNumber === visibleWeek && entry.dayOfWeek === day.value) ? <span className="program-day-rest">Repos</span> : null}
+          {draftSessions.filter(entry => entry.weekNumber === visibleWeek && entry.dayOfWeek === day.value).map((entry) => (
+            <article key={entry.id} className="session-block-card program-editor-session">
+              <button type="button" className="program-editor-session__toggle" aria-expanded={expandedSession === entry.id} disabled={loading}
+                onClick={() => setExpandedSession(current => current === entry.id ? null : entry.id)}>
+                <SessionExerciseIcon sport={entry.sessionDraft.sport || sport} size="sm" />
+                <span><strong>{entry.sessionDraft.name || availableSessions.find(item => item.id === entry.existingSessionId)?.name || 'Choisir une séance'}</strong>
+                  <small>{entry.sessionDraft.sport || sport || 'Sport à choisir'} · #{entry.orderIndex}</small></span>
+                <span aria-hidden="true">{expandedSession === entry.id ? '⌃' : '›'}</span>
+              </button>
+              {expandedSession === entry.id ? <div className="program-editor-session__fields">
               <div className="session-block-card__top">
-                <strong>Seance {index + 1}</strong>
+                <strong>Configuration</strong>
                 <button
                   type="button"
                   className="button ghost session-block-remove"
@@ -731,7 +776,7 @@ export function ProgramEditorForm({
                   >
                     {PROGRAM_DAY_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label}
+                        {formatProgramDayLabel(startDate, entry.weekNumber, option.value)}
                       </option>
                     ))}
                   </select>
@@ -823,6 +868,7 @@ export function ProgramEditorForm({
                   </div>
 
                   <SessionBlocksEditor
+                    compact
                     blocks={entry.sessionDraft.blocks}
                     disabled={loading}
                     title="Configuration de la seance"
@@ -852,12 +898,15 @@ export function ProgramEditorForm({
                   />
                 </div>
               )}
+              </div> : null}
             </article>
+          ))}
+            </section>
           ))}
         </div>
       </article>
 
-      <article className="card session-summary-card">
+      <article className="card session-summary-card program-editor-save">
         <span className="section-kicker">Resume</span>
         <h2>Programme V1</h2>
         <p className="muted">

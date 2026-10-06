@@ -333,7 +333,7 @@ export default function ProgramDetailPage() {
     window.localStorage.setItem('actyv-program-plan-view', planView);
   }, [planView]);
 
-  const effectivePlanView: ProgramPlanView = isMobileProgramLayout ? 'list' : planView;
+  const effectivePlanView: ProgramPlanView = isMobileProgramLayout ? 'calendar' : planView;
 
   useEffect(() => {
     const loadProgram = async () => {
@@ -1242,9 +1242,13 @@ export default function ProgramDetailPage() {
     }
   };
 
+  const [selectedDisplayWeek, setSelectedDisplayWeek] = useState<string | null>(null);
+  const defaultDisplayWeekIndex = Math.max(0, displayWeeks.findIndex(week => week.days.some(day => day.weekNumber === currentWeek)));
+  const selectedDisplayWeekIndex = selectedDisplayWeek === null ? defaultDisplayWeekIndex : Math.max(0, displayWeeks.findIndex(week => week.key === selectedDisplayWeek));
+
   return (
     <AppShell>
-      <section className="sessions-page program-detail-page program-detail-page--compact">
+      <section className="sessions-page sessions-page--dark program-detail-page program-detail-page--compact programs-page--dense">
         <Link href="/programs" className="detail-back-link">
           Retour aux programmes
         </Link>
@@ -1270,7 +1274,7 @@ export default function ProgramDetailPage() {
                   {formatSportBadgeLabel(program.sport, 'Sport')}
                 </div>
                 <h1>{program.name}</h1>
-                <p className="muted">{program.description || 'Programme sans description pour le moment.'}</p>
+                <details className="program-description"><summary>Description</summary><p className="muted">{program.description || 'Programme sans description pour le moment.'}</p></details>
               </div>
 
               <div className="session-hero-actions session-hero-actions--compact program-detail-actions">
@@ -1317,6 +1321,11 @@ export default function ProgramDetailPage() {
             </article>
 
             {message ? <p className="form-feedback form-feedback--error">{message}</p> : null}
+
+            <div className="program-progress-compact" aria-label="Progression du programme">
+              <span>S{currentWeek}/{program.duration_weeks} · {completedCount}/{totalSessions} séances réalisées</span><strong>{progress}%</strong>
+              <div className="program-progress-track"><span className="program-progress-track__fill" style={{ width: `${progress}%` }} /></div>
+            </div>
 
             <article className="card session-form-card stack program-next-session-card">
               <div className="session-blocks-header">
@@ -1373,7 +1382,7 @@ export default function ProgramDetailPage() {
                       </div>
                     </div>
 
-                    <div className="program-next-session-card__stats">
+                    <details className="program-next-session-details"><summary>Détails de la prochaine séance</summary><div className="program-next-session-card__stats">
                       <div>
                         <span>Date</span>
                         <strong>{nextProgramSessionDateLabel || 'Ordre du programme'}</strong>
@@ -1390,7 +1399,7 @@ export default function ProgramDetailPage() {
                         <span>Restantes</span>
                         <strong>{remainingSessionsCount}</strong>
                       </div>
-                    </div>
+                    </div></details>
                   </div>
 
                   <div className="program-next-session-card__footer">
@@ -1475,7 +1484,7 @@ export default function ProgramDetailPage() {
             </CompactAccordion>
 
             {canManageSharing ? (
-              <article className="card session-form-card stack">
+              <CompactAccordion className="card session-form-card stack program-sharing-compact" title="Partager le programme" summary={program.visibility === 'shared' ? 'Partage actif' : 'Programme privé'}>
                 <div className="session-blocks-header">
                   <div>
                     <span className="section-kicker">Partage</span>
@@ -1550,9 +1559,9 @@ export default function ProgramDetailPage() {
                     </button>
                   )}
                 </div>
-              </article>
+              </CompactAccordion>
             ) : (
-              <article className="card session-form-card stack">
+              <CompactAccordion className="card session-form-card stack program-sharing-compact" title="Programme ajouté depuis un partage" summary="Copie privée">
                 <div className="session-blocks-header">
                   <div>
                     <span className="section-kicker">Partage</span>
@@ -1563,17 +1572,18 @@ export default function ProgramDetailPage() {
                 <p className="muted">
                   Cette copie reste privee. Seul le createur original peut activer ou desactiver le partage.
                 </p>
-              </article>
+              </CompactAccordion>
             )}
 
             <CompactAccordion
-              className="card session-form-card session-form-card--program-compact compact-accordion--program"
+              className="card session-form-card session-form-card--program-compact compact-accordion--program program-plan-compact"
+              defaultOpen
               kicker="Plan du programme"
               title={effectivePlanView === 'calendar' ? 'Calendrier des semaines' : 'Liste des seances'}
               summary={`${programSessions.length} seance${programSessions.length > 1 ? 's' : ''}`}
               trailing={
                 isMobileProgramLayout ? (
-                  <span className="session-progress-pill">Vue liste</span>
+                  <span className="session-progress-pill">Jours</span>
                 ) : (
                   <span className="session-progress-pill">{planView === 'calendar' ? 'Calendrier' : 'Liste'}</span>
                 )
@@ -1586,7 +1596,7 @@ export default function ProgramDetailPage() {
                 </div>
                 {isMobileProgramLayout ? (
                   <div className="program-view-toggle program-view-toggle--mobile-note" aria-live="polite">
-                    <span className="program-view-toggle__mobile-label">Vue liste active sur mobile</span>
+                    <span className="program-view-toggle__mobile-label">Semaine active</span>
                   </div>
                 ) : (
                   <div className="program-view-toggle" role="tablist" aria-label="Changer la vue du programme">
@@ -1617,7 +1627,14 @@ export default function ProgramDetailPage() {
               ) : null}
 
               <div className="program-plan-list">
-                {displayWeeks.map((displayWeek) => {
+                <nav className="program-week-nav" aria-label="Semaine du programme">
+                  <button type="button" aria-label="Semaine précédente" disabled={selectedDisplayWeekIndex <= 0} onClick={() => { setSelectedDisplayWeek(displayWeeks[selectedDisplayWeekIndex - 1].key); setActiveSlot(null); }}>‹</button>
+                  <select aria-label="Semaine affichée" value={displayWeeks[selectedDisplayWeekIndex]?.key || ''} onChange={event => { setSelectedDisplayWeek(event.target.value); setActiveSlot(null); }}>
+                    {displayWeeks.map(week => <option key={week.key} value={week.key}>{week.title}</option>)}
+                  </select>
+                  <button type="button" aria-label="Semaine suivante" disabled={selectedDisplayWeekIndex >= displayWeeks.length - 1} onClick={() => { setSelectedDisplayWeek(displayWeeks[selectedDisplayWeekIndex + 1].key); setActiveSlot(null); }}>›</button>
+                </nav>
+                {displayWeeks.slice(selectedDisplayWeekIndex, selectedDisplayWeekIndex + 1).map((displayWeek) => {
                   const displayWeekEntries = displayWeek.days.flatMap((day) =>
                     sortProgramSessions(plannedSessionsBySlot.get(`${day.weekNumber}-${day.dayOfWeek}`) || []).map((entry) => ({
                       entry,
@@ -1697,6 +1714,7 @@ export default function ProgramDetailPage() {
                                             </span>
                                           </div>
 
+                                          <details className="program-session-options"><summary aria-label={`Options ${entry.session_name}`}>•••</summary>
                                           <div className="session-card__meta program-session-card__meta--calendar">
                                             {completion?.completed_at ? (
                                               <span>{formatRelativeCompletionDate(completion.completed_at)}</span>
@@ -1779,7 +1797,7 @@ export default function ProgramDetailPage() {
                                                 {'\u2193'}
                                               </button>
                                             </div>
-                                          </div>
+                                          </div></details>
 
                                           <div className="session-hero-actions program-session-actions--calendar">
                                             {entry.session_id ? (

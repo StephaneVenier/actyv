@@ -13283,6 +13283,107 @@ img {
 
 .session-delete-dialog { width: min(420px, calc(100vw - 32px)); max-height: calc(100dvh - 40px); overflow: auto; margin: auto; padding: 20px; border: 1px solid #38515a; border-radius: 8px; background: #08171c; color: #f1f5f9; }
 .session-detail-page--compact .session-summary-header:has(.session-overflow-menu[open]) { position: relative; z-index: 30; overflow: visible; }
+.programs-page--dense { width: 100%; max-width: 760px; margin-inline: auto; gap: 8px; padding-bottom: max(24px, env(safe-area-inset-bottom)); }
+.programs-page--dense .card { border-radius: 8px; box-shadow: none; will-change: auto; transform: none; padding: 10px 12px; background: #08171c; color: #f1f5f9; }
+.programs-page--dense .session-hero-card { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.programs-page--dense .session-hero-copy h1 { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; color: #f1f5f9; }
+.programs-page--dense .field label { color: #cbd5e1; }
+.programs-page--dense .program-detail-actions { position: static; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; width: 100%; gap: 6px; }
+.programs-page--dense .program-detail-actions__primary { width: auto; }
+.programs-page--dense .program-detail-actions__secondary { display: contents; }
+.programs-page--dense .program-detail-actions__secondary > .button { width: auto; }
+.programs-page--dense > .detail-back-link { color: #0d5360; }
+.programs-page--dense .program-detail-actions .button { font-size: 11px; }
+.programs-page--dense .session-hero-copy > :is(p, .section-kicker), .programs-page--dense .program-placeholder-card { display: none; }
+.programs-page--dense .button { min-height: 40px; padding: 6px 10px; font-size: 12px; }
+.programs-page--dense .session-hero-copy, .programs-page--dense .field { min-width: 0; }
+.programs-page--dense .session-hero-actions { gap: 6px; }
+.programs-page--dense .session-hero-copy .badge { min-height: 20px; padding: 2px 6px; font-size: 10px; }
+.programs-page--dense .program-description { font-size: 12px; color: #cbd5e1; margin-top: 5px; }
+.programs-page--dense .session-overflow-menu__panel { max-width: calc(100vw - 40px); }
+.programs-page--dense .session-hero-card:has(.session-overflow-menu[open]) { position: relative; z-index: 30; overflow: visible; }
+.programs-page--dense .compact-accordion__summary { padding: 8px 0; min-height: 40px; }
+.programs-page--dense .compact-accordion__title { font-size: 14px; }
+.programs-page--dense .compact-accordion__kicker { display: none; }
+.programs-page--dense .compact-accordion__content { padding: 6px 0 0; gap: 8px; }
+.programs-page--dense .program-progress-compact { display: grid; grid-template-columns: 1fr auto; gap: 6px; padding: 8px 12px; background: #08171c; color: #cbd5e1; font-size: 12px; }
+.programs-page--dense .program-progress-compact .program-progress-track { grid-column: 1 / -1; height: 5px; margin: 0; }
+.programs-page--dense .program-progress-compact strong { color: #74e59c; }
+.programs-page--dense .program-next-session-card { gap: 6px; }
+.programs-page--dense .program-next-session-card .session-blocks-header h2 { font-size: 14px; overflow-wrap: anywhere; }
+.programs-page--dense .program-next-session-card .session-blocks-header { margin: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; align-items: center; }
+.programs-page--dense .program-next-session-card .session-progress-pill { padding: 3px 6px; min-height: 24px; font-size: 10px; }
+.programs-page--dense .program-next-session-card__grid { display: block; }
+.programs-page--dense .program-next-session-card__hero { display: none; }
+.programs-page--dense .program-next-session-details { font-size: 12px; color: #cbd5e1; }
+.programs-page--dense .program-next-session-card__footer { gap: 6px; padding-top: 4px; }
+.programs-page--dense .program-next-session-card__meta { display: none; }
+.programs-page--dense .program-next-session-card__empty { padding: 4px; font-size: 12px; }
+.programs-page--dense .program-next-session-card__empty p { margin: 4px 0; }
+.programs-page--dense .program-sharing-compact { font-size: 12px; }
+.programs-page--dense .program-plan-list { gap: 6px; }
+.programs-page--dense .program-plan-week { padding: 0; border: 0; }
+.programs-page--dense .program-plan-week__header { margin-bottom: 6px; font-size: 12px; }
+.programs-page--dense .program-plan-week__header h3 { font-size: 14px; }
+.program-week-nav { display: grid; grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 6px; align-items: center; }
+.program-week-nav :is(button, select) { height: 40px; min-width: 0; border: 1px solid #38515a; border-radius: 4px; background: #10242c; color: #f1f5f9; font-size: 14px; padding: 4px 8px; }
+.program-week-nav button { font-size: 24px; cursor: pointer; }
+.program-week-nav button:disabled { opacity: .4; cursor: default; }
+.program-editor--dense { gap: 8px; max-width: none; }
+.program-editor--dense .session-form-card { background: #08171c; }
+.program-editor--dense .session-blocks-header h2 { font-size: 14px; }
+.program-editor--dense .session-blocks-header .section-kicker { display: none; }
+.program-editor--dense .program-editor-description { grid-column: 1 / -1; color: #cbd5e1; font-size: 12px; }
+.program-editor--dense .program-editor-description summary { min-height: 28px; cursor: pointer; }
+.program-editor--dense .program-week-count { margin: 0; font-size: 12px; color: #cbd5e1; }
+.program-editor-day { display: grid; gap: 4px; padding: 6px 0; border-bottom: 1px solid #263c46; }
+.program-editor-day__heading { display: flex; justify-content: space-between; align-items: center; gap: 6px; font-size: 12px; color: #cbd5e1; }
+.programs-page--dense .program-editor-day__heading .button { min-height: 32px; padding: 4px 8px; }
+.program-day-rest { font-size: 11px; color: #aebfca; }
+.program-editor--dense .program-editor-session { padding: 0; border: 0; border-radius: 0; background: transparent; }
+.program-editor-session__toggle { display: flex; justify-content: space-between; align-items: center; width: 100%; gap: 6px; min-height: 44px; padding: 4px 0; border: 0; background: transparent; text-align: left; color: #f1f5f9; cursor: pointer; }
+.program-editor-session__toggle > span:nth-child(2) { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.program-editor-session__toggle .exercise-icon-badge { width: 32px; height: 32px; min-width: 32px; }
+.program-editor-session__toggle strong { font-size: 14px; line-height: 1.25; overflow-wrap: anywhere; }
+.program-editor-session__toggle small { color: #bccdcc; font-size: 11px; }
+.program-editor-session__fields { display: grid; gap: 8px; padding: 8px 0; }
+.program-editor--dense .program-mode-switch { display: flex; gap: 6px; }
+.program-editor--dense .program-mode-switch .button { flex: 1; font-size: 11px; }
+.program-editor--dense .program-editor-save { position: sticky; bottom: calc(116px + env(safe-area-inset-bottom)); z-index: 20; background: #08171c; }
+.program-editor--dense .program-editor-save > :not(.session-summary-actions) { display: none; }
+.program-editor--dense .program-editor-save .session-summary-actions { display: flex; gap: 6px; }
+.program-editor--dense .program-editor-save .button { flex: 1; }
+.programs-page--dense .program-modal { max-height: calc(100dvh - 32px); width: min(560px, calc(100vw - 24px)); overflow: auto; padding: 12px; border-radius: 8px; }
+.programs-page--dense .program-modal-backdrop { z-index: 2000; }
+.programs-page--dense .program-session-options { position: relative; font-size: 12px; color: #cbd5e1; }
+.program-session-options > summary { min-height: 32px; cursor: pointer; }
+@media (max-width: 767px) {
+  .programs-page--dense .program-plan-days--calendar { grid-template-columns: minmax(0, 1fr) !important; gap: 0; }
+  .programs-page--dense .program-plan-day--calendar { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 4px 8px; min-height: 56px; padding: 6px 0; border: 0; border-bottom: 1px solid #263c46; border-radius: 0; background: transparent; }
+  .programs-page--dense .program-plan-day__header { display: grid; gap: 2px; margin: 0; align-content: start; }
+  .programs-page--dense .program-plan-day__label :is(strong, small) { font-size: 11px; color: #cbd5e1; }
+  .programs-page--dense .program-plan-day__header > .button { min-height: 32px; padding: 3px 4px; font-size: 10px; }
+  .programs-page--dense .program-plan-day__entries { gap: 4px; }
+  .programs-page--dense .program-session-card--calendar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+  .programs-page--dense .program-session-card--calendar .session-block-card__top { grid-column: 1 / -1; gap: 4px; margin: 0; }
+  .programs-page--dense .program-session-card__title { font-size: 13px; line-height: 1.2; overflow-wrap: anywhere; }
+  .programs-page--dense .program-status { font-size: 9px; padding: 2px 4px; }
+  .programs-page--dense .program-session-card__meta--calendar { font-size: 10px; margin: 0; }
+  .programs-page--dense .program-session-actions--calendar { display: flex; gap: 4px; margin: 0; justify-content: end; }
+  .programs-page--dense .program-action-button { width: 32px; min-height: 32px; height: 32px; padding: 4px; }
+  .programs-page--dense .program-session-controls { gap: 4px; }
+  .programs-page--dense .program-session-controls__group { flex-wrap: wrap; }
+  .programs-page--dense .program-session-controls select { max-width: 80px; }
+  .programs-page--dense .program-sharing-compact { order: 6; }
+  .programs-page--dense.program-detail-page { display: flex; flex-direction: column; }
+  .programs-page--dense > * { flex-shrink: 0; }
+  .programs-page--dense .session-hero-card { align-items: stretch; flex-direction: column; }
+  .programs-page--dense .session-hero-copy { width: 100%; }
+  .programs-page--dense .session-hero-actions { flex-shrink: 0; }
+  .program-editor--dense { padding-bottom: 160px; }
+  .program-editor--dense .program-editor-save { position: fixed; left: 14px; right: 14px; width: auto; padding: 8px; }
+  .programs-page--dense .program-plan-compact .session-blocks-header--accordion-tools { display: none; }
+}
 .session-delete-dialog::backdrop { background: rgb(0 0 0 / 65%); }
 .session-delete-dialog h2 { margin: 0 0 12px; font-size: 20px; }
 .session-delete-dialog p { color: #cbd5e1; font-size: 14px; line-height: 1.45; }
